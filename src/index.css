@@ -41,6 +41,15 @@
     --glow-secondary: 270 60% 50%;
     --glow-accent: 45 90% 55%;
     
+    /* Frog colors */
+    --frog-green: 140 60% 40%;
+    --frog-light: 140 50% 55%;
+    --frog-dark: 140 70% 25%;
+    
+    /* Lily pad colors */
+    --lily-green: 150 70% 35%;
+    --lily-green-dark: 150 80% 25%;
+    
     --gradient-hero: linear-gradient(180deg, hsl(270 50% 8%) 0%, hsl(270 60% 12%) 50%, hsl(270 50% 5%) 100%);
     --gradient-card: linear-gradient(135deg, hsl(270 40% 12%) 0%, hsl(270 40% 8%) 100%);
     --gradient-primary: linear-gradient(135deg, hsl(150 80% 45%) 0%, hsl(160 70% 35%) 100%);

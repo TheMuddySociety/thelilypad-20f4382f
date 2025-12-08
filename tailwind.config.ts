@@ -55,6 +55,15 @@ export default {
           secondary: "hsl(var(--glow-secondary))",
           accent: "hsl(var(--glow-accent))",
         },
+        frog: {
+          green: "hsl(var(--frog-green))",
+          light: "hsl(var(--frog-light))",
+          dark: "hsl(var(--frog-dark))",
+        },
+        lily: {
+          green: "hsl(var(--lily-green))",
+          "green-dark": "hsl(var(--lily-green-dark))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
