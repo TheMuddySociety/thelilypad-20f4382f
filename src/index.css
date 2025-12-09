@@ -6,68 +6,68 @@
 
 @layer base {
   :root {
-    --background: 270 50% 5%;
-    --foreground: 270 20% 95%;
+    --background: 40 30% 96%;
+    --foreground: 160 30% 15%;
 
-    --card: 270 40% 8%;
-    --card-foreground: 270 20% 95%;
+    --card: 40 25% 98%;
+    --card-foreground: 160 30% 15%;
 
-    --popover: 270 40% 8%;
-    --popover-foreground: 270 20% 95%;
+    --popover: 40 25% 98%;
+    --popover-foreground: 160 30% 15%;
 
-    --primary: 150 80% 45%;
-    --primary-foreground: 270 50% 5%;
+    --primary: 160 60% 45%;
+    --primary-foreground: 40 30% 98%;
 
-    --secondary: 270 60% 50%;
-    --secondary-foreground: 270 20% 95%;
+    --secondary: 160 40% 85%;
+    --secondary-foreground: 160 50% 25%;
 
-    --muted: 270 30% 15%;
-    --muted-foreground: 270 20% 60%;
+    --muted: 40 20% 90%;
+    --muted-foreground: 160 15% 45%;
 
-    --accent: 45 90% 55%;
-    --accent-foreground: 270 50% 5%;
+    --accent: 160 70% 35%;
+    --accent-foreground: 40 30% 98%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 270 30% 20%;
-    --input: 270 30% 15%;
-    --ring: 150 80% 45%;
+    --border: 160 20% 85%;
+    --input: 40 20% 92%;
+    --ring: 160 60% 45%;
 
     --radius: 0.75rem;
 
     /* Custom tokens */
-    --glow-primary: 150 80% 45%;
-    --glow-secondary: 270 60% 50%;
-    --glow-accent: 45 90% 55%;
+    --glow-primary: 160 60% 45%;
+    --glow-secondary: 160 40% 60%;
+    --glow-accent: 160 70% 35%;
     
     /* Frog colors */
-    --frog-green: 140 60% 40%;
-    --frog-light: 140 50% 55%;
-    --frog-dark: 140 70% 25%;
+    --frog-green: 160 55% 40%;
+    --frog-light: 160 50% 55%;
+    --frog-dark: 160 65% 28%;
     
     /* Lily pad colors */
-    --lily-green: 150 70% 35%;
-    --lily-green-dark: 150 80% 25%;
+    --lily-green: 160 60% 38%;
+    --lily-green-dark: 160 70% 28%;
     
-    --gradient-hero: linear-gradient(180deg, hsl(270 50% 8%) 0%, hsl(270 60% 12%) 50%, hsl(270 50% 5%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(270 40% 12%) 0%, hsl(270 40% 8%) 100%);
-    --gradient-primary: linear-gradient(135deg, hsl(150 80% 45%) 0%, hsl(160 70% 35%) 100%);
-    --gradient-secondary: linear-gradient(135deg, hsl(270 60% 50%) 0%, hsl(280 50% 40%) 100%);
-    --gradient-premium: linear-gradient(135deg, hsl(270 60% 50%) 0%, hsl(45 90% 55%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(40 30% 96%) 0%, hsl(40 25% 92%) 50%, hsl(40 30% 96%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(40 25% 98%) 0%, hsl(40 20% 95%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(160 60% 45%) 0%, hsl(160 50% 38%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(160 40% 85%) 0%, hsl(160 35% 78%) 100%);
+    --gradient-premium: linear-gradient(135deg, hsl(160 60% 45%) 0%, hsl(160 70% 35%) 100%);
 
-    --shadow-glow-primary: 0 0 40px hsl(150 80% 45% / 0.3);
-    --shadow-glow-secondary: 0 0 40px hsl(270 60% 50% / 0.3);
-    --shadow-card: 0 8px 32px hsl(270 50% 5% / 0.5);
+    --shadow-glow-primary: 0 0 40px hsl(160 60% 45% / 0.25);
+    --shadow-glow-secondary: 0 0 40px hsl(160 40% 60% / 0.2);
+    --shadow-card: 0 8px 32px hsl(160 30% 15% / 0.08);
 
-    --sidebar-background: 270 40% 8%;
-    --sidebar-foreground: 270 20% 95%;
-    --sidebar-primary: 150 80% 45%;
-    --sidebar-primary-foreground: 270 50% 5%;
-    --sidebar-accent: 270 30% 15%;
-    --sidebar-accent-foreground: 270 20% 95%;
-    --sidebar-border: 270 30% 20%;
-    --sidebar-ring: 150 80% 45%;
+    --sidebar-background: 40 25% 98%;
+    --sidebar-foreground: 160 30% 15%;
+    --sidebar-primary: 160 60% 45%;
+    --sidebar-primary-foreground: 40 30% 98%;
+    --sidebar-accent: 40 20% 92%;
+    --sidebar-accent-foreground: 160 30% 15%;
+    --sidebar-border: 160 20% 85%;
+    --sidebar-ring: 160 60% 45%;
   }
 }
 

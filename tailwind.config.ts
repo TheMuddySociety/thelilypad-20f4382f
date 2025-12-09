@@ -111,7 +111,7 @@ export default {
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "hero-gradient": "linear-gradient(180deg, hsl(270 50% 8%) 0%, hsl(270 60% 12%) 50%, hsl(270 50% 5%) 100%)",
+        "hero-gradient": "linear-gradient(180deg, hsl(40 30% 96%) 0%, hsl(40 25% 92%) 50%, hsl(40 30% 96%) 100%)",
       },
     },
   },
