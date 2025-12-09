@@ -32,7 +32,7 @@ export const HeroSection: React.FC = () => {
         <div className="flex justify-center mb-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
           <div className="relative">
             <div className="absolute inset-0 bg-primary/30 blur-3xl rounded-full scale-150" />
-            <LilyPadLogo size={120} className="relative animate-float" />
+            <LilyPadLogo size={120} className="relative" />
           </div>
         </div>
         
