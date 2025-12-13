@@ -2,6 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Sparkles, Rocket } from "lucide-react";
+import monadLogo from "@/assets/monad-logo.svg";
 
 export const HeroSection: React.FC = () => {
   return (
@@ -42,17 +43,17 @@ export const HeroSection: React.FC = () => {
           style={{ animationDelay: "0.4s" }}
         >
           <span className="text-foreground">Create. Stream. </span>
-          <span className="gradient-text">Launch.</span>
+          <span className="text-primary">Launch.</span>
           <span className="text-foreground"> Thrive.</span>
         </h1>
         
         {/* Subtitle */}
         <p 
-          className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-10 opacity-0 animate-fade-in"
+          className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-10 opacity-0 animate-fade-in flex flex-wrap items-center justify-center gap-2"
           style={{ animationDelay: "0.6s" }}
         >
-          The all-in-one NFT launch pad and marketplace built exclusively for{" "}
-          <span className="text-secondary font-semibold">Monad Mainnet</span>.
+          <span>The all-in-one NFT launch pad and marketplace built exclusively for</span>
+          <img src={monadLogo} alt="Monad" className="h-6 md:h-8 inline-block" />
         </p>
         
         {/* CTA Buttons */}
