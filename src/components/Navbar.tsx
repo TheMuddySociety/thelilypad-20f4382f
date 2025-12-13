@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Menu, X } from "lucide-react";
+import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 
 const navLinks = [
   { label: "Marketplace", href: "#" },
@@ -53,9 +54,7 @@ export const Navbar: React.FC = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" size="sm">
-              Connect Wallet
-            </Button>
+            <ConnectWallet />
             <Button variant="default" size="sm">
               Launch
             </Button>
@@ -88,9 +87,7 @@ export const Navbar: React.FC = () => {
                 </a>
               ))}
               <div className="flex flex-col gap-2 pt-4 border-t border-border/50">
-                <Button variant="ghost" size="sm" className="justify-start">
-                  Connect Wallet
-                </Button>
+                <ConnectWallet className="justify-start" />
                 <Button variant="default" size="sm">
                   Launch
                 </Button>
