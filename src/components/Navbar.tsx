@@ -16,6 +16,7 @@ const navLinks = [
   { label: "Marketplace", href: "#" },
   { label: "Launchpad", href: "#" },
   { label: "Streams", href: "/streams" },
+  { label: "Go Live", href: "/go-live" },
   { label: "Raffles", href: "#" },
 ];
 
