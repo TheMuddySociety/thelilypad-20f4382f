@@ -14,6 +14,112 @@ export type Database = {
   }
   public: {
     Tables: {
+      earnings: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          from_user_id: string | null
+          from_username: string | null
+          id: string
+          message: string | null
+          stream_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          from_user_id?: string | null
+          from_username?: string | null
+          id?: string
+          message?: string | null
+          stream_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          from_user_id?: string | null
+          from_username?: string | null
+          id?: string
+          message?: string | null
+          stream_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "earnings_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      followers: {
+        Row: {
+          created_at: string
+          follower_id: string
+          id: string
+          streamer_id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          id?: string
+          streamer_id: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          id?: string
+          streamer_id?: string
+        }
+        Relationships: []
+      }
+      stream_analytics: {
+        Row: {
+          chat_messages: number
+          concurrent_viewers: number
+          id: string
+          new_followers: number
+          recorded_at: string
+          stream_id: string
+          user_id: string
+        }
+        Insert: {
+          chat_messages?: number
+          concurrent_viewers?: number
+          id?: string
+          new_followers?: number
+          recorded_at?: string
+          stream_id: string
+          user_id: string
+        }
+        Update: {
+          chat_messages?: number
+          concurrent_viewers?: number
+          id?: string
+          new_followers?: number
+          recorded_at?: string
+          stream_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stream_analytics_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stream_keys: {
         Row: {
           created_at: string
@@ -43,6 +149,62 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      streams: {
+        Row: {
+          category: string | null
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          is_live: boolean
+          peak_viewers: number
+          started_at: string
+          stream_key_id: string | null
+          thumbnail_url: string | null
+          title: string
+          total_views: number
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          is_live?: boolean
+          peak_viewers?: number
+          started_at?: string
+          stream_key_id?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          total_views?: number
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          is_live?: boolean
+          peak_viewers?: number
+          started_at?: string
+          stream_key_id?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          total_views?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "streams_stream_key_id_fkey"
+            columns: ["stream_key_id"]
+            isOneToOne: false
+            referencedRelation: "stream_keys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
