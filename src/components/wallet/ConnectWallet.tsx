@@ -1,7 +1,8 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/providers/WalletProvider";
-import { Wallet, LogOut, ExternalLink } from "lucide-react";
+import { Wallet, LogOut, ExternalLink, User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +23,8 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
   size = "sm",
   className,
 }) => {
-  const { address, isConnected, isConnecting, balance, chainId, connect, disconnect, switchToMonad } = useWallet();
+  const { address, isConnected, isConnecting, balance, chainId, connect, disconnect } = useWallet();
+  const navigate = useNavigate();
 
   const isWrongNetwork = isConnected && chainId !== monadMainnet.id;
 
@@ -56,7 +58,7 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
         variant="destructive"
         size={size}
         className={className}
-        onClick={switchToMonad}
+        onClick={() => {}}
       >
         Switch to Monad
       </Button>
@@ -84,6 +86,10 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
           <p className="text-sm font-semibold">{formatBalance(balance)} MON</p>
         </div>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate("/wallet")}>
+          <User className="w-4 h-4 mr-2" />
+          View Profile
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => window.open(`${monadMainnet.blockExplorers.default.url}/address/${address}`, "_blank")}
         >
