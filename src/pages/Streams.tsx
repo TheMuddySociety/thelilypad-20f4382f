@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { TipButton } from "@/components/TipButton";
 import { 
   Play, 
   Users, 
@@ -19,9 +20,11 @@ import { motion } from "framer-motion";
 // Mock data for live streams
 const liveStreams = [
   {
-    id: 1,
+    id: "1",
     title: "Minting My Genesis Collection LIVE",
     creator: "CryptoArtist",
+    creatorId: "user-1",
+    creatorAddress: "0x1234567890abcdef1234567890abcdef12345678",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=artist1",
     thumbnail: "https://images.unsplash.com/photo-1634017839464-5c339afa1c9d?w=800&q=80",
     viewers: 1247,
@@ -31,9 +34,11 @@ const liveStreams = [
     donations: 45.2,
   },
   {
-    id: 2,
+    id: "2",
     title: "Creating Pixel Art NFTs - Tutorial",
     creator: "PixelMaster",
+    creatorId: "user-2",
+    creatorAddress: "0x2345678901abcdef2345678901abcdef23456789",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=pixel",
     thumbnail: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&q=80",
     viewers: 856,
@@ -43,9 +48,11 @@ const liveStreams = [
     donations: 23.8,
   },
   {
-    id: 3,
+    id: "3",
     title: "Dutch Auction - Rare Collectibles",
     creator: "AuctionHouse",
+    creatorId: "user-3",
+    creatorAddress: "0x3456789012abcdef3456789012abcdef34567890",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=auction",
     thumbnail: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80",
     viewers: 2341,
@@ -55,9 +62,11 @@ const liveStreams = [
     donations: 128.5,
   },
   {
-    id: 4,
+    id: "4",
     title: "Q&A with Top Monad Collectors",
     creator: "MonadWhale",
+    creatorId: "user-4",
+    creatorAddress: "0x4567890123abcdef4567890123abcdef45678901",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=whale",
     thumbnail: "https://images.unsplash.com/photo-1639762681057-408e52192e55?w=800&q=80",
     viewers: 534,
@@ -155,16 +164,20 @@ const Streams: React.FC = () => {
                       </div>
                     </div>
                     <h2 className="text-2xl font-bold text-white mb-4">{featuredStream.title}</h2>
-                    <div className="flex items-center gap-4">
-                      <Button className="bg-primary hover:bg-primary/90 shadow-glow">
-                        <Play className="w-4 h-4 mr-2" />
-                        Watch Now
-                      </Button>
-                      <Button variant="outline" className="border-white/30 text-white hover:bg-white/10">
-                        <Gift className="w-4 h-4 mr-2" />
-                        Donate
-                      </Button>
-                    </div>
+                                    <div className="flex items-center gap-4">
+                                      <Button className="bg-primary hover:bg-primary/90 shadow-glow">
+                                        <Play className="w-4 h-4 mr-2" />
+                                        Watch Now
+                                      </Button>
+                                      <TipButton
+                                        streamerAddress={featuredStream.creatorAddress}
+                                        streamerName={featuredStream.creator}
+                                        streamerId={featuredStream.creatorId}
+                                        streamId={featuredStream.id}
+                                        variant="outline"
+                                        className="border-white/30 text-white hover:bg-white/10"
+                                      />
+                                    </div>
                   </div>
                 </div>
               </motion.div>

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { createPublicClient, http, formatEther } from "viem";
+import { createPublicClient, http, formatEther, parseEther } from "viem";
 import { monadMainnet, getAlchemyRpcUrl } from "@/config/alchemy";
 
 interface WalletState {
@@ -14,6 +14,7 @@ interface WalletContextType extends WalletState {
   connect: () => Promise<void>;
   disconnect: () => void;
   switchToMonad: () => Promise<void>;
+  sendTransaction: (to: string, amount: string) => Promise<string | null>;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -132,6 +133,36 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     }
   }, []);
 
+  const sendTransaction = useCallback(async (to: string, amount: string): Promise<string | null> => {
+    if (typeof window.ethereum === "undefined" || !walletState.address) {
+      return null;
+    }
+
+    try {
+      const valueInWei = parseEther(amount);
+      
+      const txHash = await window.ethereum.request({
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: walletState.address,
+            to: to,
+            value: `0x${valueInWei.toString(16)}`,
+          },
+        ],
+      });
+
+      // Refresh balance after transaction
+      const newBalance = await fetchBalance(walletState.address);
+      setWalletState(prev => ({ ...prev, balance: newBalance }));
+
+      return txHash;
+    } catch (error) {
+      console.error("Error sending transaction:", error);
+      throw error;
+    }
+  }, [walletState.address, fetchBalance]);
+
   // Listen for account changes
   useEffect(() => {
     if (typeof window.ethereum === "undefined") return;
@@ -180,6 +211,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         connect,
         disconnect,
         switchToMonad,
+        sendTransaction,
       }}
     >
       {children}
