@@ -7,7 +7,7 @@ import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 const navLinks = [
   { label: "Marketplace", href: "#" },
   { label: "Launchpad", href: "#" },
-  { label: "Streams", href: "#" },
+  { label: "Streams", href: "/streams" },
   { label: "Raffles", href: "#" },
 ];
 
