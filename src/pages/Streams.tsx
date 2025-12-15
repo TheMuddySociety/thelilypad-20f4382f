@@ -3,6 +3,7 @@ import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TipButton } from "@/components/TipButton";
+import { DonorLeaderboard } from "@/components/DonorLeaderboard";
 import { 
   Play, 
   Users, 
@@ -183,7 +184,7 @@ const Streams: React.FC = () => {
               </motion.div>
             </div>
 
-            {/* Sidebar - Stream Info & Chat Preview */}
+            {/* Sidebar - Stream Info & Leaderboard */}
             <div className="space-y-4">
               {/* Stream Stats */}
               <div className="bg-card rounded-xl p-5 border border-border">
@@ -206,6 +207,13 @@ const Streams: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Donor Leaderboard */}
+              <DonorLeaderboard 
+                streamerId={featuredStream.creatorId}
+                limit={5}
+                title="Top Supporters"
+              />
 
               {/* Quick Actions */}
               <div className="bg-card rounded-xl p-5 border border-border">
