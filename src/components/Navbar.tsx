@@ -18,6 +18,7 @@ const navLinks = [
   { label: "Streams", href: "/streams" },
   { label: "Dashboard", href: "/dashboard" },
   { label: "My Donations", href: "/donor-profile" },
+  { label: "Edit Profile", href: "/edit-profile" },
   { label: "Go Live", href: "/go-live" },
 ];
 
