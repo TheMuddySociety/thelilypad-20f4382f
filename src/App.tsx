@@ -10,6 +10,7 @@ import Streams from "./pages/Streams";
 import Auth from "./pages/Auth";
 import GoLive from "./pages/GoLive";
 import Dashboard from "./pages/Dashboard";
+import DonorProfile from "./pages/DonorProfile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/go-live" element={<GoLive />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/donor-profile" element={<DonorProfile />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
