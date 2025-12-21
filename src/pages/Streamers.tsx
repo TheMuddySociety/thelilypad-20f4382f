@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Filter, Users, CheckCircle, Calendar, ExternalLink } from "lucide-react";
+import { Search, Filter, Users, CheckCircle, Calendar, ExternalLink, Heart } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,10 +18,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 
 type StreamerProfile = Tables<"streamer_profiles">;
+type StreamerWithFollowers = StreamerProfile & { follower_count: number };
 
 const Streamers = () => {
-  const [streamers, setStreamers] = useState<StreamerProfile[]>([]);
-  const [filteredStreamers, setFilteredStreamers] = useState<StreamerProfile[]>([]);
+  const [streamers, setStreamers] = useState<StreamerWithFollowers[]>([]);
+  const [filteredStreamers, setFilteredStreamers] = useState<StreamerWithFollowers[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [verifiedFilter, setVerifiedFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
@@ -36,13 +37,34 @@ const Streamers = () => {
 
   const fetchStreamers = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch streamer profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from("streamer_profiles")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setStreamers(data || []);
+      if (profilesError) throw profilesError;
+
+      // Fetch follower counts for each streamer
+      const { data: followerCounts, error: followersError } = await supabase
+        .from("followers")
+        .select("streamer_id");
+
+      if (followersError) throw followersError;
+
+      // Count followers per streamer
+      const countMap = new Map<string, number>();
+      followerCounts?.forEach((f) => {
+        countMap.set(f.streamer_id, (countMap.get(f.streamer_id) || 0) + 1);
+      });
+
+      // Merge profiles with follower counts
+      const streamersWithCounts: StreamerWithFollowers[] = (profiles || []).map((profile) => ({
+        ...profile,
+        follower_count: countMap.get(profile.user_id) || 0,
+      }));
+
+      setStreamers(streamersWithCounts);
     } catch (error) {
       console.error("Error fetching streamers:", error);
     } finally {
@@ -218,6 +240,10 @@ const Streamers = () => {
 
                     {/* Stats */}
                     <div className="flex flex-wrap gap-2">
+                      <Badge variant="secondary">
+                        <Heart className="h-3 w-3 mr-1" />
+                        {streamer.follower_count} Follower{streamer.follower_count !== 1 ? "s" : ""}
+                      </Badge>
                       {streamer.is_verified && (
                         <Badge variant="default" className="bg-primary/20 text-primary border-0">
                           <CheckCircle className="h-3 w-3 mr-1" />
