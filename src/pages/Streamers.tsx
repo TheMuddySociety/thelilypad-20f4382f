@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Filter, Users, CheckCircle, Calendar, ExternalLink, Heart } from "lucide-react";
+import { Search, Filter, Users, CheckCircle, Calendar, ExternalLink, Heart, ArrowUpDown } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ const Streamers = () => {
   const [filteredStreamers, setFilteredStreamers] = useState<StreamerWithFollowers[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [verifiedFilter, setVerifiedFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("newest");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,8 +33,8 @@ const Streamers = () => {
   }, []);
 
   useEffect(() => {
-    filterStreamers();
-  }, [streamers, searchQuery, verifiedFilter]);
+    filterAndSortStreamers();
+  }, [streamers, searchQuery, verifiedFilter, sortBy]);
 
   const fetchStreamers = async () => {
     try {
@@ -72,7 +73,7 @@ const Streamers = () => {
     }
   };
 
-  const filterStreamers = () => {
+  const filterAndSortStreamers = () => {
     let filtered = [...streamers];
 
     // Search filter
@@ -90,6 +91,17 @@ const Streamers = () => {
       filtered = filtered.filter((streamer) => streamer.is_verified);
     } else if (verifiedFilter === "unverified") {
       filtered = filtered.filter((streamer) => !streamer.is_verified);
+    }
+
+    // Sort
+    if (sortBy === "popular") {
+      filtered.sort((a, b) => b.follower_count - a.follower_count);
+    } else if (sortBy === "newest") {
+      filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } else if (sortBy === "oldest") {
+      filtered.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    } else if (sortBy === "name") {
+      filtered.sort((a, b) => (a.display_name || "").localeCompare(b.display_name || ""));
     }
 
     setFilteredStreamers(filtered);
@@ -144,6 +156,18 @@ const Streamers = () => {
             />
           </div>
           <div className="flex gap-4">
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[180px] bg-card border-border">
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="popular">Most Popular</SelectItem>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="name">Name A-Z</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={verifiedFilter} onValueChange={setVerifiedFilter}>
               <SelectTrigger className="w-[180px] bg-card border-border">
                 <Filter className="h-4 w-4 mr-2" />
