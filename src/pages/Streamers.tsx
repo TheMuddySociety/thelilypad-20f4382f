@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
+import { FollowButton } from "@/components/FollowButton";
 
 type StreamerProfile = Tables<"streamer_profiles">;
 type StreamerWithFollowers = StreamerProfile & { follower_count: number; is_live: boolean };
@@ -303,6 +304,7 @@ const availableCategories = [
                           Joined {new Date(streamer.created_at).toLocaleDateString()}
                         </p>
                       </div>
+                      <FollowButton streamerId={streamer.user_id} variant="compact" />
                     </div>
 
                     {/* Bio */}

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DonorLeaderboard } from "@/components/DonorLeaderboard";
 import { TipButton } from "@/components/TipButton";
+import { FollowButton } from "@/components/FollowButton";
 import { 
   User, ArrowLeft, Calendar, Clock, CheckCircle,
   Twitter, Youtube, MessageCircle, Instagram, Music2,
@@ -50,8 +51,6 @@ const StreamerProfile = () => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StreamerProfileData | null>(null);
   const [stats, setStats] = useState<StreamerStats>({ followerCount: 0, totalStreams: 0, isLive: false });
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -61,10 +60,6 @@ const StreamerProfile = () => {
       }
 
       setLoading(true);
-
-      // Get current user
-      const { data: { session } } = await supabase.auth.getSession();
-      setCurrentUserId(session?.user?.id || null);
 
       // Fetch streamer profile
       const { data: profileData, error: profileError } = await supabase
@@ -118,43 +113,11 @@ const StreamerProfile = () => {
         isLive: !!liveStream
       });
 
-      // Check if current user follows
-      if (session?.user) {
-        const { data: followData } = await supabase
-          .from('followers')
-          .select('id')
-          .eq('streamer_id', streamerId)
-          .eq('follower_id', session.user.id)
-          .maybeSingle();
-
-        setIsFollowing(!!followData);
-      }
-
       setLoading(false);
     };
 
     fetchProfile();
   }, [streamerId]);
-
-  const handleFollow = async () => {
-    if (!currentUserId || !streamerId) return;
-
-    if (isFollowing) {
-      await supabase
-        .from('followers')
-        .delete()
-        .eq('streamer_id', streamerId)
-        .eq('follower_id', currentUserId);
-      setIsFollowing(false);
-      setStats(prev => ({ ...prev, followerCount: prev.followerCount - 1 }));
-    } else {
-      await supabase
-        .from('followers')
-        .insert({ streamer_id: streamerId, follower_id: currentUserId });
-      setIsFollowing(true);
-      setStats(prev => ({ ...prev, followerCount: prev.followerCount + 1 }));
-    }
-  };
 
   const socialLinks = [
     { key: 'twitter', icon: Twitter, url: profile?.social_twitter, label: 'Twitter' },
@@ -266,15 +229,16 @@ const StreamerProfile = () => {
                   </div>
                   
                   <div className="flex gap-2">
-                    {currentUserId && currentUserId !== streamerId && (
-                      <Button 
-                        variant={isFollowing ? "outline" : "default"}
-                        onClick={handleFollow}
-                        className="gap-2"
-                      >
-                        <Heart className={`h-4 w-4 ${isFollowing ? 'fill-current' : ''}`} />
-                        {isFollowing ? 'Following' : 'Follow'}
-                      </Button>
+                    {streamerId && (
+                      <FollowButton 
+                        streamerId={streamerId} 
+                        onFollowChange={(following) => {
+                          setStats(prev => ({
+                            ...prev,
+                            followerCount: following ? prev.followerCount + 1 : prev.followerCount - 1
+                          }));
+                        }}
+                      />
                     )}
                     {streamerId && (
                       <TipButton 
