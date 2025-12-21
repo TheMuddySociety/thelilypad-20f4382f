@@ -7,6 +7,7 @@ import { WalletProvider } from "@/providers/WalletProvider";
 import Index from "./pages/Index";
 import WalletProfile from "./pages/WalletProfile";
 import Streams from "./pages/Streams";
+import Streamers from "./pages/Streamers";
 import Auth from "./pages/Auth";
 import GoLive from "./pages/GoLive";
 import Dashboard from "./pages/Dashboard";
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/wallet" element={<WalletProfile />} />
             <Route path="/streams" element={<Streams />} />
+            <Route path="/streamers" element={<Streamers />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/go-live" element={<GoLive />} />
             <Route path="/dashboard" element={<Dashboard />} />
