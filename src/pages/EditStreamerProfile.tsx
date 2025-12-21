@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { 
   User, ArrowLeft, Save, Plus, Trash2,
-  Twitter, Youtube, MessageCircle, Instagram, Music2, Calendar
+  Twitter, Youtube, MessageCircle, Instagram, Music2, Calendar, Tag, X
 } from "lucide-react";
 import {
   Select,
@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 interface ScheduleItem {
   day: string;
@@ -28,6 +29,12 @@ interface ScheduleItem {
 }
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const availableCategories = [
+  'Gaming', 'Just Chatting', 'Music', 'Art', 'Cooking', 
+  'Sports', 'Education', 'Technology', 'Fitness', 'Travel',
+  'Comedy', 'News', 'Crypto', 'DeFi', 'NFTs'
+];
 
 const EditStreamerProfile = () => {
   const navigate = useNavigate();
@@ -45,6 +52,7 @@ const EditStreamerProfile = () => {
   const [socialInstagram, setSocialInstagram] = useState("");
   const [socialTiktok, setSocialTiktok] = useState("");
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -87,6 +95,9 @@ const EditStreamerProfile = () => {
         } catch {
           setSchedule([]);
         }
+
+        // Parse categories
+        setCategories(Array.isArray(profile.categories) ? profile.categories : []);
       }
 
       setLoading(false);
@@ -118,6 +129,7 @@ const EditStreamerProfile = () => {
       social_instagram: socialInstagram || null,
       social_tiktok: socialTiktok || null,
       schedule: JSON.parse(JSON.stringify(schedule)),
+      categories: categories,
     };
 
     let error;
@@ -163,6 +175,14 @@ const EditStreamerProfile = () => {
     const updated = [...schedule];
     updated[index] = { ...updated[index], [field]: value };
     setSchedule(updated);
+  };
+
+  const toggleCategory = (category: string) => {
+    if (categories.includes(category)) {
+      setCategories(categories.filter(c => c !== category));
+    } else {
+      setCategories([...categories, category]);
+    }
   };
 
   if (loading) {
@@ -237,6 +257,45 @@ const EditStreamerProfile = () => {
                   placeholder="https://example.com/avatar.jpg"
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Categories */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Tag className="h-5 w-5 text-primary" />
+                Categories / Genres
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Select categories that describe your content (click to toggle):
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {availableCategories.map((category) => (
+                  <Badge
+                    key={category}
+                    variant={categories.includes(category) ? "default" : "outline"}
+                    className={`cursor-pointer transition-all ${
+                      categories.includes(category) 
+                        ? "bg-primary hover:bg-primary/80" 
+                        : "hover:bg-primary/20"
+                    }`}
+                    onClick={() => toggleCategory(category)}
+                  >
+                    {category}
+                    {categories.includes(category) && (
+                      <X className="h-3 w-3 ml-1" />
+                    )}
+                  </Badge>
+                ))}
+              </div>
+              {categories.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {categories.join(", ")}
+                </p>
+              )}
             </CardContent>
           </Card>
 

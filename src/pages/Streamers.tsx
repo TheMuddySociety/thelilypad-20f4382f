@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Filter, Users, CheckCircle, Calendar, ExternalLink, Heart, ArrowUpDown, Radio } from "lucide-react";
+import { Search, Filter, Users, CheckCircle, Calendar, ExternalLink, Heart, ArrowUpDown, Radio, Tag } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,8 +25,15 @@ const Streamers = () => {
   const [filteredStreamers, setFilteredStreamers] = useState<StreamerWithFollowers[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [verifiedFilter, setVerifiedFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("newest");
   const [loading, setLoading] = useState(true);
+
+const availableCategories = [
+  'Gaming', 'Just Chatting', 'Music', 'Art', 'Cooking', 
+  'Sports', 'Education', 'Technology', 'Fitness', 'Travel',
+  'Comedy', 'News', 'Crypto', 'DeFi', 'NFTs'
+];
 
   useEffect(() => {
     fetchStreamers();
@@ -34,7 +41,7 @@ const Streamers = () => {
 
   useEffect(() => {
     filterAndSortStreamers();
-  }, [streamers, searchQuery, verifiedFilter, sortBy]);
+  }, [streamers, searchQuery, verifiedFilter, categoryFilter, sortBy]);
 
   const fetchStreamers = async () => {
     try {
@@ -105,6 +112,13 @@ const Streamers = () => {
       filtered = filtered.filter((streamer) => !streamer.is_verified);
     } else if (verifiedFilter === "live") {
       filtered = filtered.filter((streamer) => streamer.is_live);
+    }
+
+    // Category filter
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter((streamer) => 
+        Array.isArray(streamer.categories) && streamer.categories.includes(categoryFilter)
+      );
     }
 
     // Sort
@@ -192,6 +206,18 @@ const Streamers = () => {
                 <SelectItem value="live">Live Only</SelectItem>
                 <SelectItem value="verified">Verified Only</SelectItem>
                 <SelectItem value="unverified">Unverified</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[180px] bg-card border-border">
+                <Tag className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {availableCategories.map((category) => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -312,6 +338,17 @@ const Streamers = () => {
                         <Badge variant="outline">
                           <Calendar className="h-3 w-3 mr-1" />
                           Has Schedule
+                        </Badge>
+                      )}
+                      {Array.isArray(streamer.categories) && streamer.categories.slice(0, 2).map((category) => (
+                        <Badge key={category} variant="outline" className="bg-accent/10 border-accent/30 text-accent">
+                          <Tag className="h-3 w-3 mr-1" />
+                          {category}
+                        </Badge>
+                      ))}
+                      {Array.isArray(streamer.categories) && streamer.categories.length > 2 && (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          +{streamer.categories.length - 2} more
                         </Badge>
                       )}
                     </div>
