@@ -103,6 +103,8 @@ const Streamers = () => {
       filtered = filtered.filter((streamer) => streamer.is_verified);
     } else if (verifiedFilter === "unverified") {
       filtered = filtered.filter((streamer) => !streamer.is_verified);
+    } else if (verifiedFilter === "live") {
+      filtered = filtered.filter((streamer) => streamer.is_live);
     }
 
     // Sort
@@ -187,6 +189,7 @@ const Streamers = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Streamers</SelectItem>
+                <SelectItem value="live">Live Only</SelectItem>
                 <SelectItem value="verified">Verified Only</SelectItem>
                 <SelectItem value="unverified">Unverified</SelectItem>
               </SelectContent>
