@@ -38,6 +38,78 @@ const availableCategories = [
 
   useEffect(() => {
     fetchStreamers();
+
+    // Subscribe to real-time updates for streams (live status changes)
+    const streamsChannel = supabase
+      .channel('streams-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'streams',
+        },
+        (payload) => {
+          // Update live status when a stream goes live or ends
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const stream = payload.new as { user_id: string; is_live: boolean };
+            setStreamers((prev) =>
+              prev.map((streamer) =>
+                streamer.user_id === stream.user_id
+                  ? { ...streamer, is_live: stream.is_live }
+                  : streamer
+              )
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to real-time updates for followers (follower count changes)
+    const followersChannel = supabase
+      .channel('followers-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'followers',
+        },
+        (payload) => {
+          const follow = payload.new as { streamer_id: string };
+          setStreamers((prev) =>
+            prev.map((streamer) =>
+              streamer.user_id === follow.streamer_id
+                ? { ...streamer, follower_count: streamer.follower_count + 1 }
+                : streamer
+            )
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'followers',
+        },
+        (payload) => {
+          const unfollow = payload.old as { streamer_id: string };
+          setStreamers((prev) =>
+            prev.map((streamer) =>
+              streamer.user_id === unfollow.streamer_id
+                ? { ...streamer, follower_count: Math.max(0, streamer.follower_count - 1) }
+                : streamer
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(streamsChannel);
+      supabase.removeChannel(followersChannel);
+    };
   }, []);
 
   useEffect(() => {
