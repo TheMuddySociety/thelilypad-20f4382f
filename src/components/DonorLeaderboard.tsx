@@ -2,14 +2,58 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, Medal, Award, Coins } from "lucide-react";
+import { Trophy, Medal, Award, Coins, Crown, Gem, Shield, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+
+type DonorTier = 'platinum' | 'gold' | 'silver' | 'bronze' | null;
+
+const getTierFromAmount = (amount: number): DonorTier => {
+  if (amount >= 10) return 'platinum';
+  if (amount >= 5) return 'gold';
+  if (amount >= 1) return 'silver';
+  if (amount >= 0.1) return 'bronze';
+  return null;
+};
+
+const tierConfig: Record<NonNullable<DonorTier>, {
+  label: string;
+  icon: typeof Crown;
+  className: string;
+  bgClassName: string;
+}> = {
+  platinum: {
+    label: 'Platinum',
+    icon: Crown,
+    className: 'bg-gradient-to-r from-violet-500 to-purple-600 text-white border-0',
+    bgClassName: 'ring-2 ring-violet-500/30'
+  },
+  gold: {
+    label: 'Gold',
+    icon: Gem,
+    className: 'bg-gradient-to-r from-yellow-500 to-amber-500 text-white border-0',
+    bgClassName: 'ring-2 ring-yellow-500/30'
+  },
+  silver: {
+    label: 'Silver',
+    icon: Shield,
+    className: 'bg-gradient-to-r from-gray-400 to-slate-500 text-white border-0',
+    bgClassName: 'ring-2 ring-gray-400/30'
+  },
+  bronze: {
+    label: 'Bronze',
+    icon: Star,
+    className: 'bg-gradient-to-r from-amber-700 to-orange-700 text-white border-0',
+    bgClassName: 'ring-2 ring-amber-700/30'
+  }
+};
 
 interface TopDonor {
   from_username: string;
   from_user_id: string | null;
   total_amount: number;
   donation_count: number;
+  tier: DonorTier;
 }
 
 interface DonorLeaderboardProps {
@@ -58,12 +102,15 @@ export const DonorLeaderboard = ({
         if (existing) {
           existing.total_amount += Number(earning.amount);
           existing.donation_count += 1;
+          existing.tier = getTierFromAmount(existing.total_amount);
         } else {
+          const totalAmount = Number(earning.amount);
           donorMap.set(username, {
             from_username: username,
             from_user_id: earning.from_user_id,
-            total_amount: Number(earning.amount),
-            donation_count: 1
+            total_amount: totalAmount,
+            donation_count: 1,
+            tier: getTierFromAmount(totalAmount)
           });
         }
       });
@@ -168,13 +215,24 @@ export const DonorLeaderboard = ({
             <div className="flex-shrink-0">
               {getRankIcon(index)}
             </div>
-            <Avatar className="h-10 w-10 border-2 border-border">
+            <Avatar className={`h-10 w-10 border-2 border-border ${donor.tier ? tierConfig[donor.tier].bgClassName : ''}`}>
               <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                 {donor.from_username.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{donor.from_username}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium truncate">{donor.from_username}</p>
+                {donor.tier && (
+                  <Badge className={`text-xs px-1.5 py-0 h-5 ${tierConfig[donor.tier].className}`}>
+                    {(() => {
+                      const TierIcon = tierConfig[donor.tier!].icon;
+                      return <TierIcon className="h-3 w-3 mr-1" />;
+                    })()}
+                    {tierConfig[donor.tier].label}
+                  </Badge>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {donor.donation_count} {donor.donation_count === 1 ? 'tip' : 'tips'}
               </p>
