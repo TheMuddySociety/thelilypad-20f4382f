@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Filter, Users, CheckCircle, Calendar, ExternalLink, Heart, ArrowUpDown } from "lucide-react";
+import { Search, Filter, Users, CheckCircle, Calendar, ExternalLink, Heart, ArrowUpDown, Radio } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 
 type StreamerProfile = Tables<"streamer_profiles">;
-type StreamerWithFollowers = StreamerProfile & { follower_count: number };
+type StreamerWithFollowers = StreamerProfile & { follower_count: number; is_live: boolean };
 
 const Streamers = () => {
   const [streamers, setStreamers] = useState<StreamerWithFollowers[]>([]);
@@ -53,16 +53,28 @@ const Streamers = () => {
 
       if (followersError) throw followersError;
 
+      // Fetch live streams
+      const { data: liveStreams, error: liveError } = await supabase
+        .from("streams")
+        .select("user_id")
+        .eq("is_live", true);
+
+      if (liveError) throw liveError;
+
       // Count followers per streamer
       const countMap = new Map<string, number>();
       followerCounts?.forEach((f) => {
         countMap.set(f.streamer_id, (countMap.get(f.streamer_id) || 0) + 1);
       });
 
-      // Merge profiles with follower counts
+      // Track live streamers
+      const liveStreamersSet = new Set(liveStreams?.map((s) => s.user_id) || []);
+
+      // Merge profiles with follower counts and live status
       const streamersWithCounts: StreamerWithFollowers[] = (profiles || []).map((profile) => ({
         ...profile,
         follower_count: countMap.get(profile.user_id) || 0,
+        is_live: liveStreamersSet.has(profile.user_id),
       }));
 
       setStreamers(streamersWithCounts);
@@ -236,12 +248,19 @@ const Streamers = () => {
                   <div className="group bg-card rounded-xl p-6 border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10">
                     {/* Header */}
                     <div className="flex items-center gap-4 mb-4">
-                      <Avatar className="h-16 w-16 ring-2 ring-border group-hover:ring-primary/50 transition-all">
-                        <AvatarImage src={streamer.avatar_url || undefined} />
-                        <AvatarFallback className="bg-primary/20 text-primary text-lg">
-                          {getInitials(streamer.display_name)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="relative">
+                        <Avatar className={`h-16 w-16 ring-2 ${streamer.is_live ? 'ring-red-500' : 'ring-border'} group-hover:ring-primary/50 transition-all`}>
+                          <AvatarImage src={streamer.avatar_url || undefined} />
+                          <AvatarFallback className="bg-primary/20 text-primary text-lg">
+                            {getInitials(streamer.display_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {streamer.is_live && (
+                          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase animate-pulse">
+                            Live
+                          </span>
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-lg truncate">
@@ -264,6 +283,12 @@ const Streamers = () => {
 
                     {/* Stats */}
                     <div className="flex flex-wrap gap-2">
+                      {streamer.is_live && (
+                        <Badge variant="destructive" className="bg-red-500 animate-pulse">
+                          <Radio className="h-3 w-3 mr-1" />
+                          Live Now
+                        </Badge>
+                      )}
                       <Badge variant="secondary">
                         <Heart className="h-3 w-3 mr-1" />
                         {streamer.follower_count} Follower{streamer.follower_count !== 1 ? "s" : ""}
