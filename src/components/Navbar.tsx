@@ -18,6 +18,7 @@ const navLinks = [
   { label: "Launchpad", href: "#" },
   { label: "Streams", href: "/streams" },
   { label: "Streamers", href: "/streamers" },
+  { label: "Following", href: "/following" },
   { label: "Dashboard", href: "/dashboard" },
   { label: "My Donations", href: "/donor-profile" },
   { label: "Edit Profile", href: "/edit-profile" },
