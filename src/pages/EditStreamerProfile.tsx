@@ -11,8 +11,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { 
   User, ArrowLeft, Save, Plus, Trash2,
-  Twitter, Youtube, MessageCircle, Instagram, Music2, Calendar, Tag, X
+  Twitter, Youtube, MessageCircle, Instagram, Music2, Calendar, Tag, X, Upload, ImageIcon
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -41,6 +42,7 @@ const EditStreamerProfile = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   
   const [displayName, setDisplayName] = useState("");
@@ -185,6 +187,65 @@ const EditStreamerProfile = () => {
     }
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !userId) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 5MB.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/avatar.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      setAvatarUrl(publicUrl);
+      toast({
+        title: "Avatar uploaded!",
+        description: "Your profile picture has been updated."
+      });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload avatar.",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -249,13 +310,42 @@ const EditStreamerProfile = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="avatarUrl">Avatar URL</Label>
-                <Input
-                  id="avatarUrl"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  placeholder="https://example.com/avatar.jpg"
-                />
+                <Label>Profile Picture</Label>
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-20 w-20 border-2 border-border">
+                    <AvatarImage src={avatarUrl} alt="Avatar preview" />
+                    <AvatarFallback className="bg-muted">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex gap-2">
+                      <label htmlFor="avatar-upload">
+                        <input
+                          id="avatar-upload"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarUpload}
+                          className="hidden"
+                          disabled={uploading}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="gap-2 cursor-pointer"
+                          disabled={uploading}
+                          onClick={() => document.getElementById('avatar-upload')?.click()}
+                        >
+                          <Upload className="h-4 w-4" />
+                          {uploading ? 'Uploading...' : 'Upload Image'}
+                        </Button>
+                      </label>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      JPG, PNG or GIF. Max 5MB.
+                    </p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
