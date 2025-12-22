@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { FollowButton } from "@/components/FollowButton";
@@ -25,6 +27,7 @@ const Following = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("live");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [liveOnly, setLiveOnly] = useState<boolean>(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -63,8 +66,9 @@ const Following = () => {
     if (searchQuery.trim()) count++;
     if (selectedCategory !== "all") count++;
     if (sortBy !== "live") count++; // "live" is the default sort
+    if (liveOnly) count++;
     return count;
-  }, [searchQuery, selectedCategory, sortBy]);
+  }, [searchQuery, selectedCategory, sortBy, liveOnly]);
 
   // Filter and sort streamers
   const filteredStreamers = useMemo(() => {
@@ -77,6 +81,11 @@ const Following = () => {
         (streamer) =>
           (streamer.display_name || "").toLowerCase().includes(query)
       );
+    }
+    
+    // Filter by live only
+    if (liveOnly) {
+      result = result.filter((streamer) => streamer.is_live);
     }
     
     // Filter by category
@@ -107,7 +116,7 @@ const Following = () => {
           return 0;
       }
     });
-  }, [followedStreamers, selectedCategory, sortBy, searchQuery]);
+  }, [followedStreamers, selectedCategory, sortBy, searchQuery, liveOnly]);
 
   useEffect(() => {
     checkAuthAndFetch();
@@ -373,6 +382,7 @@ const Following = () => {
                     setSearchQuery("");
                     setSelectedCategory("all");
                     setSortBy("live");
+                    setLiveOnly(false);
                   }}
                   className="h-7 px-2 text-muted-foreground hover:text-foreground"
                 >
@@ -381,6 +391,21 @@ const Following = () => {
                 </Button>
               </div>
             )}
+
+            {/* Live Only Toggle */}
+            <div className="flex items-center gap-2">
+              <Switch
+                id="live-only"
+                checked={liveOnly}
+                onCheckedChange={setLiveOnly}
+                className="data-[state=checked]:bg-red-500"
+              />
+              <Label htmlFor="live-only" className="text-sm text-muted-foreground cursor-pointer flex items-center gap-1">
+                <Radio className="h-3 w-3" />
+                Live Only
+              </Label>
+            </div>
+
             {/* Search Input */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
