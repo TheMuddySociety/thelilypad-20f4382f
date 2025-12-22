@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
-import { Menu, ChevronDown } from "lucide-react";
+import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NotificationBell } from "@/components/NotificationBell";
 import {
@@ -28,18 +28,22 @@ const primaryLinks = [
 ];
 
 const exploreLinks = [
-  { label: "Streamers", href: "/streamers" },
-  { label: "Following", href: "/following" },
+  { label: "Streamers", href: "/streamers", icon: Users },
+  { label: "Following", href: "/following", icon: Heart },
 ];
 
 const accountLinks = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "My Donations", href: "/donor-profile" },
-  { label: "Edit Profile", href: "/edit-profile" },
-  { label: "Go Live", href: "/go-live" },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "My Donations", href: "/donor-profile", icon: Gift },
+  { label: "Edit Profile", href: "/edit-profile", icon: UserCog },
+  { label: "Go Live", href: "/go-live", icon: Radio },
 ];
 
-const allMobileLinks = [...primaryLinks, ...exploreLinks, ...accountLinks];
+const allMobileLinks = [
+  ...primaryLinks.map(l => ({ ...l, icon: undefined })),
+  ...exploreLinks,
+  ...accountLinks,
+];
 
 export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -95,8 +99,9 @@ export const Navbar: React.FC = () => {
                         <li key={link.label}>
                           <NavigationMenuLink
                             href={link.href}
-                            className="block px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
                           >
+                            <link.icon className="w-4 h-4 text-muted-foreground" />
                             {link.label}
                           </NavigationMenuLink>
                         </li>
@@ -116,8 +121,9 @@ export const Navbar: React.FC = () => {
                         <li key={link.label}>
                           <NavigationMenuLink
                             href={link.href}
-                            className="block px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
                           >
+                            <link.icon className="w-4 h-4 text-muted-foreground" />
                             {link.label}
                           </NavigationMenuLink>
                         </li>
