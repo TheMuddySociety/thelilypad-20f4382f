@@ -28,11 +28,16 @@ const Following = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  // Keyboard shortcut for search (Cmd/Ctrl+K)
+  // Keyboard shortcuts for search
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
       searchInputRef.current?.focus();
+    }
+    if (e.key === "Escape" && document.activeElement === searchInputRef.current) {
+      e.preventDefault();
+      setSearchQuery("");
+      searchInputRef.current?.blur();
     }
   }, []);
 
