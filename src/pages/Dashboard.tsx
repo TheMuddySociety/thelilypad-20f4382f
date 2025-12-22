@@ -18,6 +18,7 @@ import {
   Video,
   Heart,
   ArrowUpRight,
+  Shield,
   ArrowDownRight,
   Calendar,
   Radio
@@ -177,10 +178,16 @@ export default function Dashboard() {
             <h1 className="text-2xl sm:text-3xl font-bold mb-1">Creator Dashboard</h1>
             <p className="text-muted-foreground">Track your stream performance and earnings</p>
           </div>
-          <Button onClick={() => navigate("/go-live")} className="w-full sm:w-auto">
-            <Radio className="w-4 h-4 mr-2" />
-            Go Live
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={() => navigate("/moderation")} className="w-full sm:w-auto">
+              <Shield className="w-4 h-4 mr-2" />
+              Moderation
+            </Button>
+            <Button onClick={() => navigate("/go-live")} className="w-full sm:w-auto">
+              <Radio className="w-4 h-4 mr-2" />
+              Go Live
+            </Button>
+          </div>
         </div>
 
         {/* Stats Grid */}
