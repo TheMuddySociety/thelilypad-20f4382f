@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipShareMenu } from "@/components/ClipShareMenu";
+import { ClipReactions } from "@/components/ClipReactions";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -420,6 +421,11 @@ const ClipViewer = () => {
                         <Calendar className="h-4 w-4" />
                         {formatDistanceToNow(new Date(clip.created_at), { addSuffix: true })}
                       </span>
+                    </div>
+
+                    {/* Reactions */}
+                    <div className="mb-4">
+                      <ClipReactions clipId={clip.id} />
                     </div>
 
                     {/* Streamer Info */}
