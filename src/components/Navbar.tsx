@@ -21,10 +21,13 @@ import {
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
 
-const primaryLinks = [
-  { label: "Marketplace", href: "#" },
-  { label: "Launchpad", href: "#" },
-  { label: "Streams", href: "/streams" },
+import type { LucideIcon } from "lucide-react";
+import { Store, Rocket, Video } from "lucide-react";
+
+const primaryLinks: { label: string; href: string; icon: LucideIcon }[] = [
+  { label: "Marketplace", href: "#", icon: Store },
+  { label: "Launchpad", href: "#", icon: Rocket },
+  { label: "Streams", href: "/streams", icon: Video },
 ];
 
 const exploreLinks = [
@@ -40,7 +43,7 @@ const accountLinks = [
 ];
 
 const allMobileLinks = [
-  ...primaryLinks.map(l => ({ ...l, icon: undefined })),
+  ...primaryLinks,
   ...exploreLinks,
   ...accountLinks,
 ];
@@ -163,8 +166,9 @@ export const Navbar: React.FC = () => {
                   <DrawerClose asChild key={link.label}>
                     <a
                       href={link.href}
-                      className="flex items-center px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
                     >
+                      <link.icon className="w-5 h-5 text-muted-foreground" />
                       {link.label}
                     </a>
                   </DrawerClose>
