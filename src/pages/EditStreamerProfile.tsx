@@ -45,13 +45,16 @@ const EditStreamerProfile = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isBannerDragging, setIsBannerDragging] = useState(false);
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
+  const [cropType, setCropType] = useState<'avatar' | 'banner'>('avatar');
   const [userId, setUserId] = useState<string | null>(null);
   
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
   const [socialTwitter, setSocialTwitter] = useState("");
   const [socialYoutube, setSocialYoutube] = useState("");
   const [socialDiscord, setSocialDiscord] = useState("");
@@ -85,6 +88,7 @@ const EditStreamerProfile = () => {
         setDisplayName(profile.display_name || "");
         setBio(profile.bio || "");
         setAvatarUrl(profile.avatar_url || "");
+        setBannerUrl((profile as any).banner_url || "");
         setSocialTwitter(profile.social_twitter || "");
         setSocialYoutube(profile.social_youtube || "");
         setSocialDiscord(profile.social_discord || "");
@@ -129,6 +133,7 @@ const EditStreamerProfile = () => {
       display_name: displayName || null,
       bio: bio || null,
       avatar_url: avatarUrl || null,
+      banner_url: bannerUrl || null,
       social_twitter: socialTwitter || null,
       social_youtube: socialYoutube || null,
       social_discord: socialDiscord || null,
@@ -191,7 +196,7 @@ const EditStreamerProfile = () => {
     }
   };
 
-  const openCropModal = (file: File) => {
+  const openCropModal = (file: File, type: 'avatar' | 'banner' = 'avatar') => {
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Invalid file type",
@@ -213,6 +218,7 @@ const EditStreamerProfile = () => {
     const reader = new FileReader();
     reader.onload = () => {
       setSelectedImageSrc(reader.result as string);
+      setCropType(type);
       setCropModalOpen(true);
     };
     reader.readAsDataURL(file);
@@ -226,7 +232,9 @@ const EditStreamerProfile = () => {
     setUploading(true);
 
     try {
-      const fileName = `${userId}/avatar.jpg`;
+      const fileName = cropType === 'avatar' 
+        ? `${userId}/avatar.jpg`
+        : `${userId}/banner.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
@@ -242,16 +250,26 @@ const EditStreamerProfile = () => {
         .getPublicUrl(fileName);
 
       // Add timestamp to bust cache
-      setAvatarUrl(`${publicUrl}?t=${Date.now()}`);
-      toast({
-        title: "Avatar uploaded!",
-        description: "Your profile picture has been updated."
-      });
+      const urlWithCache = `${publicUrl}?t=${Date.now()}`;
+      
+      if (cropType === 'avatar') {
+        setAvatarUrl(urlWithCache);
+        toast({
+          title: "Avatar uploaded!",
+          description: "Your profile picture has been updated."
+        });
+      } else {
+        setBannerUrl(urlWithCache);
+        toast({
+          title: "Banner uploaded!",
+          description: "Your cover image has been updated."
+        });
+      }
     } catch (error: any) {
       console.error('Upload error:', error);
       toast({
         title: "Upload failed",
-        description: error.message || "Failed to upload avatar.",
+        description: error.message || "Failed to upload image.",
         variant: "destructive"
       });
     } finally {
@@ -284,7 +302,57 @@ const EditStreamerProfile = () => {
     setIsDragging(false);
 
     const file = e.dataTransfer.files?.[0];
-    if (file) openCropModal(file);
+    if (file) openCropModal(file, 'avatar');
+  };
+
+  const handleBannerDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsBannerDragging(true);
+  };
+
+  const handleBannerDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsBannerDragging(false);
+  };
+
+  const handleBannerDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsBannerDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) openCropModal(file, 'banner');
+  };
+
+  const handleBannerUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) openCropModal(file, 'banner');
+    event.target.value = '';
+  };
+
+  const handleRemoveBanner = async () => {
+    if (!userId) return;
+
+    setUploading(true);
+    try {
+      await supabase.storage.from('avatars').remove([`${userId}/banner.jpg`]);
+      setBannerUrl('');
+      toast({
+        title: "Banner removed",
+        description: "Your cover image has been removed."
+      });
+    } catch (error: any) {
+      console.error('Remove banner error:', error);
+      toast({
+        title: "Failed to remove banner",
+        description: error.message || "Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleRemoveAvatar = async () => {
@@ -439,6 +507,100 @@ const EditStreamerProfile = () => {
                       {isDragging ? 'Drop your image here!' : 'Drag & drop or click to upload. JPG, PNG or GIF. Max 5MB.'}
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Banner Upload */}
+              <div className="space-y-2">
+                <Label>Cover/Banner Image</Label>
+                <div
+                  onDragOver={handleBannerDragOver}
+                  onDragLeave={handleBannerDragLeave}
+                  onDrop={handleBannerDrop}
+                  className={`relative rounded-lg border-2 border-dashed transition-colors overflow-hidden ${
+                    isBannerDragging
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  {bannerUrl ? (
+                    <div className="relative aspect-[3/1] w-full">
+                      <img
+                        src={bannerUrl}
+                        alt="Banner preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <label htmlFor="banner-upload">
+                          <input
+                            id="banner-upload"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleBannerUpload}
+                            className="hidden"
+                            disabled={uploading}
+                          />
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="gap-2"
+                            disabled={uploading}
+                            onClick={() => document.getElementById('banner-upload')?.click()}
+                          >
+                            <Upload className="h-4 w-4" />
+                            Change
+                          </Button>
+                        </label>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="gap-2"
+                          disabled={uploading}
+                          onClick={handleRemoveBanner}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="aspect-[3/1] w-full flex flex-col items-center justify-center gap-3 p-6">
+                      <div className="p-3 rounded-full bg-muted">
+                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div className="text-center space-y-1">
+                        <p className="text-sm text-muted-foreground">
+                          {isBannerDragging ? 'Drop your image here!' : 'Drag & drop a banner image'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Recommended: 1500 x 500 pixels (3:1 ratio)
+                        </p>
+                      </div>
+                      <label htmlFor="banner-upload-empty">
+                        <input
+                          id="banner-upload-empty"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleBannerUpload}
+                          className="hidden"
+                          disabled={uploading}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          disabled={uploading}
+                          onClick={() => document.getElementById('banner-upload-empty')?.click()}
+                        >
+                          <Upload className="h-4 w-4" />
+                          {uploading ? 'Uploading...' : 'Upload Banner'}
+                        </Button>
+                      </label>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -605,6 +767,7 @@ const EditStreamerProfile = () => {
           }}
           imageSrc={selectedImageSrc}
           onCropComplete={handleCroppedImage}
+          aspect={cropType === 'banner' ? 3 : 1}
         />
       )}
     </div>
