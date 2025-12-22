@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles, Filter } from "lucide-react";
+import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles, Filter, ArrowUpDown } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,9 @@ import { Tables } from "@/integrations/supabase/types";
 import { FollowButton } from "@/components/FollowButton";
 
 type StreamerProfile = Tables<"streamer_profiles">;
-type StreamerWithStatus = StreamerProfile & { is_live: boolean };
+type StreamerWithStatus = StreamerProfile & { is_live: boolean; followed_at?: string };
+
+type SortOption = "live" | "name" | "recent";
 
 const Following = () => {
   const [followedStreamers, setFollowedStreamers] = useState<StreamerWithStatus[]>([]);
@@ -20,6 +22,7 @@ const Following = () => {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("live");
   const navigate = useNavigate();
 
   // Get unique categories from followed streamers
@@ -33,15 +36,39 @@ const Following = () => {
     return Array.from(categories).sort();
   }, [followedStreamers]);
 
-  // Filter streamers by selected category
+  // Filter and sort streamers
   const filteredStreamers = useMemo(() => {
-    if (selectedCategory === "all") return followedStreamers;
-    return followedStreamers.filter(
-      (streamer) =>
-        Array.isArray(streamer.categories) &&
-        streamer.categories.includes(selectedCategory)
-    );
-  }, [followedStreamers, selectedCategory]);
+    let result = followedStreamers;
+    
+    // Filter by category
+    if (selectedCategory !== "all") {
+      result = result.filter(
+        (streamer) =>
+          Array.isArray(streamer.categories) &&
+          streamer.categories.includes(selectedCategory)
+      );
+    }
+    
+    // Sort based on selected option
+    return [...result].sort((a, b) => {
+      switch (sortBy) {
+        case "live":
+          // Live first, then alphabetical
+          if (a.is_live && !b.is_live) return -1;
+          if (!a.is_live && b.is_live) return 1;
+          return (a.display_name || "").localeCompare(b.display_name || "");
+        case "name":
+          return (a.display_name || "").localeCompare(b.display_name || "");
+        case "recent":
+          // Most recently followed first
+          const dateA = a.followed_at ? new Date(a.followed_at).getTime() : 0;
+          const dateB = b.followed_at ? new Date(b.followed_at).getTime() : 0;
+          return dateB - dateA;
+        default:
+          return 0;
+      }
+    });
+  }, [followedStreamers, selectedCategory, sortBy]);
 
   useEffect(() => {
     checkAuthAndFetch();
@@ -94,15 +121,16 @@ const Following = () => {
 
   const fetchFollowedStreamers = async (currentUserId: string) => {
     try {
-      // Fetch followed streamer IDs
+      // Fetch followed streamer IDs with created_at for sorting
       const { data: follows, error: followsError } = await supabase
         .from("followers")
-        .select("streamer_id")
+        .select("streamer_id, created_at")
         .eq("follower_id", currentUserId);
 
       if (followsError) throw followsError;
 
       const streamerIds = follows?.map((f) => f.streamer_id) || [];
+      const followDates = new Map(follows?.map((f) => [f.streamer_id, f.created_at]) || []);
 
       if (streamerIds.length === 0) {
         setFollowedStreamers([]);
@@ -133,14 +161,8 @@ const Following = () => {
       const streamersWithStatus: StreamerWithStatus[] = (profiles || []).map((profile) => ({
         ...profile,
         is_live: liveStreamersSet.has(profile.user_id),
+        followed_at: followDates.get(profile.user_id),
       }));
-
-      // Sort: live streamers first
-      streamersWithStatus.sort((a, b) => {
-        if (a.is_live && !b.is_live) return -1;
-        if (!a.is_live && b.is_live) return 1;
-        return (a.display_name || "").localeCompare(b.display_name || "");
-      });
 
       setFollowedStreamers(streamersWithStatus);
 
@@ -297,25 +319,43 @@ const Following = () => {
             )}
           </div>
 
-          {/* Category Filter */}
-          {availableCategories.length > 0 && (
+          {/* Filter and Sort Controls */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Sort Dropdown */}
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-[180px] bg-card border-border">
-                  <SelectValue placeholder="Filter by category" />
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+                <SelectTrigger className="w-[160px] bg-card border-border">
+                  <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border z-50">
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {availableCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="live">Live Status</SelectItem>
+                  <SelectItem value="name">Name (A-Z)</SelectItem>
+                  <SelectItem value="recent">Recently Followed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          )}
+
+            {/* Category Filter */}
+            {availableCategories.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-[180px] bg-card border-border">
+                    <SelectValue placeholder="Filter by category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border z-50">
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {availableCategories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Content */}
