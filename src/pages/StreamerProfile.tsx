@@ -12,6 +12,7 @@ import { DonorLeaderboard } from "@/components/DonorLeaderboard";
 import { TipButton } from "@/components/TipButton";
 import { FollowButton } from "@/components/FollowButton";
 import { ClipCreationModal } from "@/components/ClipCreationModal";
+import { ClipShareMenu } from "@/components/ClipShareMenu";
 import { motion } from "framer-motion";
 import { 
   User, ArrowLeft, Calendar, Clock, CheckCircle,
@@ -720,33 +721,41 @@ const StreamerProfile = () => {
                               <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors flex-1">
                                 {clip.title}
                               </h3>
-                              {isOwnProfile && (
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      handleEditClip(clip);
-                                    }}
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-destructive hover:text-destructive"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      handleDeleteClip(clip.id);
-                                    }}
-                                    disabled={deletingClipId === clip.id}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                              )}
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <ClipShareMenu
+                                  clipId={clip.id}
+                                  clipTitle={clip.title}
+                                  clipUrl={clip.clip_url}
+                                  streamerName={profile?.display_name || undefined}
+                                />
+                                {isOwnProfile && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        handleEditClip(clip);
+                                      }}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive hover:text-destructive"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        handleDeleteClip(clip.id);
+                                      }}
+                                      disabled={deletingClipId === clip.id}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                             </div>
                             {clip.description && (
                               <p className="text-xs text-muted-foreground line-clamp-1">
