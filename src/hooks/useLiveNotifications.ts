@@ -11,6 +11,7 @@ interface FollowedStreamer {
 export const useLiveNotifications = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [followedStreamers, setFollowedStreamers] = useState<FollowedStreamer[]>([]);
+  const [liveStreamersCount, setLiveStreamersCount] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -52,66 +53,90 @@ export const useLiveNotifications = () => {
     return granted;
   }, [toast]);
 
+  // Fetch followed streamers and their live status
+  const fetchFollowedStreamersAndLiveStatus = useCallback(async (currentUserId: string) => {
+    // Get all streamers the user follows
+    const { data: follows, error: followsError } = await supabase
+      .from("followers")
+      .select("streamer_id")
+      .eq("follower_id", currentUserId);
+
+    if (followsError) {
+      console.error("Error fetching follows:", followsError);
+      return;
+    }
+
+    if (!follows || follows.length === 0) {
+      setFollowedStreamers([]);
+      setLiveStreamersCount(0);
+      return;
+    }
+
+    const streamerIds = follows.map(f => f.streamer_id);
+
+    // Get streamer profiles for display names
+    const { data: profiles, error: profilesError } = await supabase
+      .from("streamer_profiles")
+      .select("user_id, display_name, avatar_url")
+      .in("user_id", streamerIds);
+
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
+      return;
+    }
+
+    setFollowedStreamers(
+      (profiles || []).map(p => ({
+        streamer_id: p.user_id,
+        display_name: p.display_name,
+        avatar_url: p.avatar_url,
+      }))
+    );
+
+    // Fetch live streams count for followed streamers
+    const { data: liveStreams, error: liveError } = await supabase
+      .from("streams")
+      .select("user_id")
+      .eq("is_live", true)
+      .in("user_id", streamerIds);
+
+    if (!liveError && liveStreams) {
+      setLiveStreamersCount(liveStreams.length);
+    }
+  }, []);
+
   // Fetch followed streamers
   useEffect(() => {
-    const fetchFollowedStreamers = async () => {
+    const fetchData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
         setUserId(null);
         setFollowedStreamers([]);
+        setLiveStreamersCount(0);
         return;
       }
 
       setUserId(session.user.id);
-
-      // Get all streamers the user follows
-      const { data: follows, error: followsError } = await supabase
-        .from("followers")
-        .select("streamer_id")
-        .eq("follower_id", session.user.id);
-
-      if (followsError) {
-        console.error("Error fetching follows:", followsError);
-        return;
-      }
-
-      if (!follows || follows.length === 0) {
-        setFollowedStreamers([]);
-        return;
-      }
-
-      const streamerIds = follows.map(f => f.streamer_id);
-
-      // Get streamer profiles for display names
-      const { data: profiles, error: profilesError } = await supabase
-        .from("streamer_profiles")
-        .select("user_id, display_name, avatar_url")
-        .in("user_id", streamerIds);
-
-      if (profilesError) {
-        console.error("Error fetching profiles:", profilesError);
-        return;
-      }
-
-      setFollowedStreamers(
-        (profiles || []).map(p => ({
-          streamer_id: p.user_id,
-          display_name: p.display_name,
-          avatar_url: p.avatar_url,
-        }))
-      );
+      await fetchFollowedStreamersAndLiveStatus(session.user.id);
     };
 
-    fetchFollowedStreamers();
+    fetchData();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      fetchFollowedStreamers();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+        await fetchFollowedStreamersAndLiveStatus(session.user.id);
+      } else {
+        setUserId(null);
+        setFollowedStreamers([]);
+        setLiveStreamersCount(0);
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchFollowedStreamersAndLiveStatus]);
 
   // Show notification
   const showNotification = useCallback((streamerName: string, avatarUrl: string | null) => {
@@ -157,16 +182,20 @@ export const useLiveNotifications = () => {
           const stream = payload.new as { user_id: string; is_live: boolean };
           const oldStream = payload.old as { is_live: boolean };
 
-          // Check if this is a followed streamer going live (was not live, now is live)
-          if (
-            streamerIds.includes(stream.user_id) &&
-            stream.is_live === true &&
-            oldStream.is_live === false
-          ) {
-            const streamer = followedStreamers.find(s => s.streamer_id === stream.user_id);
-            if (streamer) {
-              console.log("Followed streamer went live:", streamer.display_name);
-              showNotification(streamer.display_name || "A streamer you follow", streamer.avatar_url);
+          // Check if this is a followed streamer
+          if (streamerIds.includes(stream.user_id)) {
+            // Update live count when stream status changes
+            if (stream.is_live && !oldStream.is_live) {
+              // Streamer went live
+              setLiveStreamersCount(prev => prev + 1);
+              const streamer = followedStreamers.find(s => s.streamer_id === stream.user_id);
+              if (streamer) {
+                console.log("Followed streamer went live:", streamer.display_name);
+                showNotification(streamer.display_name || "A streamer you follow", streamer.avatar_url);
+              }
+            } else if (!stream.is_live && oldStream.is_live) {
+              // Streamer went offline
+              setLiveStreamersCount(prev => Math.max(0, prev - 1));
             }
           }
         }
@@ -183,6 +212,7 @@ export const useLiveNotifications = () => {
 
           // Check if this is a new live stream from a followed streamer
           if (streamerIds.includes(stream.user_id) && stream.is_live === true) {
+            setLiveStreamersCount(prev => prev + 1);
             const streamer = followedStreamers.find(s => s.streamer_id === stream.user_id);
             if (streamer) {
               console.log("Followed streamer started new live stream:", streamer.display_name);
@@ -202,5 +232,6 @@ export const useLiveNotifications = () => {
     notificationsEnabled,
     requestPermission,
     followedStreamersCount: followedStreamers.length,
+    liveStreamersCount,
   };
 };
