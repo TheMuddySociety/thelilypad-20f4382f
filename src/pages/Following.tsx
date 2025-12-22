@@ -614,6 +614,36 @@ const Following = () => {
           </div>
         </div>
 
+        {/* Category Chips */}
+        {availableCategories.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            <span className="text-sm text-muted-foreground mr-1">Categories:</span>
+            <button
+              onClick={() => setSelectedCategory("all")}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                selectedCategory === "all"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+            {availableCategories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  selectedCategory === category
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center py-16">
