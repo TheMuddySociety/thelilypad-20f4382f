@@ -1,1 +1,4 @@
 project_id = "zoomsxaoqkywdqpdtqnm"
+
+[functions.alchemy-rpc]
+verify_jwt = false
