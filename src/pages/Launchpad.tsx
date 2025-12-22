@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +58,7 @@ const statusIcons = {
 };
 
 export default function Launchpad() {
+  const navigate = useNavigate();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
 
@@ -127,7 +129,11 @@ export default function Launchpad() {
           {filteredCollections.map((collection) => {
             const StatusIcon = statusIcons[collection.status as keyof typeof statusIcons];
             return (
-              <Card key={collection.id} className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer">
+              <Card 
+                key={collection.id} 
+                className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
+                onClick={() => navigate(`/launchpad/${collection.id}`)}
+              >
                 <div className="aspect-square relative overflow-hidden">
                   <img
                     src={collection.image}
