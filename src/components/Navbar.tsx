@@ -161,18 +161,53 @@ export const Navbar: React.FC = () => {
                   <span>The Lily Pad</span>
                 </DrawerTitle>
               </DrawerHeader>
-              <div className="p-4 space-y-2">
-                {allMobileLinks.map((link) => (
-                  <DrawerClose asChild key={link.label}>
-                    <a
-                      href={link.href}
-                      className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
-                    >
-                      <link.icon className="w-5 h-5 text-muted-foreground" />
-                      {link.label}
-                    </a>
-                  </DrawerClose>
-                ))}
+              <div className="p-4 space-y-4">
+                {/* Primary Links */}
+                <div className="space-y-1">
+                  {primaryLinks.map((link) => (
+                    <DrawerClose asChild key={link.label}>
+                      <a
+                        href={link.href}
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
+                      >
+                        <link.icon className="w-5 h-5 text-muted-foreground" />
+                        {link.label}
+                      </a>
+                    </DrawerClose>
+                  ))}
+                </div>
+
+                {/* Explore Section */}
+                <div className="space-y-1">
+                  <p className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Explore</p>
+                  {exploreLinks.map((link) => (
+                    <DrawerClose asChild key={link.label}>
+                      <a
+                        href={link.href}
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
+                      >
+                        <link.icon className="w-5 h-5 text-muted-foreground" />
+                        {link.label}
+                      </a>
+                    </DrawerClose>
+                  ))}
+                </div>
+
+                {/* Account Section */}
+                <div className="space-y-1">
+                  <p className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
+                  {accountLinks.map((link) => (
+                    <DrawerClose asChild key={link.label}>
+                      <a
+                        href={link.href}
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
+                      >
+                        <link.icon className="w-5 h-5 text-muted-foreground" />
+                        {link.label}
+                      </a>
+                    </DrawerClose>
+                  ))}
+                </div>
               </div>
               <div className="p-4 pt-0 space-y-3 border-t border-border/50 mt-2">
                 <div className="flex items-center justify-center gap-2 mb-2">
