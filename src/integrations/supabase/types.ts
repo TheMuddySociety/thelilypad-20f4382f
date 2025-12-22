@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      clip_comments: {
+        Row: {
+          clip_id: string
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clip_id: string
+          content: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clip_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clip_comments_clip_id_fkey"
+            columns: ["clip_id"]
+            isOneToOne: false
+            referencedRelation: "clips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clip_events: {
         Row: {
           clip_id: string
