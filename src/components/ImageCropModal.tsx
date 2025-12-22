@@ -9,7 +9,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Crop as CropIcon, RotateCcw } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Crop as CropIcon, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 
 interface ImageCropModalProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ export const ImageCropModal = ({
 }: ImageCropModalProps) => {
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const [scale, setScale] = useState(1);
   const imgRef = useRef<HTMLImageElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -62,7 +64,7 @@ export const ImageCropModal = ({
     const scaleX = image.naturalWidth / image.width;
     const scaleY = image.naturalHeight / image.height;
 
-    const outputSize = 400; // Output a 400x400 image
+    const outputSize = 400;
     canvas.width = outputSize;
     canvas.height = outputSize;
 
@@ -71,12 +73,24 @@ export const ImageCropModal = ({
 
     ctx.imageSmoothingQuality = "high";
 
+    // Account for zoom scale
+    const cropX = completedCrop.x * scaleX;
+    const cropY = completedCrop.y * scaleY;
+    const cropWidth = completedCrop.width * scaleX;
+    const cropHeight = completedCrop.height * scaleY;
+
+    // Calculate the actual source coordinates considering zoom
+    const sourceX = cropX / scale;
+    const sourceY = cropY / scale;
+    const sourceWidth = cropWidth / scale;
+    const sourceHeight = cropHeight / scale;
+
     ctx.drawImage(
       image,
-      completedCrop.x * scaleX,
-      completedCrop.y * scaleY,
-      completedCrop.width * scaleX,
-      completedCrop.height * scaleY,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
       0,
       0,
       outputSize,
@@ -105,10 +119,19 @@ export const ImageCropModal = ({
   };
 
   const handleReset = () => {
+    setScale(1);
     if (imgRef.current) {
       const { width, height } = imgRef.current;
       setCrop(centerAspectCrop(width, height, 1));
     }
+  };
+
+  const handleZoomIn = () => {
+    setScale((prev) => Math.min(prev + 0.1, 3));
+  };
+
+  const handleZoomOut = () => {
+    setScale((prev) => Math.max(prev - 0.1, 0.5));
   };
 
   return (
@@ -121,23 +144,62 @@ export const ImageCropModal = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex justify-center py-4">
-          <ReactCrop
-            crop={crop}
-            onChange={(_, percentCrop) => setCrop(percentCrop)}
-            onComplete={(c) => setCompletedCrop(c)}
-            aspect={1}
-            circularCrop
-            className="max-h-[400px]"
-          >
-            <img
-              ref={imgRef}
-              src={imageSrc}
-              alt="Crop preview"
-              onLoad={onImageLoad}
-              className="max-h-[400px] w-auto"
+        <div className="flex flex-col gap-4">
+          {/* Crop Area */}
+          <div className="flex justify-center overflow-hidden rounded-lg bg-muted/30 p-2">
+            <ReactCrop
+              crop={crop}
+              onChange={(_, percentCrop) => setCrop(percentCrop)}
+              onComplete={(c) => setCompletedCrop(c)}
+              aspect={1}
+              circularCrop
+              className="max-h-[350px]"
+            >
+              <img
+                ref={imgRef}
+                src={imageSrc}
+                alt="Crop preview"
+                onLoad={onImageLoad}
+                style={{ transform: `scale(${scale})`, transformOrigin: 'center' }}
+                className="max-h-[350px] w-auto transition-transform"
+              />
+            </ReactCrop>
+          </div>
+
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-3 px-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={handleZoomOut}
+              disabled={scale <= 0.5}
+              className="h-8 w-8 shrink-0"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <Slider
+              value={[scale]}
+              onValueChange={([value]) => setScale(value)}
+              min={0.5}
+              max={3}
+              step={0.1}
+              className="flex-1"
             />
-          </ReactCrop>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={handleZoomIn}
+              disabled={scale >= 3}
+              className="h-8 w-8 shrink-0"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground w-12 text-right">
+              {Math.round(scale * 100)}%
+            </span>
+          </div>
         </div>
 
         <DialogFooter className="flex gap-2 sm:gap-0">
