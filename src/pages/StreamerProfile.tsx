@@ -14,7 +14,7 @@ import { motion } from "framer-motion";
 import { 
   User, ArrowLeft, Calendar, Clock, CheckCircle,
   Twitter, Youtube, MessageCircle, Instagram, Music2,
-  Users, Video, Eye, TrendingUp, Sparkles, ExternalLink
+  Users, Video, Eye, Sparkles, ExternalLink, Play, ImageIcon
 } from "lucide-react";
 
 interface ScheduleItem {
@@ -47,6 +47,17 @@ interface StreamerStats {
   currentStreamTitle?: string;
 }
 
+interface RecentStream {
+  id: string;
+  title: string;
+  category: string | null;
+  thumbnail_url: string | null;
+  total_views: number;
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+}
+
 const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const socialConfig = {
@@ -63,6 +74,7 @@ const StreamerProfile = () => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StreamerProfileData | null>(null);
   const [stats, setStats] = useState<StreamerStats>({ followerCount: 0, totalStreams: 0, totalViews: 0, isLive: false });
+  const [recentStreams, setRecentStreams] = useState<RecentStream[]>([]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -108,12 +120,17 @@ const StreamerProfile = () => {
       // Fetch streams with views
       const { data: streams } = await supabase
         .from('streams')
-        .select('id, total_views, is_live, title')
-        .eq('user_id', streamerId);
+        .select('id, title, category, thumbnail_url, total_views, is_live, started_at, ended_at, duration_seconds')
+        .eq('user_id', streamerId)
+        .order('started_at', { ascending: false });
 
       const totalStreams = streams?.length || 0;
       const totalViews = streams?.reduce((sum, s) => sum + (s.total_views || 0), 0) || 0;
       const liveStream = streams?.find(s => s.is_live);
+      
+      // Get past broadcasts (not live, limit to 6)
+      const pastStreams = streams?.filter(s => !s.is_live).slice(0, 6) || [];
+      setRecentStreams(pastStreams);
 
       setStats({
         followerCount: followerCount || 0,
@@ -147,6 +164,19 @@ const StreamerProfile = () => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
     return num.toString();
+  };
+
+  const formatDuration = (seconds: number | null) => {
+    if (!seconds) return '';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   if (loading) {
@@ -443,6 +473,86 @@ const StreamerProfile = () => {
               />
             </motion.div>
           </div>
+
+          {/* Recent Streams */}
+          {recentStreams.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+            >
+              <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Play className="h-5 w-5 text-primary" />
+                    Recent Broadcasts
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {recentStreams.map((stream, index) => (
+                      <motion.div
+                        key={stream.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 + index * 0.05 }}
+                        className="group"
+                      >
+                        <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/50 border border-border/50">
+                          {stream.thumbnail_url ? (
+                            <img 
+                              src={stream.thumbnail_url} 
+                              alt={stream.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted/50 to-muted">
+                              <ImageIcon className="h-10 w-10 text-muted-foreground/50" />
+                            </div>
+                          )}
+                          
+                          {/* Overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          
+                          {/* Duration badge */}
+                          {stream.duration_seconds && (
+                            <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/70 text-white text-xs font-medium">
+                              {formatDuration(stream.duration_seconds)}
+                            </div>
+                          )}
+                          
+                          {/* Play icon overlay */}
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="p-3 rounded-full bg-primary/90 text-primary-foreground">
+                              <Play className="h-6 w-6 fill-current" />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 space-y-1">
+                          <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors">
+                            {stream.title}
+                          </h3>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-3 w-3" />
+                              {formatNumber(stream.total_views)} views
+                            </span>
+                            <span>{formatDate(stream.started_at)}</span>
+                          </div>
+                          {stream.category && (
+                            <Badge variant="secondary" className="text-xs mt-1">
+                              {stream.category}
+                            </Badge>
+                          )}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
         </div>
       </main>
     </div>
