@@ -15,12 +15,14 @@ import {
   ChevronUp,
   Layers,
   Image as ImageIcon,
+  FolderOpen,
 } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { BulkTraitUploader } from "./BulkTraitUploader";
 
 export interface Trait {
   id: string;
@@ -45,6 +47,7 @@ interface LayerManagerProps {
 
 export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
   const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set());
+  const [bulkUploadLayer, setBulkUploadLayer] = useState<Layer | null>(null);
 
   const addLayer = () => {
     const newLayer: Layer = {
@@ -104,6 +107,13 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
     };
 
     updateLayer(layerId, { traits: [...layer.traits, newTrait] });
+  };
+
+  const addBulkTraits = (layerId: string, traits: Trait[]) => {
+    const layer = layers.find((l) => l.id === layerId);
+    if (!layer) return;
+
+    updateLayer(layerId, { traits: [...layer.traits, ...traits] });
   };
 
   const removeTrait = (layerId: string, traitId: string) => {
@@ -303,19 +313,34 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <Label className="text-sm">Traits</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => addTrait(layer.id)}
-                          >
-                            <Plus className="w-3 h-3 mr-1" />
-                            Add Trait
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setBulkUploadLayer(layer)}
+                            >
+                              <FolderOpen className="w-3 h-3 mr-1" />
+                              Bulk Upload
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => addTrait(layer.id)}
+                            >
+                              <Plus className="w-3 h-3 mr-1" />
+                              Add Trait
+                            </Button>
+                          </div>
                         </div>
 
                         {layer.traits.length === 0 ? (
-                          <div className="text-center py-4 text-sm text-muted-foreground border border-dashed rounded-lg">
-                            No traits added yet
+                          <div 
+                            className="text-center py-6 text-sm text-muted-foreground border border-dashed rounded-lg cursor-pointer hover:border-primary/50 transition-colors"
+                            onClick={() => setBulkUploadLayer(layer)}
+                          >
+                            <FolderOpen className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                            <p>No traits added yet</p>
+                            <p className="text-xs mt-1">Click to bulk upload images</p>
                           </div>
                         ) : (
                           <div className="space-y-2">
@@ -430,6 +455,20 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
           )}
         </div>
       </ScrollArea>
+
+      {/* Bulk Upload Modal */}
+      {bulkUploadLayer && (
+        <BulkTraitUploader
+          open={!!bulkUploadLayer}
+          onOpenChange={(open) => !open && setBulkUploadLayer(null)}
+          layerName={bulkUploadLayer.name}
+          existingTraits={bulkUploadLayer.traits}
+          onTraitsAdd={(traits) => {
+            addBulkTraits(bulkUploadLayer.id, traits);
+            setBulkUploadLayer(null);
+          }}
+        />
+      )}
     </div>
   );
 }
