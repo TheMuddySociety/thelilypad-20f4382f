@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2 } from "lucide-react";
+import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ type StreamerWithStatus = StreamerProfile & { is_live: boolean };
 
 const Following = () => {
   const [followedStreamers, setFollowedStreamers] = useState<StreamerWithStatus[]>([]);
+  const [recommendedStreamers, setRecommendedStreamers] = useState<StreamerWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -78,13 +79,14 @@ const Following = () => {
 
       if (followsError) throw followsError;
 
-      if (!follows || follows.length === 0) {
+      const streamerIds = follows?.map((f) => f.streamer_id) || [];
+
+      if (streamerIds.length === 0) {
         setFollowedStreamers([]);
+        await fetchRecommendedStreamers(currentUserId, [], []);
         setLoading(false);
         return;
       }
-
-      const streamerIds = follows.map((f) => f.streamer_id);
 
       // Fetch streamer profiles
       const { data: profiles, error: profilesError } = await supabase
@@ -94,7 +96,7 @@ const Following = () => {
 
       if (profilesError) throw profilesError;
 
-      // Fetch live streams
+      // Fetch live streams for followed streamers
       const { data: liveStreams, error: liveError } = await supabase
         .from("streams")
         .select("user_id")
@@ -118,6 +120,13 @@ const Following = () => {
       });
 
       setFollowedStreamers(streamersWithStatus);
+
+      // Get categories from followed streamers for recommendations
+      const followedCategories = Array.from(
+        new Set((profiles || []).flatMap((p) => p.categories || []))
+      );
+
+      await fetchRecommendedStreamers(currentUserId, streamerIds, followedCategories);
     } catch (error) {
       console.error("Error fetching followed streamers:", error);
     } finally {
@@ -125,7 +134,86 @@ const Following = () => {
     }
   };
 
-  const handleUnfollow = () => {
+  const fetchRecommendedStreamers = async (
+    currentUserId: string,
+    followedIds: string[],
+    categories: string[]
+  ) => {
+    try {
+      // Fetch all streamers that user doesn't follow (excluding self)
+      let query = supabase
+        .from("streamer_profiles")
+        .select("*")
+        .neq("user_id", currentUserId);
+
+      if (followedIds.length > 0) {
+        // Filter out already followed streamers
+        for (const id of followedIds) {
+          query = query.neq("user_id", id);
+        }
+      }
+
+      const { data: allStreamers, error: streamersError } = await query.limit(50);
+
+      if (streamersError) throw streamersError;
+
+      if (!allStreamers || allStreamers.length === 0) {
+        setRecommendedStreamers([]);
+        return;
+      }
+
+      // Score streamers by matching categories
+      const scoredStreamers = allStreamers.map((streamer) => {
+        const streamerCategories = streamer.categories || [];
+        const matchingCategories = streamerCategories.filter((c) =>
+          categories.includes(c)
+        );
+        return {
+          ...streamer,
+          score: matchingCategories.length,
+        };
+      });
+
+      // Sort by score (most matching categories first), then by verified, then alphabetically
+      scoredStreamers.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (a.is_verified && !b.is_verified) return -1;
+        if (!a.is_verified && b.is_verified) return 1;
+        return (a.display_name || "").localeCompare(b.display_name || "");
+      });
+
+      // Take top recommendations (those with matching categories, or top streamers if no matches)
+      const topRecommendations = scoredStreamers.slice(0, 6);
+
+      // Fetch live status for recommendations
+      const recommendedIds = topRecommendations.map((s) => s.user_id);
+      const { data: liveStreams } = await supabase
+        .from("streams")
+        .select("user_id")
+        .eq("is_live", true)
+        .in("user_id", recommendedIds);
+
+      const liveSet = new Set(liveStreams?.map((s) => s.user_id) || []);
+
+      const recommendedWithStatus: StreamerWithStatus[] = topRecommendations.map((s) => ({
+        ...s,
+        is_live: liveSet.has(s.user_id),
+      }));
+
+      // Sort recommendations: live first
+      recommendedWithStatus.sort((a, b) => {
+        if (a.is_live && !b.is_live) return -1;
+        if (!a.is_live && b.is_live) return 1;
+        return 0;
+      });
+
+      setRecommendedStreamers(recommendedWithStatus);
+    } catch (error) {
+      console.error("Error fetching recommended streamers:", error);
+    }
+  };
+
+  const handleFollowChange = () => {
     if (userId) {
       fetchFollowedStreamers(userId);
     }
@@ -245,7 +333,7 @@ const Following = () => {
                       <FollowButton 
                         streamerId={streamer.user_id} 
                         variant="compact" 
-                        onFollowChange={handleUnfollow}
+                        onFollowChange={handleFollowChange}
                       />
                     </div>
 
@@ -300,6 +388,103 @@ const Following = () => {
               </motion.div>
             ))}
           </div>
+        )}
+
+        {/* Recommended Streamers Section */}
+        {!loading && recommendedStreamers.length > 0 && (
+          <section className="mt-16">
+            <div className="flex items-center gap-3 mb-6">
+              <Sparkles className="h-6 w-6 text-accent" />
+              <h2 className="text-2xl font-bold">Recommended for You</h2>
+            </div>
+            <p className="text-muted-foreground mb-6">
+              Based on the categories of streamers you follow
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recommendedStreamers.map((streamer, index) => (
+                <motion.div
+                  key={streamer.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <Link to={`/streamer/${streamer.user_id}`}>
+                    <div className="group bg-card rounded-xl p-6 border border-border hover:border-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-accent/10">
+                      {/* Header */}
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="relative">
+                          <Avatar className={`h-16 w-16 ring-2 ${streamer.is_live ? 'ring-red-500' : 'ring-border'} group-hover:ring-accent/50 transition-all`}>
+                            <AvatarImage src={streamer.avatar_url || undefined} />
+                            <AvatarFallback className="bg-accent/20 text-accent text-lg">
+                              {getInitials(streamer.display_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {streamer.is_live && (
+                            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase animate-pulse">
+                              Live
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-lg truncate">
+                              {streamer.display_name || "Anonymous"}
+                            </h3>
+                            {streamer.is_verified && (
+                              <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Joined {new Date(streamer.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <FollowButton 
+                          streamerId={streamer.user_id} 
+                          variant="compact" 
+                          onFollowChange={handleFollowChange}
+                        />
+                      </div>
+
+                      {/* Bio */}
+                      <p className="text-muted-foreground text-sm line-clamp-3 mb-4 min-h-[3.75rem]">
+                        {streamer.bio || "No bio yet"}
+                      </p>
+
+                      {/* Categories */}
+                      <div className="flex flex-wrap gap-2">
+                        {streamer.is_live && (
+                          <Badge variant="destructive" className="bg-red-500 animate-pulse">
+                            <Radio className="h-3 w-3 mr-1" />
+                            Live Now
+                          </Badge>
+                        )}
+                        {streamer.is_verified && (
+                          <Badge variant="default" className="bg-primary/20 text-primary border-0">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Verified
+                          </Badge>
+                        )}
+                        {Array.isArray(streamer.categories) && streamer.categories.slice(0, 3).map((category) => (
+                          <Badge key={category} variant="outline" className="bg-accent/10 border-accent/30 text-accent">
+                            <Tag className="h-3 w-3 mr-1" />
+                            {category}
+                          </Badge>
+                        ))}
+                      </div>
+
+                      {/* View Profile Button */}
+                      <Button
+                        variant="ghost"
+                        className="w-full mt-4 group-hover:bg-accent/10 group-hover:text-accent"
+                      >
+                        View Profile
+                      </Button>
+                    </div>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          </section>
         )}
       </main>
     </div>
