@@ -1,4 +1,4 @@
-import { Bell, BellOff, Radio } from "lucide-react";
+import { Bell, BellOff, Radio, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,8 +17,9 @@ export const NotificationBell = () => {
     notificationsEnabled, 
     requestPermission, 
     followedStreamersCount, 
-    liveStreamersCount,
-    liveStreamers 
+    liveStreamers,
+    unreadCount,
+    dismissNotification,
   } = useLiveNotifications();
   const navigate = useNavigate();
 
@@ -26,6 +27,12 @@ export const NotificationBell = () => {
     e.preventDefault();
     e.stopPropagation();
     requestPermission();
+  };
+
+  const handleDismiss = (e: React.MouseEvent, streamerId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dismissNotification(streamerId);
   };
 
   return (
@@ -41,9 +48,9 @@ export const NotificationBell = () => {
           ) : (
             <BellOff className="h-5 w-5" />
           )}
-          {liveStreamersCount > 0 && (
+          {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 min-w-4 px-1 flex items-center justify-center animate-pulse">
-              {liveStreamersCount}
+              {unreadCount}
             </span>
           )}
         </Button>
@@ -73,7 +80,7 @@ export const NotificationBell = () => {
             {liveStreamers.map((streamer) => (
               <DropdownMenuItem
                 key={streamer.userId}
-                className="cursor-pointer p-3"
+                className="cursor-pointer p-3 group"
                 onClick={() => navigate(`/streamer/${streamer.userId}`)}
               >
                 <div className="flex items-center gap-3 w-full">
@@ -99,6 +106,13 @@ export const NotificationBell = () => {
                       </p>
                     )}
                   </div>
+                  <button
+                    onClick={(e) => handleDismiss(e, streamer.userId)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded"
+                    title="Dismiss notification"
+                  >
+                    <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                  </button>
                 </div>
               </DropdownMenuItem>
             ))}

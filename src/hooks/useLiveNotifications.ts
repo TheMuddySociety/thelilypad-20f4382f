@@ -16,11 +16,34 @@ export interface LiveStreamer {
   category: string | null;
 }
 
+const DISMISSED_NOTIFICATIONS_KEY = "dismissed_live_notifications";
+
+const getDismissedNotifications = (): Set<string> => {
+  try {
+    const stored = localStorage.getItem(DISMISSED_NOTIFICATIONS_KEY);
+    if (stored) {
+      return new Set(JSON.parse(stored));
+    }
+  } catch (e) {
+    console.error("Error reading dismissed notifications:", e);
+  }
+  return new Set();
+};
+
+const saveDismissedNotifications = (dismissed: Set<string>) => {
+  try {
+    localStorage.setItem(DISMISSED_NOTIFICATIONS_KEY, JSON.stringify([...dismissed]));
+  } catch (e) {
+    console.error("Error saving dismissed notifications:", e);
+  }
+};
+
 export const useLiveNotifications = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [followedStreamers, setFollowedStreamers] = useState<FollowedStreamer[]>([]);
   const [liveStreamersCount, setLiveStreamersCount] = useState(0);
   const [liveStreamers, setLiveStreamers] = useState<LiveStreamer[]>([]);
+  const [dismissedStreamers, setDismissedStreamers] = useState<Set<string>>(() => getDismissedNotifications());
   const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -61,6 +84,27 @@ export const useLiveNotifications = () => {
 
     return granted;
   }, [toast]);
+
+  // Dismiss a live notification
+  const dismissNotification = useCallback((streamerId: string) => {
+    setDismissedStreamers(prev => {
+      const next = new Set(prev);
+      next.add(streamerId);
+      saveDismissedNotifications(next);
+      return next;
+    });
+  }, []);
+
+  // Clear dismissed when streamer goes offline (handled in realtime subscription)
+  const clearDismissedForStreamer = useCallback((streamerId: string) => {
+    setDismissedStreamers(prev => {
+      if (!prev.has(streamerId)) return prev;
+      const next = new Set(prev);
+      next.delete(streamerId);
+      saveDismissedNotifications(next);
+      return next;
+    });
+  }, []);
 
   // Fetch followed streamers and their live status
   const fetchFollowedStreamersAndLiveStatus = useCallback(async (currentUserId: string) => {
@@ -225,7 +269,8 @@ export const useLiveNotifications = () => {
                 }]);
               }
             } else if (!stream.is_live && oldStream.is_live) {
-              // Streamer went offline
+              // Streamer went offline - clear dismissed state
+              clearDismissedForStreamer(stream.user_id);
               setLiveStreamersCount(prev => Math.max(0, prev - 1));
               setLiveStreamers(prev => prev.filter(s => s.userId !== stream.user_id));
             }
@@ -267,13 +312,19 @@ export const useLiveNotifications = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, followedStreamers, showNotification]);
+  }, [userId, followedStreamers, showNotification, clearDismissedForStreamer]);
+
+  // Filter out dismissed streamers for the visible list
+  const visibleLiveStreamers = liveStreamers.filter(s => !dismissedStreamers.has(s.userId));
+  const unreadCount = visibleLiveStreamers.length;
 
   return {
     notificationsEnabled,
     requestPermission,
     followedStreamersCount: followedStreamers.length,
     liveStreamersCount,
-    liveStreamers,
+    liveStreamers: visibleLiveStreamers,
+    unreadCount,
+    dismissNotification,
   };
 };
