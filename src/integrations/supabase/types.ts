@@ -20,6 +20,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          parent_id: string | null
           updated_at: string
           user_id: string
         }
@@ -28,6 +29,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          parent_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -36,6 +38,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          parent_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -45,6 +48,13 @@ export type Database = {
             columns: ["clip_id"]
             isOneToOne: false
             referencedRelation: "clips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clip_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "clip_comments"
             referencedColumns: ["id"]
           },
         ]

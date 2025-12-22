@@ -10,18 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipShareMenu } from "@/components/ClipShareMenu";
 import { ClipReactions } from "@/components/ClipReactions";
+import { CommentThread, CommentData } from "@/components/CommentThread";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft, User, Eye, Calendar, Film, Play,
-  MessageSquare, Send, Trash2, MoreVertical
+  MessageSquare, Send
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface ClipData {
   id: string;
@@ -39,16 +34,7 @@ interface ClipData {
   };
 }
 
-interface Comment {
-  id: string;
-  content: string;
-  created_at: string;
-  user_id: string;
-  profile?: {
-    display_name: string | null;
-    avatar_url: string | null;
-  };
-}
+// Using CommentData from CommentThread component
 
 interface RelatedClip {
   id: string;
@@ -69,7 +55,7 @@ const ClipViewer = () => {
   
   const [loading, setLoading] = useState(true);
   const [clip, setClip] = useState<ClipData | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<CommentData[]>([]);
   const [relatedClips, setRelatedClips] = useState<RelatedClip[]>([]);
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -116,7 +102,7 @@ const ClipViewer = () => {
         .from("clip_comments")
         .select("*")
         .eq("clip_id", clipId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
 
       // Fetch profiles for commenters
       if (commentsData && commentsData.length > 0) {
@@ -128,12 +114,32 @@ const ClipViewer = () => {
 
         const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
         
-        setComments(
-          commentsData.map(comment => ({
-            ...comment,
-            profile: profileMap.get(comment.user_id) || undefined,
-          }))
-        );
+        // Build threaded comments
+        const commentsWithProfiles: CommentData[] = commentsData.map(comment => ({
+          ...comment,
+          profile: profileMap.get(comment.user_id) || undefined,
+          replies: [],
+        }));
+
+        // Create a map for quick lookup
+        const commentMap = new Map(commentsWithProfiles.map(c => [c.id, c]));
+        
+        // Build thread structure
+        const rootComments: CommentData[] = [];
+        commentsWithProfiles.forEach(comment => {
+          if (comment.parent_id) {
+            const parent = commentMap.get(comment.parent_id);
+            if (parent) {
+              parent.replies = parent.replies || [];
+              parent.replies.push(comment);
+            }
+          } else {
+            rootComments.push(comment);
+          }
+        });
+
+        // Reverse to show newest first for root comments
+        setComments(rootComments.reverse());
       } else {
         setComments([]);
       }
@@ -168,6 +174,52 @@ const ClipViewer = () => {
     checkUser();
   }, [clipId]);
 
+  // Function to refetch and rebuild comment threads
+  const refetchComments = async () => {
+    if (!clipId) return;
+    
+    const { data: commentsData } = await supabase
+      .from("clip_comments")
+      .select("*")
+      .eq("clip_id", clipId)
+      .order("created_at", { ascending: true });
+
+    if (commentsData && commentsData.length > 0) {
+      const userIds = [...new Set(commentsData.map(c => c.user_id))];
+      const { data: profiles } = await supabase
+        .from("streamer_profiles")
+        .select("user_id, display_name, avatar_url")
+        .in("user_id", userIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+      
+      const commentsWithProfiles: CommentData[] = commentsData.map(comment => ({
+        ...comment,
+        profile: profileMap.get(comment.user_id) || undefined,
+        replies: [],
+      }));
+
+      const commentMap = new Map(commentsWithProfiles.map(c => [c.id, c]));
+      
+      const rootComments: CommentData[] = [];
+      commentsWithProfiles.forEach(comment => {
+        if (comment.parent_id) {
+          const parent = commentMap.get(comment.parent_id);
+          if (parent) {
+            parent.replies = parent.replies || [];
+            parent.replies.push(comment);
+          }
+        } else {
+          rootComments.push(comment);
+        }
+      });
+
+      setComments(rootComments.reverse());
+    } else {
+      setComments([]);
+    }
+  };
+
   // Real-time comments subscription
   useEffect(() => {
     if (!clipId) return;
@@ -183,7 +235,7 @@ const ClipViewer = () => {
           filter: `clip_id=eq.${clipId}`,
         },
         async (payload) => {
-          const newComment = payload.new as Comment;
+          const newComment = payload.new as CommentData;
           
           // Fetch profile for new comment
           const { data: profile } = await supabase
@@ -192,10 +244,20 @@ const ClipViewer = () => {
             .eq("user_id", newComment.user_id)
             .maybeSingle();
 
-          setComments(prev => [{
+          const commentWithProfile: CommentData = {
             ...newComment,
             profile: profile || undefined,
-          }, ...prev]);
+            replies: [],
+          };
+
+          if (newComment.parent_id) {
+            // It's a reply - need to refetch to rebuild thread structure
+            // For simplicity, we'll trigger a refetch
+            refetchComments();
+          } else {
+            // It's a root comment
+            setComments(prev => [commentWithProfile, ...prev]);
+          }
         }
       )
       .on(
@@ -499,58 +561,14 @@ const ClipViewer = () => {
                     {comments.length > 0 ? (
                       <div className="space-y-4 pt-4 border-t border-border/50">
                         {comments.map((comment) => (
-                          <motion.div
+                          <CommentThread
                             key={comment.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="flex gap-3"
-                          >
-                            <Link to={`/streamer/${comment.user_id}`}>
-                              <Avatar className="h-9 w-9">
-                                {comment.profile?.avatar_url ? (
-                                  <AvatarImage src={comment.profile.avatar_url} />
-                                ) : (
-                                  <AvatarFallback>
-                                    <User className="h-4 w-4" />
-                                  </AvatarFallback>
-                                )}
-                              </Avatar>
-                            </Link>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
-                                  <Link
-                                    to={`/streamer/${comment.user_id}`}
-                                    className="font-medium text-sm hover:text-primary transition-colors"
-                                  >
-                                    {comment.profile?.display_name || "Anonymous"}
-                                  </Link>
-                                  <span className="text-xs text-muted-foreground">
-                                    {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                                  </span>
-                                </div>
-                                {currentUserId === comment.user_id && (
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-7 w-7">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem
-                                        className="text-destructive focus:text-destructive"
-                                        onClick={() => handleDeleteComment(comment.id)}
-                                      >
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Delete
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                )}
-                              </div>
-                              <p className="text-sm mt-1">{comment.content}</p>
-                            </div>
-                          </motion.div>
+                            comment={comment}
+                            currentUserId={currentUserId}
+                            clipId={clipId!}
+                            onDelete={handleDeleteComment}
+                            onReplyAdded={refetchComments}
+                          />
                         ))}
                       </div>
                     ) : (
