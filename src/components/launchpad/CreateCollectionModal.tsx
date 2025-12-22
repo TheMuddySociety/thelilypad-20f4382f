@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -23,9 +24,14 @@ import {
   Sparkles,
   Wallet,
   Check,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Layers,
+  Palette
 } from "lucide-react";
 import { toast } from "sonner";
+import { LayerManager, Layer } from "./LayerManager";
+import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
+import { GenerationPreview } from "./GenerationPreview";
 
 interface CreateCollectionModalProps {
   open: boolean;
@@ -52,9 +58,10 @@ const defaultPhases: MintPhase[] = [
 ];
 
 const steps = [
-  { id: 1, title: "Collection Details", icon: ImageIcon },
-  { id: 2, title: "Mint Phases", icon: Users },
-  { id: 3, title: "Review & Deploy", icon: Sparkles },
+  { id: 1, title: "Details", icon: ImageIcon },
+  { id: 2, title: "Art Generation", icon: Palette },
+  { id: 3, title: "Mint Phases", icon: Users },
+  { id: 4, title: "Review", icon: Sparkles },
 ];
 
 export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionModalProps) {
@@ -68,6 +75,11 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
   const [totalSupply, setTotalSupply] = useState("5000");
   const [royaltyPercent, setRoyaltyPercent] = useState("5");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  
+  // Art generation
+  const [layers, setLayers] = useState<Layer[]>([]);
+  const [traitRules, setTraitRules] = useState<TraitRule[]>([]);
+  const [artTab, setArtTab] = useState("layers");
   
   // Mint phases
   const [phases, setPhases] = useState<MintPhase[]>(defaultPhases);
@@ -94,7 +106,7 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
         return;
       }
     }
-    if (currentStep < 3) {
+    if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -126,6 +138,8 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
     setTotalSupply("5000");
     setRoyaltyPercent("5");
     setImagePreview(null);
+    setLayers([]);
+    setTraitRules([]);
     setPhases(defaultPhases);
   };
 
@@ -263,8 +277,50 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
           </div>
         )}
 
-        {/* Step 2: Mint Phases */}
+        {/* Step 2: Art Generation */}
         {currentStep === 2 && (
+          <div className="space-y-4">
+            <Tabs value={artTab} onValueChange={setArtTab}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="layers" className="gap-2">
+                  <Layers className="w-4 h-4" />
+                  Layers
+                </TabsTrigger>
+                <TabsTrigger value="rules" className="gap-2">
+                  <Shield className="w-4 h-4" />
+                  Rules
+                </TabsTrigger>
+                <TabsTrigger value="preview" className="gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Preview
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="layers" className="mt-4">
+                <LayerManager layers={layers} onLayersChange={setLayers} />
+              </TabsContent>
+              
+              <TabsContent value="rules" className="mt-4">
+                <TraitRulesManager
+                  layers={layers}
+                  rules={traitRules}
+                  onRulesChange={setTraitRules}
+                />
+              </TabsContent>
+              
+              <TabsContent value="preview" className="mt-4">
+                <GenerationPreview
+                  layers={layers}
+                  rules={traitRules}
+                  totalSupply={totalSupply}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
+
+        {/* Step 3: Mint Phases */}
+        {currentStep === 3 && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               Configure your mint phases. Enable the phases you need and set their parameters.
@@ -355,8 +411,8 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
           </div>
         )}
 
-        {/* Step 3: Review & Deploy */}
-        {currentStep === 3 && (
+        {/* Step 4: Review & Deploy */}
+        {currentStep === 4 && (
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -398,6 +454,41 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
                 </div>
               </CardContent>
             </Card>
+
+            {/* Art Generation Summary */}
+            {layers.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Palette className="w-5 h-5" />
+                    Art Generation
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Layers</span>
+                      <p className="font-medium">{layers.length}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Total Traits</span>
+                      <p className="font-medium">{layers.reduce((sum, l) => sum + l.traits.length, 0)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Trait Rules</span>
+                      <p className="font-medium">{traitRules.length}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {layers.map((layer) => (
+                      <Badge key={layer.id} variant="outline" className="text-xs">
+                        {layer.name} ({layer.traits.length})
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>
@@ -447,7 +538,7 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
             Back
           </Button>
 
-          {currentStep < 3 ? (
+          {currentStep < 4 ? (
             <Button onClick={handleNext}>
               Next
               <ChevronRight className="w-4 h-4 ml-2" />
