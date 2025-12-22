@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import {
   ArrowRight,
   AlertTriangle,
   Zap,
+  AlertCircle,
 } from "lucide-react";
 import { Layer, Trait } from "./LayerManager";
 
@@ -31,6 +32,12 @@ export interface TraitRule {
   sourceTraitId: string;
   targetLayerId: string;
   targetTraitId: string;
+}
+
+export interface RuleConflict {
+  type: "force-incompatible" | "require-incompatible" | "circular-force" | "circular-require" | "self-reference";
+  message: string;
+  ruleIds: string[];
 }
 
 interface TraitRulesManagerProps {
@@ -63,6 +70,124 @@ const ruleTypeInfo: Record<
   },
 };
 
+function detectRuleConflicts(rules: TraitRule[], layers: Layer[]): RuleConflict[] {
+  const conflicts: RuleConflict[] = [];
+  
+  const getTraitKey = (layerId: string, traitId: string) => `${layerId}:${traitId}`;
+  const getTraitName = (layerId: string, traitId: string) => {
+    const layer = layers.find(l => l.id === layerId);
+    const trait = layer?.traits.find(t => t.id === traitId);
+    return trait?.name || "Unknown";
+  };
+  const getLayerName = (layerId: string) => {
+    return layers.find(l => l.id === layerId)?.name || "Unknown";
+  };
+
+  for (const rule of rules) {
+    // Check for self-reference
+    if (rule.sourceLayerId === rule.targetLayerId && rule.sourceTraitId === rule.targetTraitId) {
+      conflicts.push({
+        type: "self-reference",
+        message: `Rule references itself: "${getTraitName(rule.sourceLayerId, rule.sourceTraitId)}"`,
+        ruleIds: [rule.id],
+      });
+    }
+  }
+
+  // Check for force/require + incompatible conflicts
+  for (const rule1 of rules) {
+    for (const rule2 of rules) {
+      if (rule1.id === rule2.id) continue;
+
+      const sameSourceTarget = 
+        rule1.sourceLayerId === rule2.sourceLayerId &&
+        rule1.sourceTraitId === rule2.sourceTraitId &&
+        rule1.targetLayerId === rule2.targetLayerId &&
+        rule1.targetTraitId === rule2.targetTraitId;
+
+      // Force + Incompatible on same pair
+      if (sameSourceTarget) {
+        if (rule1.type === "forces" && rule2.type === "incompatible") {
+          const existingConflict = conflicts.find(
+            c => c.type === "force-incompatible" && 
+            c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
+          );
+          if (!existingConflict) {
+            conflicts.push({
+              type: "force-incompatible",
+              message: `"${getTraitName(rule1.sourceLayerId, rule1.sourceTraitId)}" both forces AND is incompatible with "${getTraitName(rule1.targetLayerId, rule1.targetTraitId)}"`,
+              ruleIds: [rule1.id, rule2.id],
+            });
+          }
+        }
+
+        // Require + Incompatible on same pair
+        if (rule1.type === "requires" && rule2.type === "incompatible") {
+          const existingConflict = conflicts.find(
+            c => c.type === "require-incompatible" && 
+            c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
+          );
+          if (!existingConflict) {
+            conflicts.push({
+              type: "require-incompatible",
+              message: `"${getTraitName(rule1.sourceLayerId, rule1.sourceTraitId)}" both requires AND is incompatible with "${getTraitName(rule1.targetLayerId, rule1.targetTraitId)}"`,
+              ruleIds: [rule1.id, rule2.id],
+            });
+          }
+        }
+      }
+
+      // Circular force: A forces B, B forces A
+      if (rule1.type === "forces" && rule2.type === "forces") {
+        const isCircular = 
+          rule1.sourceLayerId === rule2.targetLayerId &&
+          rule1.sourceTraitId === rule2.targetTraitId &&
+          rule1.targetLayerId === rule2.sourceLayerId &&
+          rule1.targetTraitId === rule2.sourceTraitId;
+        
+        if (isCircular) {
+          const existingConflict = conflicts.find(
+            c => c.type === "circular-force" && 
+            c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
+          );
+          if (!existingConflict) {
+            conflicts.push({
+              type: "circular-force",
+              message: `Circular force: "${getTraitName(rule1.sourceLayerId, rule1.sourceTraitId)}" ↔ "${getTraitName(rule1.targetLayerId, rule1.targetTraitId)}"`,
+              ruleIds: [rule1.id, rule2.id],
+            });
+          }
+        }
+      }
+
+      // Circular require: A requires B, B requires A
+      if (rule1.type === "requires" && rule2.type === "requires") {
+        const isCircular = 
+          rule1.sourceLayerId === rule2.targetLayerId &&
+          rule1.sourceTraitId === rule2.targetTraitId &&
+          rule1.targetLayerId === rule2.sourceLayerId &&
+          rule1.targetTraitId === rule2.sourceTraitId;
+        
+        if (isCircular) {
+          const existingConflict = conflicts.find(
+            c => c.type === "circular-require" && 
+            c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
+          );
+          if (!existingConflict) {
+            conflicts.push({
+              type: "circular-require",
+              message: `Circular requirement: "${getTraitName(rule1.sourceLayerId, rule1.sourceTraitId)}" ↔ "${getTraitName(rule1.targetLayerId, rule1.targetTraitId)}"`,
+              ruleIds: [rule1.id, rule2.id],
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return conflicts;
+}
+
 export function TraitRulesManager({
   layers,
   rules,
@@ -71,6 +196,9 @@ export function TraitRulesManager({
   const [newRule, setNewRule] = useState<Partial<TraitRule>>({
     type: "incompatible",
   });
+
+  // Detect conflicts in current rules
+  const conflicts = useMemo(() => detectRuleConflicts(rules, layers), [rules, layers]);
 
   const addRule = () => {
     if (
@@ -100,6 +228,10 @@ export function TraitRulesManager({
     onRulesChange(rules.filter((r) => r.id !== ruleId));
   };
 
+  const removeConflictingRules = (ruleIds: string[]) => {
+    onRulesChange(rules.filter((r) => !ruleIds.includes(r.id)));
+  };
+
   const getLayerName = (layerId: string) => {
     return layers.find((l) => l.id === layerId)?.name || "Unknown Layer";
   };
@@ -111,6 +243,10 @@ export function TraitRulesManager({
 
   const getTraitsForLayer = (layerId: string): Trait[] => {
     return layers.find((l) => l.id === layerId)?.traits || [];
+  };
+
+  const isRuleInConflict = (ruleId: string) => {
+    return conflicts.some(c => c.ruleIds.includes(ruleId));
   };
 
   const sourceTraits = newRule.sourceLayerId
@@ -131,6 +267,40 @@ export function TraitRulesManager({
           Define incompatibilities, requirements, and forced combinations
         </p>
       </div>
+
+      {/* Conflict Warnings */}
+      {conflicts.length > 0 && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-destructive">
+              <AlertCircle className="w-4 h-4" />
+              {conflicts.length} Rule Conflict{conflicts.length > 1 ? "s" : ""} Detected
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {conflicts.map((conflict, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-2 bg-background/50 rounded-lg text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
+                  <span>{conflict.message}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => removeConflictingRules(conflict.ruleIds)}
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add New Rule */}
       <Card className="border-dashed">
@@ -297,13 +467,22 @@ export function TraitRulesManager({
               {rules.map((rule) => {
                 const info = ruleTypeInfo[rule.type];
                 const Icon = info.icon;
+                const hasConflict = isRuleInConflict(rule.id);
                 return (
                   <div
                     key={rule.id}
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                    className={`flex items-center justify-between p-3 rounded-lg ${
+                      hasConflict 
+                        ? "bg-destructive/10 border border-destructive/30" 
+                        : "bg-muted/50"
+                    }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${info.color}`} />
+                      {hasConflict ? (
+                        <AlertCircle className="w-4 h-4 text-destructive" />
+                      ) : (
+                        <Icon className={`w-4 h-4 ${info.color}`} />
+                      )}
                       <div className="text-sm">
                         <span className="font-medium">
                           {getTraitName(rule.sourceLayerId, rule.sourceTraitId)}
