@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles } from "lucide-react";
+import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles, Filter } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { FollowButton } from "@/components/FollowButton";
@@ -18,7 +19,29 @@ const Following = () => {
   const [recommendedStreamers, setRecommendedStreamers] = useState<StreamerWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const navigate = useNavigate();
+
+  // Get unique categories from followed streamers
+  const availableCategories = useMemo(() => {
+    const categories = new Set<string>();
+    followedStreamers.forEach((streamer) => {
+      if (Array.isArray(streamer.categories)) {
+        streamer.categories.forEach((cat) => categories.add(cat));
+      }
+    });
+    return Array.from(categories).sort();
+  }, [followedStreamers]);
+
+  // Filter streamers by selected category
+  const filteredStreamers = useMemo(() => {
+    if (selectedCategory === "all") return followedStreamers;
+    return followedStreamers.filter(
+      (streamer) =>
+        Array.isArray(streamer.categories) &&
+        streamer.categories.includes(selectedCategory)
+    );
+  }, [followedStreamers, selectedCategory]);
 
   useEffect(() => {
     checkAuthAndFetch();
@@ -256,20 +279,42 @@ const Following = () => {
           </p>
         </div>
 
-        {/* Stats */}
-        <div className="flex items-center gap-2 mb-6 text-muted-foreground">
-          <Heart className="h-4 w-4" />
-          <span>
-            {followedStreamers.length} streamer{followedStreamers.length !== 1 ? "s" : ""} followed
-          </span>
-          {followedStreamers.filter((s) => s.is_live).length > 0 && (
-            <>
-              <span className="text-border">•</span>
-              <Radio className="h-4 w-4 text-red-500" />
-              <span className="text-red-500">
-                {followedStreamers.filter((s) => s.is_live).length} live now
-              </span>
-            </>
+        {/* Stats and Filter */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Heart className="h-4 w-4" />
+            <span>
+              {followedStreamers.length} streamer{followedStreamers.length !== 1 ? "s" : ""} followed
+            </span>
+            {followedStreamers.filter((s) => s.is_live).length > 0 && (
+              <>
+                <span className="text-border">•</span>
+                <Radio className="h-4 w-4 text-red-500" />
+                <span className="text-red-500">
+                  {followedStreamers.filter((s) => s.is_live).length} live now
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Category Filter */}
+          {availableCategories.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-[180px] bg-card border-border">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border z-50">
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {availableCategories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
 
@@ -291,9 +336,20 @@ const Following = () => {
               </Button>
             </Link>
           </div>
+        ) : filteredStreamers.length === 0 ? (
+          <div className="text-center py-16">
+            <Tag className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">No streamers in this category</h3>
+            <p className="text-muted-foreground mb-6">
+              None of your followed streamers are in the "{selectedCategory}" category
+            </p>
+            <Button variant="outline" onClick={() => setSelectedCategory("all")}>
+              Show All Streamers
+            </Button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {followedStreamers.map((streamer, index) => (
+            {filteredStreamers.map((streamer, index) => (
               <motion.div
                 key={streamer.id}
                 initial={{ opacity: 0, y: 20 }}
