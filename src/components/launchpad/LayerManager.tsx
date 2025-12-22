@@ -24,6 +24,7 @@ import {
   Image as ImageIcon,
   FolderOpen,
   Blend,
+  Scale,
 } from "lucide-react";
 import {
   Collapsible,
@@ -220,6 +221,22 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
     return traits.reduce((sum, t) => sum + t.rarity, 0);
   };
 
+  const autoBalanceRarities = (layerId: string) => {
+    const layer = layers.find((l) => l.id === layerId);
+    if (!layer || layer.traits.length === 0) return;
+
+    const traitCount = layer.traits.length;
+    const baseRarity = Math.floor(100 / traitCount);
+    const remainder = 100 - baseRarity * traitCount;
+
+    const balancedTraits = layer.traits.map((trait, index) => ({
+      ...trait,
+      rarity: baseRarity + (index < remainder ? 1 : 0),
+    }));
+
+    updateLayer(layerId, { traits: balancedTraits });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -404,6 +421,17 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
                         <div className="flex items-center justify-between">
                           <Label className="text-sm">Traits</Label>
                           <div className="flex gap-1">
+                            {layer.traits.length > 0 && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => autoBalanceRarities(layer.id)}
+                                title="Distribute rarity evenly"
+                              >
+                                <Scale className="w-3 h-3 mr-1" />
+                                Auto-Balance
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="ghost"
