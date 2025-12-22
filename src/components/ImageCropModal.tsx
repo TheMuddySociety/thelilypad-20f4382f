@@ -17,6 +17,7 @@ interface ImageCropModalProps {
   onClose: () => void;
   imageSrc: string;
   onCropComplete: (croppedBlob: Blob) => void;
+  aspect?: number;
 }
 
 function centerAspectCrop(
@@ -44,6 +45,7 @@ export const ImageCropModal = ({
   onClose,
   imageSrc,
   onCropComplete,
+  aspect = 1,
 }: ImageCropModalProps) => {
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
@@ -54,17 +56,18 @@ export const ImageCropModal = ({
 
   const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const { width, height } = e.currentTarget;
-    setCrop(centerAspectCrop(width, height, 1));
-  }, []);
+    setCrop(centerAspectCrop(width, height, aspect));
+  }, [aspect]);
 
   const getCroppedImg = async (): Promise<Blob | null> => {
     const image = imgRef.current;
     if (!image || !completedCrop) return null;
 
     const canvas = document.createElement("canvas");
-    const outputSize = 400;
-    canvas.width = outputSize;
-    canvas.height = outputSize;
+    const outputWidth = aspect >= 1 ? 800 : 400;
+    const outputHeight = aspect >= 1 ? Math.round(800 / aspect) : 400;
+    canvas.width = outputWidth;
+    canvas.height = outputHeight;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
@@ -113,8 +116,8 @@ export const ImageCropModal = ({
       cropHeight,
       0,
       0,
-      outputSize,
-      outputSize
+      outputWidth,
+      outputHeight
     );
 
     return new Promise((resolve) => {
@@ -143,7 +146,7 @@ export const ImageCropModal = ({
     setRotation(0);
     if (imgRef.current) {
       const { width, height } = imgRef.current;
-      setCrop(centerAspectCrop(width, height, 1));
+      setCrop(centerAspectCrop(width, height, aspect));
     }
   };
 
@@ -169,7 +172,7 @@ export const ImageCropModal = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CropIcon className="h-5 w-5 text-primary" />
-            Crop Your Avatar
+            {aspect === 1 ? 'Crop Your Avatar' : 'Crop Your Banner'}
           </DialogTitle>
         </DialogHeader>
 
@@ -180,8 +183,8 @@ export const ImageCropModal = ({
               crop={crop}
               onChange={(_, percentCrop) => setCrop(percentCrop)}
               onComplete={(c) => setCompletedCrop(c)}
-              aspect={1}
-              circularCrop
+              aspect={aspect}
+              circularCrop={aspect === 1}
               className="max-h-[300px]"
             >
               <img
