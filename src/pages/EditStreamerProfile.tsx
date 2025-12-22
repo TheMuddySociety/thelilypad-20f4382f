@@ -287,6 +287,38 @@ const EditStreamerProfile = () => {
     if (file) openCropModal(file);
   };
 
+  const handleRemoveAvatar = async () => {
+    if (!userId) return;
+
+    setUploading(true);
+    try {
+      // Try to delete existing avatar files
+      const { data: files } = await supabase.storage
+        .from('avatars')
+        .list(userId);
+
+      if (files && files.length > 0) {
+        const filesToDelete = files.map(f => `${userId}/${f.name}`);
+        await supabase.storage.from('avatars').remove(filesToDelete);
+      }
+
+      setAvatarUrl('');
+      toast({
+        title: "Avatar removed",
+        description: "Your profile picture has been removed."
+      });
+    } catch (error: any) {
+      console.error('Remove avatar error:', error);
+      toast({
+        title: "Failed to remove avatar",
+        description: error.message || "Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -369,7 +401,7 @@ const EditStreamerProfile = () => {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 space-y-2">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <label htmlFor="avatar-upload">
                         <input
                           id="avatar-upload"
@@ -390,6 +422,18 @@ const EditStreamerProfile = () => {
                           {uploading ? 'Uploading...' : 'Upload Image'}
                         </Button>
                       </label>
+                      {avatarUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          disabled={uploading}
+                          onClick={handleRemoveAvatar}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remove
+                        </Button>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {isDragging ? 'Drop your image here!' : 'Drag & drop or click to upload. JPG, PNG or GIF. Max 5MB.'}
