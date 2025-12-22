@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,7 +16,7 @@ import { motion } from "framer-motion";
 import { 
   User, ArrowLeft, Calendar, Clock, CheckCircle,
   Twitter, Youtube, MessageCircle, Instagram, Music2,
-  Users, Video, Eye, Sparkles, ExternalLink, Play, ImageIcon, Scissors, Film
+  Users, Video, Eye, Sparkles, ExternalLink, Play, ImageIcon, Scissors, Film, Pencil, Trash2
 } from "lucide-react";
 
 interface ScheduleItem {
@@ -65,6 +66,8 @@ interface Clip {
   description: string | null;
   thumbnail_url: string | null;
   clip_url: string | null;
+  stream_id: string | null;
+  start_time_seconds: number;
   duration_seconds: number;
   views: number;
   created_at: string;
@@ -89,8 +92,11 @@ const StreamerProfile = () => {
   const [recentStreams, setRecentStreams] = useState<RecentStream[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
   const [showClipModal, setShowClipModal] = useState(false);
+  const [editingClip, setEditingClip] = useState<Clip | null>(null);
+  const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const isOwnProfile = currentUserId === streamerId;
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -151,7 +157,7 @@ const StreamerProfile = () => {
       // Fetch clips
       const { data: clipsData } = await supabase
         .from('clips')
-        .select('id, title, description, thumbnail_url, clip_url, duration_seconds, views, created_at')
+        .select('id, title, description, thumbnail_url, clip_url, stream_id, start_time_seconds, duration_seconds, views, created_at')
         .eq('user_id', streamerId)
         .order('created_at', { ascending: false })
         .limit(6);
@@ -183,12 +189,45 @@ const StreamerProfile = () => {
     if (streamerId) {
       supabase
         .from('clips')
-        .select('id, title, description, thumbnail_url, clip_url, duration_seconds, views, created_at')
+        .select('id, title, description, thumbnail_url, clip_url, stream_id, start_time_seconds, duration_seconds, views, created_at')
         .eq('user_id', streamerId)
         .order('created_at', { ascending: false })
         .limit(6)
         .then(({ data }) => setClips(data || []));
     }
+  };
+
+  const handleEditClip = (clip: Clip) => {
+    setEditingClip(clip);
+    setShowClipModal(true);
+  };
+
+  const handleDeleteClip = async (clipId: string) => {
+    setDeletingClipId(clipId);
+    try {
+      const { error } = await supabase.from('clips').delete().eq('id', clipId);
+      if (error) throw error;
+      
+      setClips(prev => prev.filter(c => c.id !== clipId));
+      toast({
+        title: "Clip deleted",
+        description: "The clip has been removed.",
+      });
+    } catch (error) {
+      console.error("Error deleting clip:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete clip. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingClipId(null);
+    }
+  };
+
+  const handleCloseClipModal = () => {
+    setShowClipModal(false);
+    setEditingClip(null);
   };
 
   const socialLinks = [
@@ -628,54 +667,87 @@ const StreamerProfile = () => {
                   {clips.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {clips.map((clip, index) => (
-                        <motion.a
+                        <motion.div
                           key={clip.id}
-                          href={clip.clip_url || '#'}
-                          target={clip.clip_url ? "_blank" : undefined}
-                          rel="noopener noreferrer"
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.55 + index * 0.05 }}
-                          className="group block"
+                          className="group relative"
                         >
-                          <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/50 border border-border/50">
-                            {clip.thumbnail_url ? (
-                              <img 
-                                src={clip.thumbnail_url} 
-                                alt={clip.title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-muted">
-                                <Film className="h-10 w-10 text-primary/50" />
+                          <a
+                            href={clip.clip_url || '#'}
+                            target={clip.clip_url ? "_blank" : undefined}
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/50 border border-border/50">
+                              {clip.thumbnail_url ? (
+                                <img 
+                                  src={clip.thumbnail_url} 
+                                  alt={clip.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-muted">
+                                  <Film className="h-10 w-10 text-primary/50" />
+                                </div>
+                              )}
+                              
+                              {/* Gradient overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                              
+                              {/* Duration badge */}
+                              <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-primary/90 text-primary-foreground text-xs font-medium">
+                                {formatDuration(clip.duration_seconds)}
                               </div>
-                            )}
-                            
-                            {/* Gradient overlay */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                            
-                            {/* Duration badge */}
-                            <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-primary/90 text-primary-foreground text-xs font-medium">
-                              {formatDuration(clip.duration_seconds)}
-                            </div>
-                            
-                            {/* Clip icon badge */}
-                            <div className="absolute top-2 left-2 p-1.5 rounded-lg bg-black/50 backdrop-blur-sm">
-                              <Scissors className="h-3.5 w-3.5 text-white" />
-                            </div>
-                            
-                            {/* Play icon overlay */}
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <div className="p-3 rounded-full bg-primary/90 text-primary-foreground shadow-lg">
-                                <Play className="h-6 w-6 fill-current" />
+                              
+                              {/* Clip icon badge */}
+                              <div className="absolute top-2 left-2 p-1.5 rounded-lg bg-black/50 backdrop-blur-sm">
+                                <Scissors className="h-3.5 w-3.5 text-white" />
+                              </div>
+                              
+                              {/* Play icon overlay */}
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="p-3 rounded-full bg-primary/90 text-primary-foreground shadow-lg">
+                                  <Play className="h-6 w-6 fill-current" />
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          </a>
                           
                           <div className="mt-3 space-y-1">
-                            <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors">
-                              {clip.title}
-                            </h3>
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors flex-1">
+                                {clip.title}
+                              </h3>
+                              {isOwnProfile && (
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      handleEditClip(clip);
+                                    }}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      handleDeleteClip(clip.id);
+                                    }}
+                                    disabled={deletingClipId === clip.id}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                             {clip.description && (
                               <p className="text-xs text-muted-foreground line-clamp-1">
                                 {clip.description}
@@ -689,7 +761,7 @@ const StreamerProfile = () => {
                               <span>{formatDate(clip.created_at)}</span>
                             </div>
                           </div>
-                        </motion.a>
+                        </motion.div>
                       ))}
                     </div>
                   ) : (
@@ -718,13 +790,14 @@ const StreamerProfile = () => {
         </div>
       </main>
 
-      {/* Clip Creation Modal */}
+      {/* Clip Creation/Edit Modal */}
       {streamerId && (
         <ClipCreationModal
           open={showClipModal}
-          onOpenChange={setShowClipModal}
+          onOpenChange={handleCloseClipModal}
           userId={streamerId}
           onClipCreated={handleClipCreated}
+          editingClip={editingClip}
         />
       )}
     </div>

@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Scissors, Clock, Video, Loader2 } from "lucide-react";
+import { Scissors, Clock, Video, Loader2, Pencil } from "lucide-react";
 
 const clipSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(100, "Title must be less than 100 characters"),
@@ -52,11 +52,23 @@ interface Stream {
   started_at: string;
 }
 
+interface ClipData {
+  id: string;
+  title: string;
+  description: string | null;
+  stream_id: string | null;
+  start_time_seconds: number;
+  duration_seconds: number;
+  thumbnail_url: string | null;
+  clip_url: string | null;
+}
+
 interface ClipCreationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userId: string;
   onClipCreated?: () => void;
+  editingClip?: ClipData | null;
 }
 
 export const ClipCreationModal = ({
@@ -64,6 +76,7 @@ export const ClipCreationModal = ({
   onOpenChange,
   userId,
   onClipCreated,
+  editingClip,
 }: ClipCreationModalProps) => {
   const { toast } = useToast();
   const [streams, setStreams] = useState<Stream[]>([]);
@@ -88,6 +101,43 @@ export const ClipCreationModal = ({
       fetchStreams();
     }
   }, [open, userId]);
+
+  // Populate form when editing
+  useEffect(() => {
+    if (open && editingClip) {
+      form.reset({
+        title: editingClip.title,
+        description: editingClip.description || "",
+        stream_id: editingClip.stream_id || "",
+        start_time_seconds: editingClip.start_time_seconds,
+        duration_seconds: editingClip.duration_seconds,
+        thumbnail_url: editingClip.thumbnail_url || "",
+        clip_url: editingClip.clip_url || "",
+      });
+      // Find stream duration for editing
+      if (editingClip.stream_id) {
+        supabase
+          .from("streams")
+          .select("duration_seconds")
+          .eq("id", editingClip.stream_id)
+          .maybeSingle()
+          .then(({ data }) => {
+            setSelectedStreamDuration(data?.duration_seconds || null);
+          });
+      }
+    } else if (open && !editingClip) {
+      form.reset({
+        title: "",
+        description: "",
+        stream_id: "",
+        start_time_seconds: 0,
+        duration_seconds: 30,
+        thumbnail_url: "",
+        clip_url: "",
+      });
+      setSelectedStreamDuration(null);
+    }
+  }, [open, editingClip, form]);
 
   const fetchStreams = async () => {
     const { data, error } = await supabase
@@ -135,32 +185,56 @@ export const ClipCreationModal = ({
     setLoading(true);
 
     try {
-      const { error } = await supabase.from("clips").insert({
-        user_id: userId,
-        stream_id: data.stream_id,
-        title: data.title,
-        description: data.description || null,
-        start_time_seconds: data.start_time_seconds,
-        duration_seconds: data.duration_seconds,
-        thumbnail_url: data.thumbnail_url || null,
-        clip_url: data.clip_url || null,
-      });
+      if (editingClip) {
+        // Update existing clip
+        const { error } = await supabase
+          .from("clips")
+          .update({
+            stream_id: data.stream_id,
+            title: data.title,
+            description: data.description || null,
+            start_time_seconds: data.start_time_seconds,
+            duration_seconds: data.duration_seconds,
+            thumbnail_url: data.thumbnail_url || null,
+            clip_url: data.clip_url || null,
+          })
+          .eq("id", editingClip.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: "Clip created!",
-        description: "Your highlight clip has been saved successfully.",
-      });
+        toast({
+          title: "Clip updated!",
+          description: "Your changes have been saved.",
+        });
+      } else {
+        // Create new clip
+        const { error } = await supabase.from("clips").insert({
+          user_id: userId,
+          stream_id: data.stream_id,
+          title: data.title,
+          description: data.description || null,
+          start_time_seconds: data.start_time_seconds,
+          duration_seconds: data.duration_seconds,
+          thumbnail_url: data.thumbnail_url || null,
+          clip_url: data.clip_url || null,
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: "Clip created!",
+          description: "Your highlight clip has been saved successfully.",
+        });
+      }
 
       form.reset();
       onOpenChange(false);
       onClipCreated?.();
     } catch (error) {
-      console.error("Error creating clip:", error);
+      console.error("Error saving clip:", error);
       toast({
         title: "Error",
-        description: "Failed to create clip. Please try again.",
+        description: `Failed to ${editingClip ? "update" : "create"} clip. Please try again.`,
         variant: "destructive",
       });
     } finally {
@@ -177,11 +251,23 @@ export const ClipCreationModal = ({
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Scissors className="h-5 w-5 text-primary" />
-            Create Clip
+            {editingClip ? (
+              <>
+                <Pencil className="h-5 w-5 text-primary" />
+                Edit Clip
+              </>
+            ) : (
+              <>
+                <Scissors className="h-5 w-5 text-primary" />
+                Create Clip
+              </>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Create a highlight clip from one of your past broadcasts.
+            {editingClip 
+              ? "Update your clip details and timestamps."
+              : "Create a highlight clip from one of your past broadcasts."
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -384,12 +470,21 @@ export const ClipCreationModal = ({
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
+                    {editingClip ? "Saving..." : "Creating..."}
                   </>
                 ) : (
                   <>
-                    <Scissors className="h-4 w-4 mr-2" />
-                    Create Clip
+                    {editingClip ? (
+                      <>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Save Changes
+                      </>
+                    ) : (
+                      <>
+                        <Scissors className="h-4 w-4 mr-2" />
+                        Create Clip
+                      </>
+                    )}
                   </>
                 )}
               </Button>
