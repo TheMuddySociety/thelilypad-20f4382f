@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -99,6 +99,8 @@ const StreamerProfile = () => {
   const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [bannerLoaded, setBannerLoaded] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+  const bannerRef = useRef<HTMLDivElement>(null);
   const isOwnProfile = currentUserId === streamerId;
   const { toast } = useToast();
 
@@ -187,6 +189,22 @@ const StreamerProfile = () => {
     fetchProfile();
     checkCurrentUser();
   }, [streamerId]);
+
+  // Parallax scroll effect
+  useEffect(() => {
+    const handleScroll = () => {
+      if (bannerRef.current) {
+        const rect = bannerRef.current.getBoundingClientRect();
+        // Only update when banner is visible
+        if (rect.bottom > 0) {
+          setScrollY(window.scrollY);
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleClipCreated = () => {
     // Refetch clips
@@ -316,16 +334,20 @@ const StreamerProfile = () => {
             transition={{ delay: 0.1 }}
           >
             <Card className="border-0 bg-gradient-to-br from-primary/10 via-card to-card overflow-hidden relative">
-              {/* Banner Image */}
+              {/* Banner Image with Parallax */}
               {profile?.banner_url ? (
-                <div className="relative h-48 md:h-64 w-full overflow-hidden">
+                <div ref={bannerRef} className="relative h-48 md:h-64 w-full overflow-hidden">
                   {!bannerLoaded && (
                     <Skeleton className="absolute inset-0 w-full h-full" />
                   )}
                   <img
                     src={profile.banner_url}
                     alt="Profile banner"
-                    className={`w-full h-full object-cover transition-opacity duration-300 ${bannerLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    className={`w-full h-[120%] object-cover transition-opacity duration-300 ${bannerLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    style={{ 
+                      transform: `translateY(${scrollY * 0.3}px)`,
+                      willChange: 'transform'
+                    }}
                     onLoad={() => setBannerLoaded(true)}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
