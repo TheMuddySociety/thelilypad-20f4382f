@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DonorLeaderboard } from "@/components/DonorLeaderboard";
 import { TipButton } from "@/components/TipButton";
 import { FollowButton } from "@/components/FollowButton";
+import { ClipCreationModal } from "@/components/ClipCreationModal";
 import { motion } from "framer-motion";
 import { 
   User, ArrowLeft, Calendar, Clock, CheckCircle,
@@ -87,6 +88,9 @@ const StreamerProfile = () => {
   const [stats, setStats] = useState<StreamerStats>({ followerCount: 0, totalStreams: 0, totalViews: 0, isLive: false });
   const [recentStreams, setRecentStreams] = useState<RecentStream[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
+  const [showClipModal, setShowClipModal] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const isOwnProfile = currentUserId === streamerId;
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -165,8 +169,27 @@ const StreamerProfile = () => {
       setLoading(false);
     };
 
+    const checkCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    };
+
     fetchProfile();
+    checkCurrentUser();
   }, [streamerId]);
+
+  const handleClipCreated = () => {
+    // Refetch clips
+    if (streamerId) {
+      supabase
+        .from('clips')
+        .select('id, title, description, thumbnail_url, clip_url, duration_seconds, views, created_at')
+        .eq('user_id', streamerId)
+        .order('created_at', { ascending: false })
+        .limit(6)
+        .then(({ data }) => setClips(data || []));
+    }
+  };
 
   const socialLinks = [
     { key: 'twitter' as const, url: profile?.social_twitter },
@@ -577,92 +600,133 @@ const StreamerProfile = () => {
           )}
 
           {/* Clips/Highlights */}
-          {clips.length > 0 && (
+          {(clips.length > 0 || isOwnProfile) && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
             >
               <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-xl">
                     <Scissors className="h-5 w-5 text-primary" />
                     Highlights & Clips
                   </CardTitle>
+                  {isOwnProfile && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowClipModal(true)}
+                      className="gap-2"
+                    >
+                      <Scissors className="h-4 w-4" />
+                      Create Clip
+                    </Button>
+                  )}
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {clips.map((clip, index) => (
-                      <motion.a
-                        key={clip.id}
-                        href={clip.clip_url || '#'}
-                        target={clip.clip_url ? "_blank" : undefined}
-                        rel="noopener noreferrer"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.55 + index * 0.05 }}
-                        className="group block"
-                      >
-                        <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/50 border border-border/50">
-                          {clip.thumbnail_url ? (
-                            <img 
-                              src={clip.thumbnail_url} 
-                              alt={clip.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-muted">
-                              <Film className="h-10 w-10 text-primary/50" />
+                  {clips.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {clips.map((clip, index) => (
+                        <motion.a
+                          key={clip.id}
+                          href={clip.clip_url || '#'}
+                          target={clip.clip_url ? "_blank" : undefined}
+                          rel="noopener noreferrer"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.55 + index * 0.05 }}
+                          className="group block"
+                        >
+                          <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/50 border border-border/50">
+                            {clip.thumbnail_url ? (
+                              <img 
+                                src={clip.thumbnail_url} 
+                                alt={clip.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-muted">
+                                <Film className="h-10 w-10 text-primary/50" />
+                              </div>
+                            )}
+                            
+                            {/* Gradient overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                            
+                            {/* Duration badge */}
+                            <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-primary/90 text-primary-foreground text-xs font-medium">
+                              {formatDuration(clip.duration_seconds)}
                             </div>
-                          )}
-                          
-                          {/* Gradient overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                          
-                          {/* Duration badge */}
-                          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-primary/90 text-primary-foreground text-xs font-medium">
-                            {formatDuration(clip.duration_seconds)}
-                          </div>
-                          
-                          {/* Clip icon badge */}
-                          <div className="absolute top-2 left-2 p-1.5 rounded-lg bg-black/50 backdrop-blur-sm">
-                            <Scissors className="h-3.5 w-3.5 text-white" />
-                          </div>
-                          
-                          {/* Play icon overlay */}
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="p-3 rounded-full bg-primary/90 text-primary-foreground shadow-lg">
-                              <Play className="h-6 w-6 fill-current" />
+                            
+                            {/* Clip icon badge */}
+                            <div className="absolute top-2 left-2 p-1.5 rounded-lg bg-black/50 backdrop-blur-sm">
+                              <Scissors className="h-3.5 w-3.5 text-white" />
+                            </div>
+                            
+                            {/* Play icon overlay */}
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="p-3 rounded-full bg-primary/90 text-primary-foreground shadow-lg">
+                                <Play className="h-6 w-6 fill-current" />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        
-                        <div className="mt-3 space-y-1">
-                          <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors">
-                            {clip.title}
-                          </h3>
-                          {clip.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1">
-                              {clip.description}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Eye className="h-3 w-3" />
-                              {formatNumber(clip.views)} views
-                            </span>
-                            <span>{formatDate(clip.created_at)}</span>
+                          
+                          <div className="mt-3 space-y-1">
+                            <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors">
+                              {clip.title}
+                            </h3>
+                            {clip.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {clip.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Eye className="h-3 w-3" />
+                                {formatNumber(clip.views)} views
+                              </span>
+                              <span>{formatDate(clip.created_at)}</span>
+                            </div>
                           </div>
-                        </div>
-                      </motion.a>
-                    ))}
-                  </div>
+                        </motion.a>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <div className="p-4 rounded-full bg-muted/30 w-fit mx-auto mb-4">
+                        <Scissors className="h-10 w-10 opacity-50" />
+                      </div>
+                      <p className="font-medium mb-1">No clips yet</p>
+                      <p className="text-sm mb-4">Create highlights from your past broadcasts!</p>
+                      {isOwnProfile && (
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowClipModal(true)}
+                          className="gap-2"
+                        >
+                          <Scissors className="h-4 w-4" />
+                          Create Your First Clip
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
           )}
         </div>
       </main>
+
+      {/* Clip Creation Modal */}
+      {streamerId && (
+        <ClipCreationModal
+          open={showClipModal}
+          onOpenChange={setShowClipModal}
+          userId={streamerId}
+          onClipCreated={handleClipCreated}
+        />
+      )}
     </div>
   );
 };
