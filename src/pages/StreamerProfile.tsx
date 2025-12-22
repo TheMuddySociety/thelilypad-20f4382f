@@ -14,7 +14,7 @@ import { motion } from "framer-motion";
 import { 
   User, ArrowLeft, Calendar, Clock, CheckCircle,
   Twitter, Youtube, MessageCircle, Instagram, Music2,
-  Users, Video, Eye, Sparkles, ExternalLink, Play, ImageIcon
+  Users, Video, Eye, Sparkles, ExternalLink, Play, ImageIcon, Scissors, Film
 } from "lucide-react";
 
 interface ScheduleItem {
@@ -58,6 +58,17 @@ interface RecentStream {
   duration_seconds: number | null;
 }
 
+interface Clip {
+  id: string;
+  title: string;
+  description: string | null;
+  thumbnail_url: string | null;
+  clip_url: string | null;
+  duration_seconds: number;
+  views: number;
+  created_at: string;
+}
+
 const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const socialConfig = {
@@ -75,6 +86,7 @@ const StreamerProfile = () => {
   const [profile, setProfile] = useState<StreamerProfileData | null>(null);
   const [stats, setStats] = useState<StreamerStats>({ followerCount: 0, totalStreams: 0, totalViews: 0, isLive: false });
   const [recentStreams, setRecentStreams] = useState<RecentStream[]>([]);
+  const [clips, setClips] = useState<Clip[]>([]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -131,6 +143,16 @@ const StreamerProfile = () => {
       // Get past broadcasts (not live, limit to 6)
       const pastStreams = streams?.filter(s => !s.is_live).slice(0, 6) || [];
       setRecentStreams(pastStreams);
+
+      // Fetch clips
+      const { data: clipsData } = await supabase
+        .from('clips')
+        .select('id, title, description, thumbnail_url, clip_url, duration_seconds, views, created_at')
+        .eq('user_id', streamerId)
+        .order('created_at', { ascending: false })
+        .limit(6);
+      
+      setClips(clipsData || []);
 
       setStats({
         followerCount: followerCount || 0,
@@ -547,6 +569,92 @@ const StreamerProfile = () => {
                           )}
                         </div>
                       </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Clips/Highlights */}
+          {clips.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Scissors className="h-5 w-5 text-primary" />
+                    Highlights & Clips
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {clips.map((clip, index) => (
+                      <motion.a
+                        key={clip.id}
+                        href={clip.clip_url || '#'}
+                        target={clip.clip_url ? "_blank" : undefined}
+                        rel="noopener noreferrer"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.55 + index * 0.05 }}
+                        className="group block"
+                      >
+                        <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/50 border border-border/50">
+                          {clip.thumbnail_url ? (
+                            <img 
+                              src={clip.thumbnail_url} 
+                              alt={clip.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-muted">
+                              <Film className="h-10 w-10 text-primary/50" />
+                            </div>
+                          )}
+                          
+                          {/* Gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                          
+                          {/* Duration badge */}
+                          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-primary/90 text-primary-foreground text-xs font-medium">
+                            {formatDuration(clip.duration_seconds)}
+                          </div>
+                          
+                          {/* Clip icon badge */}
+                          <div className="absolute top-2 left-2 p-1.5 rounded-lg bg-black/50 backdrop-blur-sm">
+                            <Scissors className="h-3.5 w-3.5 text-white" />
+                          </div>
+                          
+                          {/* Play icon overlay */}
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="p-3 rounded-full bg-primary/90 text-primary-foreground shadow-lg">
+                              <Play className="h-6 w-6 fill-current" />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 space-y-1">
+                          <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors">
+                            {clip.title}
+                          </h3>
+                          {clip.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-1">
+                              {clip.description}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-3 w-3" />
+                              {formatNumber(clip.views)} views
+                            </span>
+                            <span>{formatDate(clip.created_at)}</span>
+                          </div>
+                        </div>
+                      </motion.a>
                     ))}
                   </div>
                 </CardContent>

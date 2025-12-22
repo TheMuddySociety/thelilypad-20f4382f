@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      clips: {
+        Row: {
+          clip_url: string | null
+          created_at: string
+          description: string | null
+          duration_seconds: number
+          id: string
+          start_time_seconds: number
+          stream_id: string | null
+          thumbnail_url: string | null
+          title: string
+          user_id: string
+          views: number
+        }
+        Insert: {
+          clip_url?: string | null
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number
+          id?: string
+          start_time_seconds?: number
+          stream_id?: string | null
+          thumbnail_url?: string | null
+          title: string
+          user_id: string
+          views?: number
+        }
+        Update: {
+          clip_url?: string | null
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number
+          id?: string
+          start_time_seconds?: number
+          stream_id?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          user_id?: string
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clips_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       earnings: {
         Row: {
           amount: number
