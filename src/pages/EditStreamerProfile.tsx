@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { ImageCropModal } from "@/components/ImageCropModal";
 
 interface ScheduleItem {
   day: string;
@@ -44,6 +45,8 @@ const EditStreamerProfile = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   
   const [displayName, setDisplayName] = useState("");
@@ -188,10 +191,7 @@ const EditStreamerProfile = () => {
     }
   };
 
-  const processAvatarFile = async (file: File) => {
-    if (!userId) return;
-
-    // Validate file type
+  const openCropModal = (file: File) => {
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Invalid file type",
@@ -201,7 +201,6 @@ const EditStreamerProfile = () => {
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast({
         title: "File too large",
@@ -211,25 +210,39 @@ const EditStreamerProfile = () => {
       return;
     }
 
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedImageSrc(reader.result as string);
+      setCropModalOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCroppedImage = async (croppedBlob: Blob) => {
+    if (!userId) return;
+
+    setCropModalOpen(false);
+    setSelectedImageSrc(null);
     setUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}/avatar.${fileExt}`;
+      const fileName = `${userId}/avatar.jpg`;
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, croppedBlob, { 
+          upsert: true,
+          contentType: 'image/jpeg'
+        });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(fileName);
 
-      setAvatarUrl(publicUrl);
+      // Add timestamp to bust cache
+      setAvatarUrl(`${publicUrl}?t=${Date.now()}`);
       toast({
         title: "Avatar uploaded!",
         description: "Your profile picture has been updated."
@@ -246,9 +259,11 @@ const EditStreamerProfile = () => {
     }
   };
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) processAvatarFile(file);
+    if (file) openCropModal(file);
+    // Reset input so same file can be selected again
+    event.target.value = '';
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -269,7 +284,7 @@ const EditStreamerProfile = () => {
     setIsDragging(false);
 
     const file = e.dataTransfer.files?.[0];
-    if (file) processAvatarFile(file);
+    if (file) openCropModal(file);
   };
 
   if (loading) {
@@ -535,6 +550,19 @@ const EditStreamerProfile = () => {
           </Card>
         </div>
       </main>
+
+      {/* Image Crop Modal */}
+      {selectedImageSrc && (
+        <ImageCropModal
+          isOpen={cropModalOpen}
+          onClose={() => {
+            setCropModalOpen(false);
+            setSelectedImageSrc(null);
+          }}
+          imageSrc={selectedImageSrc}
+          onCropComplete={handleCroppedImage}
+        />
+      )}
     </div>
   );
 };
