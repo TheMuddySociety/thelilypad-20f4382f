@@ -17,6 +17,7 @@ import EditStreamerProfile from "./pages/EditStreamerProfile";
 import Following from "./pages/Following";
 import ClipViewer from "./pages/ClipViewer";
 import Moderation from "./pages/Moderation";
+import Launchpad from "./pages/Launchpad";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/following" element={<Following />} />
             <Route path="/clip/:clipId" element={<ClipViewer />} />
             <Route path="/moderation" element={<Moderation />} />
+            <Route path="/launchpad" element={<Launchpad />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
