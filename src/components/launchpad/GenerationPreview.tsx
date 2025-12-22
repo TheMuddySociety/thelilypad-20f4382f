@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Shuffle, Eye, Download, Sparkles, Info } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon } from "lucide-react";
 import { Layer, Trait } from "./LayerManager";
 import { TraitRule, RuleType } from "./TraitRulesManager";
+import { NFTImageCompositor } from "./NFTImageCompositor";
 
 interface GenerationPreviewProps {
   layers: Layer[];
@@ -146,6 +148,9 @@ export function GenerationPreview({
 
   const rareTraits = rarityStats.slice(0, 5);
 
+  // Check if any layer has images
+  const hasAnyImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
+
   return (
     <div className="space-y-4">
       <div>
@@ -221,62 +226,85 @@ export function GenerationPreview({
         </CardContent>
       </Card>
 
-      {/* Generate Previews */}
-      <div className="flex items-center gap-3">
-        <Input
-          type="number"
-          value={previewCount}
-          onChange={(e) => setPreviewCount(e.target.value)}
-          min="1"
-          max="20"
-          className="w-20"
-        />
-        <Button onClick={generatePreviews} className="flex-1">
-          <Shuffle className="w-4 h-4 mr-2" />
-          Generate {previewCount} Previews
-        </Button>
-      </div>
+      {/* Tabbed Preview Section */}
+      <Tabs defaultValue={hasAnyImages ? "visual" : "text"} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="text" className="gap-2">
+            <Shuffle className="w-4 h-4" />
+            Text Preview
+          </TabsTrigger>
+          <TabsTrigger value="visual" className="gap-2">
+            <ImageIcon className="w-4 h-4" />
+            Visual Preview
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Preview Results */}
-      {generatedPreviews.length > 0 && (
-        <ScrollArea className="h-[250px]">
-          <div className="space-y-2">
-            {generatedPreviews.map((nft) => (
-              <Card key={nft.id} className="overflow-hidden">
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg flex items-center justify-center text-lg font-bold">
-                      #{nft.id}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex flex-wrap gap-1">
-                        {nft.traits.map((trait, i) => (
-                          <Badge
-                            key={i}
-                            variant="secondary"
-                            className="text-xs"
-                          >
-                            {trait.layerName}: {trait.traitName}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+        <TabsContent value="text" className="mt-4 space-y-4">
+          {/* Generate Previews */}
+          <div className="flex items-center gap-3">
+            <Input
+              type="number"
+              value={previewCount}
+              onChange={(e) => setPreviewCount(e.target.value)}
+              min="1"
+              max="20"
+              className="w-20"
+            />
+            <Button onClick={generatePreviews} className="flex-1">
+              <Shuffle className="w-4 h-4 mr-2" />
+              Generate {previewCount} Previews
+            </Button>
           </div>
-        </ScrollArea>
-      )}
 
-      {generatedPreviews.length === 0 && layers.length > 0 && (
-        <div className="text-center py-6 border border-dashed rounded-lg">
-          <Info className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">
-            Click generate to preview NFT combinations
-          </p>
-        </div>
-      )}
+          {/* Preview Results */}
+          {generatedPreviews.length > 0 && (
+            <ScrollArea className="h-[200px]">
+              <div className="space-y-2">
+                {generatedPreviews.map((nft) => (
+                  <Card key={nft.id} className="overflow-hidden">
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg flex items-center justify-center text-lg font-bold">
+                          #{nft.id}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex flex-wrap gap-1">
+                            {nft.traits.map((trait, i) => (
+                              <Badge
+                                key={i}
+                                variant="secondary"
+                                className="text-xs"
+                              >
+                                {trait.layerName}: {trait.traitName}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+
+          {generatedPreviews.length === 0 && layers.length > 0 && (
+            <div className="text-center py-6 border border-dashed rounded-lg">
+              <Info className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                Click generate to preview NFT combinations
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="visual" className="mt-4">
+          <NFTImageCompositor
+            layers={layers}
+            rules={rules}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
