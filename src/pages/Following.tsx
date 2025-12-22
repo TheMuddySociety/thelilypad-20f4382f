@@ -19,17 +19,43 @@ type StreamerWithStatus = StreamerProfile & { is_live: boolean; followed_at?: st
 
 type SortOption = "live" | "name" | "recent";
 
+const STORAGE_KEY = "following-filters";
+
+const getStoredFilters = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // Ignore parsing errors
+  }
+  return null;
+};
+
 const Following = () => {
+  const storedFilters = getStoredFilters();
+  
   const [followedStreamers, setFollowedStreamers] = useState<StreamerWithStatus[]>([]);
   const [recommendedStreamers, setRecommendedStreamers] = useState<StreamerWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<SortOption>("live");
+  const [selectedCategory, setSelectedCategory] = useState<string>(storedFilters?.category || "all");
+  const [sortBy, setSortBy] = useState<SortOption>(storedFilters?.sortBy || "live");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [liveOnly, setLiveOnly] = useState<boolean>(false);
+  const [liveOnly, setLiveOnly] = useState<boolean>(storedFilters?.liveOnly || false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  // Persist filter preferences to localStorage
+  useEffect(() => {
+    const filters = {
+      category: selectedCategory,
+      sortBy,
+      liveOnly,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+  }, [selectedCategory, sortBy, liveOnly]);
 
   // Keyboard shortcuts for search
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
