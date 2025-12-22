@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package } from "lucide-react";
-import { Layer, Trait } from "./LayerManager";
+import { Progress } from "@/components/ui/progress";
+import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive } from "lucide-react";
+import { Layer, Trait, BlendMode } from "./LayerManager";
 import { TraitRule, RuleType } from "./TraitRulesManager";
 import { NFTImageCompositor } from "./NFTImageCompositor";
 import { toast } from "sonner";
@@ -22,7 +23,11 @@ interface GenerationPreviewProps {
 
 interface GeneratedNFT {
   id: number;
-  traits: { layerId: string; layerName: string; traitId: string; traitName: string; imageUrl?: string }[];
+  traits: { layerId: string; layerName: string; traitId: string; traitName: string; imageUrl?: string; blendMode?: BlendMode; opacity?: number }[];
+}
+
+interface GeneratedNFTWithImage extends GeneratedNFT {
+  imageDataUrl?: string;
 }
 
 interface NFTMetadata {
@@ -46,6 +51,9 @@ export function GenerationPreview({
   const [previewCount, setPreviewCount] = useState("5");
   const [generatedPreviews, setGeneratedPreviews] = useState<GeneratedNFT[]>([]);
   const [exportCount, setExportCount] = useState(totalSupply || "100");
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportStatus, setExportStatus] = useState("");
 
   const selectTraitForLayer = (
     layer: Layer,
@@ -134,6 +142,8 @@ export function GenerationPreview({
               traitId: trait.id,
               traitName: trait.name,
               imageUrl: trait.imageUrl,
+              blendMode: layer.blendMode,
+              opacity: layer.opacity,
             });
           }
         }
@@ -149,6 +159,171 @@ export function GenerationPreview({
     const count = parseInt(previewCount) || 5;
     const previews = generateNFTBatch(count);
     setGeneratedPreviews(previews);
+  };
+
+  // Load image helper
+  const loadImage = (src: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  };
+
+  // Composite a single NFT image
+  const compositeNFTImage = async (nft: GeneratedNFT, canvasSize: number = 512): Promise<string | null> => {
+    const hasImages = nft.traits.some((t) => t.imageUrl);
+    if (!hasImages) return null;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) throw new Error("Could not get canvas context");
+
+    ctx.clearRect(0, 0, canvasSize, canvasSize);
+
+    for (const trait of nft.traits) {
+      if (trait.imageUrl) {
+        try {
+          const img = await loadImage(trait.imageUrl);
+          ctx.save();
+          ctx.globalCompositeOperation = trait.blendMode || "source-over";
+          ctx.globalAlpha = (trait.opacity ?? 100) / 100;
+          ctx.drawImage(img, 0, 0, canvasSize, canvasSize);
+          ctx.restore();
+        } catch (error) {
+          console.warn(`Failed to load image for trait: ${trait.traitName}`, error);
+        }
+      }
+    }
+
+    return canvas.toDataURL("image/png");
+  };
+
+  // Export images with metadata
+  const exportImagesWithMetadata = async () => {
+    const count = Math.min(parseInt(exportCount) || 10, 100); // Limit to 100 for browser
+    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
+    
+    if (!hasImages) {
+      toast.error("No images found. Add images to your traits first.");
+      return;
+    }
+
+    setIsExporting(true);
+    setExportProgress(0);
+    setExportStatus("Generating NFTs...");
+
+    try {
+      const nfts = generateNFTBatch(count);
+      const results: { id: number; imageDataUrl: string; metadata: NFTMetadata }[] = [];
+
+      for (let i = 0; i < nfts.length; i++) {
+        setExportStatus(`Compositing image ${i + 1} of ${count}...`);
+        setExportProgress(((i + 1) / count) * 80);
+
+        const imageDataUrl = await compositeNFTImage(nfts[i]);
+        if (imageDataUrl) {
+          results.push({
+            id: nfts[i].id,
+            imageDataUrl,
+            metadata: nftToMetadata(nfts[i]),
+          });
+        }
+
+        // Small delay to prevent browser freeze
+        await new Promise((r) => setTimeout(r, 10));
+      }
+
+      setExportStatus("Preparing download...");
+      setExportProgress(90);
+
+      // Create export package
+      const exportPackage = {
+        collection: {
+          name: collectionName,
+          description: collectionDescription,
+          total_generated: results.length,
+          generated_at: new Date().toISOString(),
+        },
+        nfts: results.map((r) => ({
+          id: r.id,
+          metadata: r.metadata,
+          image_data: r.imageDataUrl,
+        })),
+      };
+
+      const blob = new Blob([JSON.stringify(exportPackage, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-full-export.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setExportProgress(100);
+      setExportStatus("Complete!");
+      toast.success(`Exported ${results.length} NFTs with images and metadata`);
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Export failed. Please try again.");
+    } finally {
+      setTimeout(() => {
+        setIsExporting(false);
+        setExportProgress(0);
+        setExportStatus("");
+      }, 1500);
+    }
+  };
+
+  // Download individual images
+  const downloadIndividualImages = async () => {
+    const count = Math.min(parseInt(exportCount) || 10, 20); // Limit to 20 for individual downloads
+    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
+    
+    if (!hasImages) {
+      toast.error("No images found. Add images to your traits first.");
+      return;
+    }
+
+    setIsExporting(true);
+    setExportProgress(0);
+    setExportStatus("Generating images...");
+
+    try {
+      const nfts = generateNFTBatch(count);
+
+      for (let i = 0; i < nfts.length; i++) {
+        setExportStatus(`Downloading image ${i + 1} of ${count}...`);
+        setExportProgress(((i + 1) / count) * 100);
+
+        const imageDataUrl = await compositeNFTImage(nfts[i]);
+        if (imageDataUrl) {
+          const link = document.createElement("a");
+          link.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-${nfts[i].id}.png`;
+          link.href = imageDataUrl;
+          link.click();
+          
+          // Delay between downloads
+          await new Promise((r) => setTimeout(r, 300));
+        }
+      }
+
+      toast.success(`Downloaded ${count} NFT images`);
+    } catch (error) {
+      console.error("Download failed:", error);
+      toast.error("Download failed. Please try again.");
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+      setExportStatus("");
+    }
   };
 
   // Convert generated NFT to ERC-721 metadata format
@@ -419,19 +594,28 @@ export function GenerationPreview({
         </TabsContent>
 
         <TabsContent value="export" className="mt-4 space-y-4">
+          {/* Export Progress */}
+          {isExporting && (
+            <Card className="border-primary/50 bg-primary/5">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-sm font-medium">{exportStatus}</span>
+                </div>
+                <Progress value={exportProgress} className="h-2" />
+                <p className="text-xs text-muted-foreground mt-2">
+                  {Math.round(exportProgress)}% complete
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Export Settings */}
           <Card>
             <CardHeader className="py-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <FileJson className="w-4 h-4" />
-                Export Metadata for IPFS
-              </CardTitle>
+              <CardTitle className="text-sm">Export Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Generate and export ERC-721 compatible metadata JSON files for your NFT collection.
-                Upload these to IPFS to use with your smart contract.
-              </p>
-
               <div className="space-y-2">
                 <Label className="text-sm">Number of NFTs to Generate</Label>
                 <div className="flex items-center gap-3">
@@ -442,31 +626,92 @@ export function GenerationPreview({
                     min="1"
                     max="10000"
                     className="w-32"
+                    disabled={isExporting}
                   />
                   <span className="text-sm text-muted-foreground">
                     / {totalSupply} total supply
                   </span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Image Export */}
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Images className="w-4 h-4" />
+                Export Images + Metadata
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Generate composited NFT images with ERC-721 metadata. Images are rendered from your layer traits.
+              </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button onClick={exportAllMetadata} variant="default" className="gap-2">
-                  <Package className="w-4 h-4" />
-                  Export Collection Bundle
+                <Button 
+                  onClick={exportImagesWithMetadata} 
+                  disabled={isExporting || !hasAnyImages}
+                  className="gap-2"
+                >
+                  {isExporting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FolderArchive className="w-4 h-4" />
+                  )}
+                  Full Export (Images + JSON)
                 </Button>
-                <Button onClick={exportIndividualFiles} variant="outline" className="gap-2">
-                  <FileJson className="w-4 h-4" />
-                  Export Individual Files
+                <Button 
+                  onClick={downloadIndividualImages} 
+                  variant="outline"
+                  disabled={isExporting || !hasAnyImages}
+                  className="gap-2"
+                >
+                  <Images className="w-4 h-4" />
+                  Download Images Only
                 </Button>
               </div>
 
+              {!hasAnyImages && (
+                <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                  ⚠️ Add images to your traits to enable image export
+                </p>
+              )}
+
               <div className="pt-3 border-t">
-                <p className="text-xs text-muted-foreground mb-2">
-                  <strong>Collection Bundle:</strong> Single JSON file with all metadata, ideal for processing.
+                <p className="text-xs text-muted-foreground mb-1">
+                  <strong>Full Export:</strong> JSON file with all metadata + embedded base64 images (up to 100 NFTs)
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  <strong>Individual Files:</strong> Array of metadata objects with filenames, ready for IPFS folder upload.
+                  <strong>Download Images:</strong> Individual PNG files downloaded to your device (up to 20)
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Metadata Only Export */}
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FileJson className="w-4 h-4" />
+                Export Metadata Only
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Export ERC-721 compatible metadata JSON without images. Use when you have images hosted elsewhere.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Button onClick={exportAllMetadata} variant="outline" disabled={isExporting} className="gap-2">
+                  <Package className="w-4 h-4" />
+                  Collection Bundle
+                </Button>
+                <Button onClick={exportIndividualFiles} variant="outline" disabled={isExporting} className="gap-2">
+                  <FileJson className="w-4 h-4" />
+                  Individual Files
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -481,7 +726,7 @@ export function GenerationPreview({
             </CardHeader>
             <CardContent>
               {layers.length > 0 && layers.some((l) => l.traits.length > 0) ? (
-                <pre className="text-xs bg-muted/50 p-3 rounded-lg overflow-x-auto">
+                <pre className="text-xs bg-muted/50 p-3 rounded-lg overflow-x-auto max-h-48">
                   {JSON.stringify(
                     nftToMetadata(generateNFTBatch(1)[0] || { id: 1, traits: [] }),
                     null,
