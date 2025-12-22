@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Popover,
   PopoverContent,
@@ -18,6 +19,19 @@ interface ClipShareMenuProps {
   clipUrl?: string | null;
   streamerName?: string;
 }
+
+// Track share/embed events
+const trackEvent = async (clipId: string, eventType: string, platform?: string) => {
+  try {
+    await supabase.from("clip_events").insert({
+      clip_id: clipId,
+      event_type: eventType,
+      platform: platform,
+    });
+  } catch (error) {
+    console.error("Error tracking event:", error);
+  }
+};
 
 export const ClipShareMenu = ({
   clipId,
@@ -52,6 +66,7 @@ export const ClipShareMenu = ({
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
+      trackEvent(clipId, "share", "link");
       toast({
         title: "Link copied!",
         description: "The clip link has been copied to your clipboard.",
@@ -71,6 +86,7 @@ export const ClipShareMenu = ({
     try {
       await navigator.clipboard.writeText(embedCode);
       setEmbedCopied(true);
+      trackEvent(clipId, "embed_copy");
       toast({
         title: "Embed code copied!",
         description: "Paste this code into your website to embed the clip.",
@@ -89,23 +105,27 @@ export const ClipShareMenu = ({
   const shareToTwitter = () => {
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
     window.open(url, "_blank", "width=550,height=420");
+    trackEvent(clipId, "share", "twitter");
     setOpen(false);
   };
 
   const shareToFacebook = () => {
     const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`;
     window.open(url, "_blank", "width=550,height=420");
+    trackEvent(clipId, "share", "facebook");
     setOpen(false);
   };
 
   const shareToReddit = () => {
     const url = `https://reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(shareText)}`;
     window.open(url, "_blank", "width=550,height=420");
+    trackEvent(clipId, "share", "reddit");
     setOpen(false);
   };
 
   const shareToDiscord = () => {
     navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+    trackEvent(clipId, "share", "discord");
     toast({
       title: "Copied for Discord!",
       description: "Paste the link in your Discord chat.",

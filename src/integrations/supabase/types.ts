@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      clip_events: {
+        Row: {
+          clip_id: string
+          created_at: string
+          event_type: string
+          id: string
+          platform: string | null
+          viewer_id: string | null
+        }
+        Insert: {
+          clip_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          platform?: string | null
+          viewer_id?: string | null
+        }
+        Update: {
+          clip_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          platform?: string | null
+          viewer_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clip_events_clip_id_fkey"
+            columns: ["clip_id"]
+            isOneToOne: false
+            referencedRelation: "clips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clips: {
         Row: {
           clip_url: string | null

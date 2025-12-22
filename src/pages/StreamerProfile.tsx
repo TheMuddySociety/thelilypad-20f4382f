@@ -13,6 +13,7 @@ import { TipButton } from "@/components/TipButton";
 import { FollowButton } from "@/components/FollowButton";
 import { ClipCreationModal } from "@/components/ClipCreationModal";
 import { ClipShareMenu } from "@/components/ClipShareMenu";
+import { ClipAnalytics } from "@/components/ClipAnalytics";
 import { motion } from "framer-motion";
 import { 
   User, ArrowLeft, Calendar, Clock, CheckCircle,
@@ -730,6 +731,10 @@ const StreamerProfile = () => {
                                 />
                                 {isOwnProfile && (
                                   <>
+                                    <ClipAnalytics
+                                      clipId={clip.id}
+                                      clipTitle={clip.title}
+                                    />
                                     <Button
                                       variant="ghost"
                                       size="icon"
