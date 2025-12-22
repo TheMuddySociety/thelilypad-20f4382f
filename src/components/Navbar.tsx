@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
-import { Menu, X } from "lucide-react";
+import { Menu, ChevronDown } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NotificationBell } from "@/components/NotificationBell";
 import {
@@ -12,18 +12,34 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from "@/components/ui/navigation-menu";
 
-const navLinks = [
+const primaryLinks = [
   { label: "Marketplace", href: "#" },
   { label: "Launchpad", href: "#" },
   { label: "Streams", href: "/streams" },
+];
+
+const exploreLinks = [
   { label: "Streamers", href: "/streamers" },
   { label: "Following", href: "/following" },
+];
+
+const accountLinks = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "My Donations", href: "/donor-profile" },
   { label: "Edit Profile", href: "/edit-profile" },
   { label: "Go Live", href: "/go-live" },
 ];
+
+const allMobileLinks = [...primaryLinks, ...exploreLinks, ...accountLinks];
 
 export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -52,17 +68,65 @@ export const Navbar: React.FC = () => {
             <span className="font-bold text-base sm:text-lg hidden xs:block">The Lily Pad</span>
           </a>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
-              >
-                {link.label}
-              </a>
-            ))}
+          {/* Desktop nav with dropdowns */}
+          <div className="hidden md:flex items-center">
+            <NavigationMenu>
+              <NavigationMenuList className="gap-1">
+                {/* Primary Links */}
+                {primaryLinks.map((link) => (
+                  <NavigationMenuItem key={link.label}>
+                    <NavigationMenuLink
+                      href={link.href}
+                      className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted/50"
+                    >
+                      {link.label}
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
+                ))}
+
+                {/* Explore Dropdown */}
+                <NavigationMenuItem>
+                  <NavigationMenuTrigger className="text-sm font-medium text-muted-foreground hover:text-foreground bg-transparent hover:bg-muted/50 data-[state=open]:bg-muted/50">
+                    Explore
+                  </NavigationMenuTrigger>
+                  <NavigationMenuContent>
+                    <ul className="w-48 p-2 bg-popover border border-border rounded-lg shadow-lg">
+                      {exploreLinks.map((link) => (
+                        <li key={link.label}>
+                          <NavigationMenuLink
+                            href={link.href}
+                            className="block px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
+                          >
+                            {link.label}
+                          </NavigationMenuLink>
+                        </li>
+                      ))}
+                    </ul>
+                  </NavigationMenuContent>
+                </NavigationMenuItem>
+
+                {/* Account Dropdown */}
+                <NavigationMenuItem>
+                  <NavigationMenuTrigger className="text-sm font-medium text-muted-foreground hover:text-foreground bg-transparent hover:bg-muted/50 data-[state=open]:bg-muted/50">
+                    Account
+                  </NavigationMenuTrigger>
+                  <NavigationMenuContent>
+                    <ul className="w-48 p-2 bg-popover border border-border rounded-lg shadow-lg">
+                      {accountLinks.map((link) => (
+                        <li key={link.label}>
+                          <NavigationMenuLink
+                            href={link.href}
+                            className="block px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
+                          >
+                            {link.label}
+                          </NavigationMenuLink>
+                        </li>
+                      ))}
+                    </ul>
+                  </NavigationMenuContent>
+                </NavigationMenuItem>
+              </NavigationMenuList>
+            </NavigationMenu>
           </div>
 
           {/* Desktop CTA */}
@@ -89,7 +153,7 @@ export const Navbar: React.FC = () => {
                 </DrawerTitle>
               </DrawerHeader>
               <div className="p-4 space-y-2">
-                {navLinks.map((link) => (
+                {allMobileLinks.map((link) => (
                   <DrawerClose asChild key={link.label}>
                     <a
                       href={link.href}
