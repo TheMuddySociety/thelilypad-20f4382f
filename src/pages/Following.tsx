@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { FollowButton } from "@/components/FollowButton";
+import { StreamerSchedules } from "@/components/StreamerSchedules";
 
 type StreamerProfile = Tables<"streamer_profiles">;
 type StreamerWithStatus = StreamerProfile & { is_live: boolean; followed_at?: string };
@@ -485,6 +486,13 @@ const Following = () => {
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Stay updated with your favorite streamers and never miss when they go live
           </p>
+          
+          {/* Streamer Schedules */}
+          {!loading && followedStreamers.length > 0 && (
+            <div className="max-w-xl mx-auto mt-8">
+              <StreamerSchedules streamers={followedStreamers} />
+            </div>
+          )}
         </div>
 
         {/* Stats and Filter */}
