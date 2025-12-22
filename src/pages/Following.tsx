@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles, Filter, ArrowUpDown, Search, X } from "lucide-react";
+import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles, Filter, ArrowUpDown, Search, X, LayoutGrid, List } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ type StreamerProfile = Tables<"streamer_profiles">;
 type StreamerWithStatus = StreamerProfile & { is_live: boolean; followed_at?: string };
 
 type SortOption = "live" | "name" | "recent";
+type ViewMode = "grid" | "list";
 
 const STORAGE_KEY = "following-filters";
 
@@ -44,6 +45,7 @@ const Following = () => {
   const [sortBy, setSortBy] = useState<SortOption>(storedFilters?.sortBy || "live");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [liveOnly, setLiveOnly] = useState<boolean>(storedFilters?.liveOnly || false);
+  const [viewMode, setViewMode] = useState<ViewMode>(storedFilters?.viewMode || "grid");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -53,9 +55,10 @@ const Following = () => {
       category: selectedCategory,
       sortBy,
       liveOnly,
+      viewMode,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
-  }, [selectedCategory, sortBy, liveOnly]);
+  }, [selectedCategory, sortBy, liveOnly, viewMode]);
 
   // Keyboard shortcuts for search
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -479,6 +482,26 @@ const Following = () => {
                 </Select>
               </div>
             )}
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center border border-border rounded-lg overflow-hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode("grid")}
+                className={`rounded-none h-8 px-3 ${viewMode === "grid" ? "bg-primary/20 text-primary" : "text-muted-foreground"}`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className={`rounded-none h-8 px-3 ${viewMode === "list" ? "bg-primary/20 text-primary" : "text-muted-foreground"}`}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -511,7 +534,7 @@ const Following = () => {
               Show All Streamers
             </Button>
           </div>
-        ) : (
+        ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStreamers.map((streamer, index) => (
               <motion.div
@@ -603,6 +626,76 @@ const Following = () => {
                     >
                       View Profile
                     </Button>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          /* List View */
+          <div className="flex flex-col gap-2">
+            {filteredStreamers.map((streamer, index) => (
+              <motion.div
+                key={streamer.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.03 }}
+              >
+                <Link to={`/streamer/${streamer.user_id}`}>
+                  <div className="group flex items-center gap-4 bg-card rounded-lg p-4 border border-border hover:border-primary/50 transition-all duration-200 hover:bg-card/80">
+                    {/* Avatar */}
+                    <div className="relative flex-shrink-0">
+                      <Avatar className={`h-12 w-12 ring-2 ${streamer.is_live ? 'ring-red-500' : 'ring-border'} group-hover:ring-primary/50 transition-all`}>
+                        <AvatarImage src={streamer.avatar_url || undefined} />
+                        <AvatarFallback className="bg-primary/20 text-primary">
+                          {getInitials(streamer.display_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {streamer.is_live && (
+                        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[8px] font-bold px-1 py-0.5 rounded-sm uppercase animate-pulse">
+                          Live
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold truncate">
+                          {streamer.display_name || "Anonymous"}
+                        </h3>
+                        {streamer.is_verified && (
+                          <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
+                        )}
+                        {streamer.is_live && (
+                          <Badge variant="destructive" className="bg-red-500 animate-pulse text-[10px] h-5">
+                            <Radio className="h-2.5 w-2.5 mr-1" />
+                            Live
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {streamer.bio || "No bio yet"}
+                      </p>
+                    </div>
+
+                    {/* Categories */}
+                    <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                      {Array.isArray(streamer.categories) && streamer.categories.slice(0, 2).map((category) => (
+                        <Badge key={category} variant="outline" className="bg-accent/10 border-accent/30 text-accent text-xs">
+                          {category}
+                        </Badge>
+                      ))}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.preventDefault()}>
+                      <FollowButton 
+                        streamerId={streamer.user_id} 
+                        variant="compact" 
+                        onFollowChange={handleFollowChange}
+                      />
+                    </div>
                   </div>
                 </Link>
               </motion.div>
