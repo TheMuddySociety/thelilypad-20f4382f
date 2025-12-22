@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Crop as CropIcon, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { Crop as CropIcon, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 
 interface ImageCropModalProps {
   isOpen: boolean;
@@ -48,6 +48,7 @@ export const ImageCropModal = ({
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const [scale, setScale] = useState(1);
+  const [rotation, setRotation] = useState(0);
   const imgRef = useRef<HTMLImageElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -61,9 +62,6 @@ export const ImageCropModal = ({
     if (!image || !completedCrop) return null;
 
     const canvas = document.createElement("canvas");
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
-
     const outputSize = 400;
     canvas.width = outputSize;
     canvas.height = outputSize;
@@ -73,24 +71,46 @@ export const ImageCropModal = ({
 
     ctx.imageSmoothingQuality = "high";
 
-    // Account for zoom scale
-    const cropX = completedCrop.x * scaleX;
-    const cropY = completedCrop.y * scaleY;
-    const cropWidth = completedCrop.width * scaleX;
-    const cropHeight = completedCrop.height * scaleY;
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
 
-    // Calculate the actual source coordinates considering zoom
-    const sourceX = cropX / scale;
-    const sourceY = cropY / scale;
-    const sourceWidth = cropWidth / scale;
-    const sourceHeight = cropHeight / scale;
+    // Create an offscreen canvas for the rotated image
+    const rotatedCanvas = document.createElement("canvas");
+    const rotatedCtx = rotatedCanvas.getContext("2d");
+    if (!rotatedCtx) return null;
+
+    // Handle rotation - swap dimensions for 90/270 degrees
+    const radians = (rotation * Math.PI) / 180;
+    const isSwapped = rotation === 90 || rotation === 270;
+    
+    if (isSwapped) {
+      rotatedCanvas.width = image.naturalHeight;
+      rotatedCanvas.height = image.naturalWidth;
+    } else {
+      rotatedCanvas.width = image.naturalWidth;
+      rotatedCanvas.height = image.naturalHeight;
+    }
+
+    rotatedCtx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
+    rotatedCtx.rotate(radians);
+    rotatedCtx.drawImage(
+      image,
+      -image.naturalWidth / 2,
+      -image.naturalHeight / 2
+    );
+
+    // Calculate crop coordinates
+    const cropX = completedCrop.x * scaleX / scale;
+    const cropY = completedCrop.y * scaleY / scale;
+    const cropWidth = completedCrop.width * scaleX / scale;
+    const cropHeight = completedCrop.height * scaleY / scale;
 
     ctx.drawImage(
-      image,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
+      rotatedCanvas,
+      cropX,
+      cropY,
+      cropWidth,
+      cropHeight,
       0,
       0,
       outputSize,
@@ -120,6 +140,7 @@ export const ImageCropModal = ({
 
   const handleReset = () => {
     setScale(1);
+    setRotation(0);
     if (imgRef.current) {
       const { width, height } = imgRef.current;
       setCrop(centerAspectCrop(width, height, 1));
@@ -132,6 +153,14 @@ export const ImageCropModal = ({
 
   const handleZoomOut = () => {
     setScale((prev) => Math.max(prev - 0.1, 0.5));
+  };
+
+  const handleRotateLeft = () => {
+    setRotation((prev) => (prev - 90 + 360) % 360);
+  };
+
+  const handleRotateRight = () => {
+    setRotation((prev) => (prev + 90) % 360);
   };
 
   return (
@@ -153,52 +182,85 @@ export const ImageCropModal = ({
               onComplete={(c) => setCompletedCrop(c)}
               aspect={1}
               circularCrop
-              className="max-h-[350px]"
+              className="max-h-[300px]"
             >
               <img
                 ref={imgRef}
                 src={imageSrc}
                 alt="Crop preview"
                 onLoad={onImageLoad}
-                style={{ transform: `scale(${scale})`, transformOrigin: 'center' }}
-                className="max-h-[350px] w-auto transition-transform"
+                style={{ 
+                  transform: `scale(${scale}) rotate(${rotation}deg)`,
+                  transformOrigin: 'center'
+                }}
+                className="max-h-[300px] w-auto transition-transform"
               />
             </ReactCrop>
           </div>
 
-          {/* Zoom Controls */}
-          <div className="flex items-center gap-3 px-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={handleZoomOut}
-              disabled={scale <= 0.5}
-              className="h-8 w-8 shrink-0"
-            >
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-            <Slider
-              value={[scale]}
-              onValueChange={([value]) => setScale(value)}
-              min={0.5}
-              max={3}
-              step={0.1}
-              className="flex-1"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={handleZoomIn}
-              disabled={scale >= 3}
-              className="h-8 w-8 shrink-0"
-            >
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-            <span className="text-sm text-muted-foreground w-12 text-right">
-              {Math.round(scale * 100)}%
-            </span>
+          {/* Controls */}
+          <div className="space-y-3">
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-3 px-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handleZoomOut}
+                disabled={scale <= 0.5}
+                className="h-8 w-8 shrink-0"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <Slider
+                value={[scale]}
+                onValueChange={([value]) => setScale(value)}
+                min={0.5}
+                max={3}
+                step={0.1}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handleZoomIn}
+                disabled={scale >= 3}
+                className="h-8 w-8 shrink-0"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground w-12 text-right">
+                {Math.round(scale * 100)}%
+              </span>
+            </div>
+
+            {/* Rotation Controls */}
+            <div className="flex items-center justify-center gap-3 px-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleRotateLeft}
+                className="gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Rotate Left
+              </Button>
+              <span className="text-sm text-muted-foreground min-w-[50px] text-center">
+                {rotation}°
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleRotateRight}
+                className="gap-2"
+              >
+                Rotate Right
+                <RotateCw className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
