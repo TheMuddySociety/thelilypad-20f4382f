@@ -98,6 +98,7 @@ const StreamerProfile = () => {
   const [editingClip, setEditingClip] = useState<Clip | null>(null);
   const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [bannerLoaded, setBannerLoaded] = useState(false);
   const isOwnProfile = currentUserId === streamerId;
   const { toast } = useToast();
 
@@ -318,10 +319,14 @@ const StreamerProfile = () => {
               {/* Banner Image */}
               {profile?.banner_url ? (
                 <div className="relative h-48 md:h-64 w-full overflow-hidden">
+                  {!bannerLoaded && (
+                    <Skeleton className="absolute inset-0 w-full h-full" />
+                  )}
                   <img
                     src={profile.banner_url}
                     alt="Profile banner"
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover transition-opacity duration-300 ${bannerLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    onLoad={() => setBannerLoaded(true)}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
                 </div>
