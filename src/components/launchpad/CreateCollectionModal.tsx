@@ -313,6 +313,8 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
                   layers={layers}
                   rules={traitRules}
                   totalSupply={totalSupply}
+                  collectionName={name || "My Collection"}
+                  collectionDescription={description}
                 />
               </TabsContent>
             </Tabs>
