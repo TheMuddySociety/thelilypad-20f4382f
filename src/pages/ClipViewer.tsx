@@ -1,0 +1,630 @@
+import { useEffect, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Navbar } from "@/components/Navbar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ClipShareMenu } from "@/components/ClipShareMenu";
+import { motion } from "framer-motion";
+import { formatDistanceToNow } from "date-fns";
+import {
+  ArrowLeft, User, Eye, Calendar, Film, Play,
+  MessageSquare, Send, Trash2, MoreVertical
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+interface ClipData {
+  id: string;
+  title: string;
+  description: string | null;
+  clip_url: string | null;
+  thumbnail_url: string | null;
+  duration_seconds: number;
+  views: number;
+  created_at: string;
+  user_id: string;
+  streamer?: {
+    display_name: string | null;
+    avatar_url: string | null;
+  };
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  profile?: {
+    display_name: string | null;
+    avatar_url: string | null;
+  };
+}
+
+interface RelatedClip {
+  id: string;
+  title: string;
+  thumbnail_url: string | null;
+  duration_seconds: number;
+  views: number;
+  user_id: string;
+  streamer?: {
+    display_name: string | null;
+  };
+}
+
+const ClipViewer = () => {
+  const { clipId } = useParams<{ clipId: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [loading, setLoading] = useState(true);
+  const [clip, setClip] = useState<ClipData | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [relatedClips, setRelatedClips] = useState<RelatedClip[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!clipId) return;
+      setLoading(true);
+
+      // Fetch clip data
+      const { data: clipData, error: clipError } = await supabase
+        .from("clips")
+        .select("*")
+        .eq("id", clipId)
+        .maybeSingle();
+
+      if (clipError || !clipData) {
+        console.error("Error fetching clip:", clipError);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch streamer profile
+      const { data: streamerData } = await supabase
+        .from("streamer_profiles")
+        .select("display_name, avatar_url")
+        .eq("user_id", clipData.user_id)
+        .maybeSingle();
+
+      setClip({
+        ...clipData,
+        streamer: streamerData || undefined,
+      });
+
+      // Track view event
+      await supabase.from("clip_events").insert({
+        clip_id: clipId,
+        event_type: "view",
+      });
+
+      // Fetch comments
+      const { data: commentsData } = await supabase
+        .from("clip_comments")
+        .select("*")
+        .eq("clip_id", clipId)
+        .order("created_at", { ascending: false });
+
+      // Fetch profiles for commenters
+      if (commentsData && commentsData.length > 0) {
+        const userIds = [...new Set(commentsData.map(c => c.user_id))];
+        const { data: profiles } = await supabase
+          .from("streamer_profiles")
+          .select("user_id, display_name, avatar_url")
+          .in("user_id", userIds);
+
+        const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+        
+        setComments(
+          commentsData.map(comment => ({
+            ...comment,
+            profile: profileMap.get(comment.user_id) || undefined,
+          }))
+        );
+      } else {
+        setComments([]);
+      }
+
+      // Fetch related clips (same streamer, excluding current)
+      const { data: relatedData } = await supabase
+        .from("clips")
+        .select("id, title, thumbnail_url, duration_seconds, views, user_id")
+        .eq("user_id", clipData.user_id)
+        .neq("id", clipId)
+        .order("views", { ascending: false })
+        .limit(6);
+
+      if (relatedData) {
+        setRelatedClips(
+          relatedData.map(r => ({
+            ...r,
+            streamer: streamerData || undefined,
+          }))
+        );
+      }
+
+      setLoading(false);
+    };
+
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    };
+
+    fetchData();
+    checkUser();
+  }, [clipId]);
+
+  // Real-time comments subscription
+  useEffect(() => {
+    if (!clipId) return;
+
+    const channel = supabase
+      .channel("clip-comments")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "clip_comments",
+          filter: `clip_id=eq.${clipId}`,
+        },
+        async (payload) => {
+          const newComment = payload.new as Comment;
+          
+          // Fetch profile for new comment
+          const { data: profile } = await supabase
+            .from("streamer_profiles")
+            .select("display_name, avatar_url")
+            .eq("user_id", newComment.user_id)
+            .maybeSingle();
+
+          setComments(prev => [{
+            ...newComment,
+            profile: profile || undefined,
+          }, ...prev]);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "clip_comments",
+          filter: `clip_id=eq.${clipId}`,
+        },
+        (payload) => {
+          setComments(prev => prev.filter(c => c.id !== payload.old.id));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [clipId]);
+
+  const handleSubmitComment = async () => {
+    if (!newComment.trim() || !clipId || !currentUserId) {
+      if (!currentUserId) {
+        toast({
+          title: "Sign in required",
+          description: "Please sign in to leave a comment.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    setSubmitting(true);
+    const { error } = await supabase.from("clip_comments").insert({
+      clip_id: clipId,
+      user_id: currentUserId,
+      content: newComment.trim(),
+    });
+
+    if (error) {
+      console.error("Error posting comment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to post comment. Please try again.",
+        variant: "destructive",
+      });
+    } else {
+      setNewComment("");
+      toast({
+        title: "Comment posted!",
+        description: "Your comment has been added.",
+      });
+    }
+    setSubmitting(false);
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    const { error } = await supabase
+      .from("clip_comments")
+      .delete()
+      .eq("id", commentId);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete comment.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Comment deleted",
+        description: "Your comment has been removed.",
+      });
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+    return num.toString();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto px-4 pt-24 pb-12">
+          <div className="max-w-6xl mx-auto">
+            <Skeleton className="w-full aspect-video rounded-xl mb-6" />
+            <div className="grid lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-4">
+                <Skeleton className="h-8 w-3/4" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+              <Skeleton className="h-64" />
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!clip) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto px-4 pt-24 pb-12">
+          <div className="max-w-2xl mx-auto text-center py-16">
+            <Film className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+            <h1 className="text-2xl font-bold mb-2">Clip not found</h1>
+            <p className="text-muted-foreground mb-6">
+              This clip may have been deleted or doesn't exist.
+            </p>
+            <Button onClick={() => navigate(-1)} variant="outline">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go Back
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <main className="container mx-auto px-4 pt-24 pb-12">
+        <div className="max-w-6xl mx-auto">
+          {/* Back Button */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="mb-6"
+          >
+            <Button
+              variant="ghost"
+              onClick={() => navigate(-1)}
+              className="gap-2 hover:bg-muted/50"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </motion.div>
+
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Main Content */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Video Player */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <Card className="border-0 overflow-hidden bg-black">
+                  <CardContent className="p-0">
+                    <div className="relative aspect-video">
+                      {clip.clip_url ? (
+                        <video
+                          src={clip.clip_url}
+                          controls
+                          autoPlay
+                          className="w-full h-full"
+                          poster={clip.thumbnail_url || undefined}
+                        />
+                      ) : clip.thumbnail_url ? (
+                        <div className="relative w-full h-full">
+                          <img
+                            src={clip.thumbnail_url}
+                            alt={clip.title}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                            <div className="text-center text-white">
+                              <Play className="h-16 w-16 mx-auto mb-2 opacity-50" />
+                              <p className="text-sm opacity-75">Video unavailable</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-muted">
+                          <Film className="h-16 w-16 text-muted-foreground/50" />
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Clip Info */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <h1 className="text-2xl font-bold">{clip.title}</h1>
+                      <ClipShareMenu
+                        clipId={clip.id}
+                        clipTitle={clip.title}
+                        clipUrl={clip.clip_url}
+                        streamerName={clip.streamer?.display_name || undefined}
+                      />
+                    </div>
+
+                    {clip.description && (
+                      <p className="text-muted-foreground mb-4">{clip.description}</p>
+                    )}
+
+                    <div className="flex items-center gap-6 text-sm text-muted-foreground mb-4">
+                      <span className="flex items-center gap-1.5">
+                        <Eye className="h-4 w-4" />
+                        {formatNumber(clip.views)} views
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="h-4 w-4" />
+                        {formatDistanceToNow(new Date(clip.created_at), { addSuffix: true })}
+                      </span>
+                    </div>
+
+                    {/* Streamer Info */}
+                    <Link
+                      to={`/streamer/${clip.user_id}`}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <Avatar className="h-10 w-10">
+                        {clip.streamer?.avatar_url ? (
+                          <AvatarImage src={clip.streamer.avatar_url} />
+                        ) : (
+                          <AvatarFallback>
+                            <User className="h-5 w-5" />
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">
+                          {clip.streamer?.display_name || "Unknown Streamer"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">View profile</p>
+                      </div>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Comments Section */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <MessageSquare className="h-5 w-5 text-primary" />
+                      Comments ({comments.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Comment Input */}
+                    <div className="flex gap-3">
+                      <Avatar className="h-9 w-9 shrink-0">
+                        <AvatarFallback>
+                          <User className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 space-y-2">
+                        <Textarea
+                          placeholder={currentUserId ? "Add a comment..." : "Sign in to comment..."}
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          disabled={!currentUserId}
+                          className="min-h-[80px] resize-none"
+                        />
+                        <div className="flex justify-end">
+                          <Button
+                            size="sm"
+                            onClick={handleSubmitComment}
+                            disabled={!newComment.trim() || submitting || !currentUserId}
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            {submitting ? "Posting..." : "Post"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Comments List */}
+                    {comments.length > 0 ? (
+                      <div className="space-y-4 pt-4 border-t border-border/50">
+                        {comments.map((comment) => (
+                          <motion.div
+                            key={comment.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex gap-3"
+                          >
+                            <Link to={`/streamer/${comment.user_id}`}>
+                              <Avatar className="h-9 w-9">
+                                {comment.profile?.avatar_url ? (
+                                  <AvatarImage src={comment.profile.avatar_url} />
+                                ) : (
+                                  <AvatarFallback>
+                                    <User className="h-4 w-4" />
+                                  </AvatarFallback>
+                                )}
+                              </Avatar>
+                            </Link>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Link
+                                    to={`/streamer/${comment.user_id}`}
+                                    className="font-medium text-sm hover:text-primary transition-colors"
+                                  >
+                                    {comment.profile?.display_name || "Anonymous"}
+                                  </Link>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                                  </span>
+                                </div>
+                                {currentUserId === comment.user_id && (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem
+                                        className="text-destructive focus:text-destructive"
+                                        onClick={() => handleDeleteComment(comment.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
+                              </div>
+                              <p className="text-sm mt-1">{comment.content}</p>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No comments yet</p>
+                        <p className="text-xs">Be the first to comment!</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
+
+            {/* Sidebar - Related Clips */}
+            <div className="space-y-4">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+              >
+                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">More from this creator</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {relatedClips.length > 0 ? (
+                      relatedClips.map((relatedClip, index) => (
+                        <motion.div
+                          key={relatedClip.id}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.2 + index * 0.05 }}
+                        >
+                          <Link
+                            to={`/clip/${relatedClip.id}`}
+                            className="flex gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                          >
+                            <div className="relative w-28 aspect-video rounded-lg overflow-hidden bg-muted shrink-0">
+                              {relatedClip.thumbnail_url ? (
+                                <img
+                                  src={relatedClip.thumbnail_url}
+                                  alt={relatedClip.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Film className="h-6 w-6 text-muted-foreground/50" />
+                                </div>
+                              )}
+                              <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] font-medium">
+                                {formatDuration(relatedClip.duration_seconds)}
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
+                                {relatedClip.title}
+                              </h3>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {formatNumber(relatedClip.views)} views
+                              </p>
+                            </div>
+                          </Link>
+                        </motion.div>
+                      ))
+                    ) : (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Film className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No other clips yet</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default ClipViewer;
