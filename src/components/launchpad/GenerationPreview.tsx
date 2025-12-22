@@ -6,29 +6,46 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon } from "lucide-react";
+import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package } from "lucide-react";
 import { Layer, Trait } from "./LayerManager";
 import { TraitRule, RuleType } from "./TraitRulesManager";
 import { NFTImageCompositor } from "./NFTImageCompositor";
+import { toast } from "sonner";
 
 interface GenerationPreviewProps {
   layers: Layer[];
   rules: TraitRule[];
   totalSupply: string;
+  collectionName?: string;
+  collectionDescription?: string;
 }
 
 interface GeneratedNFT {
   id: number;
-  traits: { layerId: string; layerName: string; traitId: string; traitName: string }[];
+  traits: { layerId: string; layerName: string; traitId: string; traitName: string; imageUrl?: string }[];
+}
+
+interface NFTMetadata {
+  name: string;
+  description: string;
+  image: string;
+  external_url?: string;
+  attributes: {
+    trait_type: string;
+    value: string;
+  }[];
 }
 
 export function GenerationPreview({
   layers,
   rules,
   totalSupply,
+  collectionName = "My Collection",
+  collectionDescription = "",
 }: GenerationPreviewProps) {
   const [previewCount, setPreviewCount] = useState("5");
   const [generatedPreviews, setGeneratedPreviews] = useState<GeneratedNFT[]>([]);
+  const [exportCount, setExportCount] = useState(totalSupply || "100");
 
   const selectTraitForLayer = (
     layer: Layer,
@@ -93,8 +110,7 @@ export function GenerationPreview({
     return availableTraits[0].id;
   };
 
-  const generatePreviews = () => {
-    const count = parseInt(previewCount) || 5;
+  const generateNFTBatch = (count: number): GeneratedNFT[] => {
     const sortedLayers = [...layers].sort((a, b) => a.order - b.order);
     const previews: GeneratedNFT[] = [];
 
@@ -117,6 +133,7 @@ export function GenerationPreview({
               layerName: layer.name,
               traitId: trait.id,
               traitName: trait.name,
+              imageUrl: trait.imageUrl,
             });
           }
         }
@@ -125,7 +142,99 @@ export function GenerationPreview({
       previews.push({ id: i + 1, traits: nftTraits });
     }
 
+    return previews;
+  };
+
+  const generatePreviews = () => {
+    const count = parseInt(previewCount) || 5;
+    const previews = generateNFTBatch(count);
     setGeneratedPreviews(previews);
+  };
+
+  // Convert generated NFT to ERC-721 metadata format
+  const nftToMetadata = (nft: GeneratedNFT, baseImageUri: string = ""): NFTMetadata => {
+    return {
+      name: `${collectionName} #${nft.id}`,
+      description: collectionDescription || `${collectionName} NFT #${nft.id}`,
+      image: baseImageUri ? `${baseImageUri}/${nft.id}.png` : `ipfs://YOUR_CID/${nft.id}.png`,
+      attributes: nft.traits.map((trait) => ({
+        trait_type: trait.layerName,
+        value: trait.traitName,
+      })),
+    };
+  };
+
+  // Export single metadata JSON
+  const exportSingleMetadata = (nft: GeneratedNFT) => {
+    const metadata = nftToMetadata(nft);
+    const blob = new Blob([JSON.stringify(metadata, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${nft.id}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported metadata for NFT #${nft.id}`);
+  };
+
+  // Export all metadata as a zip-like bundle (individual files in a folder structure)
+  const exportAllMetadata = () => {
+    const count = parseInt(exportCount) || parseInt(totalSupply) || 100;
+    const nfts = generateNFTBatch(count);
+    
+    // Create metadata array
+    const allMetadata = nfts.map((nft) => nftToMetadata(nft));
+    
+    // Export as single JSON file with all metadata
+    const exportData = {
+      name: collectionName,
+      description: collectionDescription,
+      total_supply: count,
+      generated_at: new Date().toISOString(),
+      metadata: allMetadata,
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-metadata.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${count} NFT metadata files`);
+  };
+
+  // Export individual metadata files (for IPFS folder upload)
+  const exportIndividualFiles = () => {
+    const count = parseInt(exportCount) || parseInt(totalSupply) || 100;
+    const nfts = generateNFTBatch(count);
+    
+    // Create a downloadable text file with instructions
+    const metadataFiles: { filename: string; content: NFTMetadata }[] = nfts.map((nft) => ({
+      filename: `${nft.id}.json`,
+      content: nftToMetadata(nft),
+    }));
+
+    // Export as a single file with array of all metadata for easy parsing
+    const exportData = metadataFiles.map((f) => ({
+      filename: f.filename,
+      ...f.content,
+    }));
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-individual-metadata.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${count} individual metadata entries`);
   };
 
   // Calculate rarity statistics
@@ -228,7 +337,7 @@ export function GenerationPreview({
 
       {/* Tabbed Preview Section */}
       <Tabs defaultValue={hasAnyImages ? "visual" : "text"} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="text" className="gap-2">
             <Shuffle className="w-4 h-4" />
             Text Preview
@@ -236,6 +345,10 @@ export function GenerationPreview({
           <TabsTrigger value="visual" className="gap-2">
             <ImageIcon className="w-4 h-4" />
             Visual Preview
+          </TabsTrigger>
+          <TabsTrigger value="export" className="gap-2">
+            <Download className="w-4 h-4" />
+            Export
           </TabsTrigger>
         </TabsList>
 
@@ -303,6 +416,85 @@ export function GenerationPreview({
             layers={layers}
             rules={rules}
           />
+        </TabsContent>
+
+        <TabsContent value="export" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FileJson className="w-4 h-4" />
+                Export Metadata for IPFS
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Generate and export ERC-721 compatible metadata JSON files for your NFT collection.
+                Upload these to IPFS to use with your smart contract.
+              </p>
+
+              <div className="space-y-2">
+                <Label className="text-sm">Number of NFTs to Generate</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    value={exportCount}
+                    onChange={(e) => setExportCount(e.target.value)}
+                    min="1"
+                    max="10000"
+                    className="w-32"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    / {totalSupply} total supply
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Button onClick={exportAllMetadata} variant="default" className="gap-2">
+                  <Package className="w-4 h-4" />
+                  Export Collection Bundle
+                </Button>
+                <Button onClick={exportIndividualFiles} variant="outline" className="gap-2">
+                  <FileJson className="w-4 h-4" />
+                  Export Individual Files
+                </Button>
+              </div>
+
+              <div className="pt-3 border-t">
+                <p className="text-xs text-muted-foreground mb-2">
+                  <strong>Collection Bundle:</strong> Single JSON file with all metadata, ideal for processing.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <strong>Individual Files:</strong> Array of metadata objects with filenames, ready for IPFS folder upload.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sample Metadata Preview */}
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                Sample Metadata Preview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {layers.length > 0 && layers.some((l) => l.traits.length > 0) ? (
+                <pre className="text-xs bg-muted/50 p-3 rounded-lg overflow-x-auto">
+                  {JSON.stringify(
+                    nftToMetadata(generateNFTBatch(1)[0] || { id: 1, traits: [] }),
+                    null,
+                    2
+                  )}
+                </pre>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Add layers and traits to preview metadata format
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
