@@ -7,6 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Plus,
   Trash2,
   GripVertical,
@@ -16,6 +23,7 @@ import {
   Layers,
   Image as ImageIcon,
   FolderOpen,
+  Blend,
 } from "lucide-react";
 import {
   Collapsible,
@@ -31,6 +39,43 @@ export interface Trait {
   rarity: number; // 1-100 percentage
 }
 
+export type BlendMode = 
+  | "source-over"
+  | "multiply"
+  | "screen"
+  | "overlay"
+  | "darken"
+  | "lighten"
+  | "color-dodge"
+  | "color-burn"
+  | "hard-light"
+  | "soft-light"
+  | "difference"
+  | "exclusion"
+  | "hue"
+  | "saturation"
+  | "color"
+  | "luminosity";
+
+export const BLEND_MODES: { value: BlendMode; label: string }[] = [
+  { value: "source-over", label: "Normal" },
+  { value: "multiply", label: "Multiply" },
+  { value: "screen", label: "Screen" },
+  { value: "overlay", label: "Overlay" },
+  { value: "darken", label: "Darken" },
+  { value: "lighten", label: "Lighten" },
+  { value: "color-dodge", label: "Color Dodge" },
+  { value: "color-burn", label: "Color Burn" },
+  { value: "hard-light", label: "Hard Light" },
+  { value: "soft-light", label: "Soft Light" },
+  { value: "difference", label: "Difference" },
+  { value: "exclusion", label: "Exclusion" },
+  { value: "hue", label: "Hue" },
+  { value: "saturation", label: "Saturation" },
+  { value: "color", label: "Color" },
+  { value: "luminosity", label: "Luminosity" },
+];
+
 export interface Layer {
   id: string;
   name: string;
@@ -38,6 +83,8 @@ export interface Layer {
   traits: Trait[];
   isOptional: boolean;
   optionalChance: number; // 0-100, chance that this layer appears at all
+  blendMode: BlendMode;
+  opacity: number; // 0-100
 }
 
 interface LayerManagerProps {
@@ -57,6 +104,8 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
       traits: [],
       isOptional: false,
       optionalChance: 100,
+      blendMode: "source-over",
+      opacity: 100,
     };
     onLayersChange([...layers, newLayer]);
     setExpandedLayers((prev) => new Set([...prev, newLayer.id]));
@@ -273,6 +322,47 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
 
                   <CollapsibleContent>
                     <CardContent className="pt-0 space-y-4">
+                      {/* Blend Mode & Opacity Controls */}
+                      <div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg">
+                        <div className="space-y-1">
+                          <Label className="text-xs flex items-center gap-1">
+                            <Blend className="w-3 h-3" />
+                            Blend Mode
+                          </Label>
+                          <Select
+                            value={layer.blendMode}
+                            onValueChange={(value: BlendMode) =>
+                              updateLayer(layer.id, { blendMode: value })
+                            }
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {BLEND_MODES.map((mode) => (
+                                <SelectItem key={mode.value} value={mode.value}>
+                                  {mode.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">
+                            Opacity: {layer.opacity}%
+                          </Label>
+                          <Slider
+                            value={[layer.opacity]}
+                            onValueChange={([value]) =>
+                              updateLayer(layer.id, { opacity: value })
+                            }
+                            max={100}
+                            step={1}
+                            className="mt-2"
+                          />
+                        </div>
+                      </div>
+
                       {/* Optional Layer Settings */}
                       <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
                         <label className="flex items-center gap-2 text-sm">

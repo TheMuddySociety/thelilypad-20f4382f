@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Layer, Trait } from "./LayerManager";
+import { Layer, Trait, BlendMode } from "./LayerManager";
 import { TraitRule } from "./TraitRulesManager";
 
 interface NFTImageCompositorProps {
@@ -31,7 +31,7 @@ interface NFTImageCompositorProps {
 
 interface GeneratedNFT {
   id: number;
-  traits: { layerId: string; layerName: string; trait: Trait }[];
+  traits: { layerId: string; layerName: string; trait: Trait; blendMode: BlendMode; opacity: number }[];
   imageDataUrl?: string;
 }
 
@@ -100,7 +100,7 @@ export function NFTImageCompositor({
   );
 
   const compositeImage = useCallback(
-    async (traits: { layerId: string; layerName: string; trait: Trait }[]): Promise<string> => {
+    async (traits: GeneratedNFT["traits"]): Promise<string> => {
       const canvas = document.createElement("canvas");
       canvas.width = canvasSize;
       canvas.height = canvasSize;
@@ -111,12 +111,26 @@ export function NFTImageCompositor({
       // Clear canvas with transparent background
       ctx.clearRect(0, 0, canvasSize, canvasSize);
 
-      // Load and draw each layer in order
-      for (const { trait } of traits) {
+      // Load and draw each layer in order with blend modes and opacity
+      for (const { trait, blendMode, opacity } of traits) {
         if (trait.imageUrl) {
           try {
             const img = await loadImage(trait.imageUrl);
+            
+            // Save current context state
+            ctx.save();
+            
+            // Apply blend mode
+            ctx.globalCompositeOperation = blendMode;
+            
+            // Apply opacity (0-100 to 0-1)
+            ctx.globalAlpha = opacity / 100;
+            
+            // Draw the image
             ctx.drawImage(img, 0, 0, canvasSize, canvasSize);
+            
+            // Restore context state
+            ctx.restore();
           } catch (error) {
             console.warn(`Failed to load image for trait: ${trait.name}`, error);
           }
@@ -155,6 +169,8 @@ export function NFTImageCompositor({
             layerId: layer.id,
             layerName: layer.name,
             trait: selectedTrait,
+            blendMode: layer.blendMode,
+            opacity: layer.opacity,
           });
         }
       }
@@ -402,9 +418,18 @@ export function NFTImageCompositor({
                         key={i}
                         className="flex items-center justify-between p-2 bg-muted/50 rounded"
                       >
-                        <span className="text-sm text-muted-foreground">
-                          {t.layerName}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-sm text-muted-foreground">
+                            {t.layerName}
+                          </span>
+                          {(t.blendMode !== "source-over" || t.opacity !== 100) && (
+                            <span className="text-[10px] text-muted-foreground/70">
+                              {t.blendMode !== "source-over" && t.blendMode}
+                              {t.blendMode !== "source-over" && t.opacity !== 100 && " • "}
+                              {t.opacity !== 100 && `${t.opacity}% opacity`}
+                            </span>
+                          )}
+                        </div>
                         <Badge variant="secondary">{t.trait.name}</Badge>
                       </div>
                     ))}
