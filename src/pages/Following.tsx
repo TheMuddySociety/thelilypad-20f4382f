@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles, Filter, ArrowUpDown, Search } from "lucide-react";
+import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles, Filter, ArrowUpDown, Search, X } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -360,11 +360,26 @@ const Following = () => {
 
           {/* Search and Controls */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Active Filters Badge */}
+            {/* Active Filters Badge & Clear Button */}
             {activeFiltersCount > 0 && (
-              <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
-                {activeFiltersCount} filter{activeFiltersCount !== 1 ? "s" : ""} active
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
+                  {activeFiltersCount} filter{activeFiltersCount !== 1 ? "s" : ""} active
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedCategory("all");
+                    setSortBy("live");
+                  }}
+                  className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              </div>
             )}
             {/* Search Input */}
             <div className="relative">
