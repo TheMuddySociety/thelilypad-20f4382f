@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
-import { User, Trash2, MoreVertical, Reply, ChevronDown, ChevronUp, Send } from "lucide-react";
+import { User, Trash2, MoreVertical, Reply, ChevronDown, ChevronUp, Send, Pencil, Check, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -19,6 +20,7 @@ export interface CommentData {
   id: string;
   content: string;
   created_at: string;
+  updated_at?: string;
   user_id: string;
   parent_id: string | null;
   profile?: {
@@ -50,9 +52,15 @@ export const CommentThread = ({
   const [replyContent, setReplyContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showReplies, setShowReplies] = useState(depth < 2);
+  
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(comment.content);
+  const [saving, setSaving] = useState(false);
 
   const hasReplies = comment.replies && comment.replies.length > 0;
   const maxDepth = 3;
+  const wasEdited = comment.updated_at && comment.updated_at !== comment.created_at;
 
   const handleSubmitReply = async () => {
     if (!replyContent.trim() || !currentUserId) {
@@ -93,6 +101,50 @@ export const CommentThread = ({
     setSubmitting(false);
   };
 
+  const handleSaveEdit = async () => {
+    if (!editContent.trim()) {
+      toast({
+        title: "Error",
+        description: "Comment cannot be empty.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+    const { error } = await supabase
+      .from("clip_comments")
+      .update({ content: editContent.trim() })
+      .eq("id", comment.id);
+
+    if (error) {
+      console.error("Error updating comment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update comment. Please try again.",
+        variant: "destructive",
+      });
+    } else {
+      setIsEditing(false);
+      onReplyAdded(); // Refetch to get updated content
+      toast({
+        title: "Comment updated",
+        description: "Your comment has been edited.",
+      });
+    }
+    setSaving(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditContent(comment.content);
+  };
+
+  const handleStartEdit = () => {
+    setEditContent(comment.content);
+    setIsEditing(true);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -122,8 +174,11 @@ export const CommentThread = ({
             <span className="text-xs text-muted-foreground">
               {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
             </span>
+            {wasEdited && (
+              <span className="text-xs text-muted-foreground italic">(edited)</span>
+            )}
           </div>
-          {currentUserId === comment.user_id && (
+          {currentUserId === comment.user_id && !isEditing && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -131,6 +186,11 @@ export const CommentThread = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleStartEdit}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={() => onDelete(comment.id)}
@@ -143,46 +203,83 @@ export const CommentThread = ({
           )}
         </div>
         
-        <p className="text-sm mt-1">{comment.content}</p>
+        {/* Comment Content or Edit Input */}
+        {isEditing ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-2"
+          >
+            <Textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="min-h-[60px] resize-none text-sm"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCancelEdit}
+                disabled={saving}
+              >
+                <X className="h-3 w-3 mr-1" />
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveEdit}
+                disabled={!editContent.trim() || saving}
+              >
+                <Check className="h-3 w-3 mr-1" />
+                {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </motion.div>
+        ) : (
+          <p className="text-sm mt-1">{comment.content}</p>
+        )}
 
         {/* Reply Button & Toggle Replies */}
-        <div className="flex items-center gap-3 mt-2">
-          {depth < maxDepth && currentUserId && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setShowReplyInput(!showReplyInput)}
-            >
-              <Reply className="h-3 w-3 mr-1" />
-              Reply
-            </Button>
-          )}
-          {hasReplies && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setShowReplies(!showReplies)}
-            >
-              {showReplies ? (
-                <>
-                  <ChevronUp className="h-3 w-3 mr-1" />
-                  Hide replies ({comment.replies!.length})
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-3 w-3 mr-1" />
-                  Show replies ({comment.replies!.length})
-                </>
-              )}
-            </Button>
-          )}
-        </div>
+        {!isEditing && (
+          <div className="flex items-center gap-3 mt-2">
+            {depth < maxDepth && currentUserId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setShowReplyInput(!showReplyInput)}
+              >
+                <Reply className="h-3 w-3 mr-1" />
+                Reply
+              </Button>
+            )}
+            {hasReplies && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setShowReplies(!showReplies)}
+              >
+                {showReplies ? (
+                  <>
+                    <ChevronUp className="h-3 w-3 mr-1" />
+                    Hide replies ({comment.replies!.length})
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3 w-3 mr-1" />
+                    Show replies ({comment.replies!.length})
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Reply Input */}
         <AnimatePresence>
-          {showReplyInput && (
+          {showReplyInput && !isEditing && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
