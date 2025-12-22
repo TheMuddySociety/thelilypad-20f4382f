@@ -57,6 +57,15 @@ const Following = () => {
     return Array.from(categories).sort();
   }, [followedStreamers]);
 
+  // Count active filters
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery.trim()) count++;
+    if (selectedCategory !== "all") count++;
+    if (sortBy !== "live") count++; // "live" is the default sort
+    return count;
+  }, [searchQuery, selectedCategory, sortBy]);
+
   // Filter and sort streamers
   const filteredStreamers = useMemo(() => {
     let result = followedStreamers;
@@ -351,6 +360,12 @@ const Following = () => {
 
           {/* Search and Controls */}
           <div className="flex flex-wrap items-center gap-3">
+            {/* Active Filters Badge */}
+            {activeFiltersCount > 0 && (
+              <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
+                {activeFiltersCount} filter{activeFiltersCount !== 1 ? "s" : ""} active
+              </Badge>
+            )}
             {/* Search Input */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
