@@ -20,6 +20,7 @@ export const NotificationBell = () => {
     liveStreamers,
     unreadCount,
     dismissNotification,
+    dismissAllNotifications,
   } = useLiveNotifications();
   const navigate = useNavigate();
 
@@ -33,6 +34,12 @@ export const NotificationBell = () => {
     e.preventDefault();
     e.stopPropagation();
     dismissNotification(streamerId);
+  };
+
+  const handleClearAll = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dismissAllNotifications();
   };
 
   return (
@@ -73,9 +80,19 @@ export const NotificationBell = () => {
         
         {liveStreamers.length > 0 ? (
           <>
-            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal flex items-center gap-1">
-              <Radio className="h-3 w-3 text-red-500 animate-pulse" />
-              Live Now
+            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <Radio className="h-3 w-3 text-red-500 animate-pulse" />
+                Live Now
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearAll}
+                className="text-xs h-6 px-2 text-muted-foreground hover:text-foreground"
+              >
+                Clear all
+              </Button>
             </DropdownMenuLabel>
             {liveStreamers.map((streamer) => (
               <DropdownMenuItem

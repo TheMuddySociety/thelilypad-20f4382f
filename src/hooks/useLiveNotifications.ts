@@ -95,6 +95,16 @@ export const useLiveNotifications = () => {
     });
   }, []);
 
+  // Dismiss all live notifications
+  const dismissAllNotifications = useCallback(() => {
+    setDismissedStreamers(prev => {
+      const next = new Set(prev);
+      liveStreamers.forEach(s => next.add(s.userId));
+      saveDismissedNotifications(next);
+      return next;
+    });
+  }, [liveStreamers]);
+
   // Clear dismissed when streamer goes offline (handled in realtime subscription)
   const clearDismissedForStreamer = useCallback((streamerId: string) => {
     setDismissedStreamers(prev => {
@@ -326,5 +336,6 @@ export const useLiveNotifications = () => {
     liveStreamers: visibleLiveStreamers,
     unreadCount,
     dismissNotification,
+    dismissAllNotifications,
   };
 };
