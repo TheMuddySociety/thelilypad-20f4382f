@@ -1,4 +1,4 @@
-import { Bell, BellOff, Radio, X } from "lucide-react";
+import { Bell, BellOff, Radio, X, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,6 +11,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useLiveNotifications } from "@/hooks/useLiveNotifications";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { NotificationSoundSettings } from "@/components/NotificationSoundSettings";
 
 export const NotificationBell = () => {
   const { 
@@ -23,6 +25,7 @@ export const NotificationBell = () => {
     dismissAllNotifications,
   } = useLiveNotifications();
   const navigate = useNavigate();
+  const [showSoundSettings, setShowSoundSettings] = useState(false);
 
   const handleEnableNotifications = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -40,6 +43,12 @@ export const NotificationBell = () => {
     e.preventDefault();
     e.stopPropagation();
     dismissAllNotifications();
+  };
+
+  const toggleSoundSettings = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowSoundSettings(prev => !prev);
   };
 
   return (
@@ -65,18 +74,36 @@ export const NotificationBell = () => {
       <DropdownMenuContent align="end" className="w-80 bg-background border-border">
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>Notifications</span>
-          {!notificationsEnabled && (
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleEnableNotifications}
-              className="text-xs h-7"
+              onClick={toggleSoundSettings}
+              className="text-xs h-7 px-2"
+              title="Sound settings"
             >
-              Enable
+              <Settings className="h-3.5 w-3.5" />
             </Button>
-          )}
+            {!notificationsEnabled && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleEnableNotifications}
+                className="text-xs h-7"
+              >
+                Enable
+              </Button>
+            )}
+          </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        
+        {showSoundSettings && (
+          <>
+            <NotificationSoundSettings />
+            <DropdownMenuSeparator />
+          </>
+        )}
         
         {liveStreamers.length > 0 ? (
           <>

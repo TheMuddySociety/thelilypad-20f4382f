@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
+import { useNotificationSound } from "@/hooks/useNotificationSound";
 interface FollowedStreamer {
   streamer_id: string;
   display_name: string | null;
@@ -46,6 +46,7 @@ export const useLiveNotifications = () => {
   const [dismissedStreamers, setDismissedStreamers] = useState<Set<string>>(() => getDismissedNotifications());
   const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { playSound } = useNotificationSound();
 
   // Check notification permission on mount
   useEffect(() => {
@@ -216,6 +217,9 @@ export const useLiveNotifications = () => {
 
   // Show notification
   const showNotification = useCallback((streamerName: string, avatarUrl: string | null) => {
+    // Play notification sound
+    playSound();
+
     // Show in-app toast
     toast({
       title: "🔴 Streamer is Live!",
@@ -235,7 +239,7 @@ export const useLiveNotifications = () => {
         notification.close();
       };
     }
-  }, [notificationsEnabled, toast]);
+  }, [notificationsEnabled, toast, playSound]);
 
   // Subscribe to stream changes for followed streamers
   useEffect(() => {
