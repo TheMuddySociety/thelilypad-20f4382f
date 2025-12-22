@@ -21,6 +21,7 @@ type SortOption = "live" | "name" | "recent";
 type ViewMode = "grid" | "list";
 
 const STORAGE_KEY = "following-filters";
+const ITEMS_PER_PAGE = 12;
 
 const getStoredFilters = () => {
   try {
@@ -40,12 +41,20 @@ const Following = () => {
   const [followedStreamers, setFollowedStreamers] = useState<StreamerWithStatus[]>([]);
   const [recommendedStreamers, setRecommendedStreamers] = useState<StreamerWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(storedFilters?.category || "all");
   const [sortBy, setSortBy] = useState<SortOption>(storedFilters?.sortBy || "live");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [liveOnly, setLiveOnly] = useState<boolean>(storedFilters?.liveOnly || false);
   const [viewMode, setViewMode] = useState<ViewMode>(storedFilters?.viewMode || "grid");
+  
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -147,9 +156,37 @@ const Following = () => {
     });
   }, [followedStreamers, selectedCategory, sortBy, searchQuery, liveOnly]);
 
+  // Initial auth check
   useEffect(() => {
     checkAuthAndFetch();
   }, []);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (loading || loadingMore || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && userId) {
+          setPage(prev => prev + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loading, loadingMore, hasMore, userId]);
+
+  // Load more when page changes
+  useEffect(() => {
+    if (page > 1 && userId) {
+      fetchMoreStreamers(userId, page);
+    }
+  }, [page, userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -197,12 +234,26 @@ const Following = () => {
   };
 
   const fetchFollowedStreamers = async (currentUserId: string) => {
+    setLoading(true);
+    setPage(1);
+    setHasMore(true);
+    
     try {
-      // Fetch followed streamer IDs with created_at for sorting
+      // Get total count first
+      const { count } = await supabase
+        .from("followers")
+        .select("*", { count: 'exact', head: true })
+        .eq("follower_id", currentUserId);
+
+      setTotalCount(count || 0);
+
+      // Fetch first page of followed streamer IDs with created_at for sorting
       const { data: follows, error: followsError } = await supabase
         .from("followers")
         .select("streamer_id, created_at")
-        .eq("follower_id", currentUserId);
+        .eq("follower_id", currentUserId)
+        .order("created_at", { ascending: false })
+        .range(0, ITEMS_PER_PAGE - 1);
 
       if (followsError) throw followsError;
 
@@ -211,10 +262,13 @@ const Following = () => {
 
       if (streamerIds.length === 0) {
         setFollowedStreamers([]);
+        setHasMore(false);
         await fetchRecommendedStreamers(currentUserId, [], []);
         setLoading(false);
         return;
       }
+
+      setHasMore(follows!.length === ITEMS_PER_PAGE);
 
       // Fetch streamer profiles
       const { data: profiles, error: profilesError } = await supabase
@@ -253,6 +307,61 @@ const Following = () => {
       console.error("Error fetching followed streamers:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMoreStreamers = async (currentUserId: string, pageNum: number) => {
+    setLoadingMore(true);
+    
+    try {
+      const from = (pageNum - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+
+      const { data: follows, error: followsError } = await supabase
+        .from("followers")
+        .select("streamer_id, created_at")
+        .eq("follower_id", currentUserId)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (followsError) throw followsError;
+
+      if (!follows || follows.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      setHasMore(follows.length === ITEMS_PER_PAGE);
+
+      const streamerIds = follows.map((f) => f.streamer_id);
+      const followDates = new Map(follows.map((f) => [f.streamer_id, f.created_at]));
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from("streamer_profiles")
+        .select("*")
+        .in("user_id", streamerIds);
+
+      if (profilesError) throw profilesError;
+
+      const { data: liveStreams } = await supabase
+        .from("streams")
+        .select("user_id")
+        .eq("is_live", true)
+        .in("user_id", streamerIds);
+
+      const liveStreamersSet = new Set(liveStreams?.map((s) => s.user_id) || []);
+
+      const newStreamers: StreamerWithStatus[] = (profiles || []).map((profile) => ({
+        ...profile,
+        is_live: liveStreamersSet.has(profile.user_id),
+        followed_at: followDates.get(profile.user_id),
+      }));
+
+      setFollowedStreamers(prev => [...prev, ...newStreamers]);
+    } catch (error) {
+      console.error("Error fetching more streamers:", error);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -383,7 +492,7 @@ const Following = () => {
           <div className="flex items-center gap-2 text-muted-foreground">
             <Heart className="h-4 w-4" />
             <span>
-              {followedStreamers.length} streamer{followedStreamers.length !== 1 ? "s" : ""} followed
+              {totalCount} streamer{totalCount !== 1 ? "s" : ""} followed
             </span>
             {followedStreamers.filter((s) => s.is_live).length > 0 && (
               <>
@@ -703,7 +812,28 @@ const Following = () => {
           </div>
         )}
 
-        {/* Recommended Streamers Section */}
+        {/* Infinite Scroll Trigger */}
+        {!loading && filteredStreamers.length > 0 && (
+          <div ref={loadMoreRef} className="flex justify-center py-8">
+            {loadingMore ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Loading more...</span>
+              </div>
+            ) : hasMore ? (
+              <Button 
+                variant="outline" 
+                onClick={() => setPage(prev => prev + 1)}
+              >
+                Load More
+              </Button>
+            ) : followedStreamers.length > ITEMS_PER_PAGE ? (
+              <p className="text-sm text-muted-foreground">
+                You've reached the end • {totalCount} streamers total
+              </p>
+            ) : null}
+          </div>
+        )}
         {!loading && recommendedStreamers.length > 0 && (
           <section className="mt-16">
             <div className="flex items-center gap-3 mb-6">
