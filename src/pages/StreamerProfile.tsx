@@ -33,6 +33,7 @@ interface StreamerProfileData {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  banner_url: string | null;
   categories: string[] | null;
   social_twitter: string | null;
   social_youtube: string | null;
@@ -133,7 +134,7 @@ const StreamerProfile = () => {
         }
       }
 
-      setProfile(profileData ? { ...profileData, schedule: parsedSchedule } : null);
+      setProfile(profileData ? { ...profileData, schedule: parsedSchedule, banner_url: (profileData as any).banner_url || null } : null);
 
       // Fetch follower count
       const { count: followerCount } = await supabase
@@ -314,11 +315,25 @@ const StreamerProfile = () => {
             transition={{ delay: 0.1 }}
           >
             <Card className="border-0 bg-gradient-to-br from-primary/10 via-card to-card overflow-hidden relative">
-              {/* Decorative elements */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-              <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+              {/* Banner Image */}
+              {profile?.banner_url ? (
+                <div className="relative h-48 md:h-64 w-full overflow-hidden">
+                  <img
+                    src={profile.banner_url}
+                    alt="Profile banner"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
+                </div>
+              ) : (
+                <>
+                  {/* Decorative elements (fallback when no banner) */}
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+                </>
+              )}
               
-              <CardContent className="p-8 md:p-10 relative">
+              <CardContent className={`p-8 md:p-10 relative ${profile?.banner_url ? '-mt-20 md:-mt-28' : ''}`}>
                 <div className="flex flex-col lg:flex-row items-center gap-8">
                   {/* Avatar Section */}
                   <div className="relative flex-shrink-0">
