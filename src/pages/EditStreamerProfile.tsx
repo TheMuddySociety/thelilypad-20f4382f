@@ -43,6 +43,7 @@ const EditStreamerProfile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   
   const [displayName, setDisplayName] = useState("");
@@ -187,9 +188,8 @@ const EditStreamerProfile = () => {
     }
   };
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !userId) return;
+  const processAvatarFile = async (file: File) => {
+    if (!userId) return;
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -244,6 +244,32 @@ const EditStreamerProfile = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) processAvatarFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) processAvatarFile(file);
   };
 
   if (loading) {
@@ -311,8 +337,17 @@ const EditStreamerProfile = () => {
               </div>
               <div className="space-y-2">
                 <Label>Profile Picture</Label>
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-20 w-20 border-2 border-border">
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`relative flex items-center gap-4 p-4 rounded-lg border-2 border-dashed transition-colors ${
+                    isDragging
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <Avatar className="h-20 w-20 border-2 border-border shrink-0">
                     <AvatarImage src={avatarUrl} alt="Avatar preview" />
                     <AvatarFallback className="bg-muted">
                       <ImageIcon className="h-8 w-8 text-muted-foreground" />
@@ -342,7 +377,7 @@ const EditStreamerProfile = () => {
                       </label>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      JPG, PNG or GIF. Max 5MB.
+                      {isDragging ? 'Drop your image here!' : 'Drag & drop or click to upload. JPG, PNG or GIF. Max 5MB.'}
                     </p>
                   </div>
                 </div>
