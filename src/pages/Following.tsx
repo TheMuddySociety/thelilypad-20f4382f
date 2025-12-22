@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { FollowButton } from "@/components/FollowButton";
 import { StreamerSchedules } from "@/components/StreamerSchedules";
+import { NextStreamCountdown } from "@/components/NextStreamCountdown";
 
 type StreamerProfile = Tables<"streamer_profiles">;
 type StreamerWithStatus = StreamerProfile & { is_live: boolean; followed_at?: string };
@@ -487,9 +488,10 @@ const Following = () => {
             Stay updated with your favorite streamers and never miss when they go live
           </p>
           
-          {/* Streamer Schedules */}
+          {/* Next Stream Countdown & Schedules */}
           {!loading && followedStreamers.length > 0 && (
-            <div className="max-w-xl mx-auto mt-8">
+            <div className="max-w-xl mx-auto mt-8 space-y-4">
+              <NextStreamCountdown streamers={followedStreamers} />
               <StreamerSchedules streamers={followedStreamers} />
             </div>
           )}
