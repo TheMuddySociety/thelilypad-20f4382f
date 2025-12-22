@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +10,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DonorLeaderboard } from "@/components/DonorLeaderboard";
 import { TipButton } from "@/components/TipButton";
 import { FollowButton } from "@/components/FollowButton";
+import { motion } from "framer-motion";
 import { 
   User, ArrowLeft, Calendar, Clock, CheckCircle,
   Twitter, Youtube, MessageCircle, Instagram, Music2,
-  Users, Video, Heart
+  Users, Video, Eye, TrendingUp, Sparkles, ExternalLink
 } from "lucide-react";
 
 interface ScheduleItem {
@@ -28,6 +29,7 @@ interface StreamerProfileData {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  categories: string[] | null;
   social_twitter: string | null;
   social_youtube: string | null;
   social_discord: string | null;
@@ -40,17 +42,27 @@ interface StreamerProfileData {
 interface StreamerStats {
   followerCount: number;
   totalStreams: number;
+  totalViews: number;
   isLive: boolean;
+  currentStreamTitle?: string;
 }
 
 const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const socialConfig = {
+  twitter: { icon: Twitter, label: 'Twitter', color: 'hover:text-sky-500', bgHover: 'hover:bg-sky-500/10' },
+  youtube: { icon: Youtube, label: 'YouTube', color: 'hover:text-red-500', bgHover: 'hover:bg-red-500/10' },
+  discord: { icon: MessageCircle, label: 'Discord', color: 'hover:text-indigo-500', bgHover: 'hover:bg-indigo-500/10' },
+  instagram: { icon: Instagram, label: 'Instagram', color: 'hover:text-pink-500', bgHover: 'hover:bg-pink-500/10' },
+  tiktok: { icon: Music2, label: 'TikTok', color: 'hover:text-foreground', bgHover: 'hover:bg-foreground/10' },
+};
 
 const StreamerProfile = () => {
   const { streamerId } = useParams<{ streamerId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StreamerProfileData | null>(null);
-  const [stats, setStats] = useState<StreamerStats>({ followerCount: 0, totalStreams: 0, isLive: false });
+  const [stats, setStats] = useState<StreamerStats>({ followerCount: 0, totalStreams: 0, totalViews: 0, isLive: false });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -93,24 +105,22 @@ const StreamerProfile = () => {
         .select('*', { count: 'exact', head: true })
         .eq('streamer_id', streamerId);
 
-      // Fetch stream count
-      const { count: streamCount } = await supabase
+      // Fetch streams with views
+      const { data: streams } = await supabase
         .from('streams')
-        .select('*', { count: 'exact', head: true })
+        .select('id, total_views, is_live, title')
         .eq('user_id', streamerId);
 
-      // Check if live
-      const { data: liveStream } = await supabase
-        .from('streams')
-        .select('id')
-        .eq('user_id', streamerId)
-        .eq('is_live', true)
-        .maybeSingle();
+      const totalStreams = streams?.length || 0;
+      const totalViews = streams?.reduce((sum, s) => sum + (s.total_views || 0), 0) || 0;
+      const liveStream = streams?.find(s => s.is_live);
 
       setStats({
         followerCount: followerCount || 0,
-        totalStreams: streamCount || 0,
-        isLive: !!liveStream
+        totalStreams,
+        totalViews,
+        isLive: !!liveStream,
+        currentStreamTitle: liveStream?.title
       });
 
       setLoading(false);
@@ -120,23 +130,40 @@ const StreamerProfile = () => {
   }, [streamerId]);
 
   const socialLinks = [
-    { key: 'twitter', icon: Twitter, url: profile?.social_twitter, label: 'Twitter' },
-    { key: 'youtube', icon: Youtube, url: profile?.social_youtube, label: 'YouTube' },
-    { key: 'discord', icon: MessageCircle, url: profile?.social_discord, label: 'Discord' },
-    { key: 'instagram', icon: Instagram, url: profile?.social_instagram, label: 'Instagram' },
-    { key: 'tiktok', icon: Music2, url: profile?.social_tiktok, label: 'TikTok' },
+    { key: 'twitter' as const, url: profile?.social_twitter },
+    { key: 'youtube' as const, url: profile?.social_youtube },
+    { key: 'discord' as const, url: profile?.social_discord },
+    { key: 'instagram' as const, url: profile?.social_instagram },
+    { key: 'tiktok' as const, url: profile?.social_tiktok },
   ].filter(link => link.url);
+
+  const statItems = [
+    { icon: Users, label: 'Followers', value: stats.followerCount, color: 'text-primary' },
+    { icon: Video, label: 'Streams', value: stats.totalStreams, color: 'text-blue-500' },
+    { icon: Eye, label: 'Total Views', value: stats.totalViews, color: 'text-emerald-500' },
+  ];
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
         <main className="container mx-auto px-4 pt-24 pb-12">
-          <div className="max-w-4xl mx-auto space-y-6">
-            <Skeleton className="h-64 w-full rounded-xl" />
-            <div className="grid md:grid-cols-3 gap-6">
-              <Skeleton className="h-48 rounded-xl md:col-span-2" />
-              <Skeleton className="h-48 rounded-xl" />
+          <div className="max-w-5xl mx-auto space-y-6">
+            <Skeleton className="h-80 w-full rounded-2xl" />
+            <div className="grid grid-cols-3 gap-4">
+              <Skeleton className="h-24 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+            </div>
+            <div className="grid lg:grid-cols-3 gap-6">
+              <Skeleton className="h-64 rounded-xl lg:col-span-2" />
+              <Skeleton className="h-64 rounded-xl" />
             </div>
           </div>
         </main>
@@ -148,160 +175,273 @@ const StreamerProfile = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="container mx-auto px-4 pt-24 pb-12">
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-5xl mx-auto space-y-8">
           {/* Back Button */}
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate(-1)}
-            className="gap-2"
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
           >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate(-1)}
+              className="gap-2 hover:bg-muted/50"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </motion.div>
 
-          {/* Profile Header */}
-          <Card className="border-border/50 bg-gradient-to-br from-card via-card to-primary/5 overflow-hidden">
-            <CardContent className="p-6 md:p-8">
-              <div className="flex flex-col md:flex-row items-center gap-6">
-                <div className="relative">
-                  <Avatar className="h-28 w-28 border-4 border-primary/20">
-                    {profile?.avatar_url ? (
-                      <AvatarImage src={profile.avatar_url} alt={profile.display_name || 'Streamer'} />
-                    ) : (
-                      <AvatarFallback className="bg-primary/20 text-primary text-3xl font-bold">
-                        <User className="h-12 w-12" />
-                      </AvatarFallback>
+          {/* Hero Profile Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card className="border-0 bg-gradient-to-br from-primary/10 via-card to-card overflow-hidden relative">
+              {/* Decorative elements */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+              
+              <CardContent className="p-8 md:p-10 relative">
+                <div className="flex flex-col lg:flex-row items-center gap-8">
+                  {/* Avatar Section */}
+                  <div className="relative flex-shrink-0">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/50 rounded-full blur-xl opacity-30 scale-110" />
+                      <Avatar className="h-36 w-36 border-4 border-background shadow-2xl relative">
+                        {profile?.avatar_url ? (
+                          <AvatarImage src={profile.avatar_url} alt={profile.display_name || 'Streamer'} className="object-cover" />
+                        ) : (
+                          <AvatarFallback className="bg-gradient-to-br from-primary/30 to-primary/10 text-primary text-4xl font-bold">
+                            <User className="h-16 w-16" />
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                    </div>
+                    {stats.isLive && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute -bottom-2 left-1/2 -translate-x-1/2"
+                      >
+                        <Badge className="bg-red-500 text-white px-4 py-1 text-sm font-semibold shadow-lg animate-pulse">
+                          <span className="w-2 h-2 bg-white rounded-full mr-2 inline-block animate-pulse" />
+                          LIVE NOW
+                        </Badge>
+                      </motion.div>
                     )}
-                  </Avatar>
-                  {stats.isLive && (
-                    <Badge className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-500 text-white animate-pulse">
-                      LIVE
-                    </Badge>
-                  )}
-                </div>
-                
-                <div className="text-center md:text-left flex-1">
-                  <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-                    <h1 className="text-2xl md:text-3xl font-bold">
-                      {profile?.display_name || streamerId?.slice(0, 8) || 'Unknown Streamer'}
-                    </h1>
-                    {profile?.is_verified && (
-                      <CheckCircle className="h-6 w-6 text-primary fill-primary/20" />
-                    )}
-                  </div>
-                  {profile?.bio && (
-                    <p className="text-muted-foreground max-w-xl mb-4">{profile.bio}</p>
-                  )}
-                  
-                  {/* Social Links */}
-                  {socialLinks.length > 0 && (
-                    <div className="flex items-center justify-center md:justify-start gap-2 mb-4">
-                      {socialLinks.map((link) => {
-                        const Icon = link.icon;
-                        return (
-                          <a
-                            key={link.key}
-                            href={link.url!}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 rounded-full bg-muted/50 hover:bg-primary/20 transition-colors"
-                            title={link.label}
-                          >
-                            <Icon className="h-5 w-5" />
-                          </a>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Stats & Actions */}
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex gap-6 text-center">
-                    <div>
-                      <p className="text-2xl font-bold">{stats.followerCount}</p>
-                      <p className="text-xs text-muted-foreground">Followers</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">{stats.totalStreams}</p>
-                      <p className="text-xs text-muted-foreground">Streams</p>
-                    </div>
                   </div>
                   
-                  <div className="flex gap-2">
-                    {streamerId && (
-                      <FollowButton 
-                        streamerId={streamerId} 
-                        onFollowChange={(following) => {
-                          setStats(prev => ({
-                            ...prev,
-                            followerCount: following ? prev.followerCount + 1 : prev.followerCount - 1
-                          }));
-                        }}
-                      />
-                    )}
-                    {streamerId && (
-                      <TipButton 
-                        streamerId={streamerId}
-                        streamerAddress={streamerId}
-                        streamerName={profile?.display_name || 'Streamer'}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* Schedule */}
-            <Card className="border-border/50 bg-card/50 backdrop-blur-sm md:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  Streaming Schedule
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {profile?.schedule && profile.schedule.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {profile.schedule
-                      .sort((a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day))
-                      .map((item, index) => (
-                        <div 
-                          key={index}
-                          className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50"
-                        >
-                          <div className="p-2 rounded-full bg-primary/10">
-                            <Clock className="h-4 w-4 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{item.day}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {item.time} {item.timezone && `(${item.timezone})`}
-                            </p>
-                          </div>
+                  {/* Profile Info */}
+                  <div className="flex-1 text-center lg:text-left">
+                    <div className="flex items-center justify-center lg:justify-start gap-3 mb-3">
+                      <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                        {profile?.display_name || streamerId?.slice(0, 8) || 'Unknown Streamer'}
+                      </h1>
+                      {profile?.is_verified && (
+                        <div className="p-1 rounded-full bg-primary/20">
+                          <CheckCircle className="h-6 w-6 text-primary" />
                         </div>
-                      ))}
+                      )}
+                    </div>
+                    
+                    {profile?.bio && (
+                      <p className="text-muted-foreground text-lg max-w-2xl mb-4 leading-relaxed">
+                        {profile.bio}
+                      </p>
+                    )}
+
+                    {/* Categories */}
+                    {profile?.categories && profile.categories.length > 0 && (
+                      <div className="flex items-center justify-center lg:justify-start gap-2 mb-5 flex-wrap">
+                        {profile.categories.map((category, idx) => (
+                          <Badge 
+                            key={idx} 
+                            variant="secondary" 
+                            className="bg-muted/50 hover:bg-muted transition-colors"
+                          >
+                            <Sparkles className="h-3 w-3 mr-1" />
+                            {category}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Social Links */}
+                    {socialLinks.length > 0 && (
+                      <div className="flex items-center justify-center lg:justify-start gap-2 mb-6">
+                        {socialLinks.map((link) => {
+                          const config = socialConfig[link.key];
+                          const Icon = config.icon;
+                          return (
+                            <a
+                              key={link.key}
+                              href={link.url!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`p-3 rounded-xl bg-muted/30 border border-border/50 transition-all duration-200 ${config.color} ${config.bgHover} hover:scale-105 hover:shadow-lg group`}
+                              title={config.label}
+                            >
+                              <Icon className="h-5 w-5" />
+                            </a>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center justify-center lg:justify-start gap-3">
+                      {streamerId && (
+                        <FollowButton 
+                          streamerId={streamerId} 
+                          onFollowChange={(following) => {
+                            setStats(prev => ({
+                              ...prev,
+                              followerCount: following ? prev.followerCount + 1 : prev.followerCount - 1
+                            }));
+                          }}
+                        />
+                      )}
+                      {streamerId && (
+                        <TipButton 
+                          streamerId={streamerId}
+                          streamerAddress={streamerId}
+                          streamerName={profile?.display_name || 'Streamer'}
+                        />
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p>No schedule set</p>
-                    <p className="text-sm">Check back later for streaming times!</p>
-                  </div>
-                )}
+                </div>
               </CardContent>
             </Card>
+          </motion.div>
+
+          {/* Stats Cards */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="grid grid-cols-3 gap-4"
+          >
+            {statItems.map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <motion.div
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 + index * 0.05 }}
+                >
+                  <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-all duration-300 group">
+                    <CardContent className="p-4 md:p-6 text-center">
+                      <div className={`inline-flex p-3 rounded-xl bg-muted/50 ${stat.color} mb-3 group-hover:scale-110 transition-transform`}>
+                        <Icon className="h-5 w-5 md:h-6 md:w-6" />
+                      </div>
+                      <p className="text-2xl md:text-3xl font-bold mb-1">{formatNumber(stat.value)}</p>
+                      <p className="text-xs md:text-sm text-muted-foreground">{stat.label}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+
+          {/* Live Stream Banner */}
+          {stats.isLive && stats.currentStreamTitle && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              <Card className="border-red-500/30 bg-gradient-to-r from-red-500/10 via-card to-card overflow-hidden">
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-full bg-red-500/20 animate-pulse">
+                        <Video className="h-6 w-6 text-red-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-red-400 font-medium mb-1">Currently Streaming</p>
+                        <p className="text-lg font-semibold">{stats.currentStreamTitle}</p>
+                      </div>
+                    </div>
+                    <Link to="/streams">
+                      <Button variant="outline" className="border-red-500/30 hover:bg-red-500/10">
+                        Watch Now
+                        <ExternalLink className="h-4 w-4 ml-2" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Schedule */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="lg:col-span-2"
+            >
+              <Card className="border-border/50 bg-card/50 backdrop-blur-sm h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    Streaming Schedule
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {profile?.schedule && profile.schedule.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {profile.schedule
+                        .sort((a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day))
+                        .map((item, index) => (
+                          <motion.div 
+                            key={index}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.4 + index * 0.05 }}
+                            className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="p-2.5 rounded-xl bg-primary/10">
+                              <Clock className="h-5 w-5 text-primary" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold">{item.day}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {item.time} {item.timezone && <span className="text-xs opacity-70">({item.timezone})</span>}
+                              </p>
+                            </div>
+                          </motion.div>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <div className="p-4 rounded-full bg-muted/30 w-fit mx-auto mb-4">
+                        <Calendar className="h-10 w-10 opacity-50" />
+                      </div>
+                      <p className="font-medium mb-1">No schedule set</p>
+                      <p className="text-sm">Check back later for streaming times!</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
 
             {/* Top Supporters */}
-            <div className="md:col-span-1">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
               <DonorLeaderboard 
                 streamerId={streamerId} 
                 limit={5}
                 title="Top Supporters"
               />
-            </div>
+            </motion.div>
           </div>
         </div>
       </main>
