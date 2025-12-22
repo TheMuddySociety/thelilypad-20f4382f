@@ -26,7 +26,7 @@ import { Store, Rocket, Video } from "lucide-react";
 
 const primaryLinks: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Marketplace", href: "#", icon: Store },
-  { label: "Launchpad", href: "#", icon: Rocket },
+  { label: "Launchpad", href: "/launchpad", icon: Rocket },
   { label: "Streams", href: "/streams", icon: Video },
 ];
 
