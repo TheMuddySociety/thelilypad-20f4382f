@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles, Filter, ArrowUpDown } from "lucide-react";
+import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles, Filter, ArrowUpDown, Search } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { FollowButton } from "@/components/FollowButton";
@@ -23,6 +24,7 @@ const Following = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("live");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const navigate = useNavigate();
 
   // Get unique categories from followed streamers
@@ -39,6 +41,15 @@ const Following = () => {
   // Filter and sort streamers
   const filteredStreamers = useMemo(() => {
     let result = followedStreamers;
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (streamer) =>
+          (streamer.display_name || "").toLowerCase().includes(query)
+      );
+    }
     
     // Filter by category
     if (selectedCategory !== "all") {
@@ -68,7 +79,7 @@ const Following = () => {
           return 0;
       }
     });
-  }, [followedStreamers, selectedCategory, sortBy]);
+  }, [followedStreamers, selectedCategory, sortBy, searchQuery]);
 
   useEffect(() => {
     checkAuthAndFetch();
@@ -319,8 +330,20 @@ const Following = () => {
             )}
           </div>
 
-          {/* Filter and Sort Controls */}
+          {/* Search and Controls */}
           <div className="flex flex-wrap items-center gap-3">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search streamers..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-[200px] bg-card border-border"
+              />
+            </div>
+
             {/* Sort Dropdown */}
             <div className="flex items-center gap-2">
               <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
