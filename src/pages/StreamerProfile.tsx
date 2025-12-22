@@ -346,7 +346,8 @@ const StreamerProfile = () => {
                     className={`w-full h-[120%] object-cover transition-opacity duration-300 ${bannerLoaded ? 'opacity-100' : 'opacity-0'}`}
                     style={{ 
                       transform: `translateY(${scrollY * 0.3}px)`,
-                      willChange: 'transform'
+                      filter: `blur(${Math.min(scrollY * 0.02, 8)}px)`,
+                      willChange: 'transform, filter'
                     }}
                     onLoad={() => setBannerLoaded(true)}
                   />
