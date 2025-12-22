@@ -8,10 +8,19 @@ interface FollowedStreamer {
   avatar_url: string | null;
 }
 
+export interface LiveStreamer {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  streamTitle: string;
+  category: string | null;
+}
+
 export const useLiveNotifications = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [followedStreamers, setFollowedStreamers] = useState<FollowedStreamer[]>([]);
   const [liveStreamersCount, setLiveStreamersCount] = useState(0);
+  const [liveStreamers, setLiveStreamers] = useState<LiveStreamer[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -93,15 +102,28 @@ export const useLiveNotifications = () => {
       }))
     );
 
-    // Fetch live streams count for followed streamers
+    // Fetch live streams for followed streamers
     const { data: liveStreams, error: liveError } = await supabase
       .from("streams")
-      .select("user_id")
+      .select("user_id, title, category")
       .eq("is_live", true)
       .in("user_id", streamerIds);
 
     if (!liveError && liveStreams) {
       setLiveStreamersCount(liveStreams.length);
+      
+      // Build live streamers list with profile info
+      const liveStreamersList: LiveStreamer[] = liveStreams.map(stream => {
+        const profile = (profiles || []).find(p => p.user_id === stream.user_id);
+        return {
+          userId: stream.user_id,
+          displayName: profile?.display_name || "Unknown Streamer",
+          avatarUrl: profile?.avatar_url || null,
+          streamTitle: stream.title,
+          category: stream.category,
+        };
+      });
+      setLiveStreamers(liveStreamersList);
     }
   }, []);
 
@@ -184,6 +206,7 @@ export const useLiveNotifications = () => {
 
           // Check if this is a followed streamer
           if (streamerIds.includes(stream.user_id)) {
+            const fullPayload = payload.new as { user_id: string; is_live: boolean; title?: string; category?: string | null };
             // Update live count when stream status changes
             if (stream.is_live && !oldStream.is_live) {
               // Streamer went live
@@ -192,10 +215,19 @@ export const useLiveNotifications = () => {
               if (streamer) {
                 console.log("Followed streamer went live:", streamer.display_name);
                 showNotification(streamer.display_name || "A streamer you follow", streamer.avatar_url);
+                // Add to live streamers list
+                setLiveStreamers(prev => [...prev, {
+                  userId: stream.user_id,
+                  displayName: streamer.display_name || "Unknown Streamer",
+                  avatarUrl: streamer.avatar_url,
+                  streamTitle: fullPayload.title || "Untitled Stream",
+                  category: fullPayload.category || null,
+                }]);
               }
             } else if (!stream.is_live && oldStream.is_live) {
               // Streamer went offline
               setLiveStreamersCount(prev => Math.max(0, prev - 1));
+              setLiveStreamers(prev => prev.filter(s => s.userId !== stream.user_id));
             }
           }
         }
@@ -211,12 +243,21 @@ export const useLiveNotifications = () => {
           const stream = payload.new as { user_id: string; is_live: boolean };
 
           // Check if this is a new live stream from a followed streamer
+          const fullPayload = payload.new as { user_id: string; is_live: boolean; title?: string; category?: string | null };
           if (streamerIds.includes(stream.user_id) && stream.is_live === true) {
             setLiveStreamersCount(prev => prev + 1);
             const streamer = followedStreamers.find(s => s.streamer_id === stream.user_id);
             if (streamer) {
               console.log("Followed streamer started new live stream:", streamer.display_name);
               showNotification(streamer.display_name || "A streamer you follow", streamer.avatar_url);
+              // Add to live streamers list
+              setLiveStreamers(prev => [...prev, {
+                userId: stream.user_id,
+                displayName: streamer.display_name || "Unknown Streamer",
+                avatarUrl: streamer.avatar_url,
+                streamTitle: fullPayload.title || "Untitled Stream",
+                category: fullPayload.category || null,
+              }]);
             }
           }
         }
@@ -233,5 +274,6 @@ export const useLiveNotifications = () => {
     requestPermission,
     followedStreamersCount: followedStreamers.length,
     liveStreamersCount,
+    liveStreamers,
   };
 };
