@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      allowlist_entries: {
+        Row: {
+          collection_id: string
+          created_at: string
+          created_by: string
+          id: string
+          max_mint: number | null
+          notes: string | null
+          phase_name: string
+          wallet_address: string
+        }
+        Insert: {
+          collection_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          max_mint?: number | null
+          notes?: string | null
+          phase_name: string
+          wallet_address: string
+        }
+        Update: {
+          collection_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          max_mint?: number | null
+          notes?: string | null
+          phase_name?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       clip_comments: {
         Row: {
           clip_id: string

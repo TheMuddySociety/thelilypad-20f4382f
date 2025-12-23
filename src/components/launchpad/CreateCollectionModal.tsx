@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 import { LayerManager, Layer } from "./LayerManager";
 import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
+import { AllowlistManager } from "./AllowlistManager";
 import { GenerationPreview } from "./GenerationPreview";
 
 interface CreateCollectionModalProps {
@@ -48,20 +49,34 @@ interface MintPhase {
   startTime: string;
   endTime: string;
   merkleRoot?: string;
+  requiresAllowlist?: boolean;
+}
+
+interface AllowlistPhase {
+  id: string;
+  name: string;
+  entries: {
+    id: string;
+    walletAddress: string;
+    maxMint: number;
+    notes?: string;
+    addedAt: Date;
+  }[];
 }
 
 const defaultPhases: MintPhase[] = [
-  { id: "team", name: "Team Mint", enabled: false, price: "0", maxPerWallet: "10", supply: "100", startTime: "", endTime: "" },
-  { id: "partners", name: "Partners Mint", enabled: false, price: "0", maxPerWallet: "5", supply: "200", startTime: "", endTime: "", merkleRoot: "" },
-  { id: "allowlist", name: "Allowlist", enabled: false, price: "0.25", maxPerWallet: "3", supply: "500", startTime: "", endTime: "", merkleRoot: "" },
-  { id: "public", name: "Public Mint", enabled: true, price: "0.5", maxPerWallet: "5", supply: "4200", startTime: "", endTime: "" },
+  { id: "team", name: "Team Mint", enabled: false, price: "0", maxPerWallet: "10", supply: "100", startTime: "", endTime: "", requiresAllowlist: true },
+  { id: "partners", name: "Partners Mint", enabled: false, price: "0", maxPerWallet: "5", supply: "200", startTime: "", endTime: "", merkleRoot: "", requiresAllowlist: true },
+  { id: "allowlist", name: "Allowlist", enabled: false, price: "0.25", maxPerWallet: "3", supply: "500", startTime: "", endTime: "", merkleRoot: "", requiresAllowlist: true },
+  { id: "public", name: "Public Mint", enabled: true, price: "0.5", maxPerWallet: "5", supply: "4200", startTime: "", endTime: "", requiresAllowlist: false },
 ];
 
 const steps = [
   { id: 1, title: "Details", icon: ImageIcon },
   { id: 2, title: "Art Generation", icon: Palette },
   { id: 3, title: "Mint Phases", icon: Users },
-  { id: 4, title: "Review", icon: Sparkles },
+  { id: 4, title: "Allowlist", icon: Shield },
+  { id: 5, title: "Review", icon: Sparkles },
 ];
 
 export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionModalProps) {
@@ -83,6 +98,9 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
   
   // Mint phases
   const [phases, setPhases] = useState<MintPhase[]>(defaultPhases);
+  
+  // Allowlist management
+  const [allowlistPhases, setAllowlistPhases] = useState<AllowlistPhase[]>([]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -106,10 +124,18 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
         return;
       }
     }
-    if (currentStep < 4) {
+    if (currentStep < 5) {
       setCurrentStep(currentStep + 1);
     }
   };
+  
+  // Get phases that require allowlist
+  const allowlistRequiredPhases = phases.filter(p => p.enabled && p.requiresAllowlist);
+  
+  // Get total allowlist entries
+  const totalAllowlistEntries = allowlistPhases.reduce(
+    (sum, phase) => sum + phase.entries.length, 0
+  );
 
   const handleBack = () => {
     if (currentStep > 1) {
@@ -141,6 +167,7 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
     setLayers([]);
     setTraitRules([]);
     setPhases(defaultPhases);
+    setAllowlistPhases([]);
   };
 
   const enabledPhases = phases.filter(p => p.enabled);
@@ -413,8 +440,39 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
           </div>
         )}
 
-        {/* Step 4: Review & Deploy */}
+        {/* Step 4: Allowlist Management */}
         {currentStep === 4 && (
+          <div className="space-y-4">
+            {allowlistRequiredPhases.length > 0 ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Manage wallet addresses for your whitelist-enabled mint phases.
+                </p>
+                <AllowlistManager
+                  phases={allowlistRequiredPhases.map(p => ({ id: p.id, name: p.name }))}
+                  onAllowlistChange={setAllowlistPhases}
+                />
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-10 text-center">
+                  <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <h3 className="font-medium mb-1">No Allowlist Phases Enabled</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Enable Team Mint, Partners Mint, or Allowlist phases in the previous step to manage wallets.
+                  </p>
+                  <Button variant="outline" onClick={() => setCurrentStep(3)}>
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Configure Mint Phases
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Step 5: Review & Deploy */}
+        {currentStep === 5 && (
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -501,24 +559,68 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
                   <p className="text-sm text-muted-foreground">No mint phases configured</p>
                 ) : (
                   <div className="space-y-3">
-                    {enabledPhases.map((phase, index) => (
-                      <div key={phase.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-medium">
-                            {index + 1}
-                          </span>
-                          <span className="font-medium">{phase.name}</span>
+                    {enabledPhases.map((phase, index) => {
+                      const phaseAllowlist = allowlistPhases.find(a => a.id === phase.id);
+                      const allowlistCount = phaseAllowlist?.entries.length || 0;
+                      
+                      return (
+                        <div key={phase.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-medium">
+                              {index + 1}
+                            </span>
+                            <div>
+                              <span className="font-medium">{phase.name}</span>
+                              {phase.requiresAllowlist && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Shield className="w-3 h-3" />
+                                  {allowlistCount} wallet{allowlistCount !== 1 ? 's' : ''} allowlisted
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right text-sm">
+                            <p className="font-medium">{phase.price === "0" ? "Free" : `${phase.price} MON`}</p>
+                            <p className="text-muted-foreground">{phase.supply} supply</p>
+                          </div>
                         </div>
-                        <div className="text-right text-sm">
-                          <p className="font-medium">{phase.price === "0" ? "Free" : `${phase.price} MON`}</p>
-                          <p className="text-muted-foreground">{phase.supply} supply</p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
             </Card>
+
+            {/* Allowlist Summary */}
+            {totalAllowlistEntries > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    Allowlist Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Total Wallets</span>
+                      <p className="font-medium">{totalAllowlistEntries}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Phases with Allowlist</span>
+                      <p className="font-medium">{allowlistPhases.filter(p => p.entries.length > 0).length}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {allowlistPhases.filter(p => p.entries.length > 0).map((phase) => (
+                      <Badge key={phase.id} variant="outline" className="text-xs">
+                        {phase.name} ({phase.entries.length})
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
               <p className="text-sm text-yellow-600 dark:text-yellow-400">
@@ -540,7 +642,7 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
             Back
           </Button>
 
-          {currentStep < 4 ? (
+          {currentStep < 5 ? (
             <Button onClick={handleNext}>
               Next
               <ChevronRight className="w-4 h-4 ml-2" />
