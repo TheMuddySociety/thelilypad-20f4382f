@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -140,6 +140,7 @@ export function AllowlistManager({
   const [isProcessingCsv, setIsProcessingCsv] = useState(false);
   const [isCsvDragging, setIsCsvDragging] = useState(false);
   const [csvProgress, setCsvProgress] = useState<{ current: number; total: number } | null>(null);
+  const csvCancelRef = useRef(false);
   
   // Merkle tree state
   const [isMerkleDialogOpen, setIsMerkleDialogOpen] = useState(false);
@@ -275,6 +276,7 @@ export function AllowlistManager({
   
   // Process CSV file content with progress tracking
   const processCsvContent = useCallback(async (content: string) => {
+    csvCancelRef.current = false;
     const lines = content.split(/\r?\n/).filter(line => line.trim());
     
     if (lines.length === 0) {
@@ -309,8 +311,15 @@ export function AllowlistManager({
     
     // Process in batches for large files to show progress
     const BATCH_SIZE = 100;
+    let wasCancelled = false;
     
     for (let i = 0; i < dataLines.length; i += BATCH_SIZE) {
+      // Check for cancellation
+      if (csvCancelRef.current) {
+        wasCancelled = true;
+        break;
+      }
+      
       const batch = dataLines.slice(i, i + BATCH_SIZE);
       
       batch.forEach((line, batchIndex) => {
@@ -370,6 +379,13 @@ export function AllowlistManager({
       }
     }
     
+    if (wasCancelled) {
+      toast.info("CSV import cancelled");
+      setCsvProgress(null);
+      setIsProcessingCsv(false);
+      return;
+    }
+    
     setCsvImportResults({ valid, invalid, duplicates });
     setCsvProgress(null);
     
@@ -379,6 +395,11 @@ export function AllowlistManager({
     
     setIsProcessingCsv(false);
   }, [currentPhase]);
+  
+  // Cancel CSV processing
+  const cancelCsvProcessing = useCallback(() => {
+    csvCancelRef.current = true;
+  }, []);
   
   // Parse CSV file from file input
   const handleCsvFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -955,12 +976,12 @@ export function AllowlistManager({
                             id="csv-upload"
                             disabled={isProcessingCsv}
                           />
-                          <label htmlFor="csv-upload" className="cursor-pointer">
+                          <label htmlFor="csv-upload" className={isProcessingCsv ? "pointer-events-none" : "cursor-pointer"}>
                             {isProcessingCsv ? (
                               <div className="flex flex-col items-center gap-3">
                                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
                                 {csvProgress ? (
-                                  <div className="w-full max-w-[200px] space-y-2">
+                                  <div className="w-full max-w-[220px] space-y-2">
                                     <Progress 
                                       value={(csvProgress.current / csvProgress.total) * 100} 
                                       className="h-2"
@@ -968,6 +989,20 @@ export function AllowlistManager({
                                     <p className="text-sm text-muted-foreground">
                                       Processing {csvProgress.current.toLocaleString()} of {csvProgress.total.toLocaleString()} addresses
                                     </p>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        cancelCsvProcessing();
+                                      }}
+                                      className="w-full"
+                                    >
+                                      <X className="w-3 h-3 mr-1" />
+                                      Cancel
+                                    </Button>
                                   </div>
                                 ) : (
                                   <p className="text-sm text-muted-foreground">Reading file...</p>
