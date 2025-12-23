@@ -24,7 +24,9 @@ import {
   FlaskConical,
   Globe,
   Droplets,
-  AlertTriangle
+  AlertTriangle,
+  Fuel,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
@@ -112,7 +114,39 @@ export default function CollectionDetail() {
   // Calculate if user has enough balance
   const totalCost = parseFloat(activePhase.price) * mintAmount;
   const userBalance = balance ? parseFloat(balance) : 0;
-  const hasInsufficientBalance = isConnected && !isWrongNetwork && totalCost > userBalance;
+  
+  // Gas estimation (simulated - in production this would come from actual gas estimation)
+  const [gasEstimate, setGasEstimate] = useState<{ gasLimit: number; gasPrice: number; totalGas: number } | null>(null);
+  const [isEstimatingGas, setIsEstimatingGas] = useState(false);
+
+  // Simulate gas estimation when mint amount changes
+  useEffect(() => {
+    if (!isConnected || isWrongNetwork) {
+      setGasEstimate(null);
+      return;
+    }
+
+    const estimateGas = async () => {
+      setIsEstimatingGas(true);
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Simulated gas values (in a real app, this would come from eth_estimateGas)
+      const baseGasLimit = 150000; // Base gas for mint
+      const perNftGas = 50000; // Additional gas per NFT
+      const gasLimit = baseGasLimit + (perNftGas * mintAmount);
+      const gasPrice = isTestnet ? 0.000000001 : 0.000000025; // Gwei converted to MON
+      const totalGas = gasLimit * gasPrice;
+      
+      setGasEstimate({ gasLimit, gasPrice, totalGas });
+      setIsEstimatingGas(false);
+    };
+
+    estimateGas();
+  }, [mintAmount, isConnected, isWrongNetwork, isTestnet]);
+
+  const totalWithGas = totalCost + (gasEstimate?.totalGas || 0);
+  const hasInsufficientBalance = isConnected && !isWrongNetwork && totalWithGas > userBalance;
   
   // Simulated live supply updates
   const [liveSupply, setLiveSupply] = useState(3420);
@@ -181,10 +215,10 @@ export default function CollectionDetail() {
       return;
     }
 
-    // Check if user has sufficient balance
+    // Check if user has sufficient balance (including gas)
     if (hasInsufficientBalance) {
       toast.error("Insufficient balance", {
-        description: `You need ${(totalCost - userBalance).toFixed(4)} more MON to mint`,
+        description: `You need ${(totalWithGas - userBalance).toFixed(4)} more MON (including gas) to mint`,
       });
       return;
     }
@@ -450,7 +484,7 @@ export default function CollectionDetail() {
                       <div className="mt-2 flex items-center gap-2 text-destructive">
                         <AlertTriangle className="w-3 h-3" />
                         <span className="text-xs">
-                          Insufficient balance. Need {(totalCost - userBalance).toFixed(4)} more MON
+                          Insufficient balance. Need {(totalWithGas - userBalance).toFixed(4)} more MON (incl. gas)
                         </span>
                       </div>
                     )}
@@ -510,12 +544,67 @@ export default function CollectionDetail() {
 
                 <Separator />
 
+                {/* Gas Estimation */}
+                {isConnected && !isWrongNetwork && (
+                  <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Fuel className="w-4 h-4" />
+                        <span>Estimated Gas</span>
+                      </div>
+                      {isEstimatingGas ? (
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span className="text-xs">Estimating...</span>
+                        </div>
+                      ) : gasEstimate ? (
+                        <span className="font-medium text-muted-foreground">
+                          ~{gasEstimate.totalGas.toFixed(6)} MON
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">--</span>
+                      )}
+                    </div>
+                    {gasEstimate && !isEstimatingGas && (
+                      <div className="text-xs text-muted-foreground">
+                        Gas Limit: {gasEstimate.gasLimit.toLocaleString()} • Gas Price: {(gasEstimate.gasPrice * 1e9).toFixed(2)} Gwei
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Total Cost */}
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-medium">Total</span>
-                  <span className="text-2xl font-bold text-primary">
-                    {totalCostDisplay === "0.00" ? "Free" : `${totalCostDisplay} MON`}
-                  </span>
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-muted-foreground">Mint Cost</span>
+                    <span className="font-medium">
+                      {totalCostDisplay === "0.00" ? "Free" : `${totalCostDisplay} MON`}
+                    </span>
+                  </div>
+                  {gasEstimate && !isEstimatingGas && (
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-muted-foreground">+ Gas Fee</span>
+                      <span className="font-medium text-muted-foreground">
+                        ~{gasEstimate.totalGas.toFixed(6)} MON
+                      </span>
+                    </div>
+                  )}
+                  <Separator className="my-2" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-medium">Total</span>
+                    <span className="text-2xl font-bold text-primary">
+                      {isEstimatingGas ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="text-lg">Calculating...</span>
+                        </span>
+                      ) : totalWithGas === 0 ? (
+                        "Free"
+                      ) : (
+                        `~${totalWithGas.toFixed(4)} MON`
+                      )}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Wrong Network Warning */}
