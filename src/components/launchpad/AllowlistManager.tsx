@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -138,6 +139,7 @@ export function AllowlistManager({
   } | null>(null);
   const [isProcessingCsv, setIsProcessingCsv] = useState(false);
   const [isCsvDragging, setIsCsvDragging] = useState(false);
+  const [csvProgress, setCsvProgress] = useState<{ current: number; total: number } | null>(null);
   
   // Merkle tree state
   const [isMerkleDialogOpen, setIsMerkleDialogOpen] = useState(false);
@@ -271,13 +273,14 @@ export function AllowlistManager({
     toast.success("Merkle root copied to clipboard");
   }, [currentMerkleData]);
   
-  // Process CSV file content
-  const processCsvContent = useCallback((content: string) => {
+  // Process CSV file content with progress tracking
+  const processCsvContent = useCallback(async (content: string) => {
     const lines = content.split(/\r?\n/).filter(line => line.trim());
     
     if (lines.length === 0) {
       toast.error("CSV file is empty");
       setIsProcessingCsv(false);
+      setCsvProgress(null);
       return;
     }
     
@@ -289,6 +292,10 @@ export function AllowlistManager({
                       !isValidEthAddress(lines[0].split(',')[0]?.trim() || '');
     
     const dataLines = hasHeader ? lines.slice(1) : lines;
+    const totalLines = dataLines.length;
+    
+    // Initialize progress
+    setCsvProgress({ current: 0, total: totalLines });
     
     // Get existing addresses for duplicate check
     const existingAddresses = new Set(
@@ -300,53 +307,71 @@ export function AllowlistManager({
     const duplicates: string[] = [];
     const seenInFile = new Set<string>();
     
-    dataLines.forEach((line, index) => {
-      const lineNum = hasHeader ? index + 2 : index + 1;
-      const trimmedLine = line.trim();
+    // Process in batches for large files to show progress
+    const BATCH_SIZE = 100;
+    
+    for (let i = 0; i < dataLines.length; i += BATCH_SIZE) {
+      const batch = dataLines.slice(i, i + BATCH_SIZE);
       
-      if (!trimmedLine) return;
-      
-      // Parse CSV columns
-      const columns = trimmedLine.split(',').map(col => col.trim().replace(/^["']|["']$/g, ''));
-      const address = columns[0] || '';
-      const maxMintStr = columns[1] || '1';
-      const notes = columns[2] || '';
-      
-      // Validate address
-      if (!address) {
-        invalid.push({ line: lineNum, content: trimmedLine, reason: 'Empty address' });
-        return;
-      }
-      
-      if (!isValidEthAddress(address) && !isValidENS(address)) {
-        invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid address format' });
-        return;
-      }
-      
-      // Check for duplicates
-      const lowerAddress = address.toLowerCase();
-      if (existingAddresses.has(lowerAddress) || seenInFile.has(lowerAddress)) {
-        duplicates.push(address);
-        return;
-      }
-      
-      seenInFile.add(lowerAddress);
-      
-      // Parse max mint
-      const maxMint = parseInt(maxMintStr) || 1;
-      if (maxMint < 1) {
-        invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid max mint value' });
-        return;
-      }
-      
-      valid.push({
-        address,
-        maxMint,
-        notes: notes || undefined,
+      batch.forEach((line, batchIndex) => {
+        const index = i + batchIndex;
+        const lineNum = hasHeader ? index + 2 : index + 1;
+        const trimmedLine = line.trim();
+        
+        if (!trimmedLine) return;
+        
+        // Parse CSV columns
+        const columns = trimmedLine.split(',').map(col => col.trim().replace(/^["']|["']$/g, ''));
+        const address = columns[0] || '';
+        const maxMintStr = columns[1] || '1';
+        const notes = columns[2] || '';
+        
+        // Validate address
+        if (!address) {
+          invalid.push({ line: lineNum, content: trimmedLine, reason: 'Empty address' });
+          return;
+        }
+        
+        if (!isValidEthAddress(address) && !isValidENS(address)) {
+          invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid address format' });
+          return;
+        }
+        
+        // Check for duplicates
+        const lowerAddress = address.toLowerCase();
+        if (existingAddresses.has(lowerAddress) || seenInFile.has(lowerAddress)) {
+          duplicates.push(address);
+          return;
+        }
+        
+        seenInFile.add(lowerAddress);
+        
+        // Parse max mint
+        const maxMint = parseInt(maxMintStr) || 1;
+        if (maxMint < 1) {
+          invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid max mint value' });
+          return;
+        }
+        
+        valid.push({
+          address,
+          maxMint,
+          notes: notes || undefined,
+        });
       });
-    });
+      
+      // Update progress after each batch
+      const processed = Math.min(i + BATCH_SIZE, totalLines);
+      setCsvProgress({ current: processed, total: totalLines });
+      
+      // Allow UI to update between batches for large files
+      if (totalLines > BATCH_SIZE) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
     
     setCsvImportResults({ valid, invalid, duplicates });
+    setCsvProgress(null);
     
     if (valid.length === 0 && invalid.length === 0 && duplicates.length === 0) {
       toast.error("No data found in CSV file");
@@ -932,9 +957,21 @@ export function AllowlistManager({
                           />
                           <label htmlFor="csv-upload" className="cursor-pointer">
                             {isProcessingCsv ? (
-                              <div className="flex flex-col items-center gap-2">
+                              <div className="flex flex-col items-center gap-3">
                                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                                <p className="text-sm text-muted-foreground">Processing CSV...</p>
+                                {csvProgress ? (
+                                  <div className="w-full max-w-[200px] space-y-2">
+                                    <Progress 
+                                      value={(csvProgress.current / csvProgress.total) * 100} 
+                                      className="h-2"
+                                    />
+                                    <p className="text-sm text-muted-foreground">
+                                      Processing {csvProgress.current.toLocaleString()} of {csvProgress.total.toLocaleString()} addresses
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">Reading file...</p>
+                                )}
                               </div>
                             ) : (
                               <div className="flex flex-col items-center gap-2">
