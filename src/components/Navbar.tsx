@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
+import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { NotificationBell } from "@/components/NotificationBell";
 import {
   Drawer,
@@ -140,6 +141,7 @@ export const Navbar: React.FC = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
+            <NetworkSwitch />
             <NotificationBell />
             <ConnectWallet />
             <Button variant="default" size="sm">
@@ -210,6 +212,9 @@ export const Navbar: React.FC = () => {
                 </div>
               </div>
               <div className="p-4 pt-0 space-y-3 border-t border-border/50 mt-2">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <NetworkSwitch />
+                </div>
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <NotificationBell />
                   <span className="text-sm text-muted-foreground">Live Notifications</span>

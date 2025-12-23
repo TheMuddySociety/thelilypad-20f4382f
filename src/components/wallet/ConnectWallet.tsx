@@ -10,7 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { monadMainnet } from "@/config/alchemy";
 
 interface ConnectWalletProps {
   variant?: "default" | "ghost" | "outline";
@@ -23,10 +22,10 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
   size = "sm",
   className,
 }) => {
-  const { address, isConnected, isConnecting, balance, chainId, connect, disconnect } = useWallet();
+  const { address, isConnected, isConnecting, balance, chainId, connect, disconnect, currentChain } = useWallet();
   const navigate = useNavigate();
 
-  const isWrongNetwork = isConnected && chainId !== monadMainnet.id;
+  const isWrongNetwork = isConnected && chainId !== currentChain.id;
 
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -60,7 +59,7 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
         className={className}
         onClick={() => {}}
       >
-        Switch to Monad
+        Switch to {currentChain.name}
       </Button>
     );
   }
@@ -91,7 +90,7 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
           View Profile
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => window.open(`${monadMainnet.blockExplorers.default.url}/address/${address}`, "_blank")}
+          onClick={() => window.open(`${currentChain.blockExplorers?.default?.url}/address/${address}`, "_blank")}
         >
           <ExternalLink className="w-4 h-4 mr-2" />
           View on Explorer
