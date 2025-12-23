@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   Loader2,
   Zap,
+  Trash2,
 } from "lucide-react";
 import {
   Dialog,
@@ -418,9 +419,25 @@ export function BulkTraitUploader({
               {concurrencyLimit} {concurrencyLimit === 1 ? "image" : "images"}
             </span>
             {cacheHits > 0 && (
-              <Badge variant="outline" className="ml-2 text-xs bg-green-500/10 text-green-600 border-green-500/30">
-                {cacheHits} cached
-              </Badge>
+              <div className="flex items-center gap-1 ml-2">
+                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
+                  {cacheHits} cached
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    scanCacheRef.current.clear();
+                    setCacheHits(0);
+                    toast.success("Scan cache cleared");
+                  }}
+                  disabled={isScanning}
+                  className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Clear
+                </Button>
+              </div>
             )}
           </div>
 
