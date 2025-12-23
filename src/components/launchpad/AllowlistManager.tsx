@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,8 +44,14 @@ import {
   Copy,
   X,
   Edit2,
+  Shield,
+  Hash,
+  Loader2,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { MerkleTree } from "merkletreejs";
+import keccak256 from "keccak256";
 
 interface AllowlistEntry {
   id: string;
@@ -59,7 +65,26 @@ interface MintPhase {
   id: string;
   name: string;
   entries: AllowlistEntry[];
+  merkleRoot?: string;
 }
+
+interface MerkleProof {
+  address: string;
+  proof: string[];
+  leaf: string;
+}
+
+// Generate leaf for Merkle tree (address only - standard approach)
+const generateLeaf = (address: string): Buffer => {
+  return keccak256(address.toLowerCase());
+};
+
+// Generate leaf with max mint amount for more complex allowlists
+const generateLeafWithAmount = (address: string, maxMint: number): Buffer => {
+  // Pack address and amount similar to Solidity's abi.encodePacked
+  const packed = address.toLowerCase() + maxMint.toString(16).padStart(64, '0');
+  return keccak256(packed);
+};
 
 interface AllowlistManagerProps {
   collectionId?: string;
@@ -103,6 +128,12 @@ export function AllowlistManager({
   // Bulk add form state
   const [bulkInput, setBulkInput] = useState("");
   const [bulkMaxMint, setBulkMaxMint] = useState("1");
+  
+  // Merkle tree state
+  const [isMerkleDialogOpen, setIsMerkleDialogOpen] = useState(false);
+  const [merkleIncludeAmount, setMerkleIncludeAmount] = useState(false);
+  const [proofSearchAddress, setProofSearchAddress] = useState("");
+  const [foundProof, setFoundProof] = useState<MerkleProof | null>(null);
 
   const currentPhase = mintPhases.find((p) => p.id === activePhase);
   const filteredEntries = currentPhase?.entries.filter(
@@ -110,6 +141,125 @@ export function AllowlistManager({
       e.walletAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.notes?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
+  
+  // Generate Merkle tree for current phase
+  const currentMerkleData = useMemo(() => {
+    if (!currentPhase || currentPhase.entries.length === 0) {
+      return null;
+    }
+    
+    // Filter only valid ETH addresses
+    const validEntries = currentPhase.entries.filter(e => isValidEthAddress(e.walletAddress));
+    
+    if (validEntries.length === 0) {
+      return null;
+    }
+    
+    const leaves = validEntries.map(entry => 
+      merkleIncludeAmount 
+        ? generateLeafWithAmount(entry.walletAddress, entry.maxMint)
+        : generateLeaf(entry.walletAddress)
+    );
+    
+    const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+    const root = tree.getHexRoot();
+    
+    return {
+      tree,
+      root,
+      leaves,
+      entries: validEntries,
+    };
+  }, [currentPhase, merkleIncludeAmount]);
+  
+  // Generate proof for a specific address
+  const generateProofForAddress = useCallback((address: string) => {
+    if (!currentMerkleData || !isValidEthAddress(address)) {
+      setFoundProof(null);
+      return;
+    }
+    
+    const entry = currentMerkleData.entries.find(
+      e => e.walletAddress.toLowerCase() === address.toLowerCase()
+    );
+    
+    if (!entry) {
+      setFoundProof(null);
+      toast.error("Address not found in allowlist");
+      return;
+    }
+    
+    const leaf = merkleIncludeAmount
+      ? generateLeafWithAmount(entry.walletAddress, entry.maxMint)
+      : generateLeaf(entry.walletAddress);
+    
+    const proof = currentMerkleData.tree.getHexProof(leaf);
+    
+    setFoundProof({
+      address: entry.walletAddress,
+      proof,
+      leaf: '0x' + leaf.toString('hex'),
+    });
+    
+    toast.success("Proof generated successfully");
+  }, [currentMerkleData, merkleIncludeAmount]);
+  
+  // Export all proofs
+  const exportAllProofs = useCallback(() => {
+    if (!currentMerkleData || !currentPhase) {
+      toast.error("No Merkle tree data available");
+      return;
+    }
+    
+    const proofs: { 
+      address: string; 
+      maxMint: number;
+      leaf: string;
+      proof: string[];
+    }[] = [];
+    
+    currentMerkleData.entries.forEach((entry) => {
+      const leaf = merkleIncludeAmount
+        ? generateLeafWithAmount(entry.walletAddress, entry.maxMint)
+        : generateLeaf(entry.walletAddress);
+      
+      const proof = currentMerkleData.tree.getHexProof(leaf);
+      
+      proofs.push({
+        address: entry.walletAddress,
+        maxMint: entry.maxMint,
+        leaf: '0x' + leaf.toString('hex'),
+        proof,
+      });
+    });
+    
+    const exportData = {
+      phase: currentPhase.name,
+      merkleRoot: currentMerkleData.root,
+      includesAmount: merkleIncludeAmount,
+      totalAddresses: proofs.length,
+      generatedAt: new Date().toISOString(),
+      proofs,
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${currentPhase.name.toLowerCase()}-merkle-proofs.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${proofs.length} Merkle proofs`);
+  }, [currentMerkleData, currentPhase, merkleIncludeAmount]);
+  
+  // Copy Merkle root to clipboard
+  const copyMerkleRoot = useCallback(() => {
+    if (!currentMerkleData) return;
+    navigator.clipboard.writeText(currentMerkleData.root);
+    toast.success("Merkle root copied to clipboard");
+  }, [currentMerkleData]);
 
   // Update parent component
   const updatePhases = useCallback((newPhases: MintPhase[]) => {
@@ -580,6 +730,149 @@ export function AllowlistManager({
                 </CardContent>
               </Card>
             </div>
+
+            {/* Merkle Tree Section */}
+            {phase.entries.length > 0 && (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardHeader className="py-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
+                      Merkle Tree Verification
+                    </CardTitle>
+                    <Dialog open={isMerkleDialogOpen} onOpenChange={setIsMerkleDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="outline">
+                          <Hash className="w-4 h-4 mr-1" />
+                          Get Proof
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-lg">
+                        <DialogHeader>
+                          <DialogTitle>Generate Merkle Proof</DialogTitle>
+                          <DialogDescription>
+                            Get the Merkle proof for a specific wallet address for on-chain verification
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label>Wallet Address</Label>
+                            <Input
+                              placeholder="0x..."
+                              value={proofSearchAddress}
+                              onChange={(e) => setProofSearchAddress(e.target.value)}
+                              className="font-mono"
+                            />
+                          </div>
+                          <Button 
+                            onClick={() => generateProofForAddress(proofSearchAddress)}
+                            disabled={!proofSearchAddress}
+                            className="w-full"
+                          >
+                            Generate Proof
+                          </Button>
+                          
+                          {foundProof && (
+                            <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Address</Label>
+                                <p className="font-mono text-xs break-all">{foundProof.address}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Leaf Hash</Label>
+                                <p className="font-mono text-xs break-all">{foundProof.leaf}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Proof ({foundProof.proof.length} elements)</Label>
+                                <ScrollArea className="h-[100px]">
+                                  <div className="space-y-1">
+                                    {foundProof.proof.map((p, i) => (
+                                      <p key={i} className="font-mono text-xs break-all bg-background/50 p-1 rounded">
+                                        {p}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </ScrollArea>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(JSON.stringify(foundProof.proof));
+                                  toast.success("Proof copied to clipboard");
+                                }}
+                              >
+                                <Copy className="w-3 h-3 mr-1" />
+                                Copy Proof Array
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsMerkleDialogOpen(false)}>
+                            Close
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {currentMerkleData ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="include-amount"
+                            checked={merkleIncludeAmount}
+                            onChange={(e) => setMerkleIncludeAmount(e.target.checked)}
+                            className="rounded border-input"
+                          />
+                          <Label htmlFor="include-amount" className="text-xs cursor-pointer">
+                            Include max mint amount in leaf hash
+                          </Label>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Merkle Root</Label>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 p-2 bg-background rounded text-xs font-mono break-all border">
+                            {currentMerkleData.root}
+                          </code>
+                          <Button size="icon" variant="outline" className="shrink-0 h-8 w-8" onClick={copyMerkleRoot}>
+                            <Copy className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Check className="w-3.5 h-3.5 text-green-500" />
+                        {currentMerkleData.entries.length} valid addresses included
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={exportAllProofs} className="flex-1">
+                          <Download className="w-3 h-3 mr-1" />
+                          Export All Proofs
+                        </Button>
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground">
+                        Use this Merkle root in your smart contract to verify allowlist membership.
+                        The proof array can be used with OpenZeppelin's MerkleProof library.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      Add valid wallet addresses to generate a Merkle tree
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Entries Table */}
             {filteredEntries.length > 0 ? (
