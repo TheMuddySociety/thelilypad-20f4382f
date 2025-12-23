@@ -129,6 +129,15 @@ export function AllowlistManager({
   const [bulkInput, setBulkInput] = useState("");
   const [bulkMaxMint, setBulkMaxMint] = useState("1");
   
+  // CSV import state
+  const [isCsvDialogOpen, setIsCsvDialogOpen] = useState(false);
+  const [csvImportResults, setCsvImportResults] = useState<{
+    valid: { address: string; maxMint: number; notes?: string }[];
+    invalid: { line: number; content: string; reason: string }[];
+    duplicates: string[];
+  } | null>(null);
+  const [isProcessingCsv, setIsProcessingCsv] = useState(false);
+  
   // Merkle tree state
   const [isMerkleDialogOpen, setIsMerkleDialogOpen] = useState(false);
   const [merkleIncludeAmount, setMerkleIncludeAmount] = useState(false);
@@ -260,12 +269,164 @@ export function AllowlistManager({
     navigator.clipboard.writeText(currentMerkleData.root);
     toast.success("Merkle root copied to clipboard");
   }, [currentMerkleData]);
+  
+  // Parse CSV file
+  const handleCsvFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    setIsProcessingCsv(true);
+    setCsvImportResults(null);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const lines = content.split(/\r?\n/).filter(line => line.trim());
+        
+        if (lines.length === 0) {
+          toast.error("CSV file is empty");
+          setIsProcessingCsv(false);
+          return;
+        }
+        
+        // Detect header row
+        const firstLine = lines[0].toLowerCase();
+        const hasHeader = firstLine.includes('address') || 
+                          firstLine.includes('wallet') || 
+                          firstLine.includes('max') ||
+                          !isValidEthAddress(lines[0].split(',')[0]?.trim() || '');
+        
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+        
+        // Get existing addresses for duplicate check
+        const existingAddresses = new Set(
+          currentPhase?.entries.map(e => e.walletAddress.toLowerCase()) || []
+        );
+        
+        const valid: { address: string; maxMint: number; notes?: string }[] = [];
+        const invalid: { line: number; content: string; reason: string }[] = [];
+        const duplicates: string[] = [];
+        const seenInFile = new Set<string>();
+        
+        dataLines.forEach((line, index) => {
+          const lineNum = hasHeader ? index + 2 : index + 1;
+          const trimmedLine = line.trim();
+          
+          if (!trimmedLine) return;
+          
+          // Parse CSV columns
+          const columns = trimmedLine.split(',').map(col => col.trim().replace(/^["']|["']$/g, ''));
+          const address = columns[0] || '';
+          const maxMintStr = columns[1] || '1';
+          const notes = columns[2] || '';
+          
+          // Validate address
+          if (!address) {
+            invalid.push({ line: lineNum, content: trimmedLine, reason: 'Empty address' });
+            return;
+          }
+          
+          if (!isValidEthAddress(address) && !isValidENS(address)) {
+            invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid address format' });
+            return;
+          }
+          
+          // Check for duplicates
+          const lowerAddress = address.toLowerCase();
+          if (existingAddresses.has(lowerAddress) || seenInFile.has(lowerAddress)) {
+            duplicates.push(address);
+            return;
+          }
+          
+          seenInFile.add(lowerAddress);
+          
+          // Parse max mint
+          const maxMint = parseInt(maxMintStr) || 1;
+          if (maxMint < 1) {
+            invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid max mint value' });
+            return;
+          }
+          
+          valid.push({
+            address,
+            maxMint,
+            notes: notes || undefined,
+          });
+        });
+        
+        setCsvImportResults({ valid, invalid, duplicates });
+        
+        if (valid.length === 0 && invalid.length === 0 && duplicates.length === 0) {
+          toast.error("No data found in CSV file");
+        }
+      } catch (error) {
+        console.error("CSV parsing error:", error);
+        toast.error("Failed to parse CSV file");
+      } finally {
+        setIsProcessingCsv(false);
+        // Reset file input
+        event.target.value = '';
+      }
+    };
+    
+    reader.onerror = () => {
+      toast.error("Failed to read file");
+      setIsProcessingCsv(false);
+    };
+    
+    reader.readAsText(file);
+  }, [currentPhase]);
+  
+  // Download CSV template
+  const downloadCsvTemplate = () => {
+    const template = `wallet_address,max_mint,notes
+0x1234567890123456789012345678901234567890,3,OG Holder
+0xabcdefabcdefabcdefabcdefabcdefabcdefabcd,2,Early Supporter
+0x9876543210987654321098765432109876543210,1,Contest Winner`;
+    
+    const blob = new Blob([template], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "allowlist-template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Template downloaded");
+  };
 
   // Update parent component
   const updatePhases = useCallback((newPhases: MintPhase[]) => {
     setMintPhases(newPhases);
     onAllowlistChange?.(newPhases);
   }, [onAllowlistChange]);
+  
+  // Confirm CSV import
+  const confirmCsvImport = useCallback(() => {
+    if (!csvImportResults || csvImportResults.valid.length === 0) {
+      toast.error("No valid entries to import");
+      return;
+    }
+    
+    const newEntries: AllowlistEntry[] = csvImportResults.valid.map(item => ({
+      id: crypto.randomUUID(),
+      walletAddress: item.address,
+      maxMint: item.maxMint,
+      notes: item.notes,
+      addedAt: new Date(),
+    }));
+    
+    const newPhases = mintPhases.map((p) =>
+      p.id === activePhase ? { ...p, entries: [...p.entries, ...newEntries] } : p
+    );
+    
+    updatePhases(newPhases);
+    setCsvImportResults(null);
+    setIsCsvDialogOpen(false);
+    toast.success(`Imported ${newEntries.length} wallet addresses`);
+  }, [csvImportResults, mintPhases, activePhase, updatePhases]);
 
   // Add single wallet
   const handleAddWallet = () => {
@@ -666,6 +827,169 @@ export function AllowlistManager({
                       Cancel
                     </Button>
                     <Button onClick={handleBulkAdd}>Import All</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* CSV Import Dialog */}
+              <Dialog open={isCsvDialogOpen} onOpenChange={(open) => {
+                setIsCsvDialogOpen(open);
+                if (!open) setCsvImportResults(null);
+              }}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <FileText className="w-4 h-4 mr-1" />
+                    CSV Import
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Import from CSV</DialogTitle>
+                    <DialogDescription>
+                      Upload a CSV file with wallet addresses. Expected columns: wallet_address, max_mint (optional), notes (optional)
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    {!csvImportResults ? (
+                      <>
+                        <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                          <input
+                            type="file"
+                            accept=".csv,text/csv"
+                            onChange={handleCsvFileUpload}
+                            className="hidden"
+                            id="csv-upload"
+                            disabled={isProcessingCsv}
+                          />
+                          <label htmlFor="csv-upload" className="cursor-pointer">
+                            {isProcessingCsv ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                <p className="text-sm text-muted-foreground">Processing CSV...</p>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2">
+                                <Upload className="w-8 h-8 text-muted-foreground" />
+                                <p className="text-sm font-medium">Click to upload CSV file</p>
+                                <p className="text-xs text-muted-foreground">
+                                  or drag and drop
+                                </p>
+                              </div>
+                            )}
+                          </label>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={downloadCsvTemplate}
+                          className="w-full"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Download CSV Template
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Import Summary */}
+                        <div className="grid grid-cols-3 gap-2">
+                          <Card className="border-green-500/30 bg-green-500/5">
+                            <CardContent className="p-3 text-center">
+                              <p className="text-xl font-bold text-green-600">{csvImportResults.valid.length}</p>
+                              <p className="text-xs text-muted-foreground">Valid</p>
+                            </CardContent>
+                          </Card>
+                          <Card className="border-amber-500/30 bg-amber-500/5">
+                            <CardContent className="p-3 text-center">
+                              <p className="text-xl font-bold text-amber-600">{csvImportResults.duplicates.length}</p>
+                              <p className="text-xs text-muted-foreground">Duplicates</p>
+                            </CardContent>
+                          </Card>
+                          <Card className="border-red-500/30 bg-red-500/5">
+                            <CardContent className="p-3 text-center">
+                              <p className="text-xl font-bold text-red-600">{csvImportResults.invalid.length}</p>
+                              <p className="text-xs text-muted-foreground">Invalid</p>
+                            </CardContent>
+                          </Card>
+                        </div>
+
+                        {/* Valid entries preview */}
+                        {csvImportResults.valid.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-xs text-green-600 flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              Valid addresses to import
+                            </Label>
+                            <ScrollArea className="h-[100px] border rounded p-2">
+                              <div className="space-y-1">
+                                {csvImportResults.valid.slice(0, 10).map((item, i) => (
+                                  <div key={i} className="flex items-center justify-between text-xs">
+                                    <span className="font-mono truncate max-w-[200px]">{item.address}</span>
+                                    <Badge variant="secondary" className="text-xs">Max: {item.maxMint}</Badge>
+                                  </div>
+                                ))}
+                                {csvImportResults.valid.length > 10 && (
+                                  <p className="text-xs text-muted-foreground text-center pt-1">
+                                    ...and {csvImportResults.valid.length - 10} more
+                                  </p>
+                                )}
+                              </div>
+                            </ScrollArea>
+                          </div>
+                        )}
+
+                        {/* Invalid entries */}
+                        {csvImportResults.invalid.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-xs text-red-600 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              Invalid entries (will be skipped)
+                            </Label>
+                            <ScrollArea className="h-[80px] border border-red-500/20 rounded p-2 bg-red-500/5">
+                              <div className="space-y-1">
+                                {csvImportResults.invalid.slice(0, 5).map((item, i) => (
+                                  <div key={i} className="text-xs">
+                                    <span className="text-muted-foreground">Line {item.line}:</span>{" "}
+                                    <span className="text-red-600">{item.reason}</span>
+                                  </div>
+                                ))}
+                                {csvImportResults.invalid.length > 5 && (
+                                  <p className="text-xs text-muted-foreground">
+                                    ...and {csvImportResults.invalid.length - 5} more
+                                  </p>
+                                )}
+                              </div>
+                            </ScrollArea>
+                          </div>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => setCsvImportResults(null)}
+                            className="flex-1"
+                          >
+                            Upload Different File
+                          </Button>
+                          <Button
+                            onClick={confirmCsvImport}
+                            disabled={csvImportResults.valid.length === 0}
+                            className="flex-1"
+                          >
+                            <Check className="w-4 h-4 mr-1" />
+                            Import {csvImportResults.valid.length} Addresses
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => {
+                      setIsCsvDialogOpen(false);
+                      setCsvImportResults(null);
+                    }}>
+                      Cancel
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
