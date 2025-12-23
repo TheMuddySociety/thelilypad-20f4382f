@@ -47,6 +47,36 @@ export type Database = {
         }
         Relationships: []
       }
+      blocked_patterns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          pattern: string
+          pattern_type: string
+          reason: Database["public"]["Enums"]["moderation_reason"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          pattern: string
+          pattern_type?: string
+          reason?: Database["public"]["Enums"]["moderation_reason"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          pattern?: string
+          pattern_type?: string
+          reason?: Database["public"]["Enums"]["moderation_reason"]
+        }
+        Relationships: []
+      }
       clip_comments: {
         Row: {
           clip_id: string
@@ -315,6 +345,110 @@ export type Database = {
         }
         Relationships: []
       }
+      moderation_actions: {
+        Row: {
+          action_by: string | null
+          action_type: string
+          created_at: string
+          id: string
+          new_status: Database["public"]["Enums"]["moderation_status"] | null
+          notes: string | null
+          previous_status:
+            | Database["public"]["Enums"]["moderation_status"]
+            | null
+          queue_id: string | null
+        }
+        Insert: {
+          action_by?: string | null
+          action_type: string
+          created_at?: string
+          id?: string
+          new_status?: Database["public"]["Enums"]["moderation_status"] | null
+          notes?: string | null
+          previous_status?:
+            | Database["public"]["Enums"]["moderation_status"]
+            | null
+          queue_id?: string | null
+        }
+        Update: {
+          action_by?: string | null
+          action_type?: string
+          created_at?: string
+          id?: string
+          new_status?: Database["public"]["Enums"]["moderation_status"] | null
+          notes?: string | null
+          previous_status?:
+            | Database["public"]["Enums"]["moderation_status"]
+            | null
+          queue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moderation_actions_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "moderation_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      moderation_queue: {
+        Row: {
+          ai_details: Json | null
+          ai_reasons: Database["public"]["Enums"]["moderation_reason"][] | null
+          ai_score: number | null
+          content_text: string | null
+          content_type: Database["public"]["Enums"]["moderation_content_type"]
+          content_url: string | null
+          created_at: string
+          id: string
+          reference_id: string | null
+          reference_table: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["moderation_status"]
+          submitted_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_details?: Json | null
+          ai_reasons?: Database["public"]["Enums"]["moderation_reason"][] | null
+          ai_score?: number | null
+          content_text?: string | null
+          content_type: Database["public"]["Enums"]["moderation_content_type"]
+          content_url?: string | null
+          created_at?: string
+          id?: string
+          reference_id?: string | null
+          reference_table?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["moderation_status"]
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_details?: Json | null
+          ai_reasons?: Database["public"]["Enums"]["moderation_reason"][] | null
+          ai_score?: number | null
+          content_text?: string | null
+          content_type?: Database["public"]["Enums"]["moderation_content_type"]
+          content_url?: string | null
+          created_at?: string
+          id?: string
+          reference_id?: string | null
+          reference_table?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["moderation_status"]
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -531,7 +665,28 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      moderation_content_type:
+        | "text"
+        | "image"
+        | "collection_name"
+        | "collection_description"
+        | "trait_name"
+        | "comment"
+      moderation_reason:
+        | "nsfw"
+        | "violence"
+        | "hate_speech"
+        | "spam"
+        | "harassment"
+        | "illegal"
+        | "other"
+        | "clean"
+      moderation_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "auto_rejected"
+        | "auto_approved"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -658,6 +813,32 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      moderation_content_type: [
+        "text",
+        "image",
+        "collection_name",
+        "collection_description",
+        "trait_name",
+        "comment",
+      ],
+      moderation_reason: [
+        "nsfw",
+        "violence",
+        "hate_speech",
+        "spam",
+        "harassment",
+        "illegal",
+        "other",
+        "clean",
+      ],
+      moderation_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "auto_rejected",
+        "auto_approved",
+      ],
+    },
   },
 } as const

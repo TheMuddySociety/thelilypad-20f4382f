@@ -2,3 +2,6 @@ project_id = "zoomsxaoqkywdqpdtqnm"
 
 [functions.alchemy-rpc]
 verify_jwt = false
+
+[functions.content-moderation]
+verify_jwt = false
