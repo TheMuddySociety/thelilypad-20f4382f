@@ -23,7 +23,8 @@ import {
   Check,
   FlaskConical,
   Globe,
-  Droplets
+  Droplets,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
@@ -96,15 +97,17 @@ const demoCollection = {
 export default function CollectionDetail() {
   const { collectionId } = useParams();
   const navigate = useNavigate();
-  const { network, currentChain } = useWallet();
+  const { network, currentChain, isConnected, chainId, switchToMonad, connect } = useWallet();
   const [collection, setCollection] = useState(demoCollection);
   const [mintAmount, setMintAmount] = useState(1);
   const [activePhase, setActivePhase] = useState(collection.phases.find(p => p.isActive) || collection.phases[0]);
   const [isMinting, setIsMinting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
 
   const isTestnet = network === "testnet";
+  const isWrongNetwork = isConnected && chainId !== currentChain.id;
   
   // Simulated live supply updates
   const [liveSupply, setLiveSupply] = useState(3420);
@@ -135,7 +138,44 @@ export default function CollectionDetail() {
     setIsRefreshing(false);
   };
 
+  const handleSwitchNetwork = async () => {
+    setIsSwitchingNetwork(true);
+    try {
+      await switchToMonad();
+      toast.success(`Switched to ${currentChain.name}`);
+    } catch (error) {
+      toast.error("Failed to switch network", {
+        description: "Please switch manually in your wallet",
+      });
+    }
+    setIsSwitchingNetwork(false);
+  };
+
   const handleMint = async () => {
+    // Check if wallet is connected
+    if (!isConnected) {
+      toast.error("Wallet not connected", {
+        description: "Please connect your wallet to mint",
+        action: {
+          label: "Connect",
+          onClick: connect,
+        },
+      });
+      return;
+    }
+
+    // Check if on wrong network and prompt to switch
+    if (isWrongNetwork) {
+      toast.error(`Wrong network detected`, {
+        description: `Please switch to ${currentChain.name} to mint`,
+        action: {
+          label: "Switch Network",
+          onClick: handleSwitchNetwork,
+        },
+      });
+      return;
+    }
+
     setIsMinting(true);
     
     // Simulate minting transaction
@@ -442,12 +482,64 @@ export default function CollectionDetail() {
                   </span>
                 </div>
 
+                {/* Wrong Network Warning */}
+                {isWrongNetwork && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                    <div className="flex items-center gap-2 text-destructive mb-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span className="text-sm font-medium">Wrong Network</span>
+                    </div>
+                    <p className="text-xs text-destructive/80 mb-3">
+                      You're connected to a different network. Switch to {currentChain.name} to mint.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-destructive/30 text-destructive hover:bg-destructive/20"
+                      onClick={handleSwitchNetwork}
+                      disabled={isSwitchingNetwork}
+                    >
+                      {isSwitchingNetwork ? (
+                        <>
+                          <RefreshCw className="w-3 h-3 mr-2 animate-spin" />
+                          Switching...
+                        </>
+                      ) : (
+                        <>
+                          Switch to {currentChain.name}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Not Connected Warning */}
+                {!isConnected && (
+                  <div className="p-3 bg-muted border border-border rounded-lg">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                      <Wallet className="w-4 h-4" />
+                      <span className="text-sm font-medium">Wallet Not Connected</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Connect your wallet to mint NFTs from this collection.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={connect}
+                    >
+                      Connect Wallet
+                    </Button>
+                  </div>
+                )}
+
                 {/* Mint Button */}
                 <Button 
                   size="lg" 
                   className="w-full gap-2"
                   onClick={handleMint}
-                  disabled={isMinting || activePhase.minted >= activePhase.supply}
+                  disabled={isMinting || isSwitchingNetwork || activePhase.minted >= activePhase.supply || !isConnected || isWrongNetwork}
                 >
                   {isMinting ? (
                     <>
@@ -456,6 +548,16 @@ export default function CollectionDetail() {
                     </>
                   ) : activePhase.minted >= activePhase.supply ? (
                     "Sold Out"
+                  ) : isWrongNetwork ? (
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      Wrong Network
+                    </>
+                  ) : !isConnected ? (
+                    <>
+                      <Wallet className="w-4 h-4" />
+                      Connect to Mint
+                    </>
                   ) : (
                     <>
                       <Wallet className="w-4 h-4" />
