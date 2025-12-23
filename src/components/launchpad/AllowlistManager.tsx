@@ -1,0 +1,726 @@
+import React, { useState, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Users,
+  Plus,
+  Upload,
+  Download,
+  Trash2,
+  Search,
+  CheckCircle,
+  AlertCircle,
+  FileText,
+  Copy,
+  X,
+  Edit2,
+} from "lucide-react";
+import { toast } from "sonner";
+
+interface AllowlistEntry {
+  id: string;
+  walletAddress: string;
+  maxMint: number;
+  notes?: string;
+  addedAt: Date;
+}
+
+interface MintPhase {
+  id: string;
+  name: string;
+  entries: AllowlistEntry[];
+}
+
+interface AllowlistManagerProps {
+  collectionId?: string;
+  phases?: { id: string; name: string }[];
+  onAllowlistChange?: (phases: MintPhase[]) => void;
+}
+
+// Validate Ethereum address
+const isValidEthAddress = (address: string): boolean => {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+};
+
+// Validate ENS name (basic check)
+const isValidENS = (name: string): boolean => {
+  return /^[a-zA-Z0-9-]+\.eth$/.test(name);
+};
+
+export function AllowlistManager({
+  collectionId,
+  phases: initialPhases = [
+    { id: "whitelist", name: "Whitelist" },
+    { id: "presale", name: "Presale" },
+  ],
+  onAllowlistChange,
+}: AllowlistManagerProps) {
+  const [mintPhases, setMintPhases] = useState<MintPhase[]>(
+    initialPhases.map((p) => ({ ...p, entries: [] }))
+  );
+  const [activePhase, setActivePhase] = useState(initialPhases[0]?.id || "whitelist");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<AllowlistEntry | null>(null);
+
+  // Single add form state
+  const [newWallet, setNewWallet] = useState("");
+  const [newMaxMint, setNewMaxMint] = useState("1");
+  const [newNotes, setNewNotes] = useState("");
+
+  // Bulk add form state
+  const [bulkInput, setBulkInput] = useState("");
+  const [bulkMaxMint, setBulkMaxMint] = useState("1");
+
+  const currentPhase = mintPhases.find((p) => p.id === activePhase);
+  const filteredEntries = currentPhase?.entries.filter(
+    (e) =>
+      e.walletAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.notes?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
+
+  // Update parent component
+  const updatePhases = useCallback((newPhases: MintPhase[]) => {
+    setMintPhases(newPhases);
+    onAllowlistChange?.(newPhases);
+  }, [onAllowlistChange]);
+
+  // Add single wallet
+  const handleAddWallet = () => {
+    const trimmedWallet = newWallet.trim();
+    
+    if (!trimmedWallet) {
+      toast.error("Please enter a wallet address");
+      return;
+    }
+
+    if (!isValidEthAddress(trimmedWallet) && !isValidENS(trimmedWallet)) {
+      toast.error("Invalid wallet address or ENS name");
+      return;
+    }
+
+    // Check for duplicates
+    if (currentPhase?.entries.some((e) => e.walletAddress.toLowerCase() === trimmedWallet.toLowerCase())) {
+      toast.error("This wallet is already in the allowlist");
+      return;
+    }
+
+    const newEntry: AllowlistEntry = {
+      id: crypto.randomUUID(),
+      walletAddress: trimmedWallet,
+      maxMint: parseInt(newMaxMint) || 1,
+      notes: newNotes.trim() || undefined,
+      addedAt: new Date(),
+    };
+
+    const newPhases = mintPhases.map((p) =>
+      p.id === activePhase ? { ...p, entries: [...p.entries, newEntry] } : p
+    );
+
+    updatePhases(newPhases);
+    setNewWallet("");
+    setNewMaxMint("1");
+    setNewNotes("");
+    setIsAddDialogOpen(false);
+    toast.success("Wallet added to allowlist");
+  };
+
+  // Bulk add wallets
+  const handleBulkAdd = () => {
+    const lines = bulkInput
+      .split(/[\n,]/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (lines.length === 0) {
+      toast.error("No valid addresses found");
+      return;
+    }
+
+    const validAddresses: string[] = [];
+    const invalidAddresses: string[] = [];
+    const duplicates: string[] = [];
+
+    const existingAddresses = new Set(
+      currentPhase?.entries.map((e) => e.walletAddress.toLowerCase()) || []
+    );
+
+    lines.forEach((line) => {
+      const address = line.trim();
+      if (isValidEthAddress(address) || isValidENS(address)) {
+        if (existingAddresses.has(address.toLowerCase()) || validAddresses.includes(address.toLowerCase())) {
+          duplicates.push(address);
+        } else {
+          validAddresses.push(address);
+          existingAddresses.add(address.toLowerCase());
+        }
+      } else {
+        invalidAddresses.push(address);
+      }
+    });
+
+    if (validAddresses.length === 0) {
+      toast.error("No valid addresses to add");
+      return;
+    }
+
+    const newEntries: AllowlistEntry[] = validAddresses.map((address) => ({
+      id: crypto.randomUUID(),
+      walletAddress: address,
+      maxMint: parseInt(bulkMaxMint) || 1,
+      addedAt: new Date(),
+    }));
+
+    const newPhases = mintPhases.map((p) =>
+      p.id === activePhase ? { ...p, entries: [...p.entries, ...newEntries] } : p
+    );
+
+    updatePhases(newPhases);
+    setBulkInput("");
+    setBulkMaxMint("1");
+    setIsBulkDialogOpen(false);
+
+    let message = `Added ${validAddresses.length} addresses`;
+    if (duplicates.length > 0) {
+      message += `, ${duplicates.length} duplicates skipped`;
+    }
+    if (invalidAddresses.length > 0) {
+      message += `, ${invalidAddresses.length} invalid`;
+    }
+    toast.success(message);
+  };
+
+  // Remove wallet
+  const handleRemoveWallet = (entryId: string) => {
+    const newPhases = mintPhases.map((p) =>
+      p.id === activePhase
+        ? { ...p, entries: p.entries.filter((e) => e.id !== entryId) }
+        : p
+    );
+    updatePhases(newPhases);
+    toast.success("Wallet removed from allowlist");
+  };
+
+  // Edit wallet
+  const handleEditWallet = () => {
+    if (!editingEntry) return;
+
+    const trimmedWallet = editingEntry.walletAddress.trim();
+    if (!isValidEthAddress(trimmedWallet) && !isValidENS(trimmedWallet)) {
+      toast.error("Invalid wallet address or ENS name");
+      return;
+    }
+
+    const newPhases = mintPhases.map((p) =>
+      p.id === activePhase
+        ? {
+            ...p,
+            entries: p.entries.map((e) =>
+              e.id === editingEntry.id ? editingEntry : e
+            ),
+          }
+        : p
+    );
+
+    updatePhases(newPhases);
+    setEditingEntry(null);
+    setIsEditDialogOpen(false);
+    toast.success("Entry updated");
+  };
+
+  // Clear all entries for current phase
+  const handleClearAll = () => {
+    const newPhases = mintPhases.map((p) =>
+      p.id === activePhase ? { ...p, entries: [] } : p
+    );
+    updatePhases(newPhases);
+    toast.success("Allowlist cleared");
+  };
+
+  // Export allowlist
+  const handleExport = (format: "csv" | "json") => {
+    if (!currentPhase || currentPhase.entries.length === 0) {
+      toast.error("No entries to export");
+      return;
+    }
+
+    let content: string;
+    let filename: string;
+    let mimeType: string;
+
+    if (format === "csv") {
+      const headers = "wallet_address,max_mint,notes,added_at";
+      const rows = currentPhase.entries.map(
+        (e) =>
+          `${e.walletAddress},${e.maxMint},"${e.notes || ""}",${e.addedAt.toISOString()}`
+      );
+      content = [headers, ...rows].join("\n");
+      filename = `${currentPhase.name.toLowerCase()}-allowlist.csv`;
+      mimeType = "text/csv";
+    } else {
+      content = JSON.stringify(
+        {
+          phase: currentPhase.name,
+          totalEntries: currentPhase.entries.length,
+          exportedAt: new Date().toISOString(),
+          entries: currentPhase.entries.map((e) => ({
+            address: e.walletAddress,
+            maxMint: e.maxMint,
+            notes: e.notes,
+          })),
+        },
+        null,
+        2
+      );
+      filename = `${currentPhase.name.toLowerCase()}-allowlist.json`;
+      mimeType = "application/json";
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${currentPhase.entries.length} entries as ${format.toUpperCase()}`);
+  };
+
+  // Copy all addresses
+  const handleCopyAll = () => {
+    if (!currentPhase || currentPhase.entries.length === 0) {
+      toast.error("No entries to copy");
+      return;
+    }
+    const addresses = currentPhase.entries.map((e) => e.walletAddress).join("\n");
+    navigator.clipboard.writeText(addresses);
+    toast.success(`Copied ${currentPhase.entries.length} addresses to clipboard`);
+  };
+
+  // Add new phase
+  const [newPhaseName, setNewPhaseName] = useState("");
+  const [isAddPhaseDialogOpen, setIsAddPhaseDialogOpen] = useState(false);
+
+  const handleAddPhase = () => {
+    const trimmedName = newPhaseName.trim();
+    if (!trimmedName) {
+      toast.error("Please enter a phase name");
+      return;
+    }
+
+    if (mintPhases.some((p) => p.name.toLowerCase() === trimmedName.toLowerCase())) {
+      toast.error("Phase with this name already exists");
+      return;
+    }
+
+    const newPhase: MintPhase = {
+      id: trimmedName.toLowerCase().replace(/\s+/g, "-"),
+      name: trimmedName,
+      entries: [],
+    };
+
+    updatePhases([...mintPhases, newPhase]);
+    setNewPhaseName("");
+    setIsAddPhaseDialogOpen(false);
+    setActivePhase(newPhase.id);
+    toast.success(`Added phase: ${trimmedName}`);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            Allowlist Management
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Manage wallet addresses for whitelist minting phases
+          </p>
+        </div>
+        <Dialog open={isAddPhaseDialogOpen} onOpenChange={setIsAddPhaseDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Plus className="w-4 h-4 mr-1" />
+              Add Phase
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Mint Phase</DialogTitle>
+              <DialogDescription>
+                Create a new allowlist phase for your collection
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Phase Name</Label>
+                <Input
+                  placeholder="e.g., OG Holders, Early Access"
+                  value={newPhaseName}
+                  onChange={(e) => setNewPhaseName(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddPhaseDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddPhase}>Add Phase</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Phase Tabs */}
+      <Tabs value={activePhase} onValueChange={setActivePhase}>
+        <TabsList className="w-full justify-start overflow-x-auto">
+          {mintPhases.map((phase) => (
+            <TabsTrigger key={phase.id} value={phase.id} className="gap-2">
+              {phase.name}
+              <Badge variant="secondary" className="ml-1 text-xs">
+                {phase.entries.length}
+              </Badge>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {mintPhases.map((phase) => (
+          <TabsContent key={phase.id} value={phase.id} className="mt-4 space-y-4">
+            {/* Actions Bar */}
+            <div className="flex flex-wrap gap-2">
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Wallet
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Wallet to Allowlist</DialogTitle>
+                    <DialogDescription>
+                      Add a single wallet address to the {phase.name} phase
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Wallet Address or ENS</Label>
+                      <Input
+                        placeholder="0x... or name.eth"
+                        value={newWallet}
+                        onChange={(e) => setNewWallet(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Max Mint Allowed</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={newMaxMint}
+                        onChange={(e) => setNewMaxMint(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Notes (optional)</Label>
+                      <Input
+                        placeholder="e.g., OG holder, Contest winner"
+                        value={newNotes}
+                        onChange={(e) => setNewNotes(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleAddWallet}>Add Wallet</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <Upload className="w-4 h-4 mr-1" />
+                    Bulk Import
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Bulk Import Wallets</DialogTitle>
+                    <DialogDescription>
+                      Paste wallet addresses, one per line or comma-separated
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Wallet Addresses</Label>
+                      <Textarea
+                        placeholder="0x1234...&#10;0x5678...&#10;0xABCD..."
+                        value={bulkInput}
+                        onChange={(e) => setBulkInput(e.target.value)}
+                        rows={8}
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {bulkInput.split(/[\n,]/).filter((l) => l.trim()).length} addresses detected
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Max Mint (applies to all)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={bulkMaxMint}
+                        onChange={(e) => setBulkMaxMint(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleBulkAdd}>Import All</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <div className="flex-1" />
+
+              <Button size="sm" variant="outline" onClick={() => handleExport("csv")}>
+                <Download className="w-4 h-4 mr-1" />
+                CSV
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => handleExport("json")}>
+                <FileText className="w-4 h-4 mr-1" />
+                JSON
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleCopyAll}>
+                <Copy className="w-4 h-4 mr-1" />
+                Copy All
+              </Button>
+              {phase.entries.length > 0 && (
+                <Button size="sm" variant="destructive" onClick={handleClearAll}>
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by address or notes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              <Card>
+                <CardContent className="p-3 text-center">
+                  <p className="text-2xl font-bold">{phase.entries.length}</p>
+                  <p className="text-xs text-muted-foreground">Total Wallets</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3 text-center">
+                  <p className="text-2xl font-bold">
+                    {phase.entries.reduce((sum, e) => sum + e.maxMint, 0)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Total Allocation</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3 text-center">
+                  <p className="text-2xl font-bold">
+                    {phase.entries.length > 0
+                      ? (phase.entries.reduce((sum, e) => sum + e.maxMint, 0) / phase.entries.length).toFixed(1)
+                      : 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Avg per Wallet</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Entries Table */}
+            {filteredEntries.length > 0 ? (
+              <Card>
+                <CardContent className="p-0">
+                  <ScrollArea className="h-[300px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Wallet Address</TableHead>
+                          <TableHead className="w-24 text-center">Max Mint</TableHead>
+                          <TableHead className="w-32">Notes</TableHead>
+                          <TableHead className="w-20 text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredEntries.map((entry) => (
+                          <TableRow key={entry.id}>
+                            <TableCell className="font-mono text-sm">
+                              <div className="flex items-center gap-2">
+                                {isValidEthAddress(entry.walletAddress) ? (
+                                  <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                                ) : (
+                                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                                )}
+                                <span className="truncate max-w-[200px]">
+                                  {entry.walletAddress}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary">{entry.maxMint}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs text-muted-foreground truncate block max-w-[100px]">
+                                {entry.notes || "-"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  onClick={() => {
+                                    setEditingEntry(entry);
+                                    setIsEditDialogOpen(true);
+                                  }}
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={() => handleRemoveWallet(entry.id)}
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-10 text-center">
+                  <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {searchQuery
+                      ? "No wallets match your search"
+                      : "No wallets in this allowlist yet"}
+                  </p>
+                  {!searchQuery && (
+                    <Button size="sm" onClick={() => setIsAddDialogOpen(true)}>
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add First Wallet
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        ))}
+      </Tabs>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Allowlist Entry</DialogTitle>
+          </DialogHeader>
+          {editingEntry && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Wallet Address</Label>
+                <Input
+                  value={editingEntry.walletAddress}
+                  onChange={(e) =>
+                    setEditingEntry({ ...editingEntry, walletAddress: e.target.value })
+                  }
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Max Mint Allowed</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={editingEntry.maxMint}
+                  onChange={(e) =>
+                    setEditingEntry({
+                      ...editingEntry,
+                      maxMint: parseInt(e.target.value) || 1,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Input
+                  value={editingEntry.notes || ""}
+                  onChange={(e) =>
+                    setEditingEntry({ ...editingEntry, notes: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditWallet}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
