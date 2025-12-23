@@ -118,47 +118,81 @@ export function GenerationPreview({
     return availableTraits[0].id;
   };
 
-  const generateNFTBatch = (count: number): GeneratedNFT[] => {
-    const sortedLayers = [...layers].sort((a, b) => a.order - b.order);
-    const previews: GeneratedNFT[] = [];
+  // Generate a unique trait combination hash for duplicate detection
+  const getTraitHash = (traits: GeneratedNFT["traits"]): string => {
+    return traits
+      .map((t) => `${t.layerId}:${t.traitId}`)
+      .sort()
+      .join("|");
+  };
 
-    for (let i = 0; i < count; i++) {
-      const selectedTraits = new Map<string, string>();
-      const nftTraits: GeneratedNFT["traits"] = [];
+  // Generate a single NFT
+  const generateSingleNFT = (id: number, sortedLayers: Layer[]): GeneratedNFT => {
+    const selectedTraits = new Map<string, string>();
+    const nftTraits: GeneratedNFT["traits"] = [];
 
-      for (const layer of sortedLayers) {
-        const selectedTraitId = selectTraitForLayer(
-          layer,
-          selectedTraits,
-          layers
-        );
-        if (selectedTraitId) {
-          selectedTraits.set(layer.id, selectedTraitId);
-          const trait = layer.traits.find((t) => t.id === selectedTraitId);
-          if (trait) {
-            nftTraits.push({
-              layerId: layer.id,
-              layerName: layer.name,
-              traitId: trait.id,
-              traitName: trait.name,
-              imageUrl: trait.imageUrl,
-              blendMode: layer.blendMode,
-              opacity: layer.opacity,
-            });
-          }
+    for (const layer of sortedLayers) {
+      const selectedTraitId = selectTraitForLayer(layer, selectedTraits, layers);
+      if (selectedTraitId) {
+        selectedTraits.set(layer.id, selectedTraitId);
+        const trait = layer.traits.find((t) => t.id === selectedTraitId);
+        if (trait) {
+          nftTraits.push({
+            layerId: layer.id,
+            layerName: layer.name,
+            traitId: trait.id,
+            traitName: trait.name,
+            imageUrl: trait.imageUrl,
+            blendMode: layer.blendMode,
+            opacity: layer.opacity,
+          });
         }
       }
-
-      previews.push({ id: i + 1, traits: nftTraits });
     }
 
-    return previews;
+    return { id, traits: nftTraits };
   };
+
+  const generateNFTBatch = (count: number, ensureUnique: boolean = true): { nfts: GeneratedNFT[]; duplicatesAvoided: number } => {
+    const sortedLayers = [...layers].sort((a, b) => a.order - b.order);
+    const previews: GeneratedNFT[] = [];
+    const seenHashes = new Set<string>();
+    let duplicatesAvoided = 0;
+    const maxAttempts = count * 10; // Prevent infinite loops
+    let attempts = 0;
+
+    while (previews.length < count && attempts < maxAttempts) {
+      attempts++;
+      const nft = generateSingleNFT(previews.length + 1, sortedLayers);
+      const hash = getTraitHash(nft.traits);
+
+      if (!ensureUnique || !seenHashes.has(hash)) {
+        seenHashes.add(hash);
+        previews.push({ ...nft, id: previews.length + 1 });
+      } else {
+        duplicatesAvoided++;
+      }
+    }
+
+    if (previews.length < count) {
+      toast.warning(
+        `Only ${previews.length} unique combinations possible. Add more traits for ${count} unique NFTs.`
+      );
+    }
+
+    return { nfts: previews, duplicatesAvoided };
+  };
+
+  const [duplicatesAvoided, setDuplicatesAvoided] = useState(0);
 
   const generatePreviews = () => {
     const count = parseInt(previewCount) || 5;
-    const previews = generateNFTBatch(count);
-    setGeneratedPreviews(previews);
+    const { nfts, duplicatesAvoided: avoided } = generateNFTBatch(count);
+    setGeneratedPreviews(nfts);
+    setDuplicatesAvoided(avoided);
+    if (avoided > 0) {
+      toast.info(`Avoided ${avoided} duplicate combinations`);
+    }
   };
 
   // Load image helper
@@ -219,7 +253,7 @@ export function GenerationPreview({
     setExportStatus("Generating NFTs...");
 
     try {
-      const nfts = generateNFTBatch(count);
+      const { nfts } = generateNFTBatch(count);
       const results: { id: number; imageDataUrl: string; metadata: NFTMetadata }[] = [];
 
       for (let i = 0; i < nfts.length; i++) {
@@ -297,7 +331,7 @@ export function GenerationPreview({
     setExportStatus("Generating images...");
 
     try {
-      const nfts = generateNFTBatch(count);
+      const { nfts } = generateNFTBatch(count);
 
       for (let i = 0; i < nfts.length; i++) {
         setExportStatus(`Downloading image ${i + 1} of ${count}...`);
@@ -357,7 +391,7 @@ export function GenerationPreview({
   // Export all metadata as a zip-like bundle (individual files in a folder structure)
   const exportAllMetadata = () => {
     const count = parseInt(exportCount) || parseInt(totalSupply) || 100;
-    const nfts = generateNFTBatch(count);
+    const { nfts } = generateNFTBatch(count);
     
     // Create metadata array
     const allMetadata = nfts.map((nft) => nftToMetadata(nft));
@@ -386,7 +420,7 @@ export function GenerationPreview({
   // Export individual metadata files (for IPFS folder upload)
   const exportIndividualFiles = () => {
     const count = parseInt(exportCount) || parseInt(totalSupply) || 100;
-    const nfts = generateNFTBatch(count);
+    const { nfts } = generateNFTBatch(count);
     
     // Create a downloadable text file with instructions
     const metadataFiles: { filename: string; content: NFTMetadata }[] = nfts.map((nft) => ({
@@ -469,6 +503,15 @@ export function GenerationPreview({
             <p className="text-xs text-muted-foreground">Rules</p>
           </CardContent>
         </Card>
+        {duplicatesAvoided > 0 && (
+          <Card className="col-span-3 border-primary/50 bg-primary/5">
+            <CardContent className="p-3 text-center">
+              <p className="text-sm text-primary font-medium">
+                ✓ {duplicatesAvoided} duplicate combinations avoided
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Potential Combinations */}
