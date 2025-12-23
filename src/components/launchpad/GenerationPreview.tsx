@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3 } from "lucide-react";
+import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3, Crown, Gem, Star, Circle } from "lucide-react";
 import { Layer, Trait, BlendMode } from "./LayerManager";
 import { TraitRule, RuleType } from "./TraitRulesManager";
 import { NFTImageCompositor } from "./NFTImageCompositor";
@@ -41,6 +41,76 @@ interface NFTMetadata {
   }[];
 }
 
+// Rarity tier definitions
+type RarityTier = "legendary" | "rare" | "uncommon" | "common";
+
+interface RarityTierConfig {
+  name: string;
+  maxPercentage: number;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  icon: typeof Crown;
+}
+
+const RARITY_TIERS: Record<RarityTier, RarityTierConfig> = {
+  legendary: {
+    name: "Legendary",
+    maxPercentage: 5,
+    color: "text-amber-500",
+    bgColor: "bg-amber-500/10",
+    borderColor: "border-amber-500/50",
+    icon: Crown,
+  },
+  rare: {
+    name: "Rare",
+    maxPercentage: 15,
+    color: "text-purple-500",
+    bgColor: "bg-purple-500/10",
+    borderColor: "border-purple-500/50",
+    icon: Gem,
+  },
+  uncommon: {
+    name: "Uncommon",
+    maxPercentage: 35,
+    color: "text-blue-500",
+    bgColor: "bg-blue-500/10",
+    borderColor: "border-blue-500/50",
+    icon: Star,
+  },
+  common: {
+    name: "Common",
+    maxPercentage: 100,
+    color: "text-muted-foreground",
+    bgColor: "bg-muted/50",
+    borderColor: "border-muted",
+    icon: Circle,
+  },
+};
+
+// Get rarity tier based on percentage
+const getRarityTier = (percentage: number): RarityTier => {
+  if (percentage <= RARITY_TIERS.legendary.maxPercentage) return "legendary";
+  if (percentage <= RARITY_TIERS.rare.maxPercentage) return "rare";
+  if (percentage <= RARITY_TIERS.uncommon.maxPercentage) return "uncommon";
+  return "common";
+};
+
+// Rarity Badge Component
+const RarityBadge = ({ tier, showLabel = true, size = "default" }: { tier: RarityTier; showLabel?: boolean; size?: "sm" | "default" }) => {
+  const config = RARITY_TIERS[tier];
+  const Icon = config.icon;
+  const sizeClasses = size === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1";
+  const iconSize = size === "sm" ? "w-3 h-3" : "w-3.5 h-3.5";
+  
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full font-medium border ${config.bgColor} ${config.color} ${config.borderColor} ${sizeClasses}`}>
+      <Icon className={iconSize} />
+      {showLabel && config.name}
+    </span>
+  );
+};
+
 interface RarityReport {
   totalGenerated: number;
   layerDistributions: {
@@ -50,12 +120,19 @@ interface RarityReport {
       count: number;
       percentage: number;
       expectedPercentage: number;
+      tier: RarityTier;
     }[];
   }[];
   rarestCombinations: {
     nftId: number;
     rarityScore: number;
     traits: string[];
+    overallTier: RarityTier;
+  }[];
+  tierSummary: {
+    tier: RarityTier;
+    traitCount: number;
+    nftCount: number;
   }[];
 }
 
@@ -514,7 +591,7 @@ export function GenerationPreview({
         });
       });
       
-      // Build layer distributions
+      // Build layer distributions with tier assignment
       const layerDistributions = layers.map((layer) => {
         const traitCounts = layerTraitCounts.get(layer.name) || new Map();
         const totalRarity = layer.traits.reduce((sum, t) => sum + t.rarity, 0);
@@ -524,17 +601,33 @@ export function GenerationPreview({
           traits: layer.traits.map((trait) => {
             const count = traitCounts.get(trait.name) || 0;
             const expectedPercentage = totalRarity > 0 ? (trait.rarity / totalRarity) * 100 : 0;
+            const actualPercentage = (count / reportSize) * 100;
             return {
               traitName: trait.name,
               count,
-              percentage: (count / reportSize) * 100,
+              percentage: actualPercentage,
               expectedPercentage,
+              tier: getRarityTier(actualPercentage),
             };
           }).sort((a, b) => a.percentage - b.percentage),
         };
       });
       
-      // Calculate rarity scores for each NFT
+      // Calculate tier summary for traits
+      const traitTierCounts: Record<RarityTier, number> = {
+        legendary: 0,
+        rare: 0,
+        uncommon: 0,
+        common: 0,
+      };
+      
+      layerDistributions.forEach((layer) => {
+        layer.traits.forEach((trait) => {
+          traitTierCounts[trait.tier]++;
+        });
+      });
+      
+      // Calculate rarity scores for each NFT and assign overall tier
       const nftRarityScores = nfts.map((nft) => {
         const rarityScore = nft.traits.reduce((score, trait) => {
           const layer = layers.find((l) => l.name === trait.layerName);
@@ -557,15 +650,50 @@ export function GenerationPreview({
         };
       });
       
+      // Normalize scores and assign tiers to NFTs
+      const maxScore = Math.max(...nftRarityScores.map((n) => n.rarityScore));
+      const minScore = Math.min(...nftRarityScores.map((n) => n.rarityScore));
+      const scoreRange = maxScore - minScore || 1;
+      
+      const nftTierCounts: Record<RarityTier, number> = {
+        legendary: 0,
+        rare: 0,
+        uncommon: 0,
+        common: 0,
+      };
+      
+      const nftsWithTiers = nftRarityScores.map((nft) => {
+        // Normalize score to 0-100 (higher score = rarer)
+        const normalizedScore = ((nft.rarityScore - minScore) / scoreRange) * 100;
+        // Convert to "percentage-like" value (lower = rarer for tier assignment)
+        const tierPercentage = 100 - normalizedScore;
+        const overallTier = getRarityTier(tierPercentage);
+        nftTierCounts[overallTier]++;
+        
+        return {
+          ...nft,
+          overallTier,
+        };
+      });
+      
       // Get top 10 rarest
-      const rarestCombinations = nftRarityScores
+      const rarestCombinations = nftsWithTiers
         .sort((a, b) => b.rarityScore - a.rarityScore)
         .slice(0, 10);
+      
+      // Build tier summary
+      const tierSummary: RarityReport["tierSummary"] = [
+        { tier: "legendary" as RarityTier, traitCount: traitTierCounts.legendary, nftCount: nftTierCounts.legendary },
+        { tier: "rare" as RarityTier, traitCount: traitTierCounts.rare, nftCount: nftTierCounts.rare },
+        { tier: "uncommon" as RarityTier, traitCount: traitTierCounts.uncommon, nftCount: nftTierCounts.uncommon },
+        { tier: "common" as RarityTier, traitCount: traitTierCounts.common, nftCount: nftTierCounts.common },
+      ];
       
       setRarityReport({
         totalGenerated: reportSize,
         layerDistributions,
         rarestCombinations,
+        tierSummary,
       });
       
       toast.success(`Generated rarity report for ${reportSize} NFTs`);
@@ -801,9 +929,50 @@ export function GenerationPreview({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mb-4">
                     Analyzed <span className="font-semibold text-foreground">{rarityReport.totalGenerated}</span> NFTs across{" "}
                     <span className="font-semibold text-foreground">{rarityReport.layerDistributions.length}</span> layers
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Tier Summary */}
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm">Rarity Tier Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3">
+                    {rarityReport.tierSummary.map((summary) => {
+                      const config = RARITY_TIERS[summary.tier];
+                      const Icon = config.icon;
+                      const nftPercentage = (summary.nftCount / rarityReport.totalGenerated) * 100;
+                      
+                      return (
+                        <div
+                          key={summary.tier}
+                          className={`p-3 rounded-lg border ${config.bgColor} ${config.borderColor}`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <Icon className={`w-4 h-4 ${config.color}`} />
+                            <span className={`font-medium text-sm ${config.color}`}>{config.name}</span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">Traits</span>
+                              <span className="font-medium">{summary.traitCount}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">NFTs</span>
+                              <span className="font-medium">{summary.nftCount} ({nftPercentage.toFixed(1)}%)</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3 text-center">
+                    Legendary: ≤5% | Rare: ≤15% | Uncommon: ≤35% | Common: &gt;35%
                   </p>
                 </CardContent>
               </Card>
@@ -819,33 +988,45 @@ export function GenerationPreview({
                       {rarityReport.layerDistributions.map((layer) => (
                         <div key={layer.layerName} className="space-y-2">
                           <p className="text-sm font-medium">{layer.layerName}</p>
-                          <div className="space-y-1">
-                            {layer.traits.map((trait) => (
-                              <div key={trait.traitName} className="space-y-1">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="text-muted-foreground">{trait.traitName}</span>
-                                  <span className="font-mono">
-                                    {trait.count} ({trait.percentage.toFixed(1)}%)
-                                    {Math.abs(trait.percentage - trait.expectedPercentage) > 5 && (
-                                      <span className={trait.percentage < trait.expectedPercentage ? "text-orange-500 ml-1" : "text-green-500 ml-1"}>
-                                        {trait.percentage < trait.expectedPercentage ? "↓" : "↑"}
-                                      </span>
-                                    )}
-                                  </span>
+                          <div className="space-y-2">
+                            {layer.traits.map((trait) => {
+                              const tierConfig = RARITY_TIERS[trait.tier];
+                              
+                              return (
+                                <div key={trait.traitName} className="space-y-1">
+                                  <div className="flex items-center justify-between text-xs gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <RarityBadge tier={trait.tier} showLabel={false} size="sm" />
+                                      <span className="text-muted-foreground truncate">{trait.traitName}</span>
+                                    </div>
+                                    <span className="font-mono shrink-0">
+                                      {trait.count} ({trait.percentage.toFixed(1)}%)
+                                      {Math.abs(trait.percentage - trait.expectedPercentage) > 5 && (
+                                        <span className={trait.percentage < trait.expectedPercentage ? "text-orange-500 ml-1" : "text-green-500 ml-1"}>
+                                          {trait.percentage < trait.expectedPercentage ? "↓" : "↑"}
+                                        </span>
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
+                                    <div
+                                      className={`absolute inset-y-0 left-0 rounded-full ${
+                                        trait.tier === "legendary" ? "bg-amber-500" :
+                                        trait.tier === "rare" ? "bg-purple-500" :
+                                        trait.tier === "uncommon" ? "bg-blue-500" :
+                                        "bg-muted-foreground"
+                                      }`}
+                                      style={{ width: `${Math.min(trait.percentage, 100)}%` }}
+                                    />
+                                    <div
+                                      className="absolute inset-y-0 w-0.5 bg-foreground/50"
+                                      style={{ left: `${Math.min(trait.expectedPercentage, 100)}%` }}
+                                      title={`Expected: ${trait.expectedPercentage.toFixed(1)}%`}
+                                    />
+                                  </div>
                                 </div>
-                                <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
-                                  <div
-                                    className="absolute inset-y-0 left-0 bg-primary rounded-full"
-                                    style={{ width: `${Math.min(trait.percentage, 100)}%` }}
-                                  />
-                                  <div
-                                    className="absolute inset-y-0 w-0.5 bg-foreground/50"
-                                    style={{ left: `${Math.min(trait.expectedPercentage, 100)}%` }}
-                                    title={`Expected: ${trait.expectedPercentage.toFixed(1)}%`}
-                                  />
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       ))}
@@ -860,24 +1041,34 @@ export function GenerationPreview({
                   <CardTitle className="text-sm">Top 10 Rarest NFTs</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="h-[150px]">
+                  <ScrollArea className="h-[180px]">
                     <div className="space-y-2">
-                      {rarityReport.rarestCombinations.map((nft, index) => (
-                        <div key={nft.nftId} className="flex items-center gap-3 p-2 bg-secondary/30 rounded-lg">
-                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold">
-                            #{index + 1}
+                      {rarityReport.rarestCombinations.map((nft, index) => {
+                        const tierConfig = RARITY_TIERS[nft.overallTier];
+                        
+                        return (
+                          <div 
+                            key={nft.nftId} 
+                            className={`flex items-center gap-3 p-2 rounded-lg border ${tierConfig.bgColor} ${tierConfig.borderColor}`}
+                          >
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${tierConfig.bgColor} ${tierConfig.color} border ${tierConfig.borderColor}`}>
+                              #{index + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium">NFT #{nft.nftId}</p>
+                                <RarityBadge tier={nft.overallTier} size="sm" />
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {nft.traits.join(", ")}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-xs shrink-0">
+                              {nft.rarityScore.toFixed(1)}
+                            </Badge>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">NFT #{nft.nftId}</p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {nft.traits.join(", ")}
-                            </p>
-                          </div>
-                          <Badge variant="outline" className="text-xs shrink-0">
-                            Score: {nft.rarityScore.toFixed(1)}
-                          </Badge>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </ScrollArea>
                 </CardContent>
