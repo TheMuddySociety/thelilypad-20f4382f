@@ -137,6 +137,7 @@ export function AllowlistManager({
     duplicates: string[];
   } | null>(null);
   const [isProcessingCsv, setIsProcessingCsv] = useState(false);
+  const [isCsvDragging, setIsCsvDragging] = useState(false);
   
   // Merkle tree state
   const [isMerkleDialogOpen, setIsMerkleDialogOpen] = useState(false);
@@ -270,7 +271,91 @@ export function AllowlistManager({
     toast.success("Merkle root copied to clipboard");
   }, [currentMerkleData]);
   
-  // Parse CSV file
+  // Process CSV file content
+  const processCsvContent = useCallback((content: string) => {
+    const lines = content.split(/\r?\n/).filter(line => line.trim());
+    
+    if (lines.length === 0) {
+      toast.error("CSV file is empty");
+      setIsProcessingCsv(false);
+      return;
+    }
+    
+    // Detect header row
+    const firstLine = lines[0].toLowerCase();
+    const hasHeader = firstLine.includes('address') || 
+                      firstLine.includes('wallet') || 
+                      firstLine.includes('max') ||
+                      !isValidEthAddress(lines[0].split(',')[0]?.trim() || '');
+    
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+    
+    // Get existing addresses for duplicate check
+    const existingAddresses = new Set(
+      currentPhase?.entries.map(e => e.walletAddress.toLowerCase()) || []
+    );
+    
+    const valid: { address: string; maxMint: number; notes?: string }[] = [];
+    const invalid: { line: number; content: string; reason: string }[] = [];
+    const duplicates: string[] = [];
+    const seenInFile = new Set<string>();
+    
+    dataLines.forEach((line, index) => {
+      const lineNum = hasHeader ? index + 2 : index + 1;
+      const trimmedLine = line.trim();
+      
+      if (!trimmedLine) return;
+      
+      // Parse CSV columns
+      const columns = trimmedLine.split(',').map(col => col.trim().replace(/^["']|["']$/g, ''));
+      const address = columns[0] || '';
+      const maxMintStr = columns[1] || '1';
+      const notes = columns[2] || '';
+      
+      // Validate address
+      if (!address) {
+        invalid.push({ line: lineNum, content: trimmedLine, reason: 'Empty address' });
+        return;
+      }
+      
+      if (!isValidEthAddress(address) && !isValidENS(address)) {
+        invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid address format' });
+        return;
+      }
+      
+      // Check for duplicates
+      const lowerAddress = address.toLowerCase();
+      if (existingAddresses.has(lowerAddress) || seenInFile.has(lowerAddress)) {
+        duplicates.push(address);
+        return;
+      }
+      
+      seenInFile.add(lowerAddress);
+      
+      // Parse max mint
+      const maxMint = parseInt(maxMintStr) || 1;
+      if (maxMint < 1) {
+        invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid max mint value' });
+        return;
+      }
+      
+      valid.push({
+        address,
+        maxMint,
+        notes: notes || undefined,
+      });
+    });
+    
+    setCsvImportResults({ valid, invalid, duplicates });
+    
+    if (valid.length === 0 && invalid.length === 0 && duplicates.length === 0) {
+      toast.error("No data found in CSV file");
+    }
+    
+    setIsProcessingCsv(false);
+  }, [currentPhase]);
+  
+  // Parse CSV file from file input
   const handleCsvFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -282,89 +367,12 @@ export function AllowlistManager({
     reader.onload = (e) => {
       try {
         const content = e.target?.result as string;
-        const lines = content.split(/\r?\n/).filter(line => line.trim());
-        
-        if (lines.length === 0) {
-          toast.error("CSV file is empty");
-          setIsProcessingCsv(false);
-          return;
-        }
-        
-        // Detect header row
-        const firstLine = lines[0].toLowerCase();
-        const hasHeader = firstLine.includes('address') || 
-                          firstLine.includes('wallet') || 
-                          firstLine.includes('max') ||
-                          !isValidEthAddress(lines[0].split(',')[0]?.trim() || '');
-        
-        const dataLines = hasHeader ? lines.slice(1) : lines;
-        
-        // Get existing addresses for duplicate check
-        const existingAddresses = new Set(
-          currentPhase?.entries.map(e => e.walletAddress.toLowerCase()) || []
-        );
-        
-        const valid: { address: string; maxMint: number; notes?: string }[] = [];
-        const invalid: { line: number; content: string; reason: string }[] = [];
-        const duplicates: string[] = [];
-        const seenInFile = new Set<string>();
-        
-        dataLines.forEach((line, index) => {
-          const lineNum = hasHeader ? index + 2 : index + 1;
-          const trimmedLine = line.trim();
-          
-          if (!trimmedLine) return;
-          
-          // Parse CSV columns
-          const columns = trimmedLine.split(',').map(col => col.trim().replace(/^["']|["']$/g, ''));
-          const address = columns[0] || '';
-          const maxMintStr = columns[1] || '1';
-          const notes = columns[2] || '';
-          
-          // Validate address
-          if (!address) {
-            invalid.push({ line: lineNum, content: trimmedLine, reason: 'Empty address' });
-            return;
-          }
-          
-          if (!isValidEthAddress(address) && !isValidENS(address)) {
-            invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid address format' });
-            return;
-          }
-          
-          // Check for duplicates
-          const lowerAddress = address.toLowerCase();
-          if (existingAddresses.has(lowerAddress) || seenInFile.has(lowerAddress)) {
-            duplicates.push(address);
-            return;
-          }
-          
-          seenInFile.add(lowerAddress);
-          
-          // Parse max mint
-          const maxMint = parseInt(maxMintStr) || 1;
-          if (maxMint < 1) {
-            invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid max mint value' });
-            return;
-          }
-          
-          valid.push({
-            address,
-            maxMint,
-            notes: notes || undefined,
-          });
-        });
-        
-        setCsvImportResults({ valid, invalid, duplicates });
-        
-        if (valid.length === 0 && invalid.length === 0 && duplicates.length === 0) {
-          toast.error("No data found in CSV file");
-        }
+        processCsvContent(content);
       } catch (error) {
         console.error("CSV parsing error:", error);
         toast.error("Failed to parse CSV file");
-      } finally {
         setIsProcessingCsv(false);
+      } finally {
         // Reset file input
         event.target.value = '';
       }
@@ -376,7 +384,59 @@ export function AllowlistManager({
     };
     
     reader.readAsText(file);
-  }, [currentPhase]);
+  }, [processCsvContent]);
+  
+  // Handle CSV drag and drop
+  const handleCsvDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCsvDragging(true);
+  }, []);
+  
+  const handleCsvDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCsvDragging(false);
+  }, []);
+  
+  const handleCsvDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCsvDragging(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    const csvFile = files.find(file => 
+      file.type === 'text/csv' || 
+      file.name.endsWith('.csv')
+    );
+    
+    if (!csvFile) {
+      toast.error("Please drop a CSV file");
+      return;
+    }
+    
+    setIsProcessingCsv(true);
+    setCsvImportResults(null);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        processCsvContent(content);
+      } catch (error) {
+        console.error("CSV parsing error:", error);
+        toast.error("Failed to parse CSV file");
+        setIsProcessingCsv(false);
+      }
+    };
+    
+    reader.onerror = () => {
+      toast.error("Failed to read file");
+      setIsProcessingCsv(false);
+    };
+    
+    reader.readAsText(csvFile);
+  }, [processCsvContent]);
   
   // Download CSV template
   const downloadCsvTemplate = () => {
@@ -852,7 +912,16 @@ export function AllowlistManager({
                   <div className="space-y-4 py-4">
                     {!csvImportResults ? (
                       <>
-                        <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                        <div 
+                          onDragOver={handleCsvDragOver}
+                          onDragLeave={handleCsvDragLeave}
+                          onDrop={handleCsvDrop}
+                          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                            isCsvDragging
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
                           <input
                             type="file"
                             accept=".csv,text/csv"
@@ -869,10 +938,12 @@ export function AllowlistManager({
                               </div>
                             ) : (
                               <div className="flex flex-col items-center gap-2">
-                                <Upload className="w-8 h-8 text-muted-foreground" />
-                                <p className="text-sm font-medium">Click to upload CSV file</p>
+                                <Upload className={`w-8 h-8 ${isCsvDragging ? "text-primary" : "text-muted-foreground"}`} />
+                                <p className="font-medium">
+                                  {isCsvDragging ? "Drop CSV file here..." : "Drag & drop CSV file"}
+                                </p>
                                 <p className="text-xs text-muted-foreground">
-                                  or drag and drop
+                                  or click to browse
                                 </p>
                               </div>
                             )}
