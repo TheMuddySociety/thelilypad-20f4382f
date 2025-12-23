@@ -19,7 +19,9 @@ import {
   Trash2, 
   CheckCircle,
   Radio,
-  Settings
+  Settings,
+  Play,
+  ExternalLink
 } from "lucide-react";
 import {
   AlertDialog,
@@ -33,24 +35,27 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-interface StreamKey {
+interface LivepeerStream {
   id: string;
-  stream_key: string;
   name: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  streamKey: string;
+  playbackId: string;
+  rtmpIngestUrl: string;
+  playbackUrl: string;
+  isActive?: boolean;
+  createdAt?: number;
+  lastSeen?: number;
 }
 
 export default function GoLive() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
-  const [streamKeys, setStreamKeys] = useState<StreamKey[]>([]);
+  const [streams, setStreams] = useState<LivepeerStream[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [newKeyName, setNewKeyName] = useState("");
+  const [newStreamName, setNewStreamName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
@@ -73,129 +78,102 @@ export default function GoLive() {
 
   useEffect(() => {
     if (user) {
-      fetchStreamKeys();
+      fetchStreams();
     }
   }, [user]);
 
-  const fetchStreamKeys = async () => {
+  const fetchStreams = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from("stream_keys")
-      .select("*")
-      .order("created_at", { ascending: false });
+    try {
+      const { data, error } = await supabase.functions.invoke('livepeer-stream', {
+        body: { action: 'list' }
+      });
 
-    if (error) {
+      if (error) throw error;
+      setStreams(data || []);
+    } catch (error: any) {
+      console.error('Error fetching streams:', error);
       toast({
         title: "Error",
-        description: "Failed to load stream keys",
+        description: error.message || "Failed to load streams",
         variant: "destructive",
       });
-    } else {
-      setStreamKeys(data || []);
     }
     setIsLoading(false);
   };
 
-  const createStreamKey = async () => {
-    if (!newKeyName.trim()) {
+  const createStream = async () => {
+    if (!newStreamName.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a name for your stream key",
+        description: "Please enter a name for your stream",
         variant: "destructive",
       });
       return;
     }
 
     setIsCreating(true);
-    const { error } = await supabase.from("stream_keys").insert({
-      user_id: user.id,
-      name: newKeyName.trim(),
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke('livepeer-stream', {
+        body: { 
+          action: 'create',
+          name: newStreamName.trim(),
+          userId: user.id
+        }
+      });
 
-    if (error) {
+      if (error) throw error;
+
+      toast({
+        title: "Stream Created!",
+        description: "Your stream is ready. Use the RTMP URL and stream key in OBS.",
+      });
+      setNewStreamName("");
+      fetchStreams();
+    } catch (error: any) {
+      console.error('Error creating stream:', error);
       toast({
         title: "Error",
-        description: "Failed to create stream key",
+        description: error.message || "Failed to create stream",
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Success",
-        description: "Stream key created successfully",
-      });
-      setNewKeyName("");
-      fetchStreamKeys();
     }
     setIsCreating(false);
   };
 
-  const regenerateStreamKey = async (id: string) => {
-    const newKey = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-
-    const { error } = await supabase
-      .from("stream_keys")
-      .update({ stream_key: newKey })
-      .eq("id", id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to regenerate stream key",
-        variant: "destructive",
+  const deleteStream = async (streamId: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('livepeer-stream', {
+        body: { 
+          action: 'delete',
+          streamId 
+        }
       });
-    } else {
-      toast({
-        title: "Success",
-        description: "Stream key regenerated",
-      });
-      fetchStreamKeys();
-    }
-  };
 
-  const toggleStreamKey = async (id: string, isActive: boolean) => {
-    const { error } = await supabase
-      .from("stream_keys")
-      .update({ is_active: !isActive })
-      .eq("id", id);
+      if (error) throw error;
 
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update stream key",
-        variant: "destructive",
-      });
-    } else {
-      fetchStreamKeys();
-    }
-  };
-
-  const deleteStreamKey = async (id: string) => {
-    const { error } = await supabase.from("stream_keys").delete().eq("id", id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete stream key",
-        variant: "destructive",
-      });
-    } else {
       toast({
         title: "Deleted",
-        description: "Stream key removed",
+        description: "Stream removed successfully",
       });
-      fetchStreamKeys();
+      fetchStreams();
+    } catch (error: any) {
+      console.error('Error deleting stream:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete stream",
+        variant: "destructive",
+      });
     }
   };
 
-  const copyToClipboard = async (key: string, id: string) => {
-    await navigator.clipboard.writeText(key);
+  const copyToClipboard = async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text);
     setCopiedKey(id);
     setTimeout(() => setCopiedKey(null), 2000);
     toast({
       title: "Copied",
-      description: "Stream key copied to clipboard",
+      description: "Copied to clipboard",
     });
   };
 
@@ -204,7 +182,8 @@ export default function GoLive() {
   };
 
   const maskKey = (key: string) => {
-    return key.slice(0, 4) + "••••••••••••" + key.slice(-4);
+    if (key.length <= 8) return "••••••••";
+    return key.slice(0, 4) + "••••••••" + key.slice(-4);
   };
 
   if (!user) {
@@ -220,73 +199,71 @@ export default function GoLive() {
           {/* Header */}
           <div className="mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Go Live</h1>
-            <p className="text-muted-foreground">Manage your stream keys and start broadcasting</p>
+            <p className="text-muted-foreground">Create streams and broadcast using OBS or any RTMP software</p>
           </div>
 
-          {/* Stream Server Info */}
-          <Card className="glass-card border-border/50 mb-6">
+          {/* OBS Setup Guide */}
+          <Card className="glass-card border-border/50 mb-6 bg-primary/5">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <Settings className="w-5 h-5" />
-                Stream Settings
+                OBS Setup Guide
               </CardTitle>
-              <CardDescription>Use these settings in your streaming software (OBS, Streamlabs, etc.)</CardDescription>
+              <CardDescription>Follow these steps to stream with OBS</CardDescription>
             </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm">RTMP Server URL</Label>
-                <div className="flex items-center gap-2">
-                  <Input 
-                    value="rtmp://live.lilypad.stream/app" 
-                    readOnly 
-                    className="font-mono text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      navigator.clipboard.writeText("rtmp://live.lilypad.stream/app");
-                      toast({ title: "Copied", description: "Server URL copied" });
-                    }}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
+            <CardContent className="p-4 sm:p-6 pt-0 space-y-3 text-sm">
+              <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                <li>Create a stream below to get your RTMP URL and Stream Key</li>
+                <li>Open OBS → Settings → Stream</li>
+                <li>Set Service to <strong className="text-foreground">Custom</strong></li>
+                <li>Paste the <strong className="text-foreground">RTMP URL</strong> as the Server</li>
+                <li>Paste your <strong className="text-foreground">Stream Key</strong></li>
+                <li>Click "Start Streaming" in OBS</li>
+              </ol>
             </CardContent>
           </Card>
 
-          {/* Create New Key */}
+          {/* Create New Stream */}
           <Card className="glass-card border-border/50 mb-6">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <Plus className="w-5 h-5" />
-                Create Stream Key
+                Create New Stream
               </CardTitle>
+              <CardDescription>Create a Livepeer stream to get your RTMP credentials</CardDescription>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 pt-0">
               <div className="flex flex-col sm:flex-row gap-3">
                 <Input
                   placeholder="Stream name (e.g., Gaming Stream, Art Stream)"
-                  value={newKeyName}
-                  onChange={(e) => setNewKeyName(e.target.value)}
+                  value={newStreamName}
+                  onChange={(e) => setNewStreamName(e.target.value)}
                   className="flex-1"
+                  onKeyDown={(e) => e.key === 'Enter' && createStream()}
                 />
-                <Button onClick={createStreamKey} disabled={isCreating}>
-                  {isCreating ? "Creating..." : "Create Key"}
+                <Button onClick={createStream} disabled={isCreating}>
+                  {isCreating ? "Creating..." : "Create Stream"}
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* Stream Keys List */}
+          {/* Streams List */}
           <Card className="glass-card border-border/50">
             <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <Key className="w-5 h-5" />
-                Your Stream Keys
-              </CardTitle>
-              <CardDescription>Keep your stream keys private. Anyone with your key can stream to your channel.</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Key className="w-5 h-5" />
+                    Your Streams
+                  </CardTitle>
+                  <CardDescription>Manage your Livepeer streams</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchStreams}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 pt-0">
               {isLoading ? (
@@ -299,46 +276,36 @@ export default function GoLive() {
                     </div>
                   ))}
                 </div>
-              ) : streamKeys.length > 0 ? (
-                <div className="space-y-4">
-                  {streamKeys.map((key) => (
-                    <div key={key.id} className="p-4 rounded-lg bg-muted/50 space-y-3">
+              ) : streams.length > 0 ? (
+                <div className="space-y-6">
+                  {streams.map((stream) => (
+                    <div key={stream.id} className="p-4 rounded-lg bg-muted/50 space-y-4">
+                      {/* Stream Header */}
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
-                          <h3 className="font-medium">{key.name}</h3>
-                          <Badge variant={key.is_active ? "default" : "secondary"}>
-                            {key.is_active ? "Active" : "Inactive"}
+                          <h3 className="font-medium">{stream.name}</h3>
+                          <Badge variant={stream.isActive ? "default" : "secondary"} className={stream.isActive ? "bg-green-500" : ""}>
+                            {stream.isActive ? (
+                              <>
+                                <Radio className="w-3 h-3 mr-1 animate-pulse" />
+                                LIVE
+                              </>
+                            ) : (
+                              "Offline"
+                            )}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleStreamKey(key.id, key.is_active)}
-                          >
-                            <Radio className={`w-4 h-4 ${key.is_active ? "text-primary" : ""}`} />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <RefreshCw className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Regenerate Stream Key?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will invalidate your current stream key. You'll need to update it in your streaming software.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => regenerateStreamKey(key.id)}>
-                                  Regenerate
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          {stream.isActive && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(`https://lvpr.tv/?v=${stream.playbackId}`, '_blank')}
+                            >
+                              <Play className="w-4 h-4 mr-1" />
+                              Watch
+                            </Button>
+                          )}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="sm">
@@ -347,14 +314,14 @@ export default function GoLive() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Stream Key?</AlertDialogTitle>
+                                <AlertDialogTitle>Delete Stream?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This action cannot be undone. You'll need to create a new key to stream again.
+                                  This will permanently delete this stream and its stream key.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteStreamKey(key.id)} className="bg-destructive hover:bg-destructive/90">
+                                <AlertDialogAction onClick={() => deleteStream(stream.id)} className="bg-destructive hover:bg-destructive/90">
                                   Delete
                                 </AlertDialogAction>
                               </AlertDialogFooter>
@@ -362,48 +329,107 @@ export default function GoLive() {
                           </AlertDialog>
                         </div>
                       </div>
+
+                      {/* RTMP URL */}
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">RTMP Server URL (paste in OBS)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={stream.rtmpIngestUrl}
+                            readOnly
+                            className="font-mono text-sm flex-1"
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => copyToClipboard(stream.rtmpIngestUrl, `rtmp-${stream.id}`)}
+                          >
+                            {copiedKey === `rtmp-${stream.id}` ? (
+                              <CheckCircle className="w-4 h-4 text-primary" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
                       
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={showKeys[key.id] ? key.stream_key : maskKey(key.stream_key)}
-                          readOnly
-                          className="font-mono text-sm flex-1"
-                        />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => toggleKeyVisibility(key.id)}
-                        >
-                          {showKeys[key.id] ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => copyToClipboard(key.stream_key, key.id)}
-                        >
-                          {copiedKey === key.id ? (
-                            <CheckCircle className="w-4 h-4 text-primary" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </Button>
+                      {/* Stream Key */}
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Stream Key (keep private!)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={showKeys[stream.id] ? stream.streamKey : maskKey(stream.streamKey)}
+                            readOnly
+                            className="font-mono text-sm flex-1"
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => toggleKeyVisibility(stream.id)}
+                          >
+                            {showKeys[stream.id] ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => copyToClipboard(stream.streamKey, stream.id)}
+                          >
+                            {copiedKey === stream.id ? (
+                              <CheckCircle className="w-4 h-4 text-primary" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
 
-                      <p className="text-xs text-muted-foreground">
-                        Created {new Date(key.created_at).toLocaleDateString()}
-                      </p>
+                      {/* Playback URL */}
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Playback URL (for viewers)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={stream.playbackUrl}
+                            readOnly
+                            className="font-mono text-xs flex-1"
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => copyToClipboard(stream.playbackUrl, `playback-${stream.id}`)}
+                          >
+                            {copiedKey === `playback-${stream.id}` ? (
+                              <CheckCircle className="w-4 h-4 text-primary" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => window.open(`https://lvpr.tv/?v=${stream.playbackId}`, '_blank')}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {stream.createdAt && (
+                        <p className="text-xs text-muted-foreground">
+                          Created {new Date(stream.createdAt).toLocaleDateString()}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Key className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No stream keys yet</p>
-                  <p className="text-sm">Create your first stream key to start broadcasting</p>
+                  <p>No streams yet</p>
+                  <p className="text-sm">Create your first stream to start broadcasting</p>
                 </div>
               )}
             </CardContent>

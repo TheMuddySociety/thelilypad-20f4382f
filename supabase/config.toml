@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.track-clip-event]
 verify_jwt = false
+
+[functions.livepeer-stream]
+verify_jwt = false
