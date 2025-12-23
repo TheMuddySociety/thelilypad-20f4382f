@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive } from "lucide-react";
+import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3 } from "lucide-react";
 import { Layer, Trait, BlendMode } from "./LayerManager";
 import { TraitRule, RuleType } from "./TraitRulesManager";
 import { NFTImageCompositor } from "./NFTImageCompositor";
@@ -41,6 +41,24 @@ interface NFTMetadata {
   }[];
 }
 
+interface RarityReport {
+  totalGenerated: number;
+  layerDistributions: {
+    layerName: string;
+    traits: {
+      traitName: string;
+      count: number;
+      percentage: number;
+      expectedPercentage: number;
+    }[];
+  }[];
+  rarestCombinations: {
+    nftId: number;
+    rarityScore: number;
+    traits: string[];
+  }[];
+}
+
 export function GenerationPreview({
   layers,
   rules,
@@ -54,6 +72,8 @@ export function GenerationPreview({
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState("");
+  const [rarityReport, setRarityReport] = useState<RarityReport | null>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const selectTraitForLayer = (
     layer: Layer,
@@ -466,6 +486,113 @@ export function GenerationPreview({
 
   const rareTraits = rarityStats.slice(0, 5);
 
+  // Generate rarity report
+  const generateRarityReport = useCallback(() => {
+    setIsGeneratingReport(true);
+    
+    try {
+      const reportSize = Math.min(parseInt(totalSupply) || 100, 500);
+      const { nfts } = generateNFTBatch(reportSize);
+      
+      // Calculate trait distributions per layer
+      const layerTraitCounts = new Map<string, Map<string, number>>();
+      
+      // Initialize counts
+      layers.forEach((layer) => {
+        const traitCounts = new Map<string, number>();
+        layer.traits.forEach((trait) => traitCounts.set(trait.name, 0));
+        layerTraitCounts.set(layer.name, traitCounts);
+      });
+      
+      // Count occurrences
+      nfts.forEach((nft) => {
+        nft.traits.forEach((trait) => {
+          const layerCounts = layerTraitCounts.get(trait.layerName);
+          if (layerCounts) {
+            layerCounts.set(trait.traitName, (layerCounts.get(trait.traitName) || 0) + 1);
+          }
+        });
+      });
+      
+      // Build layer distributions
+      const layerDistributions = layers.map((layer) => {
+        const traitCounts = layerTraitCounts.get(layer.name) || new Map();
+        const totalRarity = layer.traits.reduce((sum, t) => sum + t.rarity, 0);
+        
+        return {
+          layerName: layer.name,
+          traits: layer.traits.map((trait) => {
+            const count = traitCounts.get(trait.name) || 0;
+            const expectedPercentage = totalRarity > 0 ? (trait.rarity / totalRarity) * 100 : 0;
+            return {
+              traitName: trait.name,
+              count,
+              percentage: (count / reportSize) * 100,
+              expectedPercentage,
+            };
+          }).sort((a, b) => a.percentage - b.percentage),
+        };
+      });
+      
+      // Calculate rarity scores for each NFT
+      const nftRarityScores = nfts.map((nft) => {
+        const rarityScore = nft.traits.reduce((score, trait) => {
+          const layer = layers.find((l) => l.name === trait.layerName);
+          if (!layer) return score;
+          
+          const traitData = layer.traits.find((t) => t.name === trait.traitName);
+          if (!traitData) return score;
+          
+          const totalRarity = layer.traits.reduce((sum, t) => sum + t.rarity, 0);
+          const traitRarity = totalRarity > 0 ? traitData.rarity / totalRarity : 1;
+          
+          // Lower rarity value = rarer = higher score (inverse)
+          return score + (1 / traitRarity);
+        }, 0);
+        
+        return {
+          nftId: nft.id,
+          rarityScore,
+          traits: nft.traits.map((t) => t.traitName),
+        };
+      });
+      
+      // Get top 10 rarest
+      const rarestCombinations = nftRarityScores
+        .sort((a, b) => b.rarityScore - a.rarityScore)
+        .slice(0, 10);
+      
+      setRarityReport({
+        totalGenerated: reportSize,
+        layerDistributions,
+        rarestCombinations,
+      });
+      
+      toast.success(`Generated rarity report for ${reportSize} NFTs`);
+    } catch (error) {
+      console.error("Failed to generate rarity report:", error);
+      toast.error("Failed to generate rarity report");
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  }, [layers, totalSupply, generateNFTBatch]);
+
+  // Export rarity report as JSON
+  const exportRarityReport = () => {
+    if (!rarityReport) return;
+    
+    const blob = new Blob([JSON.stringify(rarityReport, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-rarity-report.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Exported rarity report");
+  };
+
   // Check if any layer has images
   const hasAnyImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
 
@@ -555,14 +682,18 @@ export function GenerationPreview({
 
       {/* Tabbed Preview Section */}
       <Tabs defaultValue={hasAnyImages ? "visual" : "text"} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="text" className="gap-2">
             <Shuffle className="w-4 h-4" />
-            Text Preview
+            Text
           </TabsTrigger>
           <TabsTrigger value="visual" className="gap-2">
             <ImageIcon className="w-4 h-4" />
-            Visual Preview
+            Visual
+          </TabsTrigger>
+          <TabsTrigger value="rarity" className="gap-2">
+            <BarChart3 className="w-4 h-4" />
+            Rarity
           </TabsTrigger>
           <TabsTrigger value="export" className="gap-2">
             <Download className="w-4 h-4" />
@@ -634,6 +765,143 @@ export function GenerationPreview({
             layers={layers}
             rules={rules}
           />
+        </TabsContent>
+
+        <TabsContent value="rarity" className="mt-4 space-y-4">
+          {/* Generate Report Button */}
+          <Button 
+            onClick={generateRarityReport} 
+            disabled={isGeneratingReport || layers.length === 0}
+            className="w-full"
+          >
+            {isGeneratingReport ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Analyzing Collection...
+              </>
+            ) : (
+              <>
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Generate Rarity Report ({Math.min(parseInt(totalSupply) || 100, 500)} NFTs)
+              </>
+            )}
+          </Button>
+
+          {rarityReport && (
+            <div className="space-y-4">
+              {/* Report Summary */}
+              <Card>
+                <CardHeader className="py-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm">Report Summary</CardTitle>
+                    <Button size="sm" variant="outline" onClick={exportRarityReport}>
+                      <Download className="w-3 h-3 mr-1" />
+                      Export
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Analyzed <span className="font-semibold text-foreground">{rarityReport.totalGenerated}</span> NFTs across{" "}
+                    <span className="font-semibold text-foreground">{rarityReport.layerDistributions.length}</span> layers
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Trait Distributions */}
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm">Trait Distributions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[250px]">
+                    <div className="space-y-4">
+                      {rarityReport.layerDistributions.map((layer) => (
+                        <div key={layer.layerName} className="space-y-2">
+                          <p className="text-sm font-medium">{layer.layerName}</p>
+                          <div className="space-y-1">
+                            {layer.traits.map((trait) => (
+                              <div key={trait.traitName} className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">{trait.traitName}</span>
+                                  <span className="font-mono">
+                                    {trait.count} ({trait.percentage.toFixed(1)}%)
+                                    {Math.abs(trait.percentage - trait.expectedPercentage) > 5 && (
+                                      <span className={trait.percentage < trait.expectedPercentage ? "text-orange-500 ml-1" : "text-green-500 ml-1"}>
+                                        {trait.percentage < trait.expectedPercentage ? "↓" : "↑"}
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
+                                  <div
+                                    className="absolute inset-y-0 left-0 bg-primary rounded-full"
+                                    style={{ width: `${Math.min(trait.percentage, 100)}%` }}
+                                  />
+                                  <div
+                                    className="absolute inset-y-0 w-0.5 bg-foreground/50"
+                                    style={{ left: `${Math.min(trait.expectedPercentage, 100)}%` }}
+                                    title={`Expected: ${trait.expectedPercentage.toFixed(1)}%`}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* Rarest NFTs */}
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm">Top 10 Rarest NFTs</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[150px]">
+                    <div className="space-y-2">
+                      {rarityReport.rarestCombinations.map((nft, index) => (
+                        <div key={nft.nftId} className="flex items-center gap-3 p-2 bg-secondary/30 rounded-lg">
+                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold">
+                            #{index + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">NFT #{nft.nftId}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {nft.traits.join(", ")}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            Score: {nft.rarityScore.toFixed(1)}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {!rarityReport && layers.length > 0 && (
+            <div className="text-center py-8 border border-dashed rounded-lg">
+              <BarChart3 className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">
+                Generate a rarity report to see trait distribution statistics
+              </p>
+            </div>
+          )}
+
+          {layers.length === 0 && (
+            <div className="text-center py-8 border border-dashed rounded-lg">
+              <Info className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                Add layers and traits first
+              </p>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="export" className="mt-4 space-y-4">
