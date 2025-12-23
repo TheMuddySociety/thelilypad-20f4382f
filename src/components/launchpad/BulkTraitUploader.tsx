@@ -53,6 +53,7 @@ export function BulkTraitUploader({
   const [pendingTraits, setPendingTraits] = useState<PendingTrait[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState({ scanned: 0, total: 0 });
   const { moderateImage, isChecking } = useContentModeration();
 
   const cleanFileName = (filename: string): string => {
@@ -104,10 +105,14 @@ export function BulkTraitUploader({
       setPendingTraits((prev) => [...prev, ...newPending]);
 
       // Now scan each image for inappropriate content
-      setIsScanning(true);
+      const toScan = newPending.filter((t) => t.status !== "duplicate");
+      if (toScan.length === 0) return;
       
-      for (const trait of newPending) {
-        if (trait.status === "duplicate") continue;
+      setIsScanning(true);
+      setScanProgress({ scanned: 0, total: toScan.length });
+      
+      for (let i = 0; i < toScan.length; i++) {
+        const trait = toScan[i];
         
         try {
           const base64 = await fileToBase64(trait.file);
@@ -118,9 +123,7 @@ export function BulkTraitUploader({
               t.id === trait.id
                 ? {
                     ...t,
-                    status: result.allowed 
-                      ? "ready" 
-                      : "blocked",
+                    status: result.allowed ? "ready" : "blocked",
                     moderationReason: result.reason,
                   }
                 : t
@@ -132,16 +135,18 @@ export function BulkTraitUploader({
           }
         } catch (err) {
           console.error("Moderation error for", trait.name, err);
-          // If moderation fails, allow the image
           setPendingTraits((prev) =>
             prev.map((t) =>
               t.id === trait.id ? { ...t, status: "ready" } : t
             )
           );
         }
+        
+        setScanProgress({ scanned: i + 1, total: toScan.length });
       }
       
       setIsScanning(false);
+      setScanProgress({ scanned: 0, total: 0 });
     },
     [existingTraits, pendingTraits, moderateImage]
   );
@@ -332,6 +337,25 @@ export function BulkTraitUploader({
           {/* Pending Traits */}
           {pendingTraits.length > 0 && (
             <>
+              {/* Batch Progress Indicator */}
+              {isScanning && scanProgress.total > 0 && (
+                <div className="space-y-2 p-3 bg-muted/30 rounded-lg border">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      <span className="font-medium">Scanning for inappropriate content...</span>
+                    </div>
+                    <span className="text-muted-foreground">
+                      {scanProgress.scanned} / {scanProgress.total}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={(scanProgress.scanned / scanProgress.total) * 100} 
+                    className="h-2"
+                  />
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary">{pendingTraits.length} files</Badge>
