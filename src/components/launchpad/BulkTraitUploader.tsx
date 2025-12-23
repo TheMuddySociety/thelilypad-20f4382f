@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +45,19 @@ interface PendingTrait {
   moderationReason?: string;
 }
 
+interface ScanCacheEntry {
+  allowed: boolean;
+  reason?: string;
+}
+
+// Generate a simple hash from file content for caching
+const generateFileHash = async (file: File): Promise<string> => {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+};
+
 export function BulkTraitUploader({
   open,
   onOpenChange,
@@ -57,6 +70,8 @@ export function BulkTraitUploader({
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState({ scanned: 0, total: 0 });
   const [concurrencyLimit, setConcurrencyLimit] = useState(5);
+  const [cacheHits, setCacheHits] = useState(0);
+  const scanCacheRef = useRef<Map<string, ScanCacheEntry>>(new Map());
   const { moderateImage, isChecking } = useContentModeration();
 
   const cleanFileName = (filename: string): string => {
@@ -116,11 +131,46 @@ export function BulkTraitUploader({
       
       const CONCURRENCY = currentConcurrency;
       let scannedCount = 0;
+      let sessionCacheHits = 0;
       
       const scanTrait = async (trait: PendingTrait) => {
         try {
+          // Check cache first
+          const fileHash = await generateFileHash(trait.file);
+          const cachedResult = scanCacheRef.current.get(fileHash);
+          
+          if (cachedResult) {
+            // Use cached result
+            sessionCacheHits++;
+            setCacheHits(prev => prev + 1);
+            
+            setPendingTraits((prev) =>
+              prev.map((t) =>
+                t.id === trait.id
+                  ? {
+                      ...t,
+                      status: cachedResult.allowed ? "ready" : "blocked",
+                      moderationReason: cachedResult.reason,
+                    }
+                  : t
+              )
+            );
+            
+            if (!cachedResult.allowed) {
+              toast.error(`"${trait.name}" blocked: ${cachedResult.reason}`);
+            }
+            return;
+          }
+          
+          // Not cached, perform scan
           const base64 = await fileToBase64(trait.file);
           const result = await moderateImage(base64, trait.name);
+          
+          // Cache the result
+          scanCacheRef.current.set(fileHash, {
+            allowed: result.allowed,
+            reason: result.reason,
+          });
           
           setPendingTraits((prev) =>
             prev.map((t) =>
@@ -154,6 +204,10 @@ export function BulkTraitUploader({
       for (let i = 0; i < toScan.length; i += CONCURRENCY) {
         const batch = toScan.slice(i, i + CONCURRENCY);
         await Promise.all(batch.map(scanTrait));
+      }
+      
+      if (sessionCacheHits > 0) {
+        toast.success(`${sessionCacheHits} image${sessionCacheHits > 1 ? 's' : ''} loaded from cache`);
       }
       
       setIsScanning(false);
@@ -363,6 +417,11 @@ export function BulkTraitUploader({
             <span className="text-sm font-medium w-16 text-right">
               {concurrencyLimit} {concurrencyLimit === 1 ? "image" : "images"}
             </span>
+            {cacheHits > 0 && (
+              <Badge variant="outline" className="ml-2 text-xs bg-green-500/10 text-green-600 border-green-500/30">
+                {cacheHits} cached
+              </Badge>
+            )}
           </div>
 
           {/* Pending Traits */}
