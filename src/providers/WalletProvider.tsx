@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { createPublicClient, http, formatEther, parseEther } from "viem";
-import { monadMainnet, getAlchemyRpcUrl } from "@/config/alchemy";
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
+import { createPublicClient, http, formatEther, parseEther, Chain } from "viem";
+import { monadMainnet, monadTestnet, getAlchemyRpcUrl, getMonadChain, NetworkType } from "@/config/alchemy";
 
 interface WalletState {
   address: string | null;
@@ -8,13 +8,16 @@ interface WalletState {
   isConnecting: boolean;
   balance: string | null;
   chainId: number | null;
+  network: NetworkType;
 }
 
 interface WalletContextType extends WalletState {
   connect: () => Promise<void>;
   disconnect: () => void;
   switchToMonad: () => Promise<void>;
+  switchNetwork: (network: NetworkType) => void;
   sendTransaction: (to: string, amount: string) => Promise<string | null>;
+  currentChain: Chain;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -32,18 +35,24 @@ interface WalletProviderProps {
 }
 
 export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
-  const [walletState, setWalletState] = useState<WalletState>({
-    address: null,
-    isConnected: false,
-    isConnecting: false,
-    balance: null,
-    chainId: null,
+  const [walletState, setWalletState] = useState<WalletState>(() => {
+    const savedNetwork = localStorage.getItem("monadNetwork") as NetworkType | null;
+    return {
+      address: null,
+      isConnected: false,
+      isConnecting: false,
+      balance: null,
+      chainId: null,
+      network: savedNetwork || "mainnet",
+    };
   });
 
-  const publicClient = createPublicClient({
-    chain: monadMainnet,
-    transport: http(getAlchemyRpcUrl()),
-  });
+  const currentChain = useMemo(() => getMonadChain(walletState.network), [walletState.network]);
+
+  const publicClient = useMemo(() => createPublicClient({
+    chain: currentChain,
+    transport: http(getAlchemyRpcUrl(walletState.network)),
+  }), [walletState.network, currentChain]);
 
   const fetchBalance = useCallback(async (address: string) => {
     try {
@@ -75,13 +84,14 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       const address = accounts[0];
       const balance = await fetchBalance(address);
 
-      setWalletState({
+      setWalletState(prev => ({
+        ...prev,
         address,
         isConnected: true,
         isConnecting: false,
         balance,
         chainId: parseInt(chainId, 16),
-      });
+      }));
 
       // Store connection state
       localStorage.setItem("walletConnected", "true");
@@ -92,14 +102,23 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   }, [fetchBalance]);
 
   const disconnect = useCallback(() => {
-    setWalletState({
+    setWalletState(prev => ({
+      ...prev,
       address: null,
       isConnected: false,
       isConnecting: false,
       balance: null,
       chainId: null,
-    });
+    }));
     localStorage.removeItem("walletConnected");
+  }, []);
+
+  const switchNetwork = useCallback((network: NetworkType) => {
+    setWalletState(prev => ({
+      ...prev,
+      network,
+    }));
+    localStorage.setItem("monadNetwork", network);
   }, []);
 
   const switchToMonad = useCallback(async () => {
@@ -108,7 +127,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     try {
       await window.ethereum.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: `0x${monadMainnet.id.toString(16)}` }],
+        params: [{ chainId: `0x${currentChain.id.toString(16)}` }],
       });
     } catch (switchError: any) {
       // Chain not added, try to add it
@@ -118,11 +137,11 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
             method: "wallet_addEthereumChain",
             params: [
               {
-                chainId: `0x${monadMainnet.id.toString(16)}`,
-                chainName: monadMainnet.name,
-                nativeCurrency: monadMainnet.nativeCurrency,
-                rpcUrls: [monadMainnet.rpcUrls.default.http[0]],
-                blockExplorerUrls: [monadMainnet.blockExplorers.default.url],
+                chainId: `0x${currentChain.id.toString(16)}`,
+                chainName: currentChain.name,
+                nativeCurrency: currentChain.nativeCurrency,
+                rpcUrls: [currentChain.rpcUrls.default.http[0]],
+                blockExplorerUrls: [currentChain.blockExplorers.default.url],
               },
             ],
           });
@@ -131,7 +150,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         }
       }
     }
-  }, []);
+  }, [currentChain]);
 
   const sendTransaction = useCallback(async (to: string, amount: string): Promise<string | null> => {
     if (typeof window.ethereum === "undefined" || !walletState.address) {
@@ -211,7 +230,9 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         connect,
         disconnect,
         switchToMonad,
+        switchNetwork,
         sendTransaction,
+        currentChain,
       }}
     >
       {children}
