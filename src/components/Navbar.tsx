@@ -5,6 +5,7 @@ import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio } from "lucid
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { NotificationBell } from "@/components/NotificationBell";
+import { useWallet } from "@/providers/WalletProvider";
 import {
   Drawer,
   DrawerClose,
@@ -51,6 +52,8 @@ const allMobileLinks = [
 
 export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
+  const { network } = useWallet();
+  const isTestnet = network === "testnet";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -62,7 +65,9 @@ export const Navbar: React.FC = () => {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed left-0 right-0 z-50 transition-all duration-300 ${
+        isTestnet ? "top-[36px]" : "top-0"
+      } ${
         isScrolled
           ? "bg-background/80 backdrop-blur-xl border-b border-border/50"
           : "bg-transparent"
