@@ -49,6 +49,8 @@ import {
   Hash,
   Loader2,
   Check,
+  Pause,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MerkleTree } from "merkletreejs";
@@ -140,7 +142,10 @@ export function AllowlistManager({
   const [isProcessingCsv, setIsProcessingCsv] = useState(false);
   const [isCsvDragging, setIsCsvDragging] = useState(false);
   const [csvProgress, setCsvProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isCsvPaused, setIsCsvPaused] = useState(false);
   const csvCancelRef = useRef(false);
+  const csvPauseRef = useRef(false);
+  const csvResumeResolverRef = useRef<(() => void) | null>(null);
   
   // Merkle tree state
   const [isMerkleDialogOpen, setIsMerkleDialogOpen] = useState(false);
@@ -277,6 +282,8 @@ export function AllowlistManager({
   // Process CSV file content with progress tracking
   const processCsvContent = useCallback(async (content: string) => {
     csvCancelRef.current = false;
+    csvPauseRef.current = false;
+    setIsCsvPaused(false);
     const lines = content.split(/\r?\n/).filter(line => line.trim());
     
     if (lines.length === 0) {
@@ -318,6 +325,20 @@ export function AllowlistManager({
       if (csvCancelRef.current) {
         wasCancelled = true;
         break;
+      }
+      
+      // Check for pause
+      if (csvPauseRef.current) {
+        await new Promise<void>(resolve => {
+          csvResumeResolverRef.current = resolve;
+        });
+        csvResumeResolverRef.current = null;
+        
+        // Check if cancelled while paused
+        if (csvCancelRef.current) {
+          wasCancelled = true;
+          break;
+        }
       }
       
       const batch = dataLines.slice(i, i + BATCH_SIZE);
@@ -399,6 +420,26 @@ export function AllowlistManager({
   // Cancel CSV processing
   const cancelCsvProcessing = useCallback(() => {
     csvCancelRef.current = true;
+    // Also resume if paused so the loop can exit
+    if (csvResumeResolverRef.current) {
+      csvResumeResolverRef.current();
+    }
+    setIsCsvPaused(false);
+  }, []);
+  
+  // Pause CSV processing
+  const pauseCsvProcessing = useCallback(() => {
+    csvPauseRef.current = true;
+    setIsCsvPaused(true);
+  }, []);
+  
+  // Resume CSV processing
+  const resumeCsvProcessing = useCallback(() => {
+    csvPauseRef.current = false;
+    setIsCsvPaused(false);
+    if (csvResumeResolverRef.current) {
+      csvResumeResolverRef.current();
+    }
   }, []);
   
   // Parse CSV file from file input
@@ -979,30 +1020,67 @@ export function AllowlistManager({
                           <label htmlFor="csv-upload" className={isProcessingCsv ? "pointer-events-none" : "cursor-pointer"}>
                             {isProcessingCsv ? (
                               <div className="flex flex-col items-center gap-3">
-                                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                {isCsvPaused ? (
+                                  <Pause className="w-8 h-8 text-amber-500" />
+                                ) : (
+                                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                )}
                                 {csvProgress ? (
-                                  <div className="w-full max-w-[220px] space-y-2">
+                                  <div className="w-full max-w-[240px] space-y-2">
                                     <Progress 
                                       value={(csvProgress.current / csvProgress.total) * 100} 
                                       className="h-2"
                                     />
-                                    <p className="text-sm text-muted-foreground">
-                                      Processing {csvProgress.current.toLocaleString()} of {csvProgress.total.toLocaleString()} addresses
+                                    <p className="text-sm text-muted-foreground text-center">
+                                      {isCsvPaused ? "Paused at" : "Processing"} {csvProgress.current.toLocaleString()} of {csvProgress.total.toLocaleString()} addresses
                                     </p>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        cancelCsvProcessing();
-                                      }}
-                                      className="w-full"
-                                    >
-                                      <X className="w-3 h-3 mr-1" />
-                                      Cancel
-                                    </Button>
+                                    <div className="flex gap-2">
+                                      {isCsvPaused ? (
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            resumeCsvProcessing();
+                                          }}
+                                          className="flex-1"
+                                        >
+                                          <Play className="w-3 h-3 mr-1" />
+                                          Resume
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            pauseCsvProcessing();
+                                          }}
+                                          className="flex-1"
+                                        >
+                                          <Pause className="w-3 h-3 mr-1" />
+                                          Pause
+                                        </Button>
+                                      )}
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          cancelCsvProcessing();
+                                        }}
+                                        className="flex-1"
+                                      >
+                                        <X className="w-3 h-3 mr-1" />
+                                        Cancel
+                                      </Button>
+                                    </div>
                                   </div>
                                 ) : (
                                   <p className="text-sm text-muted-foreground">Reading file...</p>
