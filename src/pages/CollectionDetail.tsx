@@ -20,9 +20,12 @@ import {
   Sparkles,
   RefreshCw,
   Copy,
-  Check
+  Check,
+  FlaskConical,
+  Globe
 } from "lucide-react";
 import { toast } from "sonner";
+import { useWallet } from "@/providers/WalletProvider";
 
 // Demo collection data - in production this comes from on-chain
 const demoCollection = {
@@ -92,12 +95,15 @@ const demoCollection = {
 export default function CollectionDetail() {
   const { collectionId } = useParams();
   const navigate = useNavigate();
+  const { network, currentChain } = useWallet();
   const [collection, setCollection] = useState(demoCollection);
   const [mintAmount, setMintAmount] = useState(1);
   const [activePhase, setActivePhase] = useState(collection.phases.find(p => p.isActive) || collection.phases[0]);
   const [isMinting, setIsMinting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const isTestnet = network === "testnet";
   
   // Simulated live supply updates
   const [liveSupply, setLiveSupply] = useState(3420);
@@ -194,6 +200,20 @@ export default function CollectionDetail() {
                     <Sparkles className="w-3 h-3 mr-1" />
                     Live
                   </Badge>
+                  <Badge 
+                    variant="outline" 
+                    className={isTestnet 
+                      ? "bg-amber-500/10 text-amber-500 border-amber-500/30" 
+                      : "bg-primary/10 text-primary border-primary/30"
+                    }
+                  >
+                    {isTestnet ? (
+                      <FlaskConical className="w-3 h-3 mr-1" />
+                    ) : (
+                      <Globe className="w-3 h-3 mr-1" />
+                    )}
+                    {currentChain.name}
+                  </Badge>
                 </div>
                 <p className="text-muted-foreground mb-3">{collection.symbol}</p>
                 <div className="flex items-center gap-2 text-sm">
@@ -205,7 +225,7 @@ export default function CollectionDetail() {
                     {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                   </Button>
                   <a 
-                    href={`https://explorer.monad.xyz/address/${collection.contractAddress}`}
+                    href={`${currentChain.blockExplorers?.default?.url}/address/${collection.contractAddress}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline"
@@ -239,7 +259,14 @@ export default function CollectionDetail() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Network</span>
-                    <p className="font-medium">Monad</p>
+                    <p className="font-medium flex items-center gap-1">
+                      {isTestnet ? (
+                        <FlaskConical className="w-3 h-3 text-amber-500" />
+                      ) : (
+                        <Globe className="w-3 h-3 text-primary" />
+                      )}
+                      {currentChain.name}
+                    </p>
                   </div>
                 </div>
               </CardContent>
