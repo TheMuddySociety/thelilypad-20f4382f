@@ -1,11 +1,35 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Allowed origins for CORS - restrict to your domains
+const ALLOWED_ORIGINS = [
+  'https://lilypad.tv',
+  'https://www.lilypad.tv',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+];
+
+// Get CORS headers with origin validation
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || '';
+  
+  // Check if origin is in allowed list or if it's a Lovable preview URL
+  const isAllowed = ALLOWED_ORIGINS.includes(origin) || 
+                    origin.includes('.lovable.app') ||
+                    origin.includes('.lovableproject.com');
+  
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+}
+
+// Allowed network values to prevent injection
+const ALLOWED_NETWORKS = ['monad-mainnet', 'monad-testnet'];
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -25,9 +49,18 @@ serve(async (req) => {
     const body = await req.json();
     const { network = 'monad-mainnet', ...rpcRequest } = body;
     
+    // Validate network parameter to prevent injection
+    if (!ALLOWED_NETWORKS.includes(network)) {
+      console.error(`Invalid network requested: ${network}`);
+      return new Response(
+        JSON.stringify({ error: `Invalid network. Allowed: ${ALLOWED_NETWORKS.join(', ')}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     console.log(`Proxying RPC request to ${network}:`, JSON.stringify(rpcRequest).substring(0, 200));
 
-    // Build the Alchemy URL based on the network
+    // Build the Alchemy URL based on the validated network
     const alchemyUrl = `https://${network}.g.alchemy.com/v2/${alchemyApiKey}`;
 
     const response = await fetch(alchemyUrl, {

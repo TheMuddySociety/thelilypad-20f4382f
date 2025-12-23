@@ -20,13 +20,15 @@ interface ClipShareMenuProps {
   streamerName?: string;
 }
 
-// Track share/embed events
+// Track share/embed events via edge function with rate limiting
 const trackEvent = async (clipId: string, eventType: string, platform?: string) => {
   try {
-    await supabase.from("clip_events").insert({
-      clip_id: clipId,
-      event_type: eventType,
-      platform: platform,
+    await supabase.functions.invoke('track-clip-event', {
+      body: {
+        clip_id: clipId,
+        event_type: eventType,
+        platform: platform,
+      },
     });
   } catch (error) {
     console.error("Error tracking event:", error);

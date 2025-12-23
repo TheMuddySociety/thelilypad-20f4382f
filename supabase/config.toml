@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.content-moderation]
 verify_jwt = false
+
+[functions.track-clip-event]
+verify_jwt = false

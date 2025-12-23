@@ -91,10 +91,14 @@ const ClipViewer = () => {
         streamer: streamerData || undefined,
       });
 
-      // Track view event
-      await supabase.from("clip_events").insert({
-        clip_id: clipId,
-        event_type: "view",
+      // Track view event via edge function with rate limiting
+      supabase.functions.invoke('track-clip-event', {
+        body: {
+          clip_id: clipId,
+          event_type: 'view',
+        },
+      }).catch((error) => {
+        console.error("Error tracking view:", error);
       });
 
       // Fetch comments
