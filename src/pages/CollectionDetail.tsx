@@ -22,7 +22,8 @@ import {
   Copy,
   Check,
   FlaskConical,
-  Globe
+  Globe,
+  Droplets
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
@@ -467,6 +468,29 @@ export default function CollectionDetail() {
                   <p className="text-xs text-center text-muted-foreground">
                     This phase requires allowlist verification
                   </p>
+                )}
+
+                {isTestnet && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-amber-500">
+                        <FlaskConical className="w-4 h-4" />
+                        <span className="text-sm font-medium">Testnet Mode</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/20"
+                        onClick={() => window.open("https://faucet.monad.xyz", "_blank")}
+                      >
+                        <Droplets className="w-3 h-3 mr-1" />
+                        Get Test MON
+                      </Button>
+                    </div>
+                    <p className="text-xs text-amber-500/80 mt-2">
+                      You're on testnet. Get free test tokens from the faucet to mint.
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </Card>

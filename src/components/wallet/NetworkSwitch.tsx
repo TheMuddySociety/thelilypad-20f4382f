@@ -3,7 +3,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useWallet } from "@/providers/WalletProvider";
 import { Badge } from "@/components/ui/badge";
-import { FlaskConical, Globe } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FlaskConical, Globe, Droplets } from "lucide-react";
+
+const TESTNET_FAUCET_URL = "https://faucet.monad.xyz";
 
 export const NetworkSwitch: React.FC = () => {
   const { network, switchNetwork, isConnected } = useWallet();
@@ -31,7 +34,18 @@ export const NetworkSwitch: React.FC = () => {
         disabled={isConnected}
         aria-label="Toggle network"
       />
-      {isConnected && (
+      {isTestnet && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
+          onClick={() => window.open(TESTNET_FAUCET_URL, "_blank")}
+        >
+          <Droplets className="w-3 h-3 mr-1" />
+          Faucet
+        </Button>
+      )}
+      {isConnected && !isTestnet && (
         <span className="text-xs text-muted-foreground">
           Disconnect to switch
         </span>
