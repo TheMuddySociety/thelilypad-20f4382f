@@ -104,16 +104,17 @@ export function BulkTraitUploader({
 
       setPendingTraits((prev) => [...prev, ...newPending]);
 
-      // Now scan each image for inappropriate content
+      // Now scan each image for inappropriate content in parallel
       const toScan = newPending.filter((t) => t.status !== "duplicate");
       if (toScan.length === 0) return;
       
       setIsScanning(true);
       setScanProgress({ scanned: 0, total: toScan.length });
       
-      for (let i = 0; i < toScan.length; i++) {
-        const trait = toScan[i];
-        
+      const CONCURRENCY_LIMIT = 5;
+      let scannedCount = 0;
+      
+      const scanTrait = async (trait: PendingTrait) => {
         try {
           const base64 = await fileToBase64(trait.file);
           const result = await moderateImage(base64, trait.name);
@@ -140,9 +141,16 @@ export function BulkTraitUploader({
               t.id === trait.id ? { ...t, status: "ready" } : t
             )
           );
+        } finally {
+          scannedCount++;
+          setScanProgress({ scanned: scannedCount, total: toScan.length });
         }
-        
-        setScanProgress({ scanned: i + 1, total: toScan.length });
+      };
+      
+      // Process in batches with concurrency limit
+      for (let i = 0; i < toScan.length; i += CONCURRENCY_LIMIT) {
+        const batch = toScan.slice(i, i + CONCURRENCY_LIMIT);
+        await Promise.all(batch.map(scanTrait));
       }
       
       setIsScanning(false);
