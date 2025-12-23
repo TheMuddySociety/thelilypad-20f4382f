@@ -11,6 +11,8 @@ import {
   X,
   Check,
   AlertCircle,
+  ShieldAlert,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -20,6 +22,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Trait } from "./LayerManager";
+import { useContentModeration } from "@/hooks/useContentModeration";
+import { toast } from "sonner";
 
 interface BulkTraitUploaderProps {
   open: boolean;
@@ -35,7 +39,8 @@ interface PendingTrait {
   name: string;
   previewUrl: string;
   rarity: number;
-  status: "pending" | "ready" | "duplicate";
+  status: "pending" | "ready" | "duplicate" | "scanning" | "blocked" | "flagged";
+  moderationReason?: string;
 }
 
 export function BulkTraitUploader({
@@ -47,6 +52,8 @@ export function BulkTraitUploader({
 }: BulkTraitUploaderProps) {
   const [pendingTraits, setPendingTraits] = useState<PendingTrait[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const { moderateImage, isChecking } = useContentModeration();
 
   const cleanFileName = (filename: string): string => {
     // Remove extension
@@ -58,8 +65,17 @@ export function BulkTraitUploader({
       .trim();
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const processFiles = useCallback(
-    (files: FileList | File[]) => {
+    async (files: FileList | File[]) => {
       const imageFiles = Array.from(files).filter((file) =>
         file.type.startsWith("image/")
       );
@@ -69,6 +85,7 @@ export function BulkTraitUploader({
         ...pendingTraits.map((t) => t.name.toLowerCase()),
       ]);
 
+      // First add all files with scanning status
       const newPending: PendingTrait[] = imageFiles.map((file) => {
         const name = cleanFileName(file.name);
         const isDuplicate = existingNames.has(name.toLowerCase());
@@ -80,13 +97,53 @@ export function BulkTraitUploader({
           name,
           previewUrl: URL.createObjectURL(file),
           rarity: Math.round(100 / (existingTraits.length + imageFiles.length)),
-          status: isDuplicate ? "duplicate" : "ready",
+          status: isDuplicate ? "duplicate" : "scanning",
         };
       });
 
       setPendingTraits((prev) => [...prev, ...newPending]);
+
+      // Now scan each image for inappropriate content
+      setIsScanning(true);
+      
+      for (const trait of newPending) {
+        if (trait.status === "duplicate") continue;
+        
+        try {
+          const base64 = await fileToBase64(trait.file);
+          const result = await moderateImage(base64, trait.name);
+          
+          setPendingTraits((prev) =>
+            prev.map((t) =>
+              t.id === trait.id
+                ? {
+                    ...t,
+                    status: result.allowed 
+                      ? "ready" 
+                      : "blocked",
+                    moderationReason: result.reason,
+                  }
+                : t
+            )
+          );
+          
+          if (!result.allowed) {
+            toast.error(`"${trait.name}" blocked: ${result.reason}`);
+          }
+        } catch (err) {
+          console.error("Moderation error for", trait.name, err);
+          // If moderation fails, allow the image
+          setPendingTraits((prev) =>
+            prev.map((t) =>
+              t.id === trait.id ? { ...t, status: "ready" } : t
+            )
+          );
+        }
+      }
+      
+      setIsScanning(false);
     },
-    [existingTraits, pendingTraits]
+    [existingTraits, pendingTraits, moderateImage]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -206,14 +263,6 @@ export function BulkTraitUploader({
     onOpenChange(false);
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
 
   const handleClose = () => {
     pendingTraits.forEach((t) => URL.revokeObjectURL(t.previewUrl));
@@ -225,6 +274,8 @@ export function BulkTraitUploader({
   const duplicateCount = pendingTraits.filter(
     (t) => t.status === "duplicate"
   ).length;
+  const blockedCount = pendingTraits.filter((t) => t.status === "blocked").length;
+  const scanningCount = pendingTraits.filter((t) => t.status === "scanning").length;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -282,12 +333,24 @@ export function BulkTraitUploader({
           {pendingTraits.length > 0 && (
             <>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary">{pendingTraits.length} files</Badge>
+                  {scanningCount > 0 && (
+                    <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30">
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      {scanningCount} scanning
+                    </Badge>
+                  )}
                   {readyCount > 0 && (
                     <Badge className="bg-green-500/20 text-green-600 border-green-500/30">
                       <Check className="w-3 h-3 mr-1" />
                       {readyCount} ready
+                    </Badge>
+                  )}
+                  {blockedCount > 0 && (
+                    <Badge className="bg-red-500/20 text-red-600 border-red-500/30">
+                      <ShieldAlert className="w-3 h-3 mr-1" />
+                      {blockedCount} blocked
                     </Badge>
                   )}
                   {duplicateCount > 0 && (
@@ -320,6 +383,10 @@ export function BulkTraitUploader({
                       className={`overflow-hidden ${
                         trait.status === "duplicate"
                           ? "border-yellow-500/50"
+                          : trait.status === "blocked"
+                          ? "border-red-500/50 opacity-60"
+                          : trait.status === "scanning"
+                          ? "border-blue-500/50"
                           : ""
                       }`}
                     >
@@ -327,7 +394,9 @@ export function BulkTraitUploader({
                         <img
                           src={trait.previewUrl}
                           alt={trait.name}
-                          className="w-full h-full object-cover"
+                          className={`w-full h-full object-cover ${
+                            trait.status === "blocked" ? "blur-sm" : ""
+                          }`}
                         />
                         <Button
                           variant="secondary"
@@ -337,6 +406,21 @@ export function BulkTraitUploader({
                         >
                           <X className="w-3 h-3" />
                         </Button>
+                        {trait.status === "scanning" && (
+                          <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
+                            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                          </div>
+                        )}
+                        {trait.status === "blocked" && (
+                          <div className="absolute inset-0 bg-red-950/60 flex items-center justify-center">
+                            <div className="text-center p-2">
+                              <ShieldAlert className="w-6 h-6 text-red-500 mx-auto mb-1" />
+                              <span className="text-[10px] text-red-400 block">
+                                {trait.moderationReason || "Blocked"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                         {trait.status === "duplicate" && (
                           <div className="absolute bottom-1 left-1">
                             <Badge
@@ -400,9 +484,18 @@ export function BulkTraitUploader({
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button onClick={handleConfirm} disabled={readyCount === 0}>
-            <Check className="w-4 h-4 mr-2" />
-            Add {readyCount} Trait{readyCount !== 1 ? "s" : ""}
+          <Button onClick={handleConfirm} disabled={readyCount === 0 || isScanning}>
+            {isScanning ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Scanning...
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4 mr-2" />
+                Add {readyCount} Trait{readyCount !== 1 ? "s" : ""}
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

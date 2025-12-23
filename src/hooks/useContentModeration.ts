@@ -46,10 +46,11 @@ export function useContentModeration() {
     contentType: ContentType,
     contentText?: string,
     contentUrl?: string,
+    imageBase64?: string,
     referenceId?: string,
     referenceTable?: string
   ): Promise<ModerationResponse | null> => {
-    if (!contentText && !contentUrl) return null;
+    if (!contentText && !contentUrl && !imageBase64) return null;
 
     setIsChecking(true);
     
@@ -59,6 +60,7 @@ export function useContentModeration() {
           content_type: contentType,
           content_text: contentText,
           content_url: contentUrl,
+          image_base64: imageBase64,
           reference_id: referenceId,
           reference_table: referenceTable,
         },
@@ -90,6 +92,33 @@ export function useContentModeration() {
       setIsChecking(false);
     }
   }, []);
+
+  // Moderate image content
+  const moderateImage = useCallback(async (
+    imageBase64: string,
+    imageName?: string
+  ): Promise<{ allowed: boolean; reason?: string }> => {
+    const response = await moderateContent("image", undefined, undefined, imageBase64);
+    
+    if (!response) {
+      console.warn("Image moderation check failed, allowing image");
+      return { allowed: true };
+    }
+
+    if (response.action === "blocked") {
+      return { 
+        allowed: false, 
+        reason: response.result.reasons.filter(r => r !== "clean").join(", ") || "inappropriate content"
+      };
+    }
+
+    if (response.action === "flagged") {
+      toast.warning(`Image "${imageName || 'uploaded'}" flagged for review`);
+      return { allowed: true };
+    }
+
+    return { allowed: true };
+  }, [moderateContent]);
 
   // Validate and moderate (returns true if content is allowed)
   const validateContent = useCallback(async (
@@ -137,6 +166,7 @@ export function useContentModeration() {
     fetchBlockedPatterns,
     quickCheck,
     moderateContent,
+    moderateImage,
     validateContent,
     blockedPatterns,
   };

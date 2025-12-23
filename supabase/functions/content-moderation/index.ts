@@ -10,6 +10,7 @@ interface ModerationRequest {
   content_type: "text" | "image" | "collection_name" | "collection_description" | "trait_name" | "comment";
   content_text?: string;
   content_url?: string;
+  image_base64?: string;
   reference_id?: string;
   reference_table?: string;
   auto_reject?: boolean;
@@ -49,11 +50,11 @@ serve(async (req) => {
     }
 
     const body: ModerationRequest = await req.json();
-    const { content_type, content_text, content_url, reference_id, reference_table, auto_reject = true } = body;
+    const { content_type, content_text, content_url, image_base64, reference_id, reference_table, auto_reject = true } = body;
 
-    if (!content_text && !content_url) {
+    if (!content_text && !content_url && !image_base64) {
       return new Response(
-        JSON.stringify({ error: "Either content_text or content_url is required" }),
+        JSON.stringify({ error: "Either content_text, content_url, or image_base64 is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -114,7 +115,7 @@ serve(async (req) => {
       );
     }
 
-    // Step 2: AI-based moderation for text content
+    // Step 2: AI-based moderation
     let aiResult: ModerationResult = {
       is_safe: true,
       score: 0,
@@ -122,7 +123,92 @@ serve(async (req) => {
       details: {},
     };
 
-    if (content_text) {
+    // Image moderation using vision model
+    if (content_type === "image" && (image_base64 || content_url)) {
+      const imageSystemPrompt = `You are an image content moderation AI. Analyze the following image and determine if it contains any inappropriate material.
+
+Respond with a JSON object containing:
+- "is_safe": boolean (true if image is appropriate, false if it contains violations)
+- "score": number between 0 and 1 (0 = completely safe, 1 = extremely inappropriate)
+- "reasons": array of strings from these categories: ["nsfw", "violence", "hate_speech", "illegal", "clean"]
+- "details": object with specific findings including what was detected
+
+Categories to check:
+- NSFW: Sexual content, nudity, suggestive poses, adult themes
+- Violence: Gore, blood, weapons, graphic violence
+- Hate speech: Hate symbols, discriminatory imagery, hate groups
+- Illegal: Drug paraphernalia, illegal activities
+
+This is for NFT art - be strict about adult content. Artistic nudity should still be flagged. Cartoon/anime NSFW content should also be flagged.`;
+
+      try {
+        const imageContent = image_base64 
+          ? { type: "image_url", image_url: { url: image_base64 } }
+          : { type: "image_url", image_url: { url: content_url } };
+
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: imageSystemPrompt },
+              { 
+                role: "user", 
+                content: [
+                  { type: "text", text: "Analyze this image for content moderation:" },
+                  imageContent
+                ]
+              }
+            ],
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        if (!response.ok) {
+          if (response.status === 429) {
+            console.error("[Moderation] Rate limited by AI gateway");
+            return new Response(
+              JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          if (response.status === 402) {
+            console.error("[Moderation] Payment required for AI gateway");
+            return new Response(
+              JSON.stringify({ error: "AI service requires payment. Please add credits." }),
+              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          throw new Error(`AI gateway error: ${response.status}`);
+        }
+
+        const aiResponse = await response.json();
+        const aiContent = aiResponse.choices?.[0]?.message?.content;
+        
+        if (aiContent) {
+          try {
+            const parsed = JSON.parse(aiContent);
+            aiResult = {
+              is_safe: parsed.is_safe ?? true,
+              score: parsed.score ?? 0,
+              reasons: parsed.reasons ?? ["clean"],
+              details: parsed.details ?? {},
+            };
+            console.log(`[Moderation] Image analysis complete: score=${aiResult.score}, reasons=${aiResult.reasons.join(",")}`);
+          } catch (parseError) {
+            console.error("[Moderation] Failed to parse AI response:", parseError);
+          }
+        }
+      } catch (aiError) {
+        console.error("[Moderation] Image AI analysis error:", aiError);
+      }
+    }
+    // Text content moderation
+    else if (content_text) {
       const systemPrompt = `You are a content moderation AI. Analyze the following content and determine if it contains any inappropriate material.
 
 Respond with a JSON object containing:
@@ -194,7 +280,6 @@ Be strict but fair. If content is borderline, lean towards flagging it for revie
         }
       } catch (aiError) {
         console.error("[Moderation] AI analysis error:", aiError);
-        // Continue with pattern-only check if AI fails
       }
     }
 
