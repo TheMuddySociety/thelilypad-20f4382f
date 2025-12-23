@@ -75,7 +75,7 @@ export default function Launchpad() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold mb-2">NFT Launchpad</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold mb-2">Lily Launchpad</h1>
             <p className="text-muted-foreground">
               Launch your NFT collection on Monad Mainnet
             </p>
