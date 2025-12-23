@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Rocket, Clock, CheckCircle, Sparkles } from "lucide-react";
+import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe } from "lucide-react";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
+import { useWallet } from "@/providers/WalletProvider";
 import lilypadLogo from "@/assets/lilypad-logo.png";
 
 // Demo collections for UI - will be replaced with on-chain data
@@ -60,8 +61,11 @@ const statusIcons = {
 
 export default function Launchpad() {
   const navigate = useNavigate();
+  const { network, currentChain } = useWallet();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+
+  const isTestnet = network === "testnet";
 
   const filteredCollections = demoCollections.filter((collection) => {
     if (activeTab === "all") return true;
@@ -82,9 +86,25 @@ export default function Launchpad() {
               className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-contain bg-primary/10 p-2"
             />
             <div>
-              <h1 className="text-3xl sm:text-4xl font-bold mb-1">Lily Launchpad</h1>
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-3xl sm:text-4xl font-bold">Lily Launchpad</h1>
+                <Badge 
+                  variant="outline" 
+                  className={isTestnet 
+                    ? "bg-amber-500/10 text-amber-500 border-amber-500/30" 
+                    : "bg-primary/10 text-primary border-primary/30"
+                  }
+                >
+                  {isTestnet ? (
+                    <FlaskConical className="w-3 h-3 mr-1" />
+                  ) : (
+                    <Globe className="w-3 h-3 mr-1" />
+                  )}
+                  {currentChain.name}
+                </Badge>
+              </div>
               <p className="text-muted-foreground">
-                Launch your NFT collection on Monad Mainnet
+                Launch your NFT collection on {currentChain.name}
               </p>
             </div>
           </div>
