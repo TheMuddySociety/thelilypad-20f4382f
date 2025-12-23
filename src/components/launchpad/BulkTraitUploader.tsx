@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
 import {
   Upload,
   FolderOpen,
@@ -13,6 +14,7 @@ import {
   AlertCircle,
   ShieldAlert,
   Loader2,
+  Zap,
 } from "lucide-react";
 import {
   Dialog,
@@ -54,6 +56,7 @@ export function BulkTraitUploader({
   const [isDragging, setIsDragging] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState({ scanned: 0, total: 0 });
+  const [concurrencyLimit, setConcurrencyLimit] = useState(5);
   const { moderateImage, isChecking } = useContentModeration();
 
   const cleanFileName = (filename: string): string => {
@@ -76,7 +79,7 @@ export function BulkTraitUploader({
   };
 
   const processFiles = useCallback(
-    async (files: FileList | File[]) => {
+    async (files: FileList | File[], currentConcurrency: number) => {
       const imageFiles = Array.from(files).filter((file) =>
         file.type.startsWith("image/")
       );
@@ -111,7 +114,7 @@ export function BulkTraitUploader({
       setIsScanning(true);
       setScanProgress({ scanned: 0, total: toScan.length });
       
-      const CONCURRENCY_LIMIT = 5;
+      const CONCURRENCY = currentConcurrency;
       let scannedCount = 0;
       
       const scanTrait = async (trait: PendingTrait) => {
@@ -148,8 +151,8 @@ export function BulkTraitUploader({
       };
       
       // Process in batches with concurrency limit
-      for (let i = 0; i < toScan.length; i += CONCURRENCY_LIMIT) {
-        const batch = toScan.slice(i, i + CONCURRENCY_LIMIT);
+      for (let i = 0; i < toScan.length; i += CONCURRENCY) {
+        const batch = toScan.slice(i, i + CONCURRENCY);
         await Promise.all(batch.map(scanTrait));
       }
       
@@ -214,26 +217,26 @@ export function BulkTraitUploader({
         if (entries.length > 0) {
           await Promise.all(entries.map(processEntry));
           if (files.length > 0) {
-            processFiles(files);
+            processFiles(files, concurrencyLimit);
           }
         } else {
           // Fallback for simple file drops
-          processFiles(e.dataTransfer.files);
+          processFiles(e.dataTransfer.files, concurrencyLimit);
         }
       };
 
       processItems();
     },
-    [processFiles]
+    [processFiles, concurrencyLimit]
   );
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files) {
-        processFiles(e.target.files);
+        processFiles(e.target.files, concurrencyLimit);
       }
     },
-    [processFiles]
+    [processFiles, concurrencyLimit]
   );
 
   const updatePendingTrait = (id: string, updates: Partial<PendingTrait>) => {
@@ -340,6 +343,26 @@ export function BulkTraitUploader({
               className="hidden"
               onChange={handleFileInput}
             />
+          </div>
+
+          {/* Concurrency Slider */}
+          <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg border">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+              <Zap className="w-4 h-4" />
+              <span>Scan Speed:</span>
+            </div>
+            <Slider
+              value={[concurrencyLimit]}
+              onValueChange={([value]) => setConcurrencyLimit(value)}
+              min={1}
+              max={10}
+              step={1}
+              disabled={isScanning}
+              className="flex-1"
+            />
+            <span className="text-sm font-medium w-16 text-right">
+              {concurrencyLimit} {concurrencyLimit === 1 ? "image" : "images"}
+            </span>
           </div>
 
           {/* Pending Traits */}
