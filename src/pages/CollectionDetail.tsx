@@ -97,7 +97,7 @@ const demoCollection = {
 export default function CollectionDetail() {
   const { collectionId } = useParams();
   const navigate = useNavigate();
-  const { network, currentChain, isConnected, chainId, switchToMonad, connect } = useWallet();
+  const { network, currentChain, isConnected, chainId, switchToMonad, connect, balance } = useWallet();
   const [collection, setCollection] = useState(demoCollection);
   const [mintAmount, setMintAmount] = useState(1);
   const [activePhase, setActivePhase] = useState(collection.phases.find(p => p.isActive) || collection.phases[0]);
@@ -108,6 +108,11 @@ export default function CollectionDetail() {
 
   const isTestnet = network === "testnet";
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
+  
+  // Calculate if user has enough balance
+  const totalCost = parseFloat(activePhase.price) * mintAmount;
+  const userBalance = balance ? parseFloat(balance) : 0;
+  const hasInsufficientBalance = isConnected && !isWrongNetwork && totalCost > userBalance;
   
   // Simulated live supply updates
   const [liveSupply, setLiveSupply] = useState(3420);
@@ -176,6 +181,14 @@ export default function CollectionDetail() {
       return;
     }
 
+    // Check if user has sufficient balance
+    if (hasInsufficientBalance) {
+      toast.error("Insufficient balance", {
+        description: `You need ${(totalCost - userBalance).toFixed(4)} more MON to mint`,
+      });
+      return;
+    }
+
     setIsMinting(true);
     
     // Simulate minting transaction
@@ -196,7 +209,7 @@ export default function CollectionDetail() {
     toast.success("Contract address copied!");
   };
 
-  const totalCost = (parseFloat(activePhase.price) * mintAmount).toFixed(2);
+  const totalCostDisplay = totalCost.toFixed(2);
 
   return (
     <div className="min-h-screen bg-background">
@@ -421,6 +434,29 @@ export default function CollectionDetail() {
                   </TabsList>
                 </Tabs>
 
+                {/* Wallet Balance */}
+                {isConnected && !isWrongNetwork && (
+                  <div className={`p-4 rounded-lg border ${hasInsufficientBalance ? 'bg-destructive/5 border-destructive/30' : 'bg-primary/5 border-primary/30'}`}>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <Wallet className={`w-4 h-4 ${hasInsufficientBalance ? 'text-destructive' : 'text-primary'}`} />
+                        <span className="text-sm font-medium">Your Balance</span>
+                      </div>
+                      <span className={`font-bold ${hasInsufficientBalance ? 'text-destructive' : 'text-primary'}`}>
+                        {userBalance.toFixed(4)} MON
+                      </span>
+                    </div>
+                    {hasInsufficientBalance && (
+                      <div className="mt-2 flex items-center gap-2 text-destructive">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span className="text-xs">
+                          Insufficient balance. Need {(totalCost - userBalance).toFixed(4)} more MON
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Price Info */}
                 <div className="p-4 bg-muted/50 rounded-lg space-y-2">
                   <div className="flex justify-between text-sm">
@@ -478,7 +514,7 @@ export default function CollectionDetail() {
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-medium">Total</span>
                   <span className="text-2xl font-bold text-primary">
-                    {totalCost === "0.00" ? "Free" : `${totalCost} MON`}
+                    {totalCostDisplay === "0.00" ? "Free" : `${totalCostDisplay} MON`}
                   </span>
                 </div>
 
@@ -539,7 +575,7 @@ export default function CollectionDetail() {
                   size="lg" 
                   className="w-full gap-2"
                   onClick={handleMint}
-                  disabled={isMinting || isSwitchingNetwork || activePhase.minted >= activePhase.supply || !isConnected || isWrongNetwork}
+                  disabled={isMinting || isSwitchingNetwork || activePhase.minted >= activePhase.supply || !isConnected || isWrongNetwork || hasInsufficientBalance}
                 >
                   {isMinting ? (
                     <>
@@ -557,6 +593,11 @@ export default function CollectionDetail() {
                     <>
                       <Wallet className="w-4 h-4" />
                       Connect to Mint
+                    </>
+                  ) : hasInsufficientBalance ? (
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      Insufficient Balance
                     </>
                   ) : (
                     <>
