@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Rocket, Clock, CheckCircle, Sparkles } from "lucide-react";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
+import lilypadLogo from "@/assets/lilypad-logo.png";
 
 // Demo collections for UI - will be replaced with on-chain data
 const demoCollections = [
@@ -74,11 +75,18 @@ export default function Launchpad() {
       <main className="container mx-auto px-4 pt-24 pb-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-bold mb-2">Lily Launchpad</h1>
-            <p className="text-muted-foreground">
-              Launch your NFT collection on Monad Mainnet
-            </p>
+          <div className="flex items-center gap-4">
+            <img 
+              src={lilypadLogo} 
+              alt="Lily Launchpad" 
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-contain bg-primary/10 p-2"
+            />
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-bold mb-1">Lily Launchpad</h1>
+              <p className="text-muted-foreground">
+                Launch your NFT collection on Monad Mainnet
+              </p>
+            </div>
           </div>
           <Button onClick={() => setIsCreateModalOpen(true)} size="lg" className="gap-2">
             <Plus className="w-5 h-5" />
