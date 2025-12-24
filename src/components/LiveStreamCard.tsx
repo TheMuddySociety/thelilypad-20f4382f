@@ -1,0 +1,91 @@
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Eye, Users, Play } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+interface LiveStreamCardProps {
+  id: string;
+  playbackId: string;
+  name: string;
+  isActive: boolean;
+  creatorName?: string;
+  creatorAvatar?: string;
+  viewerCount?: number;
+  thumbnailUrl?: string;
+}
+
+export const LiveStreamCard = ({
+  id,
+  playbackId,
+  name,
+  isActive,
+  creatorName = 'Anonymous',
+  creatorAvatar,
+  viewerCount = 0,
+  thumbnailUrl,
+}: LiveStreamCardProps) => {
+  const navigate = useNavigate();
+
+  return (
+    <Card 
+      className="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all group"
+      onClick={() => navigate(`/watch/${playbackId}`)}
+    >
+      <div className="relative aspect-video bg-muted">
+        {thumbnailUrl ? (
+          <img 
+            src={thumbnailUrl} 
+            alt={name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+            <Play className="h-12 w-12 text-muted-foreground group-hover:text-primary transition-colors" />
+          </div>
+        )}
+        
+        {/* Live badge */}
+        {isActive && (
+          <div className="absolute top-2 left-2">
+            <Badge variant="destructive" className="gap-1">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              LIVE
+            </Badge>
+          </div>
+        )}
+
+        {/* Viewer count */}
+        {isActive && viewerCount > 0 && (
+          <div className="absolute top-2 right-2">
+            <Badge variant="secondary" className="gap-1">
+              <Eye className="h-3 w-3" />
+              {viewerCount}
+            </Badge>
+          </div>
+        )}
+
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+          <Play className="h-16 w-16 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+        </div>
+      </div>
+
+      <CardContent className="p-3">
+        <div className="flex gap-3">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={creatorAvatar} />
+            <AvatarFallback>{creatorName.charAt(0).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium text-sm truncate">{name}</h3>
+            <p className="text-muted-foreground text-xs truncate">{creatorName}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default LiveStreamCard;
