@@ -1,9 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TipButton } from "@/components/TipButton";
 import { DonorLeaderboard } from "@/components/DonorLeaderboard";
+import { LiveStreamCard } from "@/components/LiveStreamCard";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { 
   Play, 
   Users, 
@@ -14,9 +18,19 @@ import {
   Search,
   Filter,
   Zap,
-  Crown
+  Crown,
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 import { motion } from "framer-motion";
+
+interface LivepeerStream {
+  id: string;
+  name: string;
+  playbackId: string;
+  isActive: boolean;
+  createdAt: number;
+}
 
 // Mock data for live streams
 const liveStreams = [
@@ -102,12 +116,41 @@ const upcomingStreams = [
 const categories = ["All", "Minting", "Auction", "Tutorial", "Community", "Drop"];
 
 const Streams: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [featuredStream] = useState(liveStreams[2]); // Dutch Auction as featured
+  const [livepeerStreams, setLivepeerStreams] = useState<LivepeerStream[]>([]);
+  const [isLoadingStreams, setIsLoadingStreams] = useState(true);
+
+  const fetchLivepeerStreams = async () => {
+    setIsLoadingStreams(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('livepeer-stream', {
+        body: { action: 'list' }
+      });
+
+      if (error) throw error;
+      
+      if (data?.streams) {
+        setLivepeerStreams(data.streams);
+      }
+    } catch (err) {
+      console.error('Failed to fetch Livepeer streams:', err);
+      toast.error('Failed to load live streams');
+    } finally {
+      setIsLoadingStreams(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLivepeerStreams();
+  }, []);
 
   const filteredStreams = selectedCategory === "All" 
     ? liveStreams 
     : liveStreams.filter(s => s.category === selectedCategory);
+
+  const activeStreams = livepeerStreams.filter(s => s.isActive);
 
   return (
     <div className="min-h-screen bg-background">
@@ -270,10 +313,57 @@ const Streams: React.FC = () => {
             </div>
           </div>
 
-          {/* Live Streams Grid */}
+          {/* Real Livepeer Streams */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <Radio className="w-5 h-5 text-red-500 animate-pulse" />
+              Live Streams
+            </h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={fetchLivepeerStreams}
+              disabled={isLoadingStreams}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingStreams ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+          
+          {isLoadingStreams ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : activeStreams.length > 0 ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+              {activeStreams.map((stream) => (
+                <LiveStreamCard
+                  key={stream.id}
+                  id={stream.id}
+                  playbackId={stream.playbackId}
+                  name={stream.name}
+                  isActive={stream.isActive}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 mb-10 bg-muted/50 rounded-xl border border-border">
+              <Radio className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No live streams right now</p>
+              <p className="text-sm text-muted-foreground mt-1">Check back later or start your own stream!</p>
+              <Button 
+                className="mt-4"
+                onClick={() => navigate('/go-live')}
+              >
+                Go Live
+              </Button>
+            </div>
+          )}
+
+          {/* Demo Streams Grid */}
           <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <Radio className="w-5 h-5 text-red-500 animate-pulse" />
-            Live Now
+            <Zap className="w-5 h-5 text-primary" />
+            Featured Streams
           </h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
             {filteredStreams.map((stream, index) => (

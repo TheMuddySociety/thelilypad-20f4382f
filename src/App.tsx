@@ -20,6 +20,7 @@ import ClipViewer from "./pages/ClipViewer";
 import Moderation from "./pages/Moderation";
 import Launchpad from "./pages/Launchpad";
 import CollectionDetail from "./pages/CollectionDetail";
+import Watch from "./pages/Watch";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/moderation" element={<Moderation />} />
             <Route path="/launchpad" element={<Launchpad />} />
             <Route path="/launchpad/:collectionId" element={<CollectionDetail />} />
+            <Route path="/watch/:playbackId" element={<Watch />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
