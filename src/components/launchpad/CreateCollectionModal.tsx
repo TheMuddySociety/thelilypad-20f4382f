@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { debounce } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -79,9 +80,25 @@ const steps = [
   { id: 5, title: "Review", icon: Sparkles },
 ];
 
+const STORAGE_KEY = "launchpad_draft";
+
+interface DraftData {
+  name: string;
+  symbol: string;
+  description: string;
+  totalSupply: string;
+  royaltyPercent: string;
+  layers: Layer[];
+  traitRules: TraitRule[];
+  phases: MintPhase[];
+  currentStep: number;
+  savedAt: number;
+}
+
 export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [hasDraft, setHasDraft] = useState(false);
   
   // Collection details
   const [name, setName] = useState("");
@@ -101,6 +118,101 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
   
   // Allowlist management
   const [allowlistPhases, setAllowlistPhases] = useState<AllowlistPhase[]>([]);
+
+  // Load draft on mount
+  useEffect(() => {
+    if (open) {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const draft: DraftData = JSON.parse(saved);
+          // Only load if less than 24 hours old
+          if (Date.now() - draft.savedAt < 24 * 60 * 60 * 1000) {
+            setHasDraft(true);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load draft:", e);
+      }
+    }
+  }, [open]);
+
+  // Debounced save to localStorage
+  const saveDraft = useCallback(
+    debounce((data: Omit<DraftData, "savedAt">) => {
+      try {
+        // Skip saving images to avoid quota issues - only save metadata
+        const layersWithoutImages = data.layers.map(layer => ({
+          ...layer,
+          traits: layer.traits.map(trait => ({
+            ...trait,
+            imageUrl: trait.imageUrl ? "[saved]" : undefined, // Mark that image exists
+          })),
+        }));
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          ...data,
+          layers: layersWithoutImages,
+          savedAt: Date.now(),
+        }));
+      } catch (e) {
+        console.error("Failed to save draft:", e);
+      }
+    }, 1000),
+    []
+  );
+
+  // Auto-save on changes
+  useEffect(() => {
+    if (open && (name || layers.length > 0 || phases.some(p => p.enabled))) {
+      saveDraft({
+        name,
+        symbol,
+        description,
+        totalSupply,
+        royaltyPercent,
+        layers,
+        traitRules,
+        phases,
+        currentStep,
+      });
+    }
+  }, [open, name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, saveDraft]);
+
+  const loadDraft = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const draft: DraftData = JSON.parse(saved);
+        setName(draft.name);
+        setSymbol(draft.symbol);
+        setDescription(draft.description);
+        setTotalSupply(draft.totalSupply);
+        setRoyaltyPercent(draft.royaltyPercent);
+        // Restore layers without images (user will need to re-upload)
+        setLayers(draft.layers.map(layer => ({
+          ...layer,
+          traits: layer.traits.map(trait => ({
+            ...trait,
+            imageUrl: trait.imageUrl === "[saved]" ? undefined : trait.imageUrl,
+          })),
+        })));
+        setTraitRules(draft.traitRules);
+        setPhases(draft.phases);
+        setCurrentStep(draft.currentStep);
+        setHasDraft(false);
+        toast.success("Draft restored! Note: Images need to be re-uploaded.");
+      }
+    } catch (e) {
+      console.error("Failed to load draft:", e);
+      toast.error("Failed to restore draft");
+    }
+  };
+
+  const clearDraft = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setHasDraft(false);
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -156,7 +268,8 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
     setIsDeploying(false);
     onOpenChange(false);
     
-    // Reset form
+    // Clear draft and reset form
+    clearDraft();
     setCurrentStep(1);
     setName("");
     setSymbol("");
@@ -181,6 +294,24 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
             Launch your NFT collection on Monad Mainnet
           </DialogDescription>
         </DialogHeader>
+
+        {/* Draft Restoration Banner */}
+        {hasDraft && (
+          <div className="flex items-center justify-between p-3 bg-primary/10 border border-primary/20 rounded-lg mb-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-sm">You have an unsaved draft from a previous session</span>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={clearDraft}>
+                Dismiss
+              </Button>
+              <Button variant="default" size="sm" onClick={loadDraft}>
+                Restore Draft
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Progress Steps */}
         <div className="flex items-center justify-between mb-6">

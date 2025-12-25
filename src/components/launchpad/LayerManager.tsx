@@ -196,13 +196,44 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateTrait(layerId, traitId, { imageUrl: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      console.error("Invalid file type:", file.type);
+      return;
     }
+
+    // Auto-name from filename if trait name is default
+    const layer = layers.find((l) => l.id === layerId);
+    const trait = layer?.traits.find((t) => t.id === traitId);
+    const isDefaultName = trait?.name.startsWith("Trait ");
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (reader.result) {
+        const updates: Partial<Trait> = { imageUrl: reader.result as string };
+        
+        // Auto-name from filename if using default name
+        if (isDefaultName) {
+          const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+          const cleanName = nameWithoutExt
+            .replace(/[-_]/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+            .trim();
+          updates.name = cleanName;
+        }
+        
+        updateTrait(layerId, traitId, updates);
+      }
+    };
+    reader.onerror = () => {
+      console.error("Failed to read file:", file.name);
+    };
+    reader.readAsDataURL(file);
+    
+    // Reset the input so the same file can be selected again
+    e.target.value = "";
   };
 
   const toggleExpanded = (layerId: string) => {
