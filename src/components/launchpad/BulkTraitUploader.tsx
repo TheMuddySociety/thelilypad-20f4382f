@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Upload,
   FolderOpen,
@@ -16,6 +18,7 @@ import {
   Loader2,
   Zap,
   Trash2,
+  Shield,
 } from "lucide-react";
 import {
   Dialog,
@@ -72,6 +75,7 @@ export function BulkTraitUploader({
   const [scanProgress, setScanProgress] = useState({ scanned: 0, total: 0 });
   const [concurrencyLimit, setConcurrencyLimit] = useState(5);
   const [cacheHits, setCacheHits] = useState(0);
+  const [skipModeration, setSkipModeration] = useState(true); // Default to skip for speed
   const scanCacheRef = useRef<Map<string, ScanCacheEntry>>(new Map());
   const { moderateImage, isChecking } = useContentModeration();
 
@@ -95,7 +99,7 @@ export function BulkTraitUploader({
   };
 
   const processFiles = useCallback(
-    async (files: FileList | File[], currentConcurrency: number) => {
+    async (files: FileList | File[], currentConcurrency: number, shouldSkipModeration: boolean) => {
       const imageFiles = Array.from(files).filter((file) =>
         file.type.startsWith("image/")
       );
@@ -105,7 +109,7 @@ export function BulkTraitUploader({
         ...pendingTraits.map((t) => t.name.toLowerCase()),
       ]);
 
-      // First add all files with scanning status
+      // Add all files - if skipping moderation, mark as ready immediately
       const newPending: PendingTrait[] = imageFiles.map((file) => {
         const name = cleanFileName(file.name);
         const isDuplicate = existingNames.has(name.toLowerCase());
@@ -117,14 +121,20 @@ export function BulkTraitUploader({
           name,
           previewUrl: URL.createObjectURL(file),
           rarity: Math.round(100 / (existingTraits.length + imageFiles.length)),
-          status: isDuplicate ? "duplicate" : "scanning",
+          status: isDuplicate ? "duplicate" : shouldSkipModeration ? "ready" : "scanning",
         };
       });
 
       setPendingTraits((prev) => [...prev, ...newPending]);
 
+      // If skipping moderation, we're done
+      if (shouldSkipModeration) {
+        toast.success(`Added ${imageFiles.length} image${imageFiles.length !== 1 ? 's' : ''} (moderation skipped)`);
+        return;
+      }
+
       // Now scan each image for inappropriate content in parallel
-      const toScan = newPending.filter((t) => t.status !== "duplicate");
+      const toScan = newPending.filter((t) => t.status !== "duplicate" && t.status !== "ready");
       if (toScan.length === 0) return;
       
       setIsScanning(true);
@@ -272,26 +282,26 @@ export function BulkTraitUploader({
         if (entries.length > 0) {
           await Promise.all(entries.map(processEntry));
           if (files.length > 0) {
-            processFiles(files, concurrencyLimit);
+            processFiles(files, concurrencyLimit, skipModeration);
           }
         } else {
           // Fallback for simple file drops
-          processFiles(e.dataTransfer.files, concurrencyLimit);
+          processFiles(e.dataTransfer.files, concurrencyLimit, skipModeration);
         }
       };
 
       processItems();
     },
-    [processFiles, concurrencyLimit]
+    [processFiles, concurrencyLimit, skipModeration]
   );
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files) {
-        processFiles(e.target.files, concurrencyLimit);
+        processFiles(e.target.files, concurrencyLimit, skipModeration);
       }
     },
-    [processFiles, concurrencyLimit]
+    [processFiles, concurrencyLimit, skipModeration]
   );
 
   const updatePendingTrait = (id: string, updates: Partial<PendingTrait>) => {
@@ -400,46 +410,71 @@ export function BulkTraitUploader({
             />
           </div>
 
-          {/* Concurrency Slider */}
-          <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg border">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
-              <Zap className="w-4 h-4" />
-              <span>Scan Speed:</span>
-            </div>
-            <Slider
-              value={[concurrencyLimit]}
-              onValueChange={([value]) => setConcurrencyLimit(value)}
-              min={1}
-              max={10}
-              step={1}
-              disabled={isScanning}
-              className="flex-1"
-            />
-            <span className="text-sm font-medium w-16 text-right">
-              {concurrencyLimit} {concurrencyLimit === 1 ? "image" : "images"}
-            </span>
-            {cacheHits > 0 && (
-              <div className="flex items-center gap-1 ml-2">
-                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
-                  {cacheHits} cached
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    scanCacheRef.current.clear();
-                    setCacheHits(0);
-                    toast.success("Scan cache cleared");
-                  }}
-                  disabled={isScanning}
-                  className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <Trash2 className="w-3 h-3 mr-1" />
-                  Clear
-                </Button>
+          {/* Speed Mode Toggle */}
+          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
+            <div className="flex items-center gap-3">
+              <Shield className={`w-4 h-4 ${skipModeration ? 'text-muted-foreground' : 'text-green-500'}`} />
+              <div className="space-y-0.5">
+                <Label htmlFor="skip-moderation" className="text-sm font-medium cursor-pointer">
+                  {skipModeration ? "Fast Mode (No Scanning)" : "Safe Mode (Content Moderation)"}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {skipModeration 
+                    ? "Images added instantly without AI content checks" 
+                    : "Each image is scanned for inappropriate content"}
+                </p>
               </div>
-            )}
+            </div>
+            <Switch
+              id="skip-moderation"
+              checked={!skipModeration}
+              onCheckedChange={(checked) => setSkipModeration(!checked)}
+              disabled={isScanning}
+            />
           </div>
+
+          {/* Concurrency Slider - Only show when moderation enabled */}
+          {!skipModeration && (
+            <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg border">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+                <Zap className="w-4 h-4" />
+                <span>Scan Speed:</span>
+              </div>
+              <Slider
+                value={[concurrencyLimit]}
+                onValueChange={([value]) => setConcurrencyLimit(value)}
+                min={1}
+                max={10}
+                step={1}
+                disabled={isScanning}
+                className="flex-1"
+              />
+              <span className="text-sm font-medium w-16 text-right">
+                {concurrencyLimit} {concurrencyLimit === 1 ? "image" : "images"}
+              </span>
+              {cacheHits > 0 && (
+                <div className="flex items-center gap-1 ml-2">
+                  <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
+                    {cacheHits} cached
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      scanCacheRef.current.clear();
+                      setCacheHits(0);
+                      toast.success("Scan cache cleared");
+                    }}
+                    disabled={isScanning}
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Clear
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Pending Traits */}
           {pendingTraits.length > 0 && (
