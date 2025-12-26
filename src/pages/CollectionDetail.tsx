@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   ArrowLeft, 
   ExternalLink, 
@@ -26,83 +27,51 @@ import {
   Droplets,
   AlertTriangle,
   Fuel,
-  Loader2
+  Loader2,
+  Rocket
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
+import { supabase } from "@/integrations/supabase/client";
 
-// Demo collection data - in production this comes from on-chain
-const demoCollection = {
-  id: "1",
-  name: "Monad Frogs",
-  symbol: "MFROG",
-  description: "A collection of 5,000 unique frogs living on the Monad blockchain. Each frog is algorithmically generated with over 150 possible traits.",
-  image: "https://images.unsplash.com/photo-1544552866-d3ed42536cfd?w=800&h=800&fit=crop",
-  bannerImage: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&h=400&fit=crop",
-  creator: "0x1234567890abcdef1234567890abcdef12345678",
-  contractAddress: "0xabcdef1234567890abcdef1234567890abcdef12",
-  totalSupply: 5000,
-  royaltyPercent: 5,
-  status: "live",
-  phases: [
-    { 
-      id: "team", 
-      name: "Team Mint", 
-      price: "0", 
-      maxPerWallet: 10, 
-      supply: 100, 
-      minted: 100, 
-      isActive: false, 
-      startTime: new Date("2024-01-01"), 
-      endTime: new Date("2024-01-02"),
-      requiresAllowlist: false
-    },
-    { 
-      id: "partners", 
-      name: "Partners", 
-      price: "0", 
-      maxPerWallet: 5, 
-      supply: 200, 
-      minted: 200, 
-      isActive: false, 
-      startTime: new Date("2024-01-02"), 
-      endTime: new Date("2024-01-03"),
-      requiresAllowlist: true
-    },
-    { 
-      id: "allowlist", 
-      name: "Allowlist", 
-      price: "0.25", 
-      maxPerWallet: 3, 
-      supply: 700, 
-      minted: 700, 
-      isActive: false, 
-      startTime: new Date("2024-01-03"), 
-      endTime: new Date("2024-01-04"),
-      requiresAllowlist: true
-    },
-    { 
-      id: "public", 
-      name: "Public Mint", 
-      price: "0.5", 
-      maxPerWallet: 5, 
-      supply: 4000, 
-      minted: 2420, 
-      isActive: true, 
-      startTime: new Date("2024-01-04"), 
-      endTime: null,
-      requiresAllowlist: false
-    },
-  ],
-};
+interface Collection {
+  id: string;
+  name: string;
+  symbol: string;
+  description: string | null;
+  image_url: string | null;
+  creator_address: string;
+  creator_id: string;
+  total_supply: number;
+  minted: number;
+  royalty_percent: number;
+  status: string;
+  phases: unknown;
+  contract_address: string | null;
+  created_at: string;
+}
+
+interface Phase {
+  id: string;
+  name: string;
+  price: string;
+  maxPerWallet: number;
+  supply: number;
+  minted?: number;
+  isActive?: boolean;
+  startTime: string | null;
+  endTime: string | null;
+  requiresAllowlist: boolean;
+}
 
 export default function CollectionDetail() {
   const { collectionId } = useParams();
   const navigate = useNavigate();
   const { network, currentChain, isConnected, chainId, switchToMonad, connect, balance } = useWallet();
-  const [collection, setCollection] = useState(demoCollection);
+  const [collection, setCollection] = useState<Collection | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [mintAmount, setMintAmount] = useState(1);
-  const [activePhase, setActivePhase] = useState(collection.phases.find(p => p.isActive) || collection.phases[0]);
+  const [activePhase, setActivePhase] = useState<Phase | null>(null);
   const [isMinting, setIsMinting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -111,8 +80,55 @@ export default function CollectionDetail() {
   const isTestnet = network === "testnet";
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
   
+  // Fetch collection from database
+  useEffect(() => {
+    if (collectionId) {
+      fetchCollection();
+    }
+  }, [collectionId]);
+
+  const fetchCollection = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("collections")
+        .select("*")
+        .eq("id", collectionId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching collection:", error);
+        toast.error("Failed to load collection");
+      } else if (data) {
+        setCollection(data);
+        // Set active phase from phases data
+        const phases = data.phases as unknown as Phase[] | null;
+        if (phases && Array.isArray(phases) && phases.length > 0) {
+          const publicPhase = phases.find(p => p.id === "public") || phases[0];
+          setActivePhase(publicPhase);
+        }
+      } else {
+        toast.error("Collection not found");
+        navigate("/launchpad");
+      }
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getPhases = (): Phase[] => {
+    if (!collection?.phases) return [];
+    try {
+      return collection.phases as unknown as Phase[];
+    } catch {
+      return [];
+    }
+  };
+  
   // Calculate if user has enough balance
-  const totalCost = parseFloat(activePhase.price) * mintAmount;
+  const totalCost = activePhase ? parseFloat(activePhase.price) * mintAmount : 0;
   const userBalance = balance ? parseFloat(balance) : 0;
   
   // Gas estimation (simulated - in production this would come from actual gas estimation)
@@ -121,7 +137,7 @@ export default function CollectionDetail() {
 
   // Simulate gas estimation when mint amount changes
   useEffect(() => {
-    if (!isConnected || isWrongNetwork) {
+    if (!isConnected || isWrongNetwork || !activePhase) {
       setGasEstimate(null);
       return;
     }
@@ -143,31 +159,27 @@ export default function CollectionDetail() {
     };
 
     estimateGas();
-  }, [mintAmount, isConnected, isWrongNetwork, isTestnet]);
+  }, [mintAmount, isConnected, isWrongNetwork, isTestnet, activePhase]);
 
   const totalWithGas = totalCost + (gasEstimate?.totalGas || 0);
   const hasInsufficientBalance = isConnected && !isWrongNetwork && totalWithGas > userBalance;
   
-  // Simulated live supply updates
-  const [liveSupply, setLiveSupply] = useState(3420);
+  // Live supply from collection
+  const liveSupply = collection?.minted || 0;
+  const totalSupply = collection?.total_supply || 0;
 
   // Simulate live blockchain updates
   useEffect(() => {
+    if (!collection) return;
     const interval = setInterval(() => {
-      // Simulate random mints happening
-      if (Math.random() > 0.7) {
-        setLiveSupply(prev => {
-          const newSupply = prev + Math.floor(Math.random() * 3) + 1;
-          return Math.min(newSupply, collection.totalSupply);
-        });
-      }
+      // In production, this would fetch from blockchain
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [collection.totalSupply]);
+  }, [collection?.total_supply]);
 
-  const totalMinted = collection.phases.reduce((acc, p) => acc + p.minted, 0) + (liveSupply - 3420);
-  const mintProgress = (totalMinted / collection.totalSupply) * 100;
+  const phases = getPhases();
+  const mintProgress = totalSupply > 0 ? (liveSupply / totalSupply) * 100 : 0;
 
   const handleRefreshSupply = async () => {
     setIsRefreshing(true);
@@ -232,12 +244,14 @@ export default function CollectionDetail() {
       description: "Check your wallet for your new NFTs",
     });
     
-    setLiveSupply(prev => prev + mintAmount);
+    // Refresh collection data
+    fetchCollection();
     setIsMinting(false);
   };
 
   const handleCopyAddress = () => {
-    navigator.clipboard.writeText(collection.contractAddress);
+    if (!collection?.contract_address) return;
+    navigator.clipboard.writeText(collection.contract_address);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     toast.success("Contract address copied!");
@@ -245,17 +259,56 @@ export default function CollectionDetail() {
 
   const totalCostDisplay = totalCost.toFixed(2);
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto px-4 pt-24 pb-12">
+          <Skeleton className="h-64 w-full rounded-xl mb-8" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-48 w-full" />
+            </div>
+            <Skeleton className="h-96 w-full" />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Not found state
+  if (!collection) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto px-4 pt-24 pb-12 text-center">
+          <Rocket className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Collection Not Found</h1>
+          <p className="text-muted-foreground mb-4">This collection doesn't exist or has been removed.</p>
+          <Button onClick={() => navigate("/launchpad")}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Launchpad
+          </Button>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       
       {/* Banner */}
-      <div className="relative h-48 sm:h-64 md:h-80">
-        <img 
-          src={collection.bannerImage} 
-          alt={collection.name}
-          className="w-full h-full object-cover"
-        />
+      <div className="relative h-48 sm:h-64 md:h-80 bg-gradient-to-br from-primary/20 to-accent/20">
+        {collection.image_url && (
+          <img 
+            src={collection.image_url} 
+            alt={collection.name}
+            className="w-full h-full object-cover opacity-30"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
       </div>
 
@@ -276,17 +329,32 @@ export default function CollectionDetail() {
           <div className="lg:col-span-2 space-y-6">
             {/* Collection Header */}
             <div className="flex items-start gap-6">
-              <img 
-                src={collection.image} 
-                alt={collection.name}
-                className="w-32 h-32 rounded-xl object-cover border-4 border-background shadow-lg"
-              />
+              <div className="w-32 h-32 rounded-xl bg-muted border-4 border-background shadow-lg overflow-hidden flex items-center justify-center">
+                {collection.image_url ? (
+                  <img 
+                    src={collection.image_url} 
+                    alt={collection.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Rocket className="w-12 h-12 text-muted-foreground" />
+                )}
+              </div>
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h1 className="text-2xl sm:text-3xl font-bold">{collection.name}</h1>
-                  <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30">
+                  <Badge 
+                    variant="outline" 
+                    className={
+                      collection.status === "live" 
+                        ? "bg-green-500/20 text-green-400 border-green-500/30"
+                        : collection.status === "upcoming"
+                        ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                        : "bg-muted text-muted-foreground border-border"
+                    }
+                  >
                     <Sparkles className="w-3 h-3 mr-1" />
-                    Live
+                    {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
                   </Badge>
                   <Badge 
                     variant="outline" 
@@ -304,23 +372,25 @@ export default function CollectionDetail() {
                   </Badge>
                 </div>
                 <p className="text-muted-foreground mb-3">{collection.symbol}</p>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">Contract:</span>
-                  <code className="bg-muted px-2 py-1 rounded text-xs">
-                    {collection.contractAddress.slice(0, 10)}...{collection.contractAddress.slice(-8)}
-                  </code>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopyAddress}>
-                    {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  </Button>
-                  <a 
-                    href={`${currentChain.blockExplorers?.default?.url}/address/${collection.contractAddress}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-                </div>
+                {collection.contract_address && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">Contract:</span>
+                    <code className="bg-muted px-2 py-1 rounded text-xs">
+                      {collection.contract_address.slice(0, 10)}...{collection.contract_address.slice(-8)}
+                    </code>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopyAddress}>
+                      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    </Button>
+                    <a 
+                      href={`${currentChain.blockExplorers?.default?.url}/address/${collection.contract_address}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -330,20 +400,20 @@ export default function CollectionDetail() {
                 <CardTitle>About</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">{collection.description}</p>
+                <p className="text-muted-foreground">{collection.description || "No description provided."}</p>
                 <Separator className="my-4" />
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Creator</span>
-                    <p className="font-medium truncate">{collection.creator.slice(0, 8)}...</p>
+                    <p className="font-medium truncate">{collection.creator_address.slice(0, 8)}...</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Total Supply</span>
-                    <p className="font-medium">{collection.totalSupply.toLocaleString()}</p>
+                    <p className="font-medium">{collection.total_supply.toLocaleString()}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Royalty</span>
-                    <p className="font-medium">{collection.royaltyPercent}%</p>
+                    <p className="font-medium">{collection.royalty_percent}%</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Network</span>
@@ -367,30 +437,30 @@ export default function CollectionDetail() {
                 <CardDescription>Track the progress of each mint phase</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {collection.phases.map((phase) => {
-                  const phaseProgress = (phase.minted / phase.supply) * 100;
+                {phases.length > 0 ? phases.map((phase) => {
+                  const phaseMinted = phase.minted || 0;
+                  const phaseProgress = phase.supply > 0 ? (phaseMinted / phase.supply) * 100 : 0;
                   const PhaseIcon = phase.requiresAllowlist 
                     ? (phase.id === "team" ? Shield : Users)
                     : Sparkles;
+                  const isActive = activePhase?.id === phase.id;
                   
                   return (
                     <div 
                       key={phase.id}
-                      className={`p-4 rounded-lg border transition-colors ${
-                        phase.isActive 
+                      className={`p-4 rounded-lg border transition-colors cursor-pointer ${
+                        isActive 
                           ? "border-primary bg-primary/5" 
-                          : "border-border bg-muted/30"
+                          : "border-border bg-muted/30 hover:border-primary/50"
                       }`}
+                      onClick={() => setActivePhase(phase)}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <PhaseIcon className={`w-5 h-5 ${phase.isActive ? "text-primary" : "text-muted-foreground"}`} />
+                          <PhaseIcon className={`w-5 h-5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                           <span className="font-medium">{phase.name}</span>
-                          {phase.isActive && (
-                            <Badge variant="default" className="text-xs">Active</Badge>
-                          )}
-                          {phase.minted >= phase.supply && (
-                            <Badge variant="secondary" className="text-xs">Sold Out</Badge>
+                          {isActive && (
+                            <Badge variant="default" className="text-xs">Selected</Badge>
                           )}
                         </div>
                         <span className="font-semibold">
@@ -399,14 +469,15 @@ export default function CollectionDetail() {
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <span>{phase.minted.toLocaleString()} / {phase.supply.toLocaleString()} minted</span>
-                          <span>{phaseProgress.toFixed(1)}%</span>
+                          <span>Max {phase.maxPerWallet} per wallet • {phase.supply.toLocaleString()} supply</span>
                         </div>
                         <Progress value={phaseProgress} className="h-2" />
                       </div>
                     </div>
                   );
-                })}
+                }) : (
+                  <p className="text-muted-foreground text-center py-4">No mint phases configured</p>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -432,13 +503,13 @@ export default function CollectionDetail() {
               <CardContent>
                 <div className="text-center mb-4">
                   <div className="text-4xl font-bold text-primary">
-                    {Math.min(liveSupply, collection.totalSupply).toLocaleString()}
+                    {Math.min(liveSupply, totalSupply).toLocaleString()}
                   </div>
                   <div className="text-muted-foreground">
-                    of {collection.totalSupply.toLocaleString()} minted
+                    of {totalSupply.toLocaleString()} minted
                   </div>
                 </div>
-                <Progress value={Math.min((liveSupply / collection.totalSupply) * 100, 100)} className="h-3" />
+                <Progress value={totalSupply > 0 ? Math.min((liveSupply / totalSupply) * 100, 100) : 0} className="h-3" />
                 <p className="text-xs text-muted-foreground text-center mt-2">
                   Updates in real-time from blockchain
                 </p>
@@ -450,23 +521,25 @@ export default function CollectionDetail() {
               <CardHeader>
                 <CardTitle>Mint NFT</CardTitle>
                 <CardDescription>
-                  Currently in: <span className="text-foreground font-medium">{activePhase.name}</span>
+                  Currently in: <span className="text-foreground font-medium">{activePhase?.name || "No phase"}</span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Phase Tabs */}
-                <Tabs value={activePhase.id} onValueChange={(v) => {
-                  const phase = collection.phases.find(p => p.id === v);
+                {phases.length > 1 && (
+                <Tabs value={activePhase?.id || ""} onValueChange={(v) => {
+                  const phase = phases.find(p => p.id === v);
                   if (phase) setActivePhase(phase);
                 }}>
                   <TabsList className="grid grid-cols-2">
-                    {collection.phases.filter(p => p.isActive || p.minted < p.supply).slice(-2).map(phase => (
-                      <TabsTrigger key={phase.id} value={phase.id} disabled={!phase.isActive}>
+                    {phases.slice(-2).map(phase => (
+                      <TabsTrigger key={phase.id} value={phase.id}>
                         {phase.name}
                       </TabsTrigger>
                     ))}
                   </TabsList>
                 </Tabs>
+                )}
 
                 {/* Wallet Balance */}
                 {isConnected && !isWrongNetwork && (
