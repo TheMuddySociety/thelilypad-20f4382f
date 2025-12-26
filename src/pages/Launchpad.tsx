@@ -1,51 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe } from "lucide-react";
+import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2 } from "lucide-react";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
 import { useWallet } from "@/providers/WalletProvider";
+import { supabase } from "@/integrations/supabase/client";
 import lilypadLogo from "@/assets/lilypad-logo.png";
 
-// Demo collections for UI - will be replaced with on-chain data
-const demoCollections = [
-  {
-    id: "1",
-    name: "Monad Frogs",
-    image: "https://images.unsplash.com/photo-1544552866-d3ed42536cfd?w=400&h=400&fit=crop",
-    creator: "0x1234...5678",
-    totalSupply: 5000,
-    minted: 3420,
-    price: "0.5 MON",
-    status: "live",
-    phases: ["public"],
-  },
-  {
-    id: "2",
-    name: "Lily Genesis",
-    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop",
-    creator: "0xabcd...efgh",
-    totalSupply: 10000,
-    minted: 0,
-    price: "Free",
-    status: "upcoming",
-    phases: ["team", "partners", "allowlist", "public"],
-  },
-  {
-    id: "3",
-    name: "Nads Collection",
-    image: "https://images.unsplash.com/photo-1634973357973-f2ed2657db3c?w=400&h=400&fit=crop",
-    creator: "0x9876...4321",
-    totalSupply: 2500,
-    minted: 2500,
-    price: "1 MON",
-    status: "ended",
-    phases: ["allowlist", "public"],
-  },
-];
+interface Collection {
+  id: string;
+  name: string;
+  image_url: string | null;
+  creator_address: string;
+  total_supply: number;
+  minted: number;
+  status: string;
+  phases: unknown;
+  royalty_percent: number;
+  created_at: string;
+}
 
 const statusColors = {
   live: "bg-green-500/20 text-green-400 border-green-500/30",
@@ -64,13 +41,54 @@ export default function Launchpad() {
   const { network, currentChain } = useWallet();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const isTestnet = network === "testnet";
 
-  const filteredCollections = demoCollections.filter((collection) => {
+  const fetchCollections = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("collections")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching collections:", error);
+      } else {
+        setCollections(data || []);
+      }
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCollections();
+  }, []);
+
+  const filteredCollections = collections.filter((collection) => {
     if (activeTab === "all") return true;
     return collection.status === activeTab;
   });
+
+  // Get price from phases
+  const getPrice = (collection: Collection) => {
+    const phases = collection.phases as any[];
+    if (!phases || phases.length === 0) return "TBA";
+    const publicPhase = phases.find(p => p.id === "public") || phases[0];
+    return publicPhase?.price ? `${publicPhase.price} MON` : "Free";
+  };
+
+  // Get phase names
+  const getPhaseNames = (collection: Collection) => {
+    const phases = collection.phases as any[];
+    if (!phases || phases.length === 0) return ["public"];
+    return phases.map(p => p.id || p.name?.toLowerCase() || "public");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -153,6 +171,11 @@ export default function Launchpad() {
         </Tabs>
 
         {/* Collections Grid */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCollections.map((collection) => {
             const StatusIcon = statusIcons[collection.status as keyof typeof statusIcons];
@@ -162,12 +185,18 @@ export default function Launchpad() {
                 className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
                 onClick={() => navigate(`/launchpad/${collection.id}`)}
               >
-                <div className="aspect-square relative overflow-hidden">
-                  <img
-                    src={collection.image}
-                    alt={collection.name}
-                    className="w-full h-full object-cover"
-                  />
+                <div className="aspect-square relative overflow-hidden bg-muted">
+                  {collection.image_url ? (
+                    <img
+                      src={collection.image_url}
+                      alt={collection.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Rocket className="w-12 h-12 text-muted-foreground" />
+                    </div>
+                  )}
                   <Badge 
                     variant="outline" 
                     className={`absolute top-3 right-3 ${statusColors[collection.status as keyof typeof statusColors]}`}
@@ -178,27 +207,27 @@ export default function Launchpad() {
                 </div>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg">{collection.name}</CardTitle>
-                  <CardDescription>by {collection.creator}</CardDescription>
+                  <CardDescription>by {collection.creator_address.slice(0, 6)}...{collection.creator_address.slice(-4)}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between text-sm mb-3">
                     <span className="text-muted-foreground">Price</span>
-                    <span className="font-medium">{collection.price}</span>
+                    <span className="font-medium">{getPrice(collection)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm mb-3">
                     <span className="text-muted-foreground">Supply</span>
-                    <span className="font-medium">{collection.minted} / {collection.totalSupply}</span>
+                    <span className="font-medium">{collection.minted} / {collection.total_supply}</span>
                   </div>
                   {/* Progress bar */}
                   <div className="w-full bg-muted rounded-full h-2 mb-3">
                     <div 
                       className="bg-primary h-2 rounded-full transition-all"
-                      style={{ width: `${(collection.minted / collection.totalSupply) * 100}%` }}
+                      style={{ width: `${collection.total_supply > 0 ? (collection.minted / collection.total_supply) * 100 : 0}%` }}
                     />
                   </div>
                   {/* Phases */}
                   <div className="flex flex-wrap gap-1">
-                    {collection.phases.map((phase) => (
+                    {getPhaseNames(collection).map((phase) => (
                       <Badge key={phase} variant="secondary" className="text-xs">
                         {phase}
                       </Badge>
@@ -209,8 +238,9 @@ export default function Launchpad() {
             );
           })}
         </div>
+        )}
 
-        {filteredCollections.length === 0 && (
+        {!isLoading && filteredCollections.length === 0 && (
           <div className="text-center py-12">
             <Rocket className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No collections found</h3>
@@ -226,7 +256,8 @@ export default function Launchpad() {
 
       <CreateCollectionModal 
         open={isCreateModalOpen} 
-        onOpenChange={setIsCreateModalOpen} 
+        onOpenChange={setIsCreateModalOpen}
+        onCollectionCreated={fetchCollections}
       />
     </div>
   );

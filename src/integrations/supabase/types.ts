@@ -239,6 +239,66 @@ export type Database = {
           },
         ]
       }
+      collections: {
+        Row: {
+          contract_address: string | null
+          created_at: string
+          creator_address: string
+          creator_id: string
+          description: string | null
+          id: string
+          image_url: string | null
+          layers_metadata: Json | null
+          minted: number
+          name: string
+          phases: Json
+          royalty_percent: number
+          status: string
+          symbol: string
+          total_supply: number
+          trait_rules: Json | null
+          updated_at: string
+        }
+        Insert: {
+          contract_address?: string | null
+          created_at?: string
+          creator_address: string
+          creator_id: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          layers_metadata?: Json | null
+          minted?: number
+          name: string
+          phases?: Json
+          royalty_percent?: number
+          status?: string
+          symbol: string
+          total_supply?: number
+          trait_rules?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          contract_address?: string | null
+          created_at?: string
+          creator_address?: string
+          creator_id?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          layers_metadata?: Json | null
+          minted?: number
+          name?: string
+          phases?: Json
+          royalty_percent?: number
+          status?: string
+          symbol?: string
+          total_supply?: number
+          trait_rules?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       comment_reports: {
         Row: {
           comment_id: string

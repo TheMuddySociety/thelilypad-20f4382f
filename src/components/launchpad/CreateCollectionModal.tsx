@@ -27,17 +27,21 @@ import {
   Check,
   Image as ImageIcon,
   Layers,
-  Palette
+  Palette,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { LayerManager, Layer } from "./LayerManager";
 import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
 import { AllowlistManager } from "./AllowlistManager";
 import { GenerationPreview } from "./GenerationPreview";
+import { supabase } from "@/integrations/supabase/client";
+import { useWallet } from "@/providers/WalletProvider";
 
 interface CreateCollectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCollectionCreated?: () => void;
 }
 
 interface MintPhase {
@@ -95,7 +99,8 @@ interface DraftData {
   savedAt: number;
 }
 
-export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionModalProps) {
+export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated }: CreateCollectionModalProps) {
+  const { address } = useWallet();
   const [currentStep, setCurrentStep] = useState(1);
   const [isDeploying, setIsDeploying] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
@@ -258,29 +263,95 @@ export function CreateCollectionModal({ open, onOpenChange }: CreateCollectionMo
   const handleDeploy = async () => {
     setIsDeploying(true);
     
-    // Simulate deployment - in production this would call a smart contract
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error("Please sign in to create a collection");
+        setIsDeploying(false);
+        return;
+      }
+
+      // Format phases for storage
+      const enabledPhasesData = phases.filter(p => p.enabled).map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        maxPerWallet: parseInt(p.maxPerWallet) || 1,
+        supply: parseInt(p.supply) || 0,
+        startTime: p.startTime || null,
+        endTime: p.endTime || null,
+        requiresAllowlist: p.requiresAllowlist,
+      }));
+
+      // Calculate public price from first enabled phase
+      const firstPhase = enabledPhasesData[0];
+      const publicPrice = firstPhase?.price || "0";
+
+      // Insert collection into database
+      const { data, error } = await supabase
+        .from("collections")
+        .insert([{
+          creator_id: user.id,
+          creator_address: address || `0x${user.id.replace(/-/g, '').slice(0, 40)}`,
+          name,
+          symbol,
+          description,
+          image_url: imagePreview,
+          total_supply: parseInt(totalSupply) || 0,
+          minted: 0,
+          royalty_percent: parseFloat(royaltyPercent) || 5,
+          status: "upcoming",
+          phases: JSON.parse(JSON.stringify(enabledPhasesData)),
+          layers_metadata: layers.length > 0 ? JSON.parse(JSON.stringify(layers.map(l => ({
+            id: l.id,
+            name: l.name,
+            isOptional: l.isOptional,
+            traitCount: l.traits.length,
+          })))) : null,
+          trait_rules: traitRules.length > 0 ? JSON.parse(JSON.stringify(traitRules)) : null,
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating collection:", error);
+        toast.error("Failed to create collection", {
+          description: error.message,
+        });
+        setIsDeploying(false);
+        return;
+      }
     
-    toast.success("Collection deployed successfully!", {
-      description: "Your NFT collection is now live on Monad Mainnet",
-    });
-    
-    setIsDeploying(false);
-    onOpenChange(false);
-    
-    // Clear draft and reset form
-    clearDraft();
-    setCurrentStep(1);
-    setName("");
-    setSymbol("");
-    setDescription("");
-    setTotalSupply("5000");
-    setRoyaltyPercent("5");
-    setImagePreview(null);
-    setLayers([]);
-    setTraitRules([]);
-    setPhases(defaultPhases);
-    setAllowlistPhases([]);
+      toast.success("Collection created successfully!", {
+        description: "Your NFT collection is now visible on the launchpad",
+      });
+      
+      setIsDeploying(false);
+      onOpenChange(false);
+      
+      // Notify parent to refresh
+      onCollectionCreated?.();
+      
+      // Clear draft and reset form
+      clearDraft();
+      setCurrentStep(1);
+      setName("");
+      setSymbol("");
+      setDescription("");
+      setTotalSupply("5000");
+      setRoyaltyPercent("5");
+      setImagePreview(null);
+      setLayers([]);
+      setTraitRules([]);
+      setPhases(defaultPhases);
+      setAllowlistPhases([]);
+    } catch (err) {
+      console.error("Error:", err);
+      toast.error("Something went wrong");
+      setIsDeploying(false);
+    }
   };
 
   const enabledPhases = phases.filter(p => p.enabled);
