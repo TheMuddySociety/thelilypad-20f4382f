@@ -37,6 +37,10 @@ const availableCategories = [
 ];
 
   useEffect(() => {
+    document.title = "Lily Streamers | The Lily Pad";
+  }, []);
+
+  useEffect(() => {
     fetchStreamers();
 
     // Subscribe to real-time updates for streams (live status changes)
