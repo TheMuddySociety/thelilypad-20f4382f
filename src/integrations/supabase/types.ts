@@ -708,7 +708,11 @@ export type Database = {
           created_at: string
           id: string
           message: string
+          message_type: string
           playback_id: string
+          sticker_item_id: string | null
+          sticker_name: string | null
+          sticker_url: string | null
           user_id: string
           username: string
         }
@@ -716,7 +720,11 @@ export type Database = {
           created_at?: string
           id?: string
           message: string
+          message_type?: string
           playback_id: string
+          sticker_item_id?: string | null
+          sticker_name?: string | null
+          sticker_url?: string | null
           user_id: string
           username: string
         }
@@ -724,11 +732,23 @@ export type Database = {
           created_at?: string
           id?: string
           message?: string
+          message_type?: string
           playback_id?: string
+          sticker_item_id?: string | null
+          sticker_name?: string | null
+          sticker_url?: string | null
           user_id?: string
           username?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stream_chat_messages_sticker_item_id_fkey"
+            columns: ["sticker_item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stream_keys: {
         Row: {
