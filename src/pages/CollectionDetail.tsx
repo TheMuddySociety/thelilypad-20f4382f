@@ -46,6 +46,7 @@ interface Collection {
   symbol: string;
   description: string | null;
   image_url: string | null;
+  banner_url: string | null;
   creator_address: string;
   creator_id: string;
   total_supply: number;
@@ -361,9 +362,9 @@ export default function CollectionDetail() {
       
       {/* Banner */}
       <div className="relative h-48 sm:h-64 md:h-80 bg-gradient-to-br from-primary/20 to-accent/20">
-        {collection.image_url && (
+        {(collection.banner_url || collection.image_url) && (
           <img 
-            src={collection.image_url} 
+            src={collection.banner_url || collection.image_url || ''} 
             alt={collection.name}
             className="w-full h-full object-cover opacity-30"
           />

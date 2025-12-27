@@ -241,6 +241,7 @@ export type Database = {
       }
       collections: {
         Row: {
+          banner_url: string | null
           contract_address: string | null
           created_at: string
           creator_address: string
@@ -264,6 +265,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          banner_url?: string | null
           contract_address?: string | null
           created_at?: string
           creator_address: string
@@ -287,6 +289,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          banner_url?: string | null
           contract_address?: string | null
           created_at?: string
           creator_address?: string

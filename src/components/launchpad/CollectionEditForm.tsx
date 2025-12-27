@@ -45,6 +45,7 @@ interface Collection {
   symbol: string;
   description: string | null;
   image_url: string | null;
+  banner_url: string | null;
   creator_address: string;
   creator_id: string;
   total_supply: number;
@@ -88,6 +89,9 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [imageUrl, setImageUrl] = useState(collection.image_url || "");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(collection.image_url);
+  const [bannerUrl, setBannerUrl] = useState(collection.banner_url || "");
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(collection.banner_url);
   const [totalSupply, setTotalSupply] = useState(collection.total_supply);
   const [royaltyPercent, setRoyaltyPercent] = useState(collection.royalty_percent);
   const [status, setStatus] = useState(collection.status);
@@ -168,6 +172,60 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       return null;
     } finally {
       setIsUploadingImage(false);
+    }
+  };
+
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Banner must be less than 5MB");
+      return;
+    }
+
+    setBannerFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setBannerPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadBannerToStorage = async (): Promise<string | null> => {
+    if (!bannerFile) return bannerUrl || null;
+    
+    try {
+      const fileExt = bannerFile.name.split('.').pop();
+      const fileName = `${collection.creator_id}/banner-${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('collection-images')
+        .upload(fileName, bannerFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error("Banner upload error:", error);
+        toast.error("Failed to upload banner");
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('collection-images')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (err) {
+      console.error("Banner upload error:", err);
+      toast.error("Failed to upload banner");
+      return null;
     }
   };
 
@@ -254,6 +312,15 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
         }
       }
 
+      // Upload banner if there's a new file
+      let finalBannerUrl = bannerUrl;
+      if (bannerFile) {
+        const uploadedBannerUrl = await uploadBannerToStorage();
+        if (uploadedBannerUrl) {
+          finalBannerUrl = uploadedBannerUrl;
+        }
+      }
+
       // Convert phases to JSON-compatible format
       const phasesJson = phases.map(p => ({
         id: p.id,
@@ -275,6 +342,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           symbol: symbol.trim().toUpperCase(),
           description: description.trim() || null,
           image_url: finalImageUrl.trim() || null,
+          banner_url: finalBannerUrl?.trim() || null,
           total_supply: totalSupply,
           royalty_percent: royaltyPercent,
           status,
