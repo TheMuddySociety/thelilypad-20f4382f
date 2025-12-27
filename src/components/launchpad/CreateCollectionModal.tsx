@@ -54,6 +54,7 @@ import { AllowlistManager } from "./AllowlistManager";
 import { GenerationPreview } from "./GenerationPreview";
 import { ArtworkMetadataEditor, OneOfOneArtwork } from "./ArtworkMetadataEditor";
 import { BulkTraitsEditor } from "./BulkTraitsEditor";
+import { ImportMetadataEditor } from "./ImportMetadataEditor";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { formatDistanceToNow } from "date-fns";
@@ -183,6 +184,9 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   
   // Bulk traits state
   const [bulkTraitsOpen, setBulkTraitsOpen] = useState(false);
+  
+  // Import metadata state
+  const [importMetadataOpen, setImportMetadataOpen] = useState(false);
   const [bulkRenameOpen, setBulkRenameOpen] = useState(false);
   
   // Mint phases
@@ -1387,6 +1391,15 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                               variant="outline" 
                               size="sm" 
                               className="h-7 text-xs gap-1.5"
+                              onClick={() => setImportMetadataOpen(true)}
+                            >
+                              <Upload className="h-3 w-3" />
+                              Import
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-7 text-xs gap-1.5"
                               onClick={() => {
                                 const metadata = oneOfOneArtworks.map((artwork, index) => ({
                                   tokenId: index + 1,
@@ -1535,6 +1548,14 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                       artworks={oneOfOneArtworks}
                       open={bulkTraitsOpen}
                       onOpenChange={setBulkTraitsOpen}
+                      onApply={setOneOfOneArtworks}
+                    />
+
+                    {/* Import Metadata Editor Dialog */}
+                    <ImportMetadataEditor
+                      artworks={oneOfOneArtworks}
+                      open={importMetadataOpen}
+                      onOpenChange={setImportMetadataOpen}
                       onApply={setOneOfOneArtworks}
                     />
                     
