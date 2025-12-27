@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2, FileEdit, Trash2, FolderOpen } from "lucide-react";
+import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2, FileEdit, Trash2, FolderOpen, Image as ImageIcon } from "lucide-react";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +23,7 @@ interface DraftCollection {
   savedAt: string;
   layers?: any[];
   phases?: any[];
+  imageUrl?: string;
 }
 
 interface Collection {
@@ -241,11 +242,19 @@ export default function Launchpad() {
             {draft ? (
               <Card className="border-primary/30 bg-primary/5">
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
-                        <FolderOpen className="w-6 h-6 text-primary" />
-                      </div>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        {draft.imageUrl ? (
+                          <img 
+                            src={draft.imageUrl} 
+                            alt={draft.name || "Draft"} 
+                            className="w-12 h-12 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
+                            <ImageIcon className="w-6 h-6 text-primary" />
+                          </div>
+                        )}
                       <div>
                         <CardTitle className="text-lg">{draft.name || "Untitled Collection"}</CardTitle>
                         <CardDescription>
