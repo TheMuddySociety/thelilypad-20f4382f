@@ -39,7 +39,8 @@ import {
   X,
   Gem,
   Copy,
-  Shuffle
+  Shuffle,
+  GripVertical
 } from "lucide-react";
 import { toast } from "sonner";
 import { LayerManager, Layer } from "./LayerManager";
@@ -164,6 +165,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   // Drag and drop states
   const [isOneOfOneDragging, setIsOneOfOneDragging] = useState(false);
   const [isEditionDragging, setIsEditionDragging] = useState(false);
+  
+  // Reordering state
+  const [reorderDragIndex, setReorderDragIndex] = useState<number | null>(null);
+  const [reorderDropIndex, setReorderDropIndex] = useState<number | null>(null);
   
   // Mint phases
   const [phases, setPhases] = useState<MintPhase[]>(defaultPhases);
@@ -1300,37 +1305,83 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                       />
                     </div>
 
-                    {/* Artwork Preview Grid */}
+                    {/* Artwork Preview Grid with Reordering */}
                     {oneOfOneArtworks.length > 0 && (
                       <div className="space-y-3">
-                        <Label>Uploaded Artworks</Label>
+                        <div className="flex items-center justify-between">
+                          <Label>Uploaded Artworks</Label>
+                          <p className="text-xs text-muted-foreground">Drag to reorder token IDs</p>
+                        </div>
                         <div className="grid grid-cols-4 gap-3 max-h-[300px] overflow-y-auto p-1">
                           {oneOfOneArtworks.map((artwork, index) => (
                             <div 
                               key={artwork.id} 
-                              className="relative group aspect-square rounded-lg overflow-hidden border border-border"
+                              draggable
+                              onDragStart={(e) => {
+                                setReorderDragIndex(index);
+                                e.dataTransfer.effectAllowed = "move";
+                              }}
+                              onDragEnd={() => {
+                                setReorderDragIndex(null);
+                                setReorderDropIndex(null);
+                              }}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                if (reorderDragIndex !== null && reorderDragIndex !== index) {
+                                  setReorderDropIndex(index);
+                                }
+                              }}
+                              onDragLeave={() => {
+                                setReorderDropIndex(null);
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                if (reorderDragIndex !== null && reorderDragIndex !== index) {
+                                  const newArtworks = [...oneOfOneArtworks];
+                                  const [draggedItem] = newArtworks.splice(reorderDragIndex, 1);
+                                  newArtworks.splice(index, 0, draggedItem);
+                                  setOneOfOneArtworks(newArtworks);
+                                }
+                                setReorderDragIndex(null);
+                                setReorderDropIndex(null);
+                              }}
+                              className={`relative group aspect-square rounded-lg overflow-hidden border transition-all cursor-grab active:cursor-grabbing ${
+                                reorderDragIndex === index 
+                                  ? "opacity-50 border-primary scale-95" 
+                                  : reorderDropIndex === index 
+                                    ? "border-primary ring-2 ring-primary/50" 
+                                    : "border-border"
+                              }`}
                             >
                               <img 
                                 src={artwork.preview} 
                                 alt={artwork.name}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-cover pointer-events-none"
                               />
-                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              {/* Drag handle overlay */}
+                              <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="bg-black/60 rounded p-1">
+                                  <GripVertical className="h-4 w-4 text-white" />
+                                </div>
+                              </div>
+                              {/* Delete button */}
+                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Button
                                   type="button"
                                   variant="destructive"
                                   size="icon"
-                                  className="h-8 w-8"
+                                  className="h-6 w-6"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     removeOneOfOneArtwork(artwork.id);
                                   }}
                                 >
-                                  <X className="h-4 w-4" />
+                                  <X className="h-3 w-3" />
                                 </Button>
                               </div>
+                              {/* Token ID badge */}
                               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                                <p className="text-white text-xs truncate">#{index + 1}</p>
+                                <p className="text-white text-xs font-medium truncate">#{index + 1}</p>
                               </div>
                             </div>
                           ))}
