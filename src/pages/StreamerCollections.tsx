@@ -9,7 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
-import { ArrowLeft, Layers, Filter, ArrowUpDown, Search } from "lucide-react";
+import { ArrowLeft, Layers, Filter, ArrowUpDown, Search, ChevronLeft, ChevronRight } from "lucide-react";
+
+const ITEMS_PER_PAGE = 12;
 
 interface CreatorCollection {
   id: string;
@@ -38,6 +40,7 @@ const StreamerCollections = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -116,6 +119,22 @@ const StreamerCollections = () => {
 
     return result;
   }, [collections, statusFilter, sortBy, searchQuery]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, sortBy, searchQuery]);
+
+  const totalPages = Math.ceil(filteredAndSortedCollections.length / ITEMS_PER_PAGE);
+  const paginatedCollections = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAndSortedCollections.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredAndSortedCollections, currentPage]);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   if (loading) {
     return (
@@ -223,15 +242,17 @@ const StreamerCollections = () => {
                 </div>
               </div>
               <p className="text-sm text-muted-foreground">
-                Showing {filteredAndSortedCollections.length} of {collections.length} collections
+                Showing {paginatedCollections.length} of {filteredAndSortedCollections.length} collections
+                {filteredAndSortedCollections.length !== collections.length && ` (${collections.length} total)`}
               </p>
             </motion.div>
           )}
 
           {/* Collections Grid */}
-          {filteredAndSortedCollections.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAndSortedCollections.map((collection, index) => {
+          {paginatedCollections.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {paginatedCollections.map((collection, index) => {
                 const mintProgress = collection.total_supply > 0 
                   ? (collection.minted / collection.total_supply) * 100 
                   : 0;
@@ -303,7 +324,71 @@ const StreamerCollections = () => {
                   </motion.div>
                 );
               })}
-            </div>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="flex items-center justify-center gap-2 pt-8"
+                >
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="h-9 w-9"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      // Show first, last, current, and adjacent pages
+                      const showPage = page === 1 || 
+                        page === totalPages || 
+                        Math.abs(page - currentPage) <= 1;
+                      const showEllipsis = page === 2 && currentPage > 3 || 
+                        page === totalPages - 1 && currentPage < totalPages - 2;
+                      
+                      if (!showPage && !showEllipsis) return null;
+                      
+                      if (showEllipsis && !showPage) {
+                        return (
+                          <span key={page} className="px-2 text-muted-foreground">
+                            ...
+                          </span>
+                        );
+                      }
+                      
+                      return (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="icon"
+                          onClick={() => goToPage(page)}
+                          className="h-9 w-9"
+                        >
+                          {page}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="h-9 w-9"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </motion.div>
+              )}
+            </>
           ) : collections.length > 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <div className="p-4 rounded-full bg-purple-500/10 w-fit mx-auto mb-4">
