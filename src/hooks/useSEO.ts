@@ -1,11 +1,18 @@
 import { useEffect } from "react";
 
+interface StructuredData {
+  "@context": string;
+  "@type": string;
+  [key: string]: unknown;
+}
+
 interface SEOProps {
   title: string;
   description: string;
+  structuredData?: StructuredData;
 }
 
-export const useSEO = ({ title, description }: SEOProps) => {
+export const useSEO = ({ title, description, structuredData }: SEOProps) => {
   useEffect(() => {
     // Set document title
     document.title = title;
@@ -19,10 +26,26 @@ export const useSEO = ({ title, description }: SEOProps) => {
     }
     metaDescription.setAttribute("content", description);
 
-    // Cleanup function to reset on unmount (optional, keeps last page's meta)
+    // Handle JSON-LD structured data
+    if (structuredData) {
+      const existingScript = document.querySelector('script[data-seo-jsonld]');
+      if (existingScript) {
+        existingScript.remove();
+      }
+      
+      const script = document.createElement("script");
+      script.setAttribute("type", "application/ld+json");
+      script.setAttribute("data-seo-jsonld", "true");
+      script.textContent = JSON.stringify(structuredData);
+      document.head.appendChild(script);
+    }
+
     return () => {
-      // Keep the meta tags as they are for SEO crawlers
+      const existingScript = document.querySelector('script[data-seo-jsonld]');
+      if (existingScript) {
+        existingScript.remove();
+      }
     };
-  }, [title, description]);
+  }, [title, description, structuredData]);
 };
 
