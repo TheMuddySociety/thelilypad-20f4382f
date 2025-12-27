@@ -54,7 +54,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { MerkleTree } from "merkletreejs";
-import keccak256 from "keccak256";
+import { keccak256, encodePacked, toHex } from "viem";
 
 interface AllowlistEntry {
   id: string;
@@ -78,15 +78,13 @@ interface MerkleProof {
 }
 
 // Generate leaf for Merkle tree (address only - standard approach)
-const generateLeaf = (address: string): Buffer => {
-  return keccak256(address.toLowerCase());
+const generateLeaf = (address: string): string => {
+  return keccak256(encodePacked(['address'], [address.toLowerCase() as `0x${string}`]));
 };
 
 // Generate leaf with max mint amount for more complex allowlists
-const generateLeafWithAmount = (address: string, maxMint: number): Buffer => {
-  // Pack address and amount similar to Solidity's abi.encodePacked
-  const packed = address.toLowerCase() + maxMint.toString(16).padStart(64, '0');
-  return keccak256(packed);
+const generateLeafWithAmount = (address: string, maxMint: number): string => {
+  return keccak256(encodePacked(['address', 'uint256'], [address.toLowerCase() as `0x${string}`, BigInt(maxMint)]))
 };
 
 interface AllowlistManagerProps {
@@ -216,7 +214,7 @@ export function AllowlistManager({
     setFoundProof({
       address: entry.walletAddress,
       proof,
-      leaf: '0x' + leaf.toString('hex'),
+      leaf: leaf,
     });
     
     toast.success("Proof generated successfully");
@@ -246,7 +244,7 @@ export function AllowlistManager({
       proofs.push({
         address: entry.walletAddress,
         maxMint: entry.maxMint,
-        leaf: '0x' + leaf.toString('hex'),
+        leaf: leaf,
         proof,
       });
     });
