@@ -1030,6 +1030,54 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
               </CardContent>
             </Card>
 
+            {/* Social Links Summary */}
+            {(socialTwitter || socialDiscord || socialWebsite || socialTelegram) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Globe className="w-5 h-5" />
+                    Social Links
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {socialTwitter && (
+                      <div className="flex items-center gap-2">
+                        <Twitter className="w-4 h-4 text-muted-foreground" />
+                        <a href={socialTwitter} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                          {socialTwitter.replace(/^https?:\/\/(www\.)?/, '')}
+                        </a>
+                      </div>
+                    )}
+                    {socialDiscord && (
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4 text-muted-foreground" />
+                        <a href={socialDiscord} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                          {socialDiscord.replace(/^https?:\/\/(www\.)?/, '')}
+                        </a>
+                      </div>
+                    )}
+                    {socialWebsite && (
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-muted-foreground" />
+                        <a href={socialWebsite} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                          {socialWebsite.replace(/^https?:\/\/(www\.)?/, '')}
+                        </a>
+                      </div>
+                    )}
+                    {socialTelegram && (
+                      <div className="flex items-center gap-2">
+                        <Send className="w-4 h-4 text-muted-foreground" />
+                        <a href={socialTelegram} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                          {socialTelegram.replace(/^https?:\/\/(www\.)?/, '')}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Art Generation Summary */}
             {layers.length > 0 && (
               <Card>
