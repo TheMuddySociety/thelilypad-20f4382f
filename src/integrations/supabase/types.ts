@@ -253,6 +253,10 @@ export type Database = {
           name: string
           phases: Json
           royalty_percent: number
+          social_discord: string | null
+          social_telegram: string | null
+          social_twitter: string | null
+          social_website: string | null
           status: string
           symbol: string
           total_supply: number
@@ -272,6 +276,10 @@ export type Database = {
           name: string
           phases?: Json
           royalty_percent?: number
+          social_discord?: string | null
+          social_telegram?: string | null
+          social_twitter?: string | null
+          social_website?: string | null
           status?: string
           symbol: string
           total_supply?: number
@@ -291,6 +299,10 @@ export type Database = {
           name?: string
           phases?: Json
           royalty_percent?: number
+          social_discord?: string | null
+          social_telegram?: string | null
+          social_twitter?: string | null
+          social_website?: string | null
           status?: string
           symbol?: string
           total_supply?: number
