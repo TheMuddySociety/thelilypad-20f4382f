@@ -81,6 +81,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [isDraggingBanner, setIsDraggingBanner] = useState(false);
   
   // Form state
   const [name, setName] = useState(collection.name);
@@ -117,10 +119,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const canEditSupply = collection.minted === 0;
   const isLive = collection.status === "live";
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processImageFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
       toast.error("Please upload an image file");
       return;
@@ -138,6 +137,63 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       setImagePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
+  };
+
+  const processBannerFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Banner must be less than 5MB");
+      return;
+    }
+
+    setBannerFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setBannerPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processImageFile(file);
+  };
+
+  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processBannerFile(file);
+  };
+
+  const handleImageDrag = (e: React.DragEvent, isDragging: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingImage(isDragging);
+  };
+
+  const handleImageDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingImage(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processImageFile(file);
+  };
+
+  const handleBannerDrag = (e: React.DragEvent, isDragging: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingBanner(isDragging);
+  };
+
+  const handleBannerDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingBanner(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processBannerFile(file);
   };
 
   const uploadImageToStorage = async (): Promise<string | null> => {
@@ -173,28 +229,6 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     } finally {
       setIsUploadingImage(false);
     }
-  };
-
-  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error("Please upload an image file");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Banner must be less than 5MB");
-      return;
-    }
-
-    setBannerFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setBannerPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
   };
 
   const uploadBannerToStorage = async (): Promise<string | null> => {
@@ -456,10 +490,22 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
           <div className="space-y-2">
             <Label>Collection Image</Label>
-            <div className="flex gap-4 items-start">
+            <div 
+              className={`flex gap-4 items-start p-3 rounded-lg border-2 border-dashed transition-colors ${
+                isDraggingImage 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-transparent'
+              }`}
+              onDragEnter={(e) => handleImageDrag(e, true)}
+              onDragOver={(e) => handleImageDrag(e, true)}
+              onDragLeave={(e) => handleImageDrag(e, false)}
+              onDrop={handleImageDrop}
+            >
               {/* Image Preview */}
               <div 
-                className="w-24 h-24 rounded-lg border-2 border-dashed border-border overflow-hidden cursor-pointer hover:border-primary/50 transition-colors flex items-center justify-center bg-muted"
+                className={`w-24 h-24 rounded-lg border-2 border-dashed overflow-hidden cursor-pointer transition-colors flex items-center justify-center bg-muted ${
+                  isDraggingImage ? 'border-primary' : 'border-border hover:border-primary/50'
+                }`}
                 onClick={() => document.getElementById("edit-image-upload")?.click()}
               >
                 {imagePreview ? (
@@ -491,7 +537,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Or enter an image URL below
+                  Drag & drop or enter an image URL below
                 </p>
                 <Input
                   id="imageUrl"
@@ -523,7 +569,17 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
             <p className="text-xs text-muted-foreground mb-2">
               Recommended size: 1500x500px. This will be displayed on your collection page.
             </p>
-            <div className="space-y-3">
+            <div 
+              className={`space-y-3 p-3 rounded-lg border-2 border-dashed transition-colors ${
+                isDraggingBanner 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-transparent'
+              }`}
+              onDragEnter={(e) => handleBannerDrag(e, true)}
+              onDragOver={(e) => handleBannerDrag(e, true)}
+              onDragLeave={(e) => handleBannerDrag(e, false)}
+              onDrop={handleBannerDrop}
+            >
               {bannerPreview ? (
                 <div className="relative w-full aspect-[3/1] rounded-lg overflow-hidden border border-border">
                   <img 
@@ -552,11 +608,13 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                 </div>
               ) : (
                 <div
-                  className="w-full aspect-[3/1] rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors cursor-pointer flex flex-col items-center justify-center bg-muted gap-2"
+                  className={`w-full aspect-[3/1] rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center bg-muted gap-2 ${
+                    isDraggingBanner ? 'border-primary' : 'border-border hover:border-primary/50'
+                  }`}
                   onClick={() => document.getElementById("edit-banner-upload")?.click()}
                 >
                   <Upload className="w-8 h-8 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Click to upload banner</span>
+                  <span className="text-sm text-muted-foreground">Drag & drop or click to upload banner</span>
                   <span className="text-xs text-muted-foreground">PNG, JPG up to 5MB</span>
                 </div>
               )}
