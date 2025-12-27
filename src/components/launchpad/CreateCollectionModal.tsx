@@ -34,7 +34,8 @@ import {
   Globe,
   Twitter,
   MessageCircle,
-  Send
+  Send,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 import { LayerManager, Layer } from "./LayerManager";
@@ -106,6 +107,7 @@ interface DraftData {
   currentStep: number;
   savedAt: number;
   imageUrl?: string; // Storage URL for collection cover image
+  bannerUrl?: string; // Storage URL for collection banner image
   socialTwitter?: string;
   socialDiscord?: string;
   socialWebsite?: string;
@@ -129,6 +131,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   const [totalSupply, setTotalSupply] = useState("5000");
   const [royaltyPercent, setRoyaltyPercent] = useState("5");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   
   // Social links
   const [socialTwitter, setSocialTwitter] = useState("");
@@ -378,6 +381,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -401,6 +405,32 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     const reader = new FileReader();
     reader.onloadend = () => {
       setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Banner must be less than 5MB");
+      return;
+    }
+
+    setBannerFile(file);
+    
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setBannerPreview(reader.result as string);
     };
     reader.readAsDataURL(file);
   };
@@ -438,6 +468,39 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       return null;
     } finally {
       setIsUploadingImage(false);
+    }
+  };
+
+  const uploadBannerToStorage = async (userId: string): Promise<string | null> => {
+    if (!bannerFile) return bannerPreview; // Return existing URL if no new file
+    
+    try {
+      const fileExt = bannerFile.name.split('.').pop();
+      const fileName = `${userId}/banner-${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('collection-images')
+        .upload(fileName, bannerFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error("Banner upload error:", error);
+        toast.error("Failed to upload banner");
+        return null;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('collection-images')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (err) {
+      console.error("Banner upload error:", err);
+      toast.error("Failed to upload banner");
+      return null;
     }
   };
 
@@ -493,6 +556,15 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         }
       }
 
+      // Upload banner to storage if there's a new file
+      let finalBannerUrl = bannerPreview;
+      if (bannerFile) {
+        const uploadedBannerUrl = await uploadBannerToStorage(user.id);
+        if (uploadedBannerUrl) {
+          finalBannerUrl = uploadedBannerUrl;
+        }
+      }
+
       // Format phases for storage
       const enabledPhasesData = phases.filter(p => p.enabled).map(p => ({
         id: p.id,
@@ -519,6 +591,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
           symbol,
           description,
           image_url: finalImageUrl,
+          banner_url: finalBannerUrl || null,
           total_supply: parseInt(totalSupply) || 0,
           minted: 0,
           royalty_percent: parseFloat(royaltyPercent) || 5,
@@ -568,6 +641,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       setRoyaltyPercent("5");
       setImagePreview(null);
       setImageFile(null);
+      setBannerPreview(null);
+      setBannerFile(null);
       setLayers([]);
       setTraitRules([]);
       setPhases(defaultPhases);
@@ -674,6 +749,48 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         {/* Step 1: Collection Details */}
         {currentStep === 1 && (
           <div className="space-y-6">
+            {/* Banner Upload */}
+            <div className="space-y-2">
+              <Label>Collection Banner</Label>
+              <div 
+                className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors relative overflow-hidden"
+                onClick={() => document.getElementById("banner-upload")?.click()}
+              >
+                {bannerPreview ? (
+                  <div className="relative">
+                    <img src={bannerPreview} alt="Banner Preview" className="w-full h-32 object-cover rounded-lg" />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-6 w-6"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBannerPreview(null);
+                        setBannerFile(null);
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="py-4">
+                    <ImageIcon className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      Click to upload banner (1400×400 recommended)
+                    </p>
+                  </div>
+                )}
+                <input 
+                  id="banner-upload" 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleBannerUpload}
+                />
+              </div>
+            </div>
+
             {/* Image Upload */}
             <div className="space-y-2">
               <Label>Collection Image *</Label>
