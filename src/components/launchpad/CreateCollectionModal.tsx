@@ -40,8 +40,10 @@ import {
   Gem,
   Copy,
   Shuffle,
-  GripVertical
+  GripVertical,
+  Pencil
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { LayerManager, Layer } from "./LayerManager";
 import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
@@ -169,6 +171,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   // Reordering state
   const [reorderDragIndex, setReorderDragIndex] = useState<number | null>(null);
   const [reorderDropIndex, setReorderDropIndex] = useState<number | null>(null);
+  
+  // Bulk rename state
+  const [bulkRenamePattern, setBulkRenamePattern] = useState("");
+  const [bulkRenameOpen, setBulkRenameOpen] = useState(false);
   
   // Mint phases
   const [phases, setPhases] = useState<MintPhase[]>(defaultPhases);
@@ -1310,7 +1316,57 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <Label>Uploaded Artworks</Label>
-                          <p className="text-xs text-muted-foreground">Drag to reorder token IDs</p>
+                          <div className="flex items-center gap-2">
+                            <Popover open={bulkRenameOpen} onOpenChange={setBulkRenameOpen}>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
+                                  <Pencil className="h-3 w-3" />
+                                  Bulk Rename
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-72" align="end">
+                                <div className="space-y-3">
+                                  <div className="space-y-1">
+                                    <Label className="text-sm font-medium">Name Pattern</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                      Use # as placeholder for number
+                                    </p>
+                                  </div>
+                                  <Input
+                                    placeholder="MyNFT #"
+                                    value={bulkRenamePattern}
+                                    onChange={(e) => setBulkRenamePattern(e.target.value)}
+                                  />
+                                  <div className="text-xs text-muted-foreground">
+                                    Preview: {bulkRenamePattern ? `${bulkRenamePattern.replace('#', '1')}, ${bulkRenamePattern.replace('#', '2')}...` : 'Enter a pattern'}
+                                  </div>
+                                  <Button 
+                                    size="sm" 
+                                    className="w-full"
+                                    disabled={!bulkRenamePattern.trim()}
+                                    onClick={() => {
+                                      const pattern = bulkRenamePattern.trim();
+                                      if (!pattern) return;
+                                      
+                                      const hasPlaceholder = pattern.includes('#');
+                                      const renamed = oneOfOneArtworks.map((artwork, idx) => ({
+                                        ...artwork,
+                                        name: hasPlaceholder 
+                                          ? pattern.replace('#', String(idx + 1))
+                                          : `${pattern} ${idx + 1}`
+                                      }));
+                                      setOneOfOneArtworks(renamed);
+                                      setBulkRenameOpen(false);
+                                      toast.success(`Renamed ${renamed.length} artworks`);
+                                    }}
+                                  >
+                                    Apply to All
+                                  </Button>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                            <p className="text-xs text-muted-foreground">Drag to reorder</p>
+                          </div>
                         </div>
                         <div className="grid grid-cols-4 gap-3 max-h-[300px] overflow-y-auto p-1">
                           {oneOfOneArtworks.map((artwork, index) => (
@@ -1379,9 +1435,9 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                                   <X className="h-3 w-3" />
                                 </Button>
                               </div>
-                              {/* Token ID badge */}
+                              {/* Token ID and name badge */}
                               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                                <p className="text-white text-xs font-medium truncate">#{index + 1}</p>
+                                <p className="text-white text-xs font-medium truncate">#{index + 1} - {artwork.name}</p>
                               </div>
                             </div>
                           ))}
