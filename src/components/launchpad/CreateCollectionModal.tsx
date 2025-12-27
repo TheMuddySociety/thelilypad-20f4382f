@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -1007,47 +1008,182 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
           </div>
         )}
 
-        {/* Step 2: Art Generation */}
+        {/* Step 2: Art Generation / Artwork Upload */}
         {currentStep === 2 && (
           <div className="space-y-4">
-            <Tabs value={artTab} onValueChange={setArtTab}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="layers" className="gap-2">
-                  <Layers className="w-4 h-4" />
-                  Layers
-                </TabsTrigger>
-                <TabsTrigger value="rules" className="gap-2">
-                  <Shield className="w-4 h-4" />
-                  Rules
-                </TabsTrigger>
-                <TabsTrigger value="preview" className="gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  Preview
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="layers" className="mt-4">
-                <LayerManager layers={layers} onLayersChange={setLayers} />
-              </TabsContent>
-              
-              <TabsContent value="rules" className="mt-4">
-                <TraitRulesManager
-                  layers={layers}
-                  rules={traitRules}
-                  onRulesChange={setTraitRules}
-                />
-              </TabsContent>
-              
-              <TabsContent value="preview" className="mt-4">
-                <GenerationPreview
-                  layers={layers}
-                  rules={traitRules}
-                  totalSupply={totalSupply}
-                  collectionName={name || "My Collection"}
-                  collectionDescription={description}
-                />
-              </TabsContent>
-            </Tabs>
+            {/* Generative Collection - Layer Manager */}
+            {collectionType === "generative" && (
+              <Tabs value={artTab} onValueChange={setArtTab}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="layers" className="gap-2">
+                    <Layers className="w-4 h-4" />
+                    Layers
+                  </TabsTrigger>
+                  <TabsTrigger value="rules" className="gap-2">
+                    <Shield className="w-4 h-4" />
+                    Rules
+                  </TabsTrigger>
+                  <TabsTrigger value="preview" className="gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Preview
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="layers" className="mt-4">
+                  <LayerManager layers={layers} onLayersChange={setLayers} />
+                </TabsContent>
+                
+                <TabsContent value="rules" className="mt-4">
+                  <TraitRulesManager
+                    layers={layers}
+                    rules={traitRules}
+                    onRulesChange={setTraitRules}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="preview" className="mt-4">
+                  <GenerationPreview
+                    layers={layers}
+                    rules={traitRules}
+                    totalSupply={totalSupply}
+                    collectionName={name || "My Collection"}
+                    collectionDescription={description}
+                  />
+                </TabsContent>
+              </Tabs>
+            )}
+
+            {/* 1 of 1 Collection - Individual Artwork Upload */}
+            {collectionType === "one_of_one" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Gem className="w-5 h-5 text-amber-500" />
+                      1 of 1 Artworks
+                    </CardTitle>
+                    <CardDescription>
+                      Upload unique individual pieces. Each artwork will be a one-of-a-kind NFT.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                      onClick={() => document.getElementById("one-of-one-upload")?.click()}
+                    >
+                      <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                      <p className="font-medium mb-1">Upload Artworks</p>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Drag and drop or click to upload multiple unique artworks
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        PNG, JPG, GIF, WEBP up to 10MB each
+                      </p>
+                      <input 
+                        id="one-of-one-upload" 
+                        type="file" 
+                        accept="image/*" 
+                        multiple
+                        className="hidden" 
+                      />
+                    </div>
+                    
+                    <div className="bg-muted/50 rounded-lg p-4">
+                      <div className="flex items-center gap-3 text-sm">
+                        <Gem className="w-5 h-5 text-amber-500" />
+                        <div>
+                          <p className="font-medium">Each artwork is unique</p>
+                          <p className="text-muted-foreground text-xs">
+                            Total supply will match the number of artworks uploaded
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Editions Collection - Single Artwork with Quantity */}
+            {collectionType === "editions" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Copy className="w-5 h-5 text-emerald-500" />
+                      Edition Artwork
+                    </CardTitle>
+                    <CardDescription>
+                      Upload a single artwork that will be minted as multiple editions.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                      onClick={() => document.getElementById("edition-artwork-upload")?.click()}
+                    >
+                      <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                      <p className="font-medium mb-1">Upload Edition Artwork</p>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        This artwork will be minted as {totalSupply || "multiple"} editions
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        PNG, JPG, GIF, WEBP up to 10MB
+                      </p>
+                      <input 
+                        id="edition-artwork-upload" 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edition-supply">Edition Size</Label>
+                        <Input 
+                          id="edition-supply" 
+                          type="number" 
+                          placeholder="100"
+                          value={totalSupply}
+                          onChange={(e) => setTotalSupply(e.target.value)}
+                          min={1}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Number of copies to mint
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Edition Type</Label>
+                        <Select defaultValue="open">
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="open">Open Edition</SelectItem>
+                            <SelectItem value="limited">Limited Edition</SelectItem>
+                            <SelectItem value="timed">Timed Edition</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          How editions are distributed
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-muted/50 rounded-lg p-4">
+                      <div className="flex items-center gap-3 text-sm">
+                        <Copy className="w-5 h-5 text-emerald-500" />
+                        <div>
+                          <p className="font-medium">{totalSupply || "0"} identical editions</p>
+                          <p className="text-muted-foreground text-xs">
+                            Each collector receives the same artwork, numbered edition
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
         )}
 
