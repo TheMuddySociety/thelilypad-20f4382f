@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
 import { 
   ArrowLeft, 
   ExternalLink, 
@@ -28,7 +29,8 @@ import {
   AlertTriangle,
   Fuel,
   Loader2,
-  Rocket
+  Rocket,
+  Pencil
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
@@ -76,9 +78,25 @@ export default function CollectionDetail() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const isTestnet = network === "testnet";
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
+  const isCreator = currentUserId && collection?.creator_id === currentUserId;
+
+  // Get current user
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
   
   // Fetch collection from database
   useEffect(() => {
@@ -296,6 +314,34 @@ export default function CollectionDetail() {
     );
   }
 
+  // Edit mode
+  if (isEditMode && collection) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto px-4 pt-24 pb-12">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setIsEditMode(false)}
+            className="mb-4"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Collection
+          </Button>
+          <CollectionEditForm 
+            collection={collection}
+            onSave={() => {
+              setIsEditMode(false);
+              fetchCollection();
+            }}
+            onCancel={() => setIsEditMode(false)}
+          />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -313,16 +359,28 @@ export default function CollectionDetail() {
       </div>
 
       <main className="container mx-auto px-4 -mt-20 relative z-10 pb-12">
-        {/* Back button */}
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => navigate("/launchpad")}
-          className="mb-4"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Launchpad
-        </Button>
+        {/* Back button and Edit button */}
+        <div className="flex items-center justify-between mb-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate("/launchpad")}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Launchpad
+          </Button>
+          
+          {isCreator && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setIsEditMode(true)}
+            >
+              <Pencil className="w-4 h-4 mr-2" />
+              Edit Collection
+            </Button>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Collection Info */}
