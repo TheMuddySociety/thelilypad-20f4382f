@@ -18,7 +18,7 @@ import { motion } from "framer-motion";
 import { 
   User, ArrowLeft, Calendar, Clock, CheckCircle,
   Twitter, Youtube, MessageCircle, Instagram, Music2,
-  Users, Video, Eye, Sparkles, ExternalLink, Play, ImageIcon, Scissors, Film, Pencil, Trash2
+  Users, Video, Eye, Sparkles, ExternalLink, Play, ImageIcon, Scissors, Film, Pencil, Trash2, Layers
 } from "lucide-react";
 
 interface ScheduleItem {
@@ -48,6 +48,7 @@ interface StreamerStats {
   followerCount: number;
   totalStreams: number;
   totalViews: number;
+  collectionsCount: number;
   isLive: boolean;
   currentStreamTitle?: string;
 }
@@ -91,7 +92,7 @@ const StreamerProfile = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StreamerProfileData | null>(null);
-  const [stats, setStats] = useState<StreamerStats>({ followerCount: 0, totalStreams: 0, totalViews: 0, isLive: false });
+  const [stats, setStats] = useState<StreamerStats>({ followerCount: 0, totalStreams: 0, totalViews: 0, collectionsCount: 0, isLive: false });
   const [recentStreams, setRecentStreams] = useState<RecentStream[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
   const [showClipModal, setShowClipModal] = useState(false);
@@ -170,10 +171,17 @@ const StreamerProfile = () => {
       
       setClips(clipsData || []);
 
+      // Fetch collections count
+      const { count: collectionsCount } = await supabase
+        .from('collections')
+        .select('*', { count: 'exact', head: true })
+        .eq('creator_id', streamerId);
+
       setStats({
         followerCount: followerCount || 0,
         totalStreams,
         totalViews,
+        collectionsCount: collectionsCount || 0,
         isLive: !!liveStream,
         currentStreamTitle: liveStream?.title
       });
@@ -264,6 +272,7 @@ const StreamerProfile = () => {
     { icon: Users, label: 'Followers', value: stats.followerCount, color: 'text-primary' },
     { icon: Video, label: 'Streams', value: stats.totalStreams, color: 'text-blue-500' },
     { icon: Eye, label: 'Total Views', value: stats.totalViews, color: 'text-emerald-500' },
+    { icon: Layers, label: 'Collections', value: stats.collectionsCount, color: 'text-purple-500' },
   ];
 
   const formatNumber = (num: number) => {
@@ -480,7 +489,7 @@ const StreamerProfile = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="grid grid-cols-3 gap-4"
+            className="grid grid-cols-2 md:grid-cols-4 gap-4"
           >
             {statItems.map((stat, index) => {
               const Icon = stat.icon;
