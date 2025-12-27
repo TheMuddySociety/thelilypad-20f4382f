@@ -25,6 +25,7 @@ interface DraftCollection {
   layers?: any[];
   phases?: any[];
   imageUrl?: string;
+  oneOfOneArtworks?: any[];
 }
 
 interface Collection {
@@ -290,7 +291,7 @@ export default function Launchpad() {
                     </div>
 
                     {/* Draft details */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground block">Symbol</span>
                         <span className="font-medium">{draft.symbol || "—"}</span>
@@ -302,6 +303,10 @@ export default function Launchpad() {
                       <div>
                         <span className="text-muted-foreground block">Layers</span>
                         <span className="font-medium">{draft.layers?.length || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Artworks</span>
+                        <span className="font-medium">{draft.oneOfOneArtworks?.length || 0}</span>
                       </div>
                       <div>
                         <span className="text-muted-foreground block">Phases</span>
