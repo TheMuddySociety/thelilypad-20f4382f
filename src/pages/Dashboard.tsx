@@ -26,8 +26,12 @@ import {
   Palette,
   Rocket,
   FileEdit,
-  Trash2
+  Trash2,
+  Sticker,
+  Plus
 } from "lucide-react";
+import { ShopItemsList } from "@/components/shop/ShopItemsList";
+import { CreateShopItemModal } from "@/components/shop/CreateShopItemModal";
 import {
   LineChart,
   Line,
@@ -99,6 +103,8 @@ export default function Dashboard() {
   });
   const [draftCollections, setDraftCollections] = useState<DraftCollection[]>([]);
   const [isLoadingCollections, setIsLoadingCollections] = useState(true);
+  const [showCreateShopItem, setShowCreateShopItem] = useState(false);
+  const [shopItemRefreshTrigger, setShopItemRefreshTrigger] = useState(0);
 
   useSEO({
     title: "Creator Dashboard | The Lily Pad",
@@ -416,6 +422,33 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        {/* Shop Items Section */}
+        <Card className="glass-card border-border/50 mb-6 sm:mb-8">
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                  <Sticker className="w-5 h-5" />
+                  Your Shop Items
+                </CardTitle>
+                <CardDescription>Sticker and emoji packs you're selling</CardDescription>
+              </div>
+              <Button onClick={() => setShowCreateShopItem(true)} size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Pack
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 pt-0">
+            <ShopItemsList
+              userId={user.id}
+              onEdit={(id) => console.log("Edit item:", id)}
+              onCreateNew={() => setShowCreateShopItem(true)}
+              refreshTrigger={shopItemRefreshTrigger}
+            />
+          </CardContent>
+        </Card>
+
         {/* NFT Collection Drafts Section */}
         <Card className="glass-card border-border/50 mb-6 sm:mb-8">
           <CardHeader className="p-4 sm:p-6">
@@ -512,6 +545,14 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Create Shop Item Modal */}
+        <CreateShopItemModal
+          open={showCreateShopItem}
+          onOpenChange={setShowCreateShopItem}
+          userId={user.id}
+          onSuccess={() => setShopItemRefreshTrigger((t) => t + 1)}
+        />
 
         {/* Recent Activity */}
         <Tabs defaultValue="streams" className="w-full">

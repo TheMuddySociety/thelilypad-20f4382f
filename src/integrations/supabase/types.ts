@@ -536,6 +536,135 @@ export type Database = {
         }
         Relationships: []
       }
+      shop_item_contents: {
+        Row: {
+          created_at: string
+          display_order: number
+          file_url: string
+          id: string
+          item_id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          file_url: string
+          id?: string
+          item_id: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          file_url?: string
+          id?: string
+          item_id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_item_contents_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_items: {
+        Row: {
+          category: string
+          created_at: string
+          creator_id: string
+          creator_type: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          price_mon: number
+          required_collection_id: string | null
+          tier: string
+          total_sales: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          creator_id: string
+          creator_type?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          price_mon?: number
+          required_collection_id?: string | null
+          tier?: string
+          total_sales?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          creator_id?: string
+          creator_type?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          price_mon?: number
+          required_collection_id?: string | null
+          tier?: string
+          total_sales?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_items_required_collection_id_fkey"
+            columns: ["required_collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_purchases: {
+        Row: {
+          id: string
+          item_id: string
+          price_paid: number
+          purchased_at: string
+          tx_hash: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          price_paid: number
+          purchased_at?: string
+          tx_hash?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          item_id?: string
+          price_paid?: number
+          purchased_at?: string
+          tx_hash?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_purchases_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stream_analytics: {
         Row: {
           chat_messages: number
