@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSEO } from "@/hooks/useSEO";
 import { 
   Wallet, 
   ArrowUpRight, 
@@ -40,6 +41,11 @@ export default function WalletProfile() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  useSEO({
+    title: "Wallet Profile | The Lily Pad",
+    description: "View your wallet balance, transaction history, and NFT holdings. Manage your connected wallet on The Lily Pad."
+  });
 
   useEffect(() => {
     // Simulate loading

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useSEO } from "@/hooks/useSEO";
 import { 
   User, ArrowLeft, Save, Plus, Trash2,
   Twitter, Youtube, MessageCircle, Instagram, Music2, Calendar, Tag, X, Upload, ImageIcon
@@ -62,6 +63,11 @@ const EditStreamerProfile = () => {
   const [socialTiktok, setSocialTiktok] = useState("");
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+
+  useSEO({
+    title: "Edit Profile | The Lily Pad",
+    description: "Customize your streamer profile. Add bio, social links, streaming schedule, and profile images."
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {

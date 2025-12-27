@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ClipShareMenu } from "@/components/ClipShareMenu";
 import { ClipReactions } from "@/components/ClipReactions";
 import { CommentThread, CommentData } from "@/components/CommentThread";
+import { useSEO } from "@/hooks/useSEO";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -60,6 +61,11 @@ const ClipViewer = () => {
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useSEO({
+    title: clip?.title ? `${clip.title} | The Lily Pad` : "Watch Clip | The Lily Pad",
+    description: clip?.description || "Watch and share clips from The Lily Pad. React, comment, and discover more content from your favorite creators."
+  });
 
   useEffect(() => {
     const fetchData = async () => {

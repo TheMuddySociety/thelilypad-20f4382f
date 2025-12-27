@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSEO } from "@/hooks/useSEO";
 import { 
   Crown, Gem, Shield, Star, Heart, Gift, 
   TrendingUp, Calendar, User, ArrowLeft 
@@ -83,6 +84,11 @@ const DonorProfile = () => {
   const [totalDonated, setTotalDonated] = useState(0);
   const [currentTier, setCurrentTier] = useState<DonorTier>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+
+  useSEO({
+    title: "Donor Profile | The Lily Pad",
+    description: "View your donation history, supporter tier, and favorite streamers. Track your contributions to the Lily Pad community."
+  });
 
   useEffect(() => {
     const fetchDonorData = async () => {

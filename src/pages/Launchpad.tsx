@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import lilypadLogo from "@/assets/lilypad-logo.png";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { useSEO } from "@/hooks/useSEO";
 
 interface DraftCollection {
   name: string;
@@ -62,6 +63,11 @@ export default function Launchpad() {
   const [editingDraft, setEditingDraft] = useState(false);
 
   const isTestnet = network === "testnet";
+
+  useSEO({
+    title: "NFT Launchpad | The Lily Pad",
+    description: "Launch your NFT collection on Monad. Create generative art, set mint phases, manage allowlists, and deploy with no-code tools."
+  });
 
   const loadDraft = () => {
     const savedDraft = localStorage.getItem("collection-draft");

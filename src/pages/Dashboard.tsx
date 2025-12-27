@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useSEO } from "@/hooks/useSEO";
 import { 
   BarChart3, 
   Users, 
@@ -98,6 +99,11 @@ export default function Dashboard() {
   });
   const [draftCollections, setDraftCollections] = useState<DraftCollection[]>([]);
   const [isLoadingCollections, setIsLoadingCollections] = useState(true);
+
+  useSEO({
+    title: "Creator Dashboard | The Lily Pad",
+    description: "Track your stream performance, manage NFT collections, view earnings and analytics. Your complete creator dashboard on The Lily Pad."
+  });
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {

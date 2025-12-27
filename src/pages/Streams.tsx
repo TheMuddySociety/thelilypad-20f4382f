@@ -8,6 +8,7 @@ import { DonorLeaderboard } from "@/components/DonorLeaderboard";
 import { LiveStreamCard } from "@/components/LiveStreamCard";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useSEO } from "@/hooks/useSEO";
 import { 
   Play, 
   Users, 
@@ -121,6 +122,11 @@ const Streams: React.FC = () => {
   const [featuredStream] = useState(liveStreams[2]); // Dutch Auction as featured
   const [livepeerStreams, setLivepeerStreams] = useState<LivepeerStream[]>([]);
   const [isLoadingStreams, setIsLoadingStreams] = useState(true);
+
+  useSEO({
+    title: "Live Streams | The Lily Pad",
+    description: "Watch live NFT minting events, art creation, auctions, and community streams. Join the action and support your favorite creators on Monad."
+  });
 
   const fetchLivepeerStreams = async () => {
     setIsLoadingStreams(true);

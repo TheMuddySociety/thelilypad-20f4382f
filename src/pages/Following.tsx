@@ -15,6 +15,7 @@ import { Tables } from "@/integrations/supabase/types";
 import { FollowButton } from "@/components/FollowButton";
 import { StreamerSchedules } from "@/components/StreamerSchedules";
 import { NextStreamCountdown } from "@/components/NextStreamCountdown";
+import { useSEO } from "@/hooks/useSEO";
 
 type StreamerProfile = Tables<"streamer_profiles">;
 type StreamerWithStatus = StreamerProfile & { is_live: boolean; followed_at?: string };
@@ -59,6 +60,11 @@ const Following = () => {
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  useSEO({
+    title: "Following | The Lily Pad",
+    description: "Stay updated with your favorite streamers. See who's live, upcoming schedules, and never miss a stream from creators you follow."
+  });
 
   // Persist filter preferences to localStorage
   useEffect(() => {

@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { useSEO } from "@/hooks/useSEO";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,6 +97,11 @@ export default function Moderation() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  useSEO({
+    title: "Content Moderation | The Lily Pad",
+    description: "Review flagged content, manage reports, and maintain community safety. AI-powered moderation tools for creators."
+  });
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {

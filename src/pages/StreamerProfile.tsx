@@ -14,6 +14,7 @@ import { FollowButton } from "@/components/FollowButton";
 import { ClipCreationModal } from "@/components/ClipCreationModal";
 import { ClipShareMenu } from "@/components/ClipShareMenu";
 import { ClipAnalytics } from "@/components/ClipAnalytics";
+import { useSEO } from "@/hooks/useSEO";
 import { motion } from "framer-motion";
 import { 
   User, ArrowLeft, Calendar, Clock, CheckCircle,
@@ -116,6 +117,11 @@ const StreamerProfile = () => {
   const bannerRef = useRef<HTMLDivElement>(null);
   const isOwnProfile = currentUserId === streamerId;
   const { toast } = useToast();
+
+  useSEO({
+    title: profile?.display_name ? `${profile.display_name} | The Lily Pad` : "Streamer Profile | The Lily Pad",
+    description: profile?.bio || "View streamer profile, clips, NFT collections, and schedule. Follow and support your favorite creators on The Lily Pad."
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {

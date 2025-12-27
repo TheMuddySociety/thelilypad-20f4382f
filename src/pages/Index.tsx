@@ -8,8 +8,13 @@ import { HowItWorks } from "@/components/sections/HowItWorks";
 import { CreatorProtection } from "@/components/sections/CreatorProtection";
 import { CommunityBenefits } from "@/components/sections/CommunityBenefits";
 import { Footer } from "@/components/sections/Footer";
+import { useSEO } from "@/hooks/useSEO";
 
 const Index: React.FC = () => {
+  useSEO({
+    title: "The Lily Pad | NFT Launchpad & Live Streaming Platform on Monad",
+    description: "Launch NFT collections and stream live on Monad blockchain. Create, mint, and trade digital collectibles with built-in creator tools and community features."
+  });
   return (
     <main className="min-h-screen bg-background overflow-hidden">
       <Navbar />
