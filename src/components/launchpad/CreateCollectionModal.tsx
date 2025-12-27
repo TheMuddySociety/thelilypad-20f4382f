@@ -35,7 +35,10 @@ import {
   Twitter,
   MessageCircle,
   Send,
-  X
+  X,
+  Gem,
+  Copy,
+  Shuffle
 } from "lucide-react";
 import { toast } from "sonner";
 import { LayerManager, Layer } from "./LayerManager";
@@ -95,6 +98,8 @@ const steps = [
 const STORAGE_KEY = "launchpad_draft";
 const DRAFT_BUCKET = "collection-drafts";
 
+type CollectionType = "generative" | "one_of_one" | "editions";
+
 interface DraftData {
   name: string;
   symbol: string;
@@ -112,6 +117,7 @@ interface DraftData {
   socialDiscord?: string;
   socialWebsite?: string;
   socialTelegram?: string;
+  collectionType?: CollectionType;
 }
 
 export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated }: CreateCollectionModalProps) {
@@ -138,6 +144,9 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   const [socialDiscord, setSocialDiscord] = useState("");
   const [socialWebsite, setSocialWebsite] = useState("");
   const [socialTelegram, setSocialTelegram] = useState("");
+  
+  // Collection type
+  const [collectionType, setCollectionType] = useState<CollectionType>("generative");
   
   // Art generation
   const [layers, setLayers] = useState<Layer[]>([]);
@@ -251,6 +260,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         socialDiscord,
         socialWebsite,
         socialTelegram,
+        collectionType,
       };
       
       localStorage.setItem(STORAGE_KEY, JSON.stringify(draftData));
@@ -365,6 +375,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         setSocialDiscord(draft.socialDiscord || "");
         setSocialWebsite(draft.socialWebsite || "");
         setSocialTelegram(draft.socialTelegram || "");
+        // Restore collection type
+        setCollectionType(draft.collectionType || "generative");
         setHasDraft(false);
         toast.success("Draft restored successfully!");
       }
@@ -749,6 +761,63 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         {/* Step 1: Collection Details */}
         {currentStep === 1 && (
           <div className="space-y-6">
+            {/* Collection Type Selector */}
+            <div className="space-y-3">
+              <Label>Collection Type *</Label>
+              <div className="grid grid-cols-3 gap-3">
+                <Card 
+                  className={`cursor-pointer transition-all hover:border-primary/50 ${
+                    collectionType === "generative" 
+                      ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                      : "border-border"
+                  }`}
+                  onClick={() => setCollectionType("generative")}
+                >
+                  <CardContent className="p-4 text-center">
+                    <Shuffle className="w-8 h-8 mx-auto mb-2 text-primary" />
+                    <h4 className="font-semibold text-sm">Generative</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Layer-based art with traits
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card 
+                  className={`cursor-pointer transition-all hover:border-primary/50 ${
+                    collectionType === "one_of_one" 
+                      ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                      : "border-border"
+                  }`}
+                  onClick={() => setCollectionType("one_of_one")}
+                >
+                  <CardContent className="p-4 text-center">
+                    <Gem className="w-8 h-8 mx-auto mb-2 text-amber-500" />
+                    <h4 className="font-semibold text-sm">1 of 1s</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Unique individual pieces
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card 
+                  className={`cursor-pointer transition-all hover:border-primary/50 ${
+                    collectionType === "editions" 
+                      ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                      : "border-border"
+                  }`}
+                  onClick={() => setCollectionType("editions")}
+                >
+                  <CardContent className="p-4 text-center">
+                    <Copy className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
+                    <h4 className="font-semibold text-sm">Editions</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Multiple copies of artwork
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
             {/* Banner Upload */}
             <div className="space-y-2">
               <Label>Collection Banner</Label>
