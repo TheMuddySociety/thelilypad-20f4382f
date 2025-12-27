@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Send, MessageCircle, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { StickerEmojiPicker } from '@/components/chat/StickerEmojiPicker';
 
 interface ChatMessage {
   id: string;
@@ -15,7 +16,17 @@ interface ChatMessage {
   user_id: string;
   username: string;
   message: string;
+  message_type: 'text' | 'sticker' | 'emoji';
+  sticker_url?: string | null;
+  sticker_name?: string | null;
+  sticker_item_id?: string | null;
   created_at: string;
+}
+
+interface SelectedSticker {
+  url: string;
+  name: string;
+  itemId: string;
 }
 
 interface LiveChatProps {
@@ -61,7 +72,7 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
       if (error) {
         console.error('Error fetching messages:', error);
       } else {
-        setMessages(data || []);
+        setMessages((data as ChatMessage[]) || []);
       }
       setIsLoading(false);
     };
@@ -164,7 +175,8 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
         playback_id: playbackId,
         user_id: user.id,
         username: user.email?.split('@')[0] || 'Anonymous',
-        message: newMessage.trim()
+        message: newMessage.trim(),
+        message_type: 'text'
       });
 
     if (error) {
@@ -177,6 +189,35 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
     setIsSending(false);
   };
 
+  const handleSendSticker = async (sticker: SelectedSticker) => {
+    if (!user) {
+      toast.error('Please sign in to chat');
+      return;
+    }
+
+    setIsSending(true);
+
+    const { error } = await supabase
+      .from('stream_chat_messages')
+      .insert({
+        playback_id: playbackId,
+        user_id: user.id,
+        username: user.email?.split('@')[0] || 'Anonymous',
+        message: '',
+        message_type: 'sticker',
+        sticker_url: sticker.url,
+        sticker_name: sticker.name,
+        sticker_item_id: sticker.itemId
+      });
+
+    if (error) {
+      console.error('Error sending sticker:', error);
+      toast.error('Failed to send sticker');
+    }
+
+    setIsSending(false);
+  };
+
   const getAvatarColor = (username: string) => {
     const colors = [
       'bg-red-500', 'bg-blue-500', 'bg-green-500', 
@@ -185,6 +226,25 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
     ];
     const index = username.charCodeAt(0) % colors.length;
     return colors[index];
+  };
+
+  const renderMessageContent = (msg: ChatMessage) => {
+    if (msg.message_type === 'sticker' || msg.message_type === 'emoji') {
+      return (
+        <img 
+          src={msg.sticker_url || ''} 
+          alt={msg.sticker_name || 'Sticker'} 
+          className="max-w-24 max-h-24 rounded object-contain"
+          title={msg.sticker_name || undefined}
+        />
+      );
+    }
+    
+    return (
+      <p className="text-sm text-foreground/90 break-words">
+        {msg.message}
+      </p>
+    );
   };
 
   return (
@@ -231,9 +291,7 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
                           {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
                         </span>
                       </div>
-                      <p className="text-sm text-foreground/90 break-words">
-                        {msg.message}
-                      </p>
+                      {renderMessageContent(msg)}
                     </div>
                   </div>
                 ))
@@ -249,6 +307,10 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
             </p>
           ) : (
             <div className="flex gap-2">
+              <StickerEmojiPicker
+                userId={user.id}
+                onSelect={handleSendSticker}
+              />
               <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
