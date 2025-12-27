@@ -16,7 +16,11 @@ import {
   Loader2,
   AlertTriangle,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Twitter,
+  MessageCircle,
+  Globe,
+  Send
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +54,10 @@ interface Collection {
   phases: unknown;
   contract_address: string | null;
   created_at: string;
+  social_twitter: string | null;
+  social_discord: string | null;
+  social_website: string | null;
+  social_telegram: string | null;
 }
 
 interface CollectionEditFormProps {
@@ -83,6 +91,12 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [totalSupply, setTotalSupply] = useState(collection.total_supply);
   const [royaltyPercent, setRoyaltyPercent] = useState(collection.royalty_percent);
   const [status, setStatus] = useState(collection.status);
+  
+  // Social links
+  const [socialTwitter, setSocialTwitter] = useState(collection.social_twitter || "");
+  const [socialDiscord, setSocialDiscord] = useState(collection.social_discord || "");
+  const [socialWebsite, setSocialWebsite] = useState(collection.social_website || "");
+  const [socialTelegram, setSocialTelegram] = useState(collection.social_telegram || "");
   
   // Parse phases from collection
   const initialPhases = (() => {
@@ -265,6 +279,10 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           royalty_percent: royaltyPercent,
           status,
           phases: phasesJson as unknown as undefined,
+          social_twitter: socialTwitter.trim() || null,
+          social_discord: socialDiscord.trim() || null,
+          social_website: socialWebsite.trim() || null,
+          social_telegram: socialTelegram.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", collection.id);
@@ -429,6 +447,66 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
               </div>
             </div>
             {errors.image_url && <p className="text-xs text-destructive">{errors.image_url}</p>}
+          </div>
+
+          {/* Social Links */}
+          <Separator className="my-4" />
+          <div className="space-y-4">
+            <h4 className="font-medium text-sm">Social Links</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="socialTwitter" className="flex items-center gap-2">
+                  <Twitter className="w-4 h-4" />
+                  Twitter / X
+                </Label>
+                <Input
+                  id="socialTwitter"
+                  value={socialTwitter}
+                  onChange={(e) => setSocialTwitter(e.target.value)}
+                  placeholder="https://twitter.com/..."
+                  type="url"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="socialDiscord" className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4" />
+                  Discord
+                </Label>
+                <Input
+                  id="socialDiscord"
+                  value={socialDiscord}
+                  onChange={(e) => setSocialDiscord(e.target.value)}
+                  placeholder="https://discord.gg/..."
+                  type="url"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="socialWebsite" className="flex items-center gap-2">
+                  <Globe className="w-4 h-4" />
+                  Website
+                </Label>
+                <Input
+                  id="socialWebsite"
+                  value={socialWebsite}
+                  onChange={(e) => setSocialWebsite(e.target.value)}
+                  placeholder="https://..."
+                  type="url"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="socialTelegram" className="flex items-center gap-2">
+                  <Send className="w-4 h-4" />
+                  Telegram
+                </Label>
+                <Input
+                  id="socialTelegram"
+                  value={socialTelegram}
+                  onChange={(e) => setSocialTelegram(e.target.value)}
+                  placeholder="https://t.me/..."
+                  type="url"
+                />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

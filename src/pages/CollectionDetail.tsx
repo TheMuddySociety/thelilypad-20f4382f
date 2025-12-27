@@ -31,7 +31,10 @@ import {
   Fuel,
   Loader2,
   Rocket,
-  Pencil
+  Pencil,
+  Twitter,
+  MessageCircle,
+  Send
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
@@ -52,6 +55,10 @@ interface Collection {
   phases: unknown;
   contract_address: string | null;
   created_at: string;
+  social_twitter: string | null;
+  social_discord: string | null;
+  social_website: string | null;
+  social_telegram: string | null;
 }
 
 interface Phase {
@@ -465,6 +472,60 @@ export default function CollectionDetail() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">{collection.description || "No description provided."}</p>
+                
+                {/* Social Links */}
+                {(collection.social_twitter || collection.social_discord || collection.social_website || collection.social_telegram) && (
+                  <>
+                    <Separator className="my-4" />
+                    <div className="flex flex-wrap gap-2">
+                      {collection.social_twitter && (
+                        <a 
+                          href={collection.social_twitter} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm transition-colors"
+                        >
+                          <Twitter className="w-4 h-4" />
+                          Twitter
+                        </a>
+                      )}
+                      {collection.social_discord && (
+                        <a 
+                          href={collection.social_discord} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm transition-colors"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          Discord
+                        </a>
+                      )}
+                      {collection.social_website && (
+                        <a 
+                          href={collection.social_website} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm transition-colors"
+                        >
+                          <Globe className="w-4 h-4" />
+                          Website
+                        </a>
+                      )}
+                      {collection.social_telegram && (
+                        <a 
+                          href={collection.social_telegram} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm transition-colors"
+                        >
+                          <Send className="w-4 h-4" />
+                          Telegram
+                        </a>
+                      )}
+                    </div>
+                  </>
+                )}
+                
                 <Separator className="my-4" />
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                   <div>
