@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
-import { ArrowLeft, Layers, Filter, ArrowUpDown } from "lucide-react";
+import { ArrowLeft, Layers, Filter, ArrowUpDown, Search } from "lucide-react";
 
 interface CreatorCollection {
   id: string;
@@ -36,6 +37,7 @@ const StreamerCollections = () => {
   const [streamerName, setStreamerName] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,6 +74,15 @@ const StreamerCollections = () => {
   const filteredAndSortedCollections = useMemo(() => {
     let result = [...collections];
 
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(c => 
+        c.name.toLowerCase().includes(query) || 
+        c.description?.toLowerCase().includes(query)
+      );
+    }
+
     // Apply status filter
     if (statusFilter !== 'all') {
       result = result.filter(c => c.status === statusFilter);
@@ -104,7 +115,7 @@ const StreamerCollections = () => {
     });
 
     return result;
-  }, [collections, statusFilter, sortBy]);
+  }, [collections, statusFilter, sortBy, searchQuery]);
 
   if (loading) {
     return (
@@ -171,6 +182,15 @@ const StreamerCollections = () => {
               className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between"
             >
               <div className="flex flex-wrap gap-3 items-center">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search collections..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 w-[200px] h-9"
+                  />
+                </div>
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4 text-muted-foreground" />
                   <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
@@ -291,7 +311,7 @@ const StreamerCollections = () => {
               </div>
               <p className="font-medium text-lg mb-1">No matching collections</p>
               <p className="text-sm mb-4">Try adjusting your filters to see more results.</p>
-              <Button variant="outline" onClick={() => { setStatusFilter('all'); setSortBy('newest'); }}>
+              <Button variant="outline" onClick={() => { setStatusFilter('all'); setSortBy('newest'); setSearchQuery(''); }}>
                 Clear Filters
               </Button>
             </div>
