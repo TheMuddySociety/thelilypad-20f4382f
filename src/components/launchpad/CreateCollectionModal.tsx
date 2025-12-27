@@ -283,14 +283,68 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     setHasDraft(false);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be less than 5MB");
+      return;
+    }
+
+    setImageFile(file);
+    
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadImageToStorage = async (userId: string): Promise<string | null> => {
+    if (!imageFile) return imagePreview; // Return existing URL if no new file
+    
+    setIsUploadingImage(true);
+    try {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${userId}/${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('collection-images')
+        .upload(fileName, imageFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error("Upload error:", error);
+        toast.error("Failed to upload image");
+        return null;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('collection-images')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (err) {
+      console.error("Upload error:", err);
+      toast.error("Failed to upload image");
+      return null;
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -337,6 +391,15 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         return;
       }
 
+      // Upload image to storage if there's a new file
+      let finalImageUrl = imagePreview;
+      if (imageFile) {
+        const uploadedUrl = await uploadImageToStorage(user.id);
+        if (uploadedUrl) {
+          finalImageUrl = uploadedUrl;
+        }
+      }
+
       // Format phases for storage
       const enabledPhasesData = phases.filter(p => p.enabled).map(p => ({
         id: p.id,
@@ -362,7 +425,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
           name,
           symbol,
           description,
-          image_url: imagePreview,
+          image_url: finalImageUrl,
           total_supply: parseInt(totalSupply) || 0,
           minted: 0,
           royalty_percent: parseFloat(royaltyPercent) || 5,
@@ -407,6 +470,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       setTotalSupply("5000");
       setRoyaltyPercent("5");
       setImagePreview(null);
+      setImageFile(null);
       setLayers([]);
       setTraitRules([]);
       setPhases(defaultPhases);
