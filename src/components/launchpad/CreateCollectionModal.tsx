@@ -43,7 +43,8 @@ import {
   GripVertical,
   Pencil,
   Settings2,
-  Tags
+  Tags,
+  Download
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -1382,6 +1383,35 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                                 </div>
                               </PopoverContent>
                             </Popover>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-7 text-xs gap-1.5"
+                              onClick={() => {
+                                const metadata = oneOfOneArtworks.map((artwork, index) => ({
+                                  tokenId: index + 1,
+                                  name: artwork.name,
+                                  description: artwork.metadata?.description || "",
+                                  attributes: artwork.metadata?.traits || [],
+                                  image: artwork.file.name,
+                                }));
+                                
+                                const blob = new Blob([JSON.stringify(metadata, null, 2)], { type: "application/json" });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = url;
+                                a.download = `${name || "collection"}-metadata.json`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                                
+                                toast.success(`Exported metadata for ${oneOfOneArtworks.length} artworks`);
+                              }}
+                            >
+                              <Download className="h-3 w-3" />
+                              Export
+                            </Button>
                             <p className="text-xs text-muted-foreground">Drag to reorder</p>
                           </div>
                         </div>
