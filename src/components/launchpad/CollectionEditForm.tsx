@@ -14,7 +14,9 @@ import {
   Plus, 
   Trash2, 
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Upload,
+  Image as ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +70,7 @@ const collectionSchema = z.object({
 
 export function CollectionEditForm({ collection, onSave, onCancel }: CollectionEditFormProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   // Form state
@@ -75,6 +78,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [symbol, setSymbol] = useState(collection.symbol);
   const [description, setDescription] = useState(collection.description || "");
   const [imageUrl, setImageUrl] = useState(collection.image_url || "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(collection.image_url);
   const [totalSupply, setTotalSupply] = useState(collection.total_supply);
   const [royaltyPercent, setRoyaltyPercent] = useState(collection.royalty_percent);
   const [status, setStatus] = useState(collection.status);
@@ -93,6 +98,64 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
   const canEditSupply = collection.minted === 0;
   const isLive = collection.status === "live";
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be less than 5MB");
+      return;
+    }
+
+    setImageFile(file);
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadImageToStorage = async (): Promise<string | null> => {
+    if (!imageFile) return imageUrl || null;
+    
+    setIsUploadingImage(true);
+    try {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${collection.creator_id}/${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('collection-images')
+        .upload(fileName, imageFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error("Upload error:", error);
+        toast.error("Failed to upload image");
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('collection-images')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (err) {
+      console.error("Upload error:", err);
+      toast.error("Failed to upload image");
+      return null;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const validateForm = () => {
     try {
@@ -168,6 +231,15 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
     setIsSaving(true);
     try {
+      // Upload image if there's a new file
+      let finalImageUrl = imageUrl;
+      if (imageFile) {
+        const uploadedUrl = await uploadImageToStorage();
+        if (uploadedUrl) {
+          finalImageUrl = uploadedUrl;
+        }
+      }
+
       // Convert phases to JSON-compatible format
       const phasesJson = phases.map(p => ({
         id: p.id,
@@ -188,7 +260,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           name: name.trim(),
           symbol: symbol.trim().toUpperCase(),
           description: description.trim() || null,
-          image_url: imageUrl.trim() || null,
+          image_url: finalImageUrl.trim() || null,
           total_supply: totalSupply,
           royalty_percent: royaltyPercent,
           status,
@@ -297,20 +369,66 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="imageUrl">Image URL</Label>
-            <Input
-              id="imageUrl"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://example.com/image.png"
-              type="url"
-            />
-            {errors.image_url && <p className="text-xs text-destructive">{errors.image_url}</p>}
-            {imageUrl && (
-              <div className="mt-2 w-24 h-24 rounded-lg border overflow-hidden">
-                <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+            <Label>Collection Image</Label>
+            <div className="flex gap-4 items-start">
+              {/* Image Preview */}
+              <div 
+                className="w-24 h-24 rounded-lg border-2 border-dashed border-border overflow-hidden cursor-pointer hover:border-primary/50 transition-colors flex items-center justify-center bg-muted"
+                onClick={() => document.getElementById("edit-image-upload")?.click()}
+              >
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                )}
               </div>
-            )}
+              <div className="flex-1 space-y-2">
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => document.getElementById("edit-image-upload")?.click()}
+                    disabled={isUploadingImage}
+                  >
+                    {isUploadingImage ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4 mr-2" />
+                    )}
+                    Upload Image
+                  </Button>
+                  {imageFile && (
+                    <Badge variant="secondary" className="text-xs">
+                      New image selected
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Or enter an image URL below
+                </p>
+                <Input
+                  id="imageUrl"
+                  value={imageUrl}
+                  onChange={(e) => {
+                    setImageUrl(e.target.value);
+                    setImagePreview(e.target.value || null);
+                    setImageFile(null);
+                  }}
+                  placeholder="https://example.com/image.png"
+                  type="url"
+                  className="text-sm"
+                />
+                <input 
+                  id="edit-image-upload" 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleImageUpload}
+                />
+              </div>
+            </div>
+            {errors.image_url && <p className="text-xs text-destructive">{errors.image_url}</p>}
           </div>
         </CardContent>
       </Card>
