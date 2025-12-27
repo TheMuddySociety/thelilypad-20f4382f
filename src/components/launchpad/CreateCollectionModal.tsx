@@ -110,6 +110,14 @@ const DRAFT_BUCKET = "collection-drafts";
 
 type CollectionType = "generative" | "one_of_one" | "editions";
 
+interface SavedArtwork {
+  id: string;
+  name: string;
+  description?: string;
+  attributes?: Array<{ trait_type: string; value: string }>;
+  imageUrl: string; // Storage URL
+}
+
 interface DraftData {
   name: string;
   symbol: string;
@@ -128,6 +136,8 @@ interface DraftData {
   socialWebsite?: string;
   socialTelegram?: string;
   collectionType?: CollectionType;
+  oneOfOneArtworks?: SavedArtwork[];
+  editionArtwork?: { imageUrl: string; editionType: "open" | "limited" | "timed" };
 }
 
 export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated }: CreateCollectionModalProps) {
@@ -198,10 +208,15 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   // Upload draft images to storage
   const uploadDraftImages = async (userId: string): Promise<{
     coverImageUrl?: string;
+    bannerImageUrl?: string;
     layersWithUrls: Layer[];
+    savedOneOfOneArtworks: SavedArtwork[];
+    savedEditionArtwork?: { imageUrl: string; editionType: "open" | "limited" | "timed" };
   }> => {
     let coverImageUrl = imagePreview;
+    let bannerImageUrl = bannerPreview;
     const layersWithUrls = [...layers];
+    const savedOneOfOneArtworks: SavedArtwork[] = [];
 
     // Upload collection cover image if it's a data URL
     if (imagePreview && imagePreview.startsWith('data:')) {
@@ -223,6 +238,29 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         }
       } catch (e) {
         console.error("Failed to upload cover image:", e);
+      }
+    }
+
+    // Upload banner image if it's a data URL
+    if (bannerPreview && bannerPreview.startsWith('data:')) {
+      try {
+        const response = await fetch(bannerPreview);
+        const blob = await response.blob();
+        const fileExt = blob.type.split('/')[1] || 'png';
+        const fileName = `${userId}/banner-${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(DRAFT_BUCKET)
+          .upload(fileName, blob, { cacheControl: '3600', upsert: true });
+
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from(DRAFT_BUCKET)
+            .getPublicUrl(fileName);
+          bannerImageUrl = publicUrl;
+        }
+      } catch (e) {
+        console.error("Failed to upload banner image:", e);
       }
     }
 
@@ -255,12 +293,82 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       }
     }
 
-    return { coverImageUrl, layersWithUrls };
+    // Upload 1-of-1 artworks
+    for (const artwork of oneOfOneArtworks) {
+      let artworkImageUrl = artwork.preview;
+      
+      // Upload if it's a data URL
+      if (artwork.preview && artwork.preview.startsWith('data:')) {
+        try {
+          const response = await fetch(artwork.preview);
+          const blob = await response.blob();
+          const fileExt = blob.type.split('/')[1] || 'png';
+          const fileName = `${userId}/artworks/${artwork.id}-${Date.now()}.${fileExt}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(DRAFT_BUCKET)
+            .upload(fileName, blob, { cacheControl: '3600', upsert: true });
+
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from(DRAFT_BUCKET)
+              .getPublicUrl(fileName);
+            artworkImageUrl = publicUrl;
+          }
+        } catch (e) {
+          console.error("Failed to upload artwork image:", e);
+        }
+      }
+
+      savedOneOfOneArtworks.push({
+        id: artwork.id,
+        name: artwork.name,
+        description: artwork.metadata?.description,
+        attributes: artwork.metadata?.traits?.map(t => ({ trait_type: t.trait_type, value: t.value })),
+        imageUrl: artworkImageUrl,
+      });
+    }
+
+    // Upload edition artwork
+    let savedEditionArtwork: { imageUrl: string; editionType: "open" | "limited" | "timed" } | undefined;
+    if (editionArtwork) {
+      let editionImageUrl = editionArtwork.preview;
+      
+      if (editionArtwork.preview && editionArtwork.preview.startsWith('data:')) {
+        try {
+          const response = await fetch(editionArtwork.preview);
+          const blob = await response.blob();
+          const fileExt = blob.type.split('/')[1] || 'png';
+          const fileName = `${userId}/edition-${Date.now()}.${fileExt}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(DRAFT_BUCKET)
+            .upload(fileName, blob, { cacheControl: '3600', upsert: true });
+
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from(DRAFT_BUCKET)
+              .getPublicUrl(fileName);
+            editionImageUrl = publicUrl;
+          }
+        } catch (e) {
+          console.error("Failed to upload edition artwork:", e);
+        }
+      }
+
+      savedEditionArtwork = {
+        imageUrl: editionImageUrl,
+        editionType,
+      };
+    }
+
+    return { coverImageUrl, bannerImageUrl, layersWithUrls, savedOneOfOneArtworks, savedEditionArtwork };
   };
 
   // Save draft function (non-debounced for interval use)
-  const performSave = useCallback(async () => {
-    if (!name && layers.length === 0 && !phases.some(p => p.enabled && p.id !== "public")) {
+  const performSave = useCallback(async (showToast = false) => {
+    if (!name && layers.length === 0 && oneOfOneArtworks.length === 0 && !editionArtwork && !phases.some(p => p.enabled && p.id !== "public")) {
+      if (showToast) toast.error("Nothing to save");
       return false; // Nothing to save
     }
     
@@ -270,15 +378,14 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       // Get current user for storage upload
       const { data: { user } } = await supabase.auth.getUser();
       
-      let savedImageUrl = imagePreview;
-      let savedLayers = layers;
-      
-      // Only upload to storage if user is authenticated
-      if (user) {
-        const { coverImageUrl, layersWithUrls } = await uploadDraftImages(user.id);
-        savedImageUrl = coverImageUrl;
-        savedLayers = layersWithUrls;
+      if (!user) {
+        if (showToast) toast.error("Please sign in to save drafts");
+        setIsSaving(false);
+        return false;
       }
+      
+      // Upload all images to storage
+      const { coverImageUrl, bannerImageUrl, layersWithUrls, savedOneOfOneArtworks, savedEditionArtwork } = await uploadDraftImages(user.id);
       
       const draftData: DraftData = {
         name,
@@ -286,17 +393,20 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         description,
         totalSupply,
         royaltyPercent,
-        layers: savedLayers,
+        layers: layersWithUrls,
         traitRules,
         phases,
         currentStep,
         savedAt: Date.now(),
-        imageUrl: savedImageUrl,
+        imageUrl: coverImageUrl,
+        bannerUrl: bannerImageUrl,
         socialTwitter,
         socialDiscord,
         socialWebsite,
         socialTelegram,
         collectionType,
+        oneOfOneArtworks: savedOneOfOneArtworks,
+        editionArtwork: savedEditionArtwork,
       };
       
       localStorage.setItem(STORAGE_KEY, JSON.stringify(draftData));
@@ -308,16 +418,23 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         description,
         totalSupply,
         royalty: royaltyPercent,
-        layers: savedLayers,
+        layers: layersWithUrls,
         phases,
         currentStep,
         savedAt: new Date().toISOString(),
-        imageUrl: savedImageUrl,
+        imageUrl: coverImageUrl,
+        oneOfOneArtworks: savedOneOfOneArtworks,
       }));
       
       setLastSavedAt(new Date());
       setIsSaving(false);
       setShowSaveIndicator(true);
+      
+      if (showToast) {
+        toast.success("Draft saved successfully!", {
+          description: `Saved ${savedOneOfOneArtworks.length > 0 ? `${savedOneOfOneArtworks.length} artworks` : 'collection details'}`,
+        });
+      }
       
       // Hide save indicator after 2 seconds
       setTimeout(() => setShowSaveIndicator(false), 2000);
@@ -326,9 +443,15 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     } catch (e) {
       console.error("Failed to save draft:", e);
       setIsSaving(false);
+      if (showToast) toast.error("Failed to save draft");
       return false;
     }
-  }, [name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, imagePreview]);
+  }, [name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, imagePreview, bannerPreview, oneOfOneArtworks, editionArtwork, editionType, socialTwitter, socialDiscord, socialWebsite, socialTelegram, collectionType]);
+
+  // Manual save handler
+  const handleManualSave = () => {
+    performSave(true);
+  };
 
   // Load draft on mount
   useEffect(() => {
@@ -382,10 +505,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
   // Trigger debounced save on changes
   useEffect(() => {
-    if (open && (name || layers.length > 0 || phases.some(p => p.enabled))) {
+    if (open && (name || layers.length > 0 || oneOfOneArtworks.length > 0 || phases.some(p => p.enabled))) {
       saveDraft();
     }
-  }, [open, name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, saveDraft]);
+  }, [open, name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, oneOfOneArtworks, editionArtwork, saveDraft]);
 
   const loadDraft = () => {
     try {
@@ -406,6 +529,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         if (draft.imageUrl) {
           setImagePreview(draft.imageUrl);
         }
+        // Restore banner from storage URL
+        if (draft.bannerUrl) {
+          setBannerPreview(draft.bannerUrl);
+        }
         // Restore social links
         setSocialTwitter(draft.socialTwitter || "");
         setSocialDiscord(draft.socialDiscord || "");
@@ -413,6 +540,31 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         setSocialTelegram(draft.socialTelegram || "");
         // Restore collection type
         setCollectionType(draft.collectionType || "generative");
+        
+        // Restore 1-of-1 artworks from storage URLs
+        if (draft.oneOfOneArtworks && draft.oneOfOneArtworks.length > 0) {
+          const restoredArtworks: OneOfOneArtwork[] = draft.oneOfOneArtworks.map(saved => ({
+            id: saved.id,
+            file: new File([], saved.name), // Placeholder file - actual image is from URL
+            preview: saved.imageUrl,
+            name: saved.name,
+            metadata: saved.description || saved.attributes ? {
+              description: saved.description || "",
+              traits: saved.attributes?.map(a => ({ trait_type: a.trait_type, value: a.value })) || [],
+            } : undefined,
+          }));
+          setOneOfOneArtworks(restoredArtworks);
+        }
+        
+        // Restore edition artwork from storage URL
+        if (draft.editionArtwork) {
+          setEditionArtwork({
+            file: new File([], 'edition'), // Placeholder file
+            preview: draft.editionArtwork.imageUrl,
+          });
+          setEditionType(draft.editionArtwork.editionType);
+        }
+        
         setHasDraft(false);
         toast.success("Draft restored successfully!");
       }
@@ -2040,14 +2192,29 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
         {/* Navigation Buttons */}
         <div className="flex items-center justify-between pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            disabled={currentStep === 1}
-          >
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={currentStep === 1}
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={handleManualSave}
+              disabled={isSaving}
+              className="gap-2"
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              Save Draft
+            </Button>
+          </div>
 
           {currentStep < 5 ? (
             <Button onClick={handleNext}>
