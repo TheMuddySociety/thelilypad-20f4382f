@@ -77,6 +77,17 @@ interface Clip {
   created_at: string;
 }
 
+interface CreatorCollection {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  status: string;
+  total_supply: number;
+  minted: number;
+  created_at: string;
+}
+
 const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const socialConfig = {
@@ -95,6 +106,7 @@ const StreamerProfile = () => {
   const [stats, setStats] = useState<StreamerStats>({ followerCount: 0, totalStreams: 0, totalViews: 0, collectionsCount: 0, isLive: false });
   const [recentStreams, setRecentStreams] = useState<RecentStream[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
+  const [collections, setCollections] = useState<CreatorCollection[]>([]);
   const [showClipModal, setShowClipModal] = useState(false);
   const [editingClip, setEditingClip] = useState<Clip | null>(null);
   const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
@@ -171,11 +183,15 @@ const StreamerProfile = () => {
       
       setClips(clipsData || []);
 
-      // Fetch collections count
-      const { count: collectionsCount } = await supabase
+      // Fetch collections
+      const { data: collectionsData, count: collectionsCount } = await supabase
         .from('collections')
-        .select('*', { count: 'exact', head: true })
-        .eq('creator_id', streamerId);
+        .select('id, name, description, image_url, status, total_supply, minted, created_at', { count: 'exact' })
+        .eq('creator_id', streamerId)
+        .order('created_at', { ascending: false })
+        .limit(6);
+      
+      setCollections(collectionsData || []);
 
       setStats({
         followerCount: followerCount || 0,
@@ -540,6 +556,121 @@ const StreamerProfile = () => {
                       </Button>
                     </Link>
                   </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* NFT Collections Section */}
+          {(collections.length > 0 || isOwnProfile) && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.32 }}
+            >
+              <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Layers className="h-5 w-5 text-purple-500" />
+                    NFT Collections
+                  </CardTitle>
+                  {isOwnProfile && (
+                    <Link to="/launchpad">
+                      <Button size="sm" variant="outline" className="gap-2">
+                        <Layers className="h-4 w-4" />
+                        Create Collection
+                      </Button>
+                    </Link>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {collections.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {collections.map((collection, index) => {
+                        const mintProgress = collection.total_supply > 0 
+                          ? (collection.minted / collection.total_supply) * 100 
+                          : 0;
+                        const statusConfig = {
+                          live: { label: 'LIVE', bg: 'bg-green-500', text: 'text-white' },
+                          upcoming: { label: 'UPCOMING', bg: 'bg-yellow-500', text: 'text-black' },
+                          ended: { label: 'ENDED', bg: 'bg-muted', text: 'text-muted-foreground' },
+                        };
+                        const status = statusConfig[collection.status as keyof typeof statusConfig] || statusConfig.upcoming;
+                        
+                        return (
+                          <motion.div
+                            key={collection.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.35 + index * 0.05 }}
+                          >
+                            <Link to={`/collection/${collection.id}`}>
+                              <Card className="overflow-hidden border-border/50 hover:border-purple-500/50 transition-all duration-300 group cursor-pointer hover:shadow-lg hover:shadow-purple-500/10">
+                                {/* Collection Image */}
+                                <div className="relative aspect-[16/9] overflow-hidden bg-muted/50">
+                                  {collection.image_url ? (
+                                    <img 
+                                      src={collection.image_url} 
+                                      alt={collection.name}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500/20 to-primary/10">
+                                      <Layers className="h-12 w-12 text-purple-500/50" />
+                                    </div>
+                                  )}
+                                  
+                                  {/* Status Badge */}
+                                  <div className="absolute top-2 right-2">
+                                    <Badge className={`${status.bg} ${status.text} text-xs font-semibold px-2 py-0.5`}>
+                                      {status.label}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                
+                                {/* Collection Info */}
+                                <CardContent className="p-4">
+                                  <h3 className="font-semibold text-base mb-2 line-clamp-1 group-hover:text-purple-500 transition-colors">
+                                    {collection.name}
+                                  </h3>
+                                  
+                                  {/* Mint Progress */}
+                                  <div className="space-y-2">
+                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                      <div 
+                                        className="h-full bg-gradient-to-r from-purple-500 to-primary rounded-full transition-all duration-500"
+                                        style={{ width: `${mintProgress}%` }}
+                                      />
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                      <span>{collection.minted} / {collection.total_supply} minted</span>
+                                      <span>{mintProgress.toFixed(0)}%</span>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </Link>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <div className="p-4 rounded-full bg-purple-500/10 w-fit mx-auto mb-4">
+                        <Layers className="h-10 w-10 text-purple-500/50" />
+                      </div>
+                      <p className="font-medium mb-1">No collections yet</p>
+                      <p className="text-sm mb-4">Launch your first NFT collection!</p>
+                      {isOwnProfile && (
+                        <Link to="/launchpad">
+                          <Button variant="outline" className="gap-2">
+                            <Layers className="h-4 w-4" />
+                            Create Collection
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
