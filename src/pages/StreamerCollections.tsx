@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
@@ -6,8 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion } from "framer-motion";
-import { ArrowLeft, Layers } from "lucide-react";
+import { ArrowLeft, Layers, Filter, ArrowUpDown } from "lucide-react";
 
 interface CreatorCollection {
   id: string;
@@ -24,12 +25,17 @@ interface StreamerProfileData {
   display_name: string | null;
 }
 
+type StatusFilter = 'all' | 'live' | 'upcoming' | 'ended';
+type SortOption = 'newest' | 'oldest' | 'progress-high' | 'progress-low' | 'name-asc' | 'name-desc';
+
 const StreamerCollections = () => {
   const { streamerId } = useParams<{ streamerId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [collections, setCollections] = useState<CreatorCollection[]>([]);
   const [streamerName, setStreamerName] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,6 +68,43 @@ const StreamerCollections = () => {
 
     fetchData();
   }, [streamerId]);
+
+  const filteredAndSortedCollections = useMemo(() => {
+    let result = [...collections];
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(c => c.status === statusFilter);
+    }
+
+    // Apply sorting
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'progress-high': {
+          const progressA = a.total_supply > 0 ? (a.minted / a.total_supply) : 0;
+          const progressB = b.total_supply > 0 ? (b.minted / b.total_supply) : 0;
+          return progressB - progressA;
+        }
+        case 'progress-low': {
+          const progressA = a.total_supply > 0 ? (a.minted / a.total_supply) : 0;
+          const progressB = b.total_supply > 0 ? (b.minted / b.total_supply) : 0;
+          return progressA - progressB;
+        }
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [collections, statusFilter, sortBy]);
 
   if (loading) {
     return (
@@ -119,10 +162,56 @@ const StreamerCollections = () => {
             </div>
           </motion.div>
 
+          {/* Filters and Sorting */}
+          {collections.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between"
+            >
+              <div className="flex flex-wrap gap-3 items-center">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+                    <SelectTrigger className="w-[140px] h-9">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="live">Live</SelectItem>
+                      <SelectItem value="upcoming">Upcoming</SelectItem>
+                      <SelectItem value="ended">Ended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                    <SelectTrigger className="w-[160px] h-9">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest First</SelectItem>
+                      <SelectItem value="oldest">Oldest First</SelectItem>
+                      <SelectItem value="progress-high">Most Minted</SelectItem>
+                      <SelectItem value="progress-low">Least Minted</SelectItem>
+                      <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+                      <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Showing {filteredAndSortedCollections.length} of {collections.length} collections
+              </p>
+            </motion.div>
+          )}
+
           {/* Collections Grid */}
-          {collections.length > 0 ? (
+          {filteredAndSortedCollections.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {collections.map((collection, index) => {
+              {filteredAndSortedCollections.map((collection, index) => {
                 const mintProgress = collection.total_supply > 0 
                   ? (collection.minted / collection.total_supply) * 100 
                   : 0;
@@ -194,6 +283,17 @@ const StreamerCollections = () => {
                   </motion.div>
                 );
               })}
+            </div>
+          ) : collections.length > 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <div className="p-4 rounded-full bg-purple-500/10 w-fit mx-auto mb-4">
+                <Filter className="h-12 w-12 text-purple-500/50" />
+              </div>
+              <p className="font-medium text-lg mb-1">No matching collections</p>
+              <p className="text-sm mb-4">Try adjusting your filters to see more results.</p>
+              <Button variant="outline" onClick={() => { setStatusFilter('all'); setSortBy('newest'); }}>
+                Clear Filters
+              </Button>
             </div>
           ) : (
             <div className="text-center py-16 text-muted-foreground">
