@@ -452,11 +452,14 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           {/* Social Links */}
           <Separator className="my-4" />
           <div className="space-y-4">
-            <h4 className="font-medium text-sm">Social Links</h4>
+            <h4 className="font-medium text-sm flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              Social Links
+            </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="socialTwitter" className="flex items-center gap-2">
-                  <Twitter className="w-4 h-4" />
+                <Label htmlFor="socialTwitter" className="flex items-center gap-2 text-sm">
+                  <Twitter className="w-4 h-4 text-[#1DA1F2]" />
                   Twitter / X
                 </Label>
                 <Input
@@ -468,8 +471,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="socialDiscord" className="flex items-center gap-2">
-                  <MessageCircle className="w-4 h-4" />
+                <Label htmlFor="socialDiscord" className="flex items-center gap-2 text-sm">
+                  <MessageCircle className="w-4 h-4 text-[#5865F2]" />
                   Discord
                 </Label>
                 <Input
@@ -481,8 +484,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="socialWebsite" className="flex items-center gap-2">
-                  <Globe className="w-4 h-4" />
+                <Label htmlFor="socialWebsite" className="flex items-center gap-2 text-sm">
+                  <Globe className="w-4 h-4 text-emerald-500" />
                   Website
                 </Label>
                 <Input
@@ -494,8 +497,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="socialTelegram" className="flex items-center gap-2">
-                  <Send className="w-4 h-4" />
+                <Label htmlFor="socialTelegram" className="flex items-center gap-2 text-sm">
+                  <Send className="w-4 h-4 text-[#0088cc]" />
                   Telegram
                 </Label>
                 <Input
