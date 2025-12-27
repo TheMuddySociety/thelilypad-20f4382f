@@ -574,14 +574,23 @@ const StreamerProfile = () => {
                     <Layers className="h-5 w-5 text-purple-500" />
                     NFT Collections
                   </CardTitle>
-                  {isOwnProfile && (
-                    <Link to="/launchpad">
-                      <Button size="sm" variant="outline" className="gap-2">
-                        <Layers className="h-4 w-4" />
-                        Create Collection
-                      </Button>
-                    </Link>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {stats.collectionsCount > 6 && (
+                      <Link to={`/streamer/${streamerId}/collections`}>
+                        <Button size="sm" variant="ghost" className="text-purple-500 hover:text-purple-400">
+                          View All ({stats.collectionsCount})
+                        </Button>
+                      </Link>
+                    )}
+                    {isOwnProfile && (
+                      <Link to="/launchpad">
+                        <Button size="sm" variant="outline" className="gap-2">
+                          <Layers className="h-4 w-4" />
+                          Create Collection
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {collections.length > 0 ? (

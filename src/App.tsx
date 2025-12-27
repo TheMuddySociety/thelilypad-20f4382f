@@ -14,6 +14,7 @@ import GoLive from "./pages/GoLive";
 import Dashboard from "./pages/Dashboard";
 import DonorProfile from "./pages/DonorProfile";
 import StreamerProfile from "./pages/StreamerProfile";
+import StreamerCollections from "./pages/StreamerCollections";
 import EditStreamerProfile from "./pages/EditStreamerProfile";
 import Following from "./pages/Following";
 import ClipViewer from "./pages/ClipViewer";
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/donor-profile" element={<DonorProfile />} />
             <Route path="/streamer/:streamerId" element={<StreamerProfile />} />
+            <Route path="/streamer/:streamerId/collections" element={<StreamerCollections />} />
             <Route path="/edit-profile" element={<EditStreamerProfile />} />
             <Route path="/following" element={<Following />} />
             <Route path="/clip/:clipId" element={<ClipViewer />} />
