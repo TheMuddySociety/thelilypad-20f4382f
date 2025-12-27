@@ -88,6 +88,7 @@ const steps = [
 ];
 
 const STORAGE_KEY = "launchpad_draft";
+const DRAFT_BUCKET = "collection-drafts";
 
 interface DraftData {
   name: string;
@@ -100,6 +101,7 @@ interface DraftData {
   phases: MintPhase[];
   currentStep: number;
   savedAt: number;
+  imageUrl?: string; // Storage URL for collection cover image
 }
 
 export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated }: CreateCollectionModalProps) {
@@ -131,34 +133,103 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   // Allowlist management
   const [allowlistPhases, setAllowlistPhases] = useState<AllowlistPhase[]>([]);
 
+  // Upload draft images to storage
+  const uploadDraftImages = async (userId: string): Promise<{
+    coverImageUrl?: string;
+    layersWithUrls: Layer[];
+  }> => {
+    let coverImageUrl = imagePreview;
+    const layersWithUrls = [...layers];
+
+    // Upload collection cover image if it's a data URL
+    if (imagePreview && imagePreview.startsWith('data:')) {
+      try {
+        const response = await fetch(imagePreview);
+        const blob = await response.blob();
+        const fileExt = blob.type.split('/')[1] || 'png';
+        const fileName = `${userId}/cover-${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(DRAFT_BUCKET)
+          .upload(fileName, blob, { cacheControl: '3600', upsert: true });
+
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from(DRAFT_BUCKET)
+            .getPublicUrl(fileName);
+          coverImageUrl = publicUrl;
+        }
+      } catch (e) {
+        console.error("Failed to upload cover image:", e);
+      }
+    }
+
+    // Upload trait images that are data URLs
+    for (let i = 0; i < layersWithUrls.length; i++) {
+      const layer = layersWithUrls[i];
+      for (let j = 0; j < layer.traits.length; j++) {
+        const trait = layer.traits[j];
+        if (trait.imageUrl && trait.imageUrl.startsWith('data:')) {
+          try {
+            const response = await fetch(trait.imageUrl);
+            const blob = await response.blob();
+            const fileExt = blob.type.split('/')[1] || 'png';
+            const fileName = `${userId}/traits/${layer.id}-${trait.id}-${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from(DRAFT_BUCKET)
+              .upload(fileName, blob, { cacheControl: '3600', upsert: true });
+
+            if (!uploadError) {
+              const { data: { publicUrl } } = supabase.storage
+                .from(DRAFT_BUCKET)
+                .getPublicUrl(fileName);
+              layersWithUrls[i].traits[j] = { ...trait, imageUrl: publicUrl };
+            }
+          } catch (e) {
+            console.error("Failed to upload trait image:", e);
+          }
+        }
+      }
+    }
+
+    return { coverImageUrl, layersWithUrls };
+  };
+
   // Save draft function (non-debounced for interval use)
-  const performSave = useCallback(() => {
+  const performSave = useCallback(async () => {
     if (!name && layers.length === 0 && !phases.some(p => p.enabled && p.id !== "public")) {
       return false; // Nothing to save
     }
     
     try {
       setIsSaving(true);
-      // Skip saving images to avoid quota issues - only save metadata
-      const layersWithoutImages = layers.map(layer => ({
-        ...layer,
-        traits: layer.traits.map(trait => ({
-          ...trait,
-          imageUrl: trait.imageUrl ? "[saved]" : undefined,
-        })),
-      }));
       
-      const draftData = {
+      // Get current user for storage upload
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      let savedImageUrl = imagePreview;
+      let savedLayers = layers;
+      
+      // Only upload to storage if user is authenticated
+      if (user) {
+        const { coverImageUrl, layersWithUrls } = await uploadDraftImages(user.id);
+        savedImageUrl = coverImageUrl;
+        savedLayers = layersWithUrls;
+      }
+      
+      const draftData: DraftData = {
         name,
         symbol,
         description,
         totalSupply,
         royaltyPercent,
-        layers: layersWithoutImages,
+        layers: savedLayers,
         traitRules,
         phases,
         currentStep,
         savedAt: Date.now(),
+        imageUrl: savedImageUrl,
       };
       
       localStorage.setItem(STORAGE_KEY, JSON.stringify(draftData));
@@ -170,10 +241,11 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         description,
         totalSupply,
         royalty: royaltyPercent,
-        layers: layersWithoutImages,
+        layers: savedLayers,
         phases,
         currentStep,
         savedAt: new Date().toISOString(),
+        imageUrl: savedImageUrl,
       }));
       
       setLastSavedAt(new Date());
@@ -189,7 +261,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       setIsSaving(false);
       return false;
     }
-  }, [name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep]);
+  }, [name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, imagePreview]);
 
   // Load draft on mount
   useEffect(() => {
@@ -258,19 +330,17 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         setDescription(draft.description);
         setTotalSupply(draft.totalSupply);
         setRoyaltyPercent(draft.royaltyPercent);
-        // Restore layers without images (user will need to re-upload)
-        setLayers(draft.layers.map(layer => ({
-          ...layer,
-          traits: layer.traits.map(trait => ({
-            ...trait,
-            imageUrl: trait.imageUrl === "[saved]" ? undefined : trait.imageUrl,
-          })),
-        })));
+        // Restore layers with their storage URLs
+        setLayers(draft.layers);
         setTraitRules(draft.traitRules);
         setPhases(draft.phases);
         setCurrentStep(draft.currentStep);
+        // Restore collection cover image from storage URL
+        if (draft.imageUrl) {
+          setImagePreview(draft.imageUrl);
+        }
         setHasDraft(false);
-        toast.success("Draft restored! Note: Images need to be re-uploaded.");
+        toast.success("Draft restored successfully!");
       }
     } catch (e) {
       console.error("Failed to load draft:", e);
