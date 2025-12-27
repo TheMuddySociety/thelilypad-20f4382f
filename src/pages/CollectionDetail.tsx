@@ -483,9 +483,9 @@ export default function CollectionDetail() {
                           href={collection.social_twitter} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm transition-colors"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/20 text-sm transition-colors"
                         >
-                          <Twitter className="w-4 h-4" />
+                          <Twitter className="w-4 h-4 text-[#1DA1F2]" />
                           Twitter
                         </a>
                       )}
@@ -494,9 +494,9 @@ export default function CollectionDetail() {
                           href={collection.social_discord} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm transition-colors"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#5865F2]/10 hover:bg-[#5865F2]/20 text-sm transition-colors"
                         >
-                          <MessageCircle className="w-4 h-4" />
+                          <MessageCircle className="w-4 h-4 text-[#5865F2]" />
                           Discord
                         </a>
                       )}
@@ -505,9 +505,9 @@ export default function CollectionDetail() {
                           href={collection.social_website} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm transition-colors"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-sm transition-colors"
                         >
-                          <Globe className="w-4 h-4" />
+                          <Globe className="w-4 h-4 text-emerald-500" />
                           Website
                         </a>
                       )}
@@ -516,9 +516,9 @@ export default function CollectionDetail() {
                           href={collection.social_telegram} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm transition-colors"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0088cc]/10 hover:bg-[#0088cc]/20 text-sm transition-colors"
                         >
-                          <Send className="w-4 h-4" />
+                          <Send className="w-4 h-4 text-[#0088cc]" />
                           Telegram
                         </a>
                       )}
