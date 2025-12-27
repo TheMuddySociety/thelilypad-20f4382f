@@ -7,11 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3, Crown, Gem, Star, Circle } from "lucide-react";
+import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3, Crown, Gem, Star, Circle, Archive } from "lucide-react";
 import { Layer, Trait, BlendMode } from "./LayerManager";
 import { TraitRule, RuleType } from "./TraitRulesManager";
 import { NFTImageCompositor } from "./NFTImageCompositor";
 import { toast } from "sonner";
+import JSZip from "jszip";
 
 interface GenerationPreviewProps {
   layers: Layer[];
@@ -541,6 +542,107 @@ export function GenerationPreview({
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast.success(`Exported ${count} individual metadata entries`);
+  };
+
+  // Export as ZIP file with organized folder structure
+  const exportAsZip = async () => {
+    const count = Math.min(parseInt(exportCount) || 100, 500); // Limit to 500 for memory
+    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
+    
+    if (!hasImages) {
+      toast.error("No images found. Add images to your traits first.");
+      return;
+    }
+
+    setIsExporting(true);
+    setExportProgress(0);
+    setExportStatus("Generating NFTs...");
+
+    try {
+      const zip = new JSZip();
+      const imagesFolder = zip.folder("images");
+      const metadataFolder = zip.folder("metadata");
+      
+      if (!imagesFolder || !metadataFolder) {
+        throw new Error("Failed to create ZIP folders");
+      }
+
+      const { nfts } = generateNFTBatch(count);
+
+      // Generate images and metadata
+      for (let i = 0; i < nfts.length; i++) {
+        setExportStatus(`Generating NFT ${i + 1} of ${count}...`);
+        setExportProgress(((i + 1) / count) * 80);
+
+        const imageDataUrl = await compositeNFTImage(nfts[i]);
+        
+        if (imageDataUrl) {
+          // Convert base64 to binary
+          const base64Data = imageDataUrl.split(",")[1];
+          imagesFolder.file(`${nfts[i].id}.png`, base64Data, { base64: true });
+          
+          // Create metadata with correct image path
+          const metadata = {
+            name: `${collectionName} #${nfts[i].id}`,
+            description: collectionDescription || `${collectionName} NFT #${nfts[i].id}`,
+            image: `ipfs://YOUR_CID/${nfts[i].id}.png`,
+            attributes: nfts[i].traits.map((trait) => ({
+              trait_type: trait.layerName,
+              value: trait.traitName,
+            })),
+          };
+          
+          metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(metadata, null, 2));
+        }
+
+        // Small delay to prevent browser freeze
+        if (i % 10 === 0) {
+          await new Promise((r) => setTimeout(r, 10));
+        }
+      }
+
+      // Add collection metadata
+      const collectionMetadata = {
+        name: collectionName,
+        description: collectionDescription,
+        total_supply: count,
+        generated_at: new Date().toISOString(),
+      };
+      zip.file("_collection.json", JSON.stringify(collectionMetadata, null, 2));
+
+      setExportStatus("Creating ZIP file...");
+      setExportProgress(90);
+
+      // Generate ZIP blob
+      const zipBlob = await zip.generateAsync({ 
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 }
+      });
+
+      // Download ZIP
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-collection.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setExportProgress(100);
+      setExportStatus("Complete!");
+      toast.success(`Exported ${count} NFTs as ZIP file`);
+    } catch (error) {
+      console.error("ZIP export failed:", error);
+      toast.error("ZIP export failed. Please try again.");
+    } finally {
+      setTimeout(() => {
+        setIsExporting(false);
+        setExportProgress(0);
+        setExportStatus("");
+      }, 1500);
+    }
   };
 
   // Calculate rarity statistics
@@ -1138,23 +1240,68 @@ export function GenerationPreview({
             </CardContent>
           </Card>
 
+          {/* ZIP Export - Primary Option */}
+          <Card className="border-primary/50">
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Archive className="w-4 h-4 text-primary" />
+                Download as ZIP
+                <Badge variant="secondary" className="text-xs">Recommended</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Download your collection as a ZIP file with organized folders for images and metadata, ready for IPFS/Arweave deployment.
+              </p>
+
+              <Button 
+                onClick={exportAsZip} 
+                disabled={isExporting || !hasAnyImages}
+                className="w-full gap-2"
+                size="lg"
+              >
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Archive className="w-4 h-4" />
+                )}
+                Download Collection ZIP
+              </Button>
+
+              {!hasAnyImages && (
+                <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                  ⚠️ Add images to your traits to enable ZIP export
+                </p>
+              )}
+
+              <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono">
+                <p className="text-muted-foreground mb-2">ZIP structure:</p>
+                <div className="space-y-0.5 text-foreground">
+                  <p>📁 {collectionName.toLowerCase().replace(/\s+/g, "-")}-collection.zip</p>
+                  <p className="pl-4">📁 images/</p>
+                  <p className="pl-8">🖼️ 1.png, 2.png, ...</p>
+                  <p className="pl-4">📁 metadata/</p>
+                  <p className="pl-8">📄 1.json, 2.json, ...</p>
+                  <p className="pl-4">📄 _collection.json</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Image Export */}
           <Card>
             <CardHeader className="py-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Images className="w-4 h-4" />
-                Export Images + Metadata
+                Other Export Options
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Generate composited NFT images with ERC-721 metadata. Images are rendered from your layer traits.
-              </p>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Button 
                   onClick={exportImagesWithMetadata} 
                   disabled={isExporting || !hasAnyImages}
+                  variant="outline"
                   className="gap-2"
                 >
                   {isExporting ? (
@@ -1162,7 +1309,7 @@ export function GenerationPreview({
                   ) : (
                     <FolderArchive className="w-4 h-4" />
                   )}
-                  Full Export (Images + JSON)
+                  Full Export (JSON)
                 </Button>
                 <Button 
                   onClick={downloadIndividualImages} 
@@ -1174,12 +1321,6 @@ export function GenerationPreview({
                   Download Images Only
                 </Button>
               </div>
-
-              {!hasAnyImages && (
-                <p className="text-xs text-yellow-600 dark:text-yellow-500">
-                  ⚠️ Add images to your traits to enable image export
-                </p>
-              )}
 
               <div className="pt-3 border-t">
                 <p className="text-xs text-muted-foreground mb-1">
