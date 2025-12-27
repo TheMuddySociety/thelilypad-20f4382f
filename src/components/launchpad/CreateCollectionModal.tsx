@@ -768,7 +768,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="socialTwitter" className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Twitter className="w-3 h-3" />
+                    <Twitter className="w-3 h-3 text-[#1DA1F2]" />
                     Twitter
                   </Label>
                   <Input 
@@ -780,7 +780,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="socialDiscord" className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <MessageCircle className="w-3 h-3" />
+                    <MessageCircle className="w-3 h-3 text-[#5865F2]" />
                     Discord
                   </Label>
                   <Input 
@@ -792,7 +792,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="socialWebsite" className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Globe className="w-3 h-3" />
+                    <Globe className="w-3 h-3 text-emerald-500" />
                     Website
                   </Label>
                   <Input 
@@ -804,10 +804,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="socialTelegram" className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Send className="w-3 h-3" />
+                    <Send className="w-3 h-3 text-[#0088cc]" />
                     Telegram
                   </Label>
-                  <Input 
+                  <Input
                     id="socialTelegram" 
                     placeholder="https://t.me/yourcollection"
                     value={socialTelegram}
@@ -1043,7 +1043,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     {socialTwitter && (
                       <div className="flex items-center gap-2">
-                        <Twitter className="w-4 h-4 text-muted-foreground" />
+                        <Twitter className="w-4 h-4 text-[#1DA1F2]" />
                         <a href={socialTwitter} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
                           {socialTwitter.replace(/^https?:\/\/(www\.)?/, '')}
                         </a>
@@ -1051,7 +1051,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                     )}
                     {socialDiscord && (
                       <div className="flex items-center gap-2">
-                        <MessageCircle className="w-4 h-4 text-muted-foreground" />
+                        <MessageCircle className="w-4 h-4 text-[#5865F2]" />
                         <a href={socialDiscord} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
                           {socialDiscord.replace(/^https?:\/\/(www\.)?/, '')}
                         </a>
@@ -1059,7 +1059,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                     )}
                     {socialWebsite && (
                       <div className="flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-muted-foreground" />
+                        <Globe className="w-4 h-4 text-emerald-500" />
                         <a href={socialWebsite} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
                           {socialWebsite.replace(/^https?:\/\/(www\.)?/, '')}
                         </a>
@@ -1067,7 +1067,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                     )}
                     {socialTelegram && (
                       <div className="flex items-center gap-2">
-                        <Send className="w-4 h-4 text-muted-foreground" />
+                        <Send className="w-4 h-4 text-[#0088cc]" />
                         <a href={socialTelegram} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
                           {socialTelegram.replace(/^https?:\/\/(www\.)?/, '')}
                         </a>
