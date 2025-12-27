@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { debounce } from "@/lib/utils";
 import {
   Dialog,
@@ -28,7 +28,9 @@ import {
   Image as ImageIcon,
   Layers,
   Palette,
-  Loader2
+  Loader2,
+  Save,
+  CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { LayerManager, Layer } from "./LayerManager";
@@ -37,6 +39,7 @@ import { AllowlistManager } from "./AllowlistManager";
 import { GenerationPreview } from "./GenerationPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
+import { formatDistanceToNow } from "date-fns";
 
 interface CreateCollectionModalProps {
   open: boolean;
@@ -104,6 +107,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   const [currentStep, setCurrentStep] = useState(1);
   const [isDeploying, setIsDeploying] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSaveIndicator, setShowSaveIndicator] = useState(false);
+  const autoSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Collection details
   const [name, setName] = useState("");
@@ -124,6 +131,66 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   // Allowlist management
   const [allowlistPhases, setAllowlistPhases] = useState<AllowlistPhase[]>([]);
 
+  // Save draft function (non-debounced for interval use)
+  const performSave = useCallback(() => {
+    if (!name && layers.length === 0 && !phases.some(p => p.enabled && p.id !== "public")) {
+      return false; // Nothing to save
+    }
+    
+    try {
+      setIsSaving(true);
+      // Skip saving images to avoid quota issues - only save metadata
+      const layersWithoutImages = layers.map(layer => ({
+        ...layer,
+        traits: layer.traits.map(trait => ({
+          ...trait,
+          imageUrl: trait.imageUrl ? "[saved]" : undefined,
+        })),
+      }));
+      
+      const draftData = {
+        name,
+        symbol,
+        description,
+        totalSupply,
+        royaltyPercent,
+        layers: layersWithoutImages,
+        traitRules,
+        phases,
+        currentStep,
+        savedAt: Date.now(),
+      };
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(draftData));
+      
+      // Also save to the new key for Launchpad drafts tab
+      localStorage.setItem("collection-draft", JSON.stringify({
+        name,
+        symbol,
+        description,
+        totalSupply,
+        royalty: royaltyPercent,
+        layers: layersWithoutImages,
+        phases,
+        currentStep,
+        savedAt: new Date().toISOString(),
+      }));
+      
+      setLastSavedAt(new Date());
+      setIsSaving(false);
+      setShowSaveIndicator(true);
+      
+      // Hide save indicator after 2 seconds
+      setTimeout(() => setShowSaveIndicator(false), 2000);
+      
+      return true;
+    } catch (e) {
+      console.error("Failed to save draft:", e);
+      setIsSaving(false);
+      return false;
+    }
+  }, [name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep]);
+
   // Load draft on mount
   useEffect(() => {
     if (open) {
@@ -134,6 +201,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
           // Only load if less than 24 hours old
           if (Date.now() - draft.savedAt < 24 * 60 * 60 * 1000) {
             setHasDraft(true);
+            setLastSavedAt(new Date(draft.savedAt));
           }
         }
       } catch (e) {
@@ -142,45 +210,41 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     }
   }, [open]);
 
-  // Debounced save to localStorage
-  const saveDraft = useCallback(
-    debounce((data: Omit<DraftData, "savedAt">) => {
-      try {
-        // Skip saving images to avoid quota issues - only save metadata
-        const layersWithoutImages = data.layers.map(layer => ({
-          ...layer,
-          traits: layer.traits.map(trait => ({
-            ...trait,
-            imageUrl: trait.imageUrl ? "[saved]" : undefined, // Mark that image exists
-          })),
-        }));
-        
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          ...data,
-          layers: layersWithoutImages,
-          savedAt: Date.now(),
-        }));
-      } catch (e) {
-        console.error("Failed to save draft:", e);
+  // Auto-save every 30 seconds when modal is open
+  useEffect(() => {
+    if (open) {
+      // Clear any existing interval
+      if (autoSaveIntervalRef.current) {
+        clearInterval(autoSaveIntervalRef.current);
       }
-    }, 1000),
-    []
+      
+      // Set up new interval for auto-save every 30 seconds
+      autoSaveIntervalRef.current = setInterval(() => {
+        performSave();
+      }, 30000);
+      
+      // Cleanup on close
+      return () => {
+        if (autoSaveIntervalRef.current) {
+          clearInterval(autoSaveIntervalRef.current);
+          autoSaveIntervalRef.current = null;
+        }
+      };
+    }
+  }, [open, performSave]);
+
+  // Also save on significant changes (debounced)
+  const saveDraft = useCallback(
+    debounce(() => {
+      performSave();
+    }, 2000),
+    [performSave]
   );
 
-  // Auto-save on changes
+  // Trigger debounced save on changes
   useEffect(() => {
     if (open && (name || layers.length > 0 || phases.some(p => p.enabled))) {
-      saveDraft({
-        name,
-        symbol,
-        description,
-        totalSupply,
-        royaltyPercent,
-        layers,
-        traitRules,
-        phases,
-        currentStep,
-      });
+      saveDraft();
     }
   }, [open, name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, saveDraft]);
 
@@ -360,10 +424,35 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create NFT Collection</DialogTitle>
-          <DialogDescription>
-            Launch your NFT collection on Monad Mainnet
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Create NFT Collection</DialogTitle>
+              <DialogDescription>
+                Launch your NFT collection on Monad Mainnet
+              </DialogDescription>
+            </div>
+            {/* Auto-save indicator */}
+            {(lastSavedAt || isSaving || showSaveIndicator) && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : showSaveIndicator ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                    <span className="text-green-500">Saved</span>
+                  </>
+                ) : lastSavedAt ? (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Last saved {formatDistanceToNow(lastSavedAt, { addSuffix: true })}</span>
+                  </>
+                ) : null}
+              </div>
+            )}
+          </div>
         </DialogHeader>
 
         {/* Draft Restoration Banner */}
