@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { useSEO } from "@/hooks/useSEO";
 import { motion } from "framer-motion";
 import { ArrowLeft, Layers, Filter, ArrowUpDown, Search, ChevronLeft, ChevronRight, LayoutGrid, List } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -44,6 +45,11 @@ const StreamerCollections = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+
+  useSEO({
+    title: streamerName ? `${streamerName}'s Collections | The Lily Pad` : "NFT Collections | The Lily Pad",
+    description: "Browse all NFT collections by this creator. Filter by status, sort, and explore minting opportunities."
+  });
 
   useEffect(() => {
     const fetchData = async () => {

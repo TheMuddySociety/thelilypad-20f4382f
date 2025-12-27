@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
+import { useSEO } from "@/hooks/useSEO";
 import { 
   ArrowLeft, 
   ExternalLink, 
@@ -84,6 +85,11 @@ export default function CollectionDetail() {
   const isTestnet = network === "testnet";
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
   const isCreator = currentUserId && collection?.creator_id === currentUserId;
+
+  useSEO({
+    title: collection?.name ? `${collection.name} | The Lily Pad` : "NFT Collection | The Lily Pad",
+    description: collection?.description || "Mint NFTs from this collection on The Lily Pad. View phases, pricing, and mint progress."
+  });
 
   // Get current user
   useEffect(() => {

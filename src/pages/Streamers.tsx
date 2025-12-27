@@ -38,6 +38,15 @@ const availableCategories = [
 
   useEffect(() => {
     document.title = "Lily Streamers | The Lily Pad";
+    
+    // Set meta description
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+      metaDescription = document.createElement("meta");
+      metaDescription.setAttribute("name", "description");
+      document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute("content", "Discover talented Lily Pad streamers. Browse verified creators, find live streams, and follow your favorite content creators on Monad blockchain.");
   }, []);
 
   useEffect(() => {

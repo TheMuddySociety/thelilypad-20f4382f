@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useSEO } from "@/hooks/useSEO";
 import { 
   Key, 
   Copy, 
@@ -57,6 +58,11 @@ export default function GoLive() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [newStreamName, setNewStreamName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+
+  useSEO({
+    title: "Go Live | The Lily Pad",
+    description: "Start streaming on The Lily Pad. Get your RTMP credentials, set up OBS, and broadcast to your community in minutes."
+  });
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {

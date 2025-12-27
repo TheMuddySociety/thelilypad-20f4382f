@@ -5,10 +5,16 @@ import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useSEO } from '@/hooks/useSEO';
 
 const Watch = () => {
   const { playbackId } = useParams<{ playbackId: string }>();
   const navigate = useNavigate();
+
+  useSEO({
+    title: "Watch Live | The Lily Pad",
+    description: "Watch live streams on The Lily Pad. Join the chat, support creators, and be part of the community."
+  });
 
   if (!playbackId) {
     return (
