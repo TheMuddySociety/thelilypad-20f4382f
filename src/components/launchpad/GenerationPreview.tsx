@@ -7,12 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3, Crown, Gem, Star, Circle, Archive } from "lucide-react";
+import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3, Crown, Gem, Star, Circle, Archive, Cloud, ExternalLink, Copy, Check } from "lucide-react";
 import { Layer, Trait, BlendMode } from "./LayerManager";
 import { TraitRule, RuleType } from "./TraitRulesManager";
 import { NFTImageCompositor } from "./NFTImageCompositor";
 import { toast } from "sonner";
 import JSZip from "jszip";
+import { supabase } from "@/integrations/supabase/client";
 
 interface GenerationPreviewProps {
   layers: Layer[];
@@ -152,6 +153,9 @@ export function GenerationPreview({
   const [exportStatus, setExportStatus] = useState("");
   const [rarityReport, setRarityReport] = useState<RarityReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isUploadingToIpfs, setIsUploadingToIpfs] = useState(false);
+  const [ipfsResult, setIpfsResult] = useState<{ cid: string; gatewayUrl: string; ipfsUrl: string } | null>(null);
+  const [copiedCid, setCopiedCid] = useState(false);
 
   const selectTraitForLayer = (
     layer: Layer,
@@ -643,6 +647,136 @@ export function GenerationPreview({
         setExportStatus("");
       }, 1500);
     }
+  };
+
+  // Upload to IPFS via Pinata
+  const uploadToIpfs = async () => {
+    const count = Math.min(parseInt(exportCount) || 100, 100); // Limit for IPFS upload
+    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
+    
+    if (!hasImages) {
+      toast.error("No images found. Add images to your traits first.");
+      return;
+    }
+
+    setIsUploadingToIpfs(true);
+    setExportProgress(0);
+    setExportStatus("Generating NFTs...");
+    setIpfsResult(null);
+
+    try {
+      const { nfts } = generateNFTBatch(count);
+      const files: { name: string; content: string; type: string }[] = [];
+
+      // Generate images
+      for (let i = 0; i < nfts.length; i++) {
+        setExportStatus(`Generating image ${i + 1} of ${count}...`);
+        setExportProgress(((i + 1) / count) * 40);
+
+        const imageDataUrl = await compositeNFTImage(nfts[i]);
+        
+        if (imageDataUrl) {
+          // Extract base64 data
+          const base64Data = imageDataUrl.split(",")[1];
+          files.push({
+            name: `images/${nfts[i].id}.png`,
+            content: base64Data,
+            type: "image/png",
+          });
+        }
+
+        if (i % 10 === 0) {
+          await new Promise((r) => setTimeout(r, 10));
+        }
+      }
+
+      // Generate metadata (will be updated after we get the CID)
+      setExportStatus("Preparing metadata...");
+      setExportProgress(50);
+
+      for (const nft of nfts) {
+        const metadata = {
+          name: `${collectionName} #${nft.id}`,
+          description: collectionDescription || `${collectionName} NFT #${nft.id}`,
+          image: `ipfs://PENDING_CID/${nft.id}.png`, // Will need to update after first upload
+          attributes: nft.traits.map((trait) => ({
+            trait_type: trait.layerName,
+            value: trait.traitName,
+          })),
+        };
+        
+        // Convert to base64
+        const jsonString = JSON.stringify(metadata, null, 2);
+        const base64Content = btoa(unescape(encodeURIComponent(jsonString)));
+        
+        files.push({
+          name: `metadata/${nft.id}.json`,
+          content: base64Content,
+          type: "application/json",
+        });
+      }
+
+      // Add collection metadata
+      const collectionMetadata = {
+        name: collectionName,
+        description: collectionDescription,
+        total_supply: count,
+        generated_at: new Date().toISOString(),
+      };
+      const collectionJsonString = JSON.stringify(collectionMetadata, null, 2);
+      files.push({
+        name: "_collection.json",
+        content: btoa(unescape(encodeURIComponent(collectionJsonString))),
+        type: "application/json",
+      });
+
+      setExportStatus("Uploading to IPFS...");
+      setExportProgress(60);
+
+      // Upload to IPFS via edge function
+      const { data, error } = await supabase.functions.invoke("ipfs-upload", {
+        body: {
+          files,
+          wrapWithDirectory: true,
+          collectionName: collectionName.toLowerCase().replace(/\s+/g, "-"),
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to upload to IPFS");
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setExportProgress(100);
+      setExportStatus("Upload complete!");
+      setIpfsResult({
+        cid: data.cid,
+        gatewayUrl: data.gatewayUrl,
+        ipfsUrl: data.ipfsUrl,
+      });
+      
+      toast.success(`Uploaded ${count} NFTs to IPFS!`);
+    } catch (error) {
+      console.error("IPFS upload failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      toast.error(`IPFS upload failed: ${errorMessage}`);
+    } finally {
+      setTimeout(() => {
+        setIsUploadingToIpfs(false);
+        setExportProgress(0);
+        setExportStatus("");
+      }, 2000);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCid(true);
+    toast.success("Copied to clipboard!");
+    setTimeout(() => setCopiedCid(false), 2000);
   };
 
   // Calculate rarity statistics
@@ -1285,6 +1419,113 @@ export function GenerationPreview({
                   <p className="pl-4">📄 _collection.json</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* IPFS Upload */}
+          <Card className="border-green-500/50">
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Cloud className="w-4 h-4 text-green-500" />
+                Upload to IPFS
+                <Badge variant="outline" className="text-xs border-green-500/50 text-green-600 dark:text-green-400">Pinata</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Upload your generated collection directly to IPFS via Pinata. Get a CID to use in your smart contract.
+              </p>
+
+              {isUploadingToIpfs && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-green-500" />
+                    <span className="text-sm">{exportStatus}</span>
+                  </div>
+                  <Progress value={exportProgress} className="h-2" />
+                </div>
+              )}
+
+              {ipfsResult && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                    <Check className="w-4 h-4" />
+                    <span className="font-medium text-sm">Upload Successful!</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">CID:</span>
+                      <div className="flex items-center gap-1">
+                        <code className="text-xs bg-muted px-2 py-1 rounded font-mono truncate max-w-[200px]">
+                          {ipfsResult.cid}
+                        </code>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(ipfsResult.cid)}
+                        >
+                          {copiedCid ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">IPFS URL:</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-xs gap-1"
+                        onClick={() => copyToClipboard(ipfsResult.ipfsUrl)}
+                      >
+                        <Copy className="w-3 h-3" />
+                        Copy
+                      </Button>
+                    </div>
+                    
+                    <a
+                      href={ipfsResult.gatewayUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 hover:underline"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      View on Pinata Gateway
+                    </a>
+                  </div>
+
+                  <div className="pt-2 border-t border-green-500/20">
+                    <p className="text-xs text-muted-foreground">
+                      Use <code className="bg-muted px-1 rounded">ipfs://{ipfsResult.cid}/images/</code> as your base URI in your smart contract.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <Button 
+                onClick={uploadToIpfs} 
+                disabled={isUploadingToIpfs || isExporting || !hasAnyImages}
+                className="w-full gap-2 bg-green-600 hover:bg-green-700"
+                size="lg"
+              >
+                {isUploadingToIpfs ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Cloud className="w-4 h-4" />
+                )}
+                Upload to IPFS
+              </Button>
+
+              {!hasAnyImages && (
+                <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                  ⚠️ Add images to your traits to enable IPFS upload
+                </p>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Max 100 NFTs per upload. Requires Pinata JWT configured.
+              </p>
             </CardContent>
           </Card>
 
