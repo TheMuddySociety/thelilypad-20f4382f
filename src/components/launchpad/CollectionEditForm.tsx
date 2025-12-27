@@ -20,7 +20,10 @@ import {
   Twitter,
   MessageCircle,
   Globe,
-  Send
+  Send,
+  Gem,
+  Copy,
+  Shuffle
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +41,8 @@ interface Phase {
   endTime: string | null;
   requiresAllowlist: boolean;
 }
+
+type CollectionType = "generative" | "one_of_one" | "editions";
 
 interface Collection {
   id: string;
@@ -59,6 +64,7 @@ interface Collection {
   social_discord: string | null;
   social_website: string | null;
   social_telegram: string | null;
+  collection_type?: string;
 }
 
 interface CollectionEditFormProps {
@@ -103,6 +109,11 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [socialDiscord, setSocialDiscord] = useState(collection.social_discord || "");
   const [socialWebsite, setSocialWebsite] = useState(collection.social_website || "");
   const [socialTelegram, setSocialTelegram] = useState(collection.social_telegram || "");
+  
+  // Collection type
+  const [collectionType, setCollectionType] = useState<CollectionType>(
+    (collection.collection_type as CollectionType) || "generative"
+  );
   
   // Parse phases from collection
   const initialPhases = (() => {
@@ -380,6 +391,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           total_supply: totalSupply,
           royalty_percent: royaltyPercent,
           status,
+          collection_type: collectionType,
           phases: phasesJson as unknown as undefined,
           social_twitter: socialTwitter.trim() || null,
           social_discord: socialDiscord.trim() || null,
@@ -447,6 +459,54 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           <CardDescription>Core details about your collection</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Collection Type Selector */}
+          <div className="space-y-3">
+            <Label>Collection Type</Label>
+            <div className="grid grid-cols-3 gap-3">
+              <Card 
+                className={`cursor-pointer transition-all hover:border-primary/50 ${
+                  collectionType === "generative" 
+                    ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                    : "border-border"
+                } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
+                onClick={() => !isLive && setCollectionType("generative")}
+              >
+                <CardContent className="p-3 text-center">
+                  <Shuffle className="w-6 h-6 mx-auto mb-1 text-primary" />
+                  <h4 className="font-semibold text-xs">Generative</h4>
+                </CardContent>
+              </Card>
+              
+              <Card 
+                className={`cursor-pointer transition-all hover:border-primary/50 ${
+                  collectionType === "one_of_one" 
+                    ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                    : "border-border"
+                } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
+                onClick={() => !isLive && setCollectionType("one_of_one")}
+              >
+                <CardContent className="p-3 text-center">
+                  <Gem className="w-6 h-6 mx-auto mb-1 text-amber-500" />
+                  <h4 className="font-semibold text-xs">1 of 1s</h4>
+                </CardContent>
+              </Card>
+              
+              <Card 
+                className={`cursor-pointer transition-all hover:border-primary/50 ${
+                  collectionType === "editions" 
+                    ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                    : "border-border"
+                } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
+                onClick={() => !isLive && setCollectionType("editions")}
+              >
+                <CardContent className="p-3 text-center">
+                  <Copy className="w-6 h-6 mx-auto mb-1 text-emerald-500" />
+                  <h4 className="font-semibold text-xs">Editions</h4>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Collection Name *</Label>
