@@ -24,19 +24,71 @@ interface PurchasedPack {
   contents: StickerContent[];
 }
 
+interface RecentSticker {
+  url: string;
+  name: string;
+  itemId: string;
+  usedAt: number;
+}
+
 interface UsePurchasedStickersResult {
   stickerPacks: PurchasedPack[];
   emojiPacks: PurchasedPack[];
+  recentStickers: RecentSticker[];
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
+  addToRecent: (sticker: Omit<RecentSticker, 'usedAt'>) => void;
 }
+
+const RECENT_STICKERS_KEY = 'lilypad_recent_stickers';
+const MAX_RECENT_STICKERS = 12;
+
+const getStoredRecentStickers = (userId: string): RecentSticker[] => {
+  try {
+    const stored = localStorage.getItem(`${RECENT_STICKERS_KEY}_${userId}`);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveRecentStickers = (userId: string, stickers: RecentSticker[]) => {
+  try {
+    localStorage.setItem(`${RECENT_STICKERS_KEY}_${userId}`, JSON.stringify(stickers));
+  } catch (e) {
+    console.error('Failed to save recent stickers:', e);
+  }
+};
 
 export const usePurchasedStickers = (userId: string | null): UsePurchasedStickersResult => {
   const [stickerPacks, setStickerPacks] = useState<PurchasedPack[]>([]);
   const [emojiPacks, setEmojiPacks] = useState<PurchasedPack[]>([]);
+  const [recentStickers, setRecentStickers] = useState<RecentSticker[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load recent stickers from localStorage
+  useEffect(() => {
+    if (userId) {
+      setRecentStickers(getStoredRecentStickers(userId));
+    } else {
+      setRecentStickers([]);
+    }
+  }, [userId]);
+
+  const addToRecent = (sticker: Omit<RecentSticker, 'usedAt'>) => {
+    if (!userId) return;
+    
+    setRecentStickers((prev) => {
+      // Remove existing entry if present
+      const filtered = prev.filter((s) => s.url !== sticker.url);
+      // Add to front with timestamp
+      const updated = [{ ...sticker, usedAt: Date.now() }, ...filtered].slice(0, MAX_RECENT_STICKERS);
+      saveRecentStickers(userId, updated);
+      return updated;
+    });
+  };
 
   const fetchPurchasedPacks = async () => {
     if (!userId) {
@@ -112,8 +164,10 @@ export const usePurchasedStickers = (userId: string | null): UsePurchasedSticker
   return {
     stickerPacks,
     emojiPacks,
+    recentStickers,
     isLoading,
     error,
     refetch: fetchPurchasedPacks,
+    addToRecent,
   };
 };

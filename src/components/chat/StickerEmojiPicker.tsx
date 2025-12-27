@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Smile, Sticker, Loader2, ShoppingBag } from 'lucide-react';
+import { Smile, Sticker, Loader2, ShoppingBag, Clock } from 'lucide-react';
 import { usePurchasedStickers } from '@/hooks/usePurchasedStickers';
 import { Link } from 'react-router-dom';
 
@@ -20,15 +20,17 @@ interface StickerEmojiPickerProps {
 
 export const StickerEmojiPicker = ({ userId, onSelect }: StickerEmojiPickerProps) => {
   const [open, setOpen] = useState(false);
-  const { stickerPacks, emojiPacks, isLoading } = usePurchasedStickers(userId);
+  const { stickerPacks, emojiPacks, recentStickers, isLoading, addToRecent } = usePurchasedStickers(userId);
 
   const handleSelect = (sticker: SelectedSticker) => {
+    addToRecent(sticker);
     onSelect(sticker);
     setOpen(false);
   };
 
   const hasStickers = stickerPacks.length > 0;
   const hasEmojis = emojiPacks.length > 0;
+  const hasRecent = recentStickers.length > 0;
   const hasPacks = hasStickers || hasEmojis;
 
   return (
@@ -91,6 +93,34 @@ export const StickerEmojiPicker = ({ userId, onSelect }: StickerEmojiPickerProps
             <TabsContent value="stickers" className="mt-0">
               <ScrollArea className="h-64">
                 <div className="p-2 space-y-3">
+                  {hasRecent && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground px-1 mb-1.5 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Recently Used
+                      </p>
+                      <div className="grid grid-cols-4 gap-1">
+                        {recentStickers.map((sticker, index) => (
+                          <button
+                            key={`recent-${index}`}
+                            onClick={() => handleSelect({
+                              url: sticker.url,
+                              name: sticker.name,
+                              itemId: sticker.itemId,
+                            })}
+                            className="aspect-square rounded-md hover:bg-accent p-1 transition-colors"
+                            title={sticker.name}
+                          >
+                            <img
+                              src={sticker.url}
+                              alt={sticker.name}
+                              className="w-full h-full object-contain"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {stickerPacks.map((pack) => (
                     <div key={pack.itemId}>
                       <p className="text-xs font-medium text-muted-foreground px-1 mb-1.5">
