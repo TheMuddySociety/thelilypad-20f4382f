@@ -42,7 +42,8 @@ import {
   Shuffle,
   GripVertical,
   Pencil,
-  Settings2
+  Settings2,
+  Tags
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -51,6 +52,7 @@ import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
 import { AllowlistManager } from "./AllowlistManager";
 import { GenerationPreview } from "./GenerationPreview";
 import { ArtworkMetadataEditor, OneOfOneArtwork } from "./ArtworkMetadataEditor";
+import { BulkTraitsEditor } from "./BulkTraitsEditor";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { formatDistanceToNow } from "date-fns";
@@ -177,6 +179,9 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   
   // Bulk rename state
   const [bulkRenamePattern, setBulkRenamePattern] = useState("");
+  
+  // Bulk traits state
+  const [bulkTraitsOpen, setBulkTraitsOpen] = useState(false);
   const [bulkRenameOpen, setBulkRenameOpen] = useState(false);
   
   // Mint phases
@@ -1320,6 +1325,15 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                         <div className="flex items-center justify-between">
                           <Label>Uploaded Artworks</Label>
                           <div className="flex items-center gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-7 text-xs gap-1.5"
+                              onClick={() => setBulkTraitsOpen(true)}
+                            >
+                              <Tags className="h-3 w-3" />
+                              Bulk Traits
+                            </Button>
                             <Popover open={bulkRenameOpen} onOpenChange={setBulkRenameOpen}>
                               <PopoverTrigger asChild>
                                 <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
@@ -1485,6 +1499,14 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                         }}
                       />
                     )}
+
+                    {/* Bulk Traits Editor Dialog */}
+                    <BulkTraitsEditor
+                      artworks={oneOfOneArtworks}
+                      open={bulkTraitsOpen}
+                      onOpenChange={setBulkTraitsOpen}
+                      onApply={setOneOfOneArtworks}
+                    />
                     
                     <div className="bg-muted/50 rounded-lg p-4">
                       <div className="flex items-center gap-3 text-sm">
