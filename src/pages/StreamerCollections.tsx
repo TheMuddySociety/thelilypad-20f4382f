@@ -9,9 +9,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
-import { ArrowLeft, Layers, Filter, ArrowUpDown, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Layers, Filter, ArrowUpDown, Search, ChevronLeft, ChevronRight, LayoutGrid, List } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const ITEMS_PER_PAGE = 12;
+type ViewMode = 'grid' | 'list';
 
 interface CreatorCollection {
   id: string;
@@ -41,6 +43,7 @@ const StreamerCollections = () => {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -241,90 +244,167 @@ const StreamerCollections = () => {
                   </Select>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Showing {paginatedCollections.length} of {filteredAndSortedCollections.length} collections
-                {filteredAndSortedCollections.length !== collections.length && ` (${collections.length} total)`}
-              </p>
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-muted-foreground">
+                  Showing {paginatedCollections.length} of {filteredAndSortedCollections.length} collections
+                  {filteredAndSortedCollections.length !== collections.length && ` (${collections.length} total)`}
+                </p>
+                <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
+                  <ToggleGroupItem value="grid" aria-label="Grid view" className="h-9 w-9 p-0">
+                    <LayoutGrid className="h-4 w-4" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="list" aria-label="List view" className="h-9 w-9 p-0">
+                    <List className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
             </motion.div>
           )}
 
-          {/* Collections Grid */}
+          {/* Collections Grid/List */}
           {paginatedCollections.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {paginatedCollections.map((collection, index) => {
-                const mintProgress = collection.total_supply > 0 
-                  ? (collection.minted / collection.total_supply) * 100 
-                  : 0;
-                const statusConfig = {
-                  live: { label: 'LIVE', bg: 'bg-green-500', text: 'text-white' },
-                  upcoming: { label: 'UPCOMING', bg: 'bg-yellow-500', text: 'text-black' },
-                  ended: { label: 'ENDED', bg: 'bg-muted', text: 'text-muted-foreground' },
-                };
-                const status = statusConfig[collection.status as keyof typeof statusConfig] || statusConfig.upcoming;
-                
-                return (
-                  <motion.div
-                    key={collection.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15 + index * 0.05 }}
-                  >
-                    <Link to={`/collection/${collection.id}`}>
-                      <Card className="overflow-hidden border-border/50 hover:border-purple-500/50 transition-all duration-300 group cursor-pointer hover:shadow-lg hover:shadow-purple-500/10">
-                        {/* Collection Image */}
-                        <div className="relative aspect-[16/9] overflow-hidden bg-muted/50">
-                          {collection.image_url ? (
-                            <img 
-                              src={collection.image_url} 
-                              alt={collection.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500/20 to-primary/10">
-                              <Layers className="h-12 w-12 text-purple-500/50" />
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {paginatedCollections.map((collection, index) => {
+                    const mintProgress = collection.total_supply > 0 
+                      ? (collection.minted / collection.total_supply) * 100 
+                      : 0;
+                    const statusConfig = {
+                      live: { label: 'LIVE', bg: 'bg-green-500', text: 'text-white' },
+                      upcoming: { label: 'UPCOMING', bg: 'bg-yellow-500', text: 'text-black' },
+                      ended: { label: 'ENDED', bg: 'bg-muted', text: 'text-muted-foreground' },
+                    };
+                    const status = statusConfig[collection.status as keyof typeof statusConfig] || statusConfig.upcoming;
+                    
+                    return (
+                      <motion.div
+                        key={collection.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.15 + index * 0.05 }}
+                      >
+                        <Link to={`/collection/${collection.id}`}>
+                          <Card className="overflow-hidden border-border/50 hover:border-purple-500/50 transition-all duration-300 group cursor-pointer hover:shadow-lg hover:shadow-purple-500/10">
+                            <div className="relative aspect-[16/9] overflow-hidden bg-muted/50">
+                              {collection.image_url ? (
+                                <img 
+                                  src={collection.image_url} 
+                                  alt={collection.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500/20 to-primary/10">
+                                  <Layers className="h-12 w-12 text-purple-500/50" />
+                                </div>
+                              )}
+                              <div className="absolute top-2 right-2">
+                                <Badge className={`${status.bg} ${status.text} text-xs font-semibold px-2 py-0.5`}>
+                                  {status.label}
+                                </Badge>
+                              </div>
                             </div>
-                          )}
-                          
-                          {/* Status Badge */}
-                          <div className="absolute top-2 right-2">
-                            <Badge className={`${status.bg} ${status.text} text-xs font-semibold px-2 py-0.5`}>
-                              {status.label}
-                            </Badge>
-                          </div>
-                        </div>
-                        
-                        {/* Collection Info */}
-                        <CardContent className="p-4">
-                          <h3 className="font-semibold text-base mb-1 line-clamp-1 group-hover:text-purple-500 transition-colors">
-                            {collection.name}
-                          </h3>
-                          {collection.description && (
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                              {collection.description}
-                            </p>
-                          )}
-                          
-                          {/* Mint Progress */}
-                          <div className="space-y-2">
-                            <div className="h-2 bg-muted rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-gradient-to-r from-purple-500 to-primary rounded-full transition-all duration-500"
-                                style={{ width: `${mintProgress}%` }}
-                              />
+                            <CardContent className="p-4">
+                              <h3 className="font-semibold text-base mb-1 line-clamp-1 group-hover:text-purple-500 transition-colors">
+                                {collection.name}
+                              </h3>
+                              {collection.description && (
+                                <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                                  {collection.description}
+                                </p>
+                              )}
+                              <div className="space-y-2">
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-gradient-to-r from-purple-500 to-primary rounded-full transition-all duration-500"
+                                    style={{ width: `${mintProgress}%` }}
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>{collection.minted} / {collection.total_supply} minted</span>
+                                  <span>{mintProgress.toFixed(0)}%</span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {paginatedCollections.map((collection, index) => {
+                    const mintProgress = collection.total_supply > 0 
+                      ? (collection.minted / collection.total_supply) * 100 
+                      : 0;
+                    const statusConfig = {
+                      live: { label: 'LIVE', bg: 'bg-green-500', text: 'text-white' },
+                      upcoming: { label: 'UPCOMING', bg: 'bg-yellow-500', text: 'text-black' },
+                      ended: { label: 'ENDED', bg: 'bg-muted', text: 'text-muted-foreground' },
+                    };
+                    const status = statusConfig[collection.status as keyof typeof statusConfig] || statusConfig.upcoming;
+                    
+                    return (
+                      <motion.div
+                        key={collection.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 + index * 0.03 }}
+                      >
+                        <Link to={`/collection/${collection.id}`}>
+                          <Card className="overflow-hidden border-border/50 hover:border-purple-500/50 transition-all duration-300 group cursor-pointer hover:shadow-lg hover:shadow-purple-500/10">
+                            <div className="flex flex-col sm:flex-row">
+                              <div className="relative w-full sm:w-48 h-32 sm:h-auto overflow-hidden bg-muted/50 flex-shrink-0">
+                                {collection.image_url ? (
+                                  <img 
+                                    src={collection.image_url} 
+                                    alt={collection.name}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500/20 to-primary/10">
+                                    <Layers className="h-10 w-10 text-purple-500/50" />
+                                  </div>
+                                )}
+                              </div>
+                              <CardContent className="flex-1 p-4 flex flex-col justify-between">
+                                <div>
+                                  <div className="flex items-start justify-between gap-2 mb-2">
+                                    <h3 className="font-semibold text-base group-hover:text-purple-500 transition-colors">
+                                      {collection.name}
+                                    </h3>
+                                    <Badge className={`${status.bg} ${status.text} text-xs font-semibold px-2 py-0.5 flex-shrink-0`}>
+                                      {status.label}
+                                    </Badge>
+                                  </div>
+                                  {collection.description && (
+                                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                                      {collection.description}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="h-2 bg-muted rounded-full overflow-hidden max-w-md">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-purple-500 to-primary rounded-full transition-all duration-500"
+                                      style={{ width: `${mintProgress}%` }}
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground max-w-md">
+                                    <span>{collection.minted} / {collection.total_supply} minted</span>
+                                    <span>{mintProgress.toFixed(0)}%</span>
+                                  </div>
+                                </div>
+                              </CardContent>
                             </div>
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                              <span>{collection.minted} / {collection.total_supply} minted</span>
-                              <span>{mintProgress.toFixed(0)}%</span>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  </motion.div>
-                );
-              })}
-              </div>
+                          </Card>
+                        </Link>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Pagination */}
               {totalPages > 1 && (
