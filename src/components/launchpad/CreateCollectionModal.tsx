@@ -30,7 +30,11 @@ import {
   Palette,
   Loader2,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  Globe,
+  Twitter,
+  MessageCircle,
+  Send
 } from "lucide-react";
 import { toast } from "sonner";
 import { LayerManager, Layer } from "./LayerManager";
@@ -102,6 +106,10 @@ interface DraftData {
   currentStep: number;
   savedAt: number;
   imageUrl?: string; // Storage URL for collection cover image
+  socialTwitter?: string;
+  socialDiscord?: string;
+  socialWebsite?: string;
+  socialTelegram?: string;
 }
 
 export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated }: CreateCollectionModalProps) {
@@ -121,6 +129,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   const [totalSupply, setTotalSupply] = useState("5000");
   const [royaltyPercent, setRoyaltyPercent] = useState("5");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  
+  // Social links
+  const [socialTwitter, setSocialTwitter] = useState("");
+  const [socialDiscord, setSocialDiscord] = useState("");
+  const [socialWebsite, setSocialWebsite] = useState("");
+  const [socialTelegram, setSocialTelegram] = useState("");
   
   // Art generation
   const [layers, setLayers] = useState<Layer[]>([]);
@@ -230,6 +244,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         currentStep,
         savedAt: Date.now(),
         imageUrl: savedImageUrl,
+        socialTwitter,
+        socialDiscord,
+        socialWebsite,
+        socialTelegram,
       };
       
       localStorage.setItem(STORAGE_KEY, JSON.stringify(draftData));
@@ -339,6 +357,11 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         if (draft.imageUrl) {
           setImagePreview(draft.imageUrl);
         }
+        // Restore social links
+        setSocialTwitter(draft.socialTwitter || "");
+        setSocialDiscord(draft.socialDiscord || "");
+        setSocialWebsite(draft.socialWebsite || "");
+        setSocialTelegram(draft.socialTelegram || "");
         setHasDraft(false);
         toast.success("Draft restored successfully!");
       }
@@ -508,6 +531,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
             traitCount: l.traits.length,
           })))) : null,
           trait_rules: traitRules.length > 0 ? JSON.parse(JSON.stringify(traitRules)) : null,
+          social_twitter: socialTwitter || null,
+          social_discord: socialDiscord || null,
+          social_website: socialWebsite || null,
+          social_telegram: socialTelegram || null,
         }])
         .select()
         .single();
@@ -545,6 +572,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       setTraitRules([]);
       setPhases(defaultPhases);
       setAllowlistPhases([]);
+      setSocialTwitter("");
+      setSocialDiscord("");
+      setSocialWebsite("");
+      setSocialTelegram("");
     } catch (err) {
       console.error("Error:", err);
       toast.error("Something went wrong");
@@ -724,6 +755,65 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                   onChange={(e) => setRoyaltyPercent(e.target.value)}
                   max={10}
                 />
+              </div>
+            </div>
+
+            {/* Social Links Section */}
+            <Separator className="my-4" />
+            <div className="space-y-4">
+              <Label className="flex items-center gap-2 text-sm font-medium">
+                <Globe className="w-4 h-4" />
+                Social Links (Optional)
+              </Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="socialTwitter" className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Twitter className="w-3 h-3" />
+                    Twitter
+                  </Label>
+                  <Input 
+                    id="socialTwitter" 
+                    placeholder="https://twitter.com/yourcollection"
+                    value={socialTwitter}
+                    onChange={(e) => setSocialTwitter(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="socialDiscord" className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <MessageCircle className="w-3 h-3" />
+                    Discord
+                  </Label>
+                  <Input 
+                    id="socialDiscord" 
+                    placeholder="https://discord.gg/yourcollection"
+                    value={socialDiscord}
+                    onChange={(e) => setSocialDiscord(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="socialWebsite" className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Globe className="w-3 h-3" />
+                    Website
+                  </Label>
+                  <Input 
+                    id="socialWebsite" 
+                    placeholder="https://yourcollection.com"
+                    value={socialWebsite}
+                    onChange={(e) => setSocialWebsite(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="socialTelegram" className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Send className="w-3 h-3" />
+                    Telegram
+                  </Label>
+                  <Input 
+                    id="socialTelegram" 
+                    placeholder="https://t.me/yourcollection"
+                    value={socialTelegram}
+                    onChange={(e) => setSocialTelegram(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
           </div>
