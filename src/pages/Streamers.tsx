@@ -237,7 +237,7 @@ const availableCategories = [
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Streamer Directory
+              Lily Streamers
             </span>
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
