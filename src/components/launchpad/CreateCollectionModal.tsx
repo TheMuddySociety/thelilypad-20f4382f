@@ -41,7 +41,8 @@ import {
   Copy,
   Shuffle,
   GripVertical,
-  Pencil
+  Pencil,
+  Settings2
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -49,6 +50,7 @@ import { LayerManager, Layer } from "./LayerManager";
 import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
 import { AllowlistManager } from "./AllowlistManager";
 import { GenerationPreview } from "./GenerationPreview";
+import { ArtworkMetadataEditor, OneOfOneArtwork } from "./ArtworkMetadataEditor";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { formatDistanceToNow } from "date-fns";
@@ -158,7 +160,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   const [artTab, setArtTab] = useState("layers");
   
   // 1 of 1 artworks
-  const [oneOfOneArtworks, setOneOfOneArtworks] = useState<{ id: string; file: File; preview: string; name: string }[]>([]);
+  const [oneOfOneArtworks, setOneOfOneArtworks] = useState<OneOfOneArtwork[]>([]);
+  const [editingArtworkIndex, setEditingArtworkIndex] = useState<number | null>(null);
   
   // Edition artwork
   const [editionArtwork, setEditionArtwork] = useState<{ file: File; preview: string } | null>(null);
@@ -1420,8 +1423,21 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                                   <GripVertical className="h-4 w-4 text-white" />
                                 </div>
                               </div>
-                              {/* Delete button */}
-                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {/* Action buttons */}
+                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingArtworkIndex(index);
+                                  }}
+                                  title="Edit metadata"
+                                >
+                                  <Settings2 className="h-3 w-3" />
+                                </Button>
                                 <Button
                                   type="button"
                                   variant="destructive"
@@ -1435,6 +1451,14 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                                   <X className="h-3 w-3" />
                                 </Button>
                               </div>
+                              {/* Metadata indicator */}
+                              {artwork.metadata && (artwork.metadata.description || artwork.metadata.traits.length > 0) && (
+                                <div className="absolute top-1 left-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="bg-primary/80 text-primary-foreground rounded px-1.5 py-0.5 text-[10px] font-medium">
+                                    {artwork.metadata.traits.length} traits
+                                  </div>
+                                </div>
+                              )}
                               {/* Token ID and name badge */}
                               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
                                 <p className="text-white text-xs font-medium truncate">#{index + 1} - {artwork.name}</p>
@@ -1443,6 +1467,23 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                           ))}
                         </div>
                       </div>
+                    )}
+
+                    {/* Artwork Metadata Editor Dialog */}
+                    {editingArtworkIndex !== null && oneOfOneArtworks[editingArtworkIndex] && (
+                      <ArtworkMetadataEditor
+                        artwork={oneOfOneArtworks[editingArtworkIndex]}
+                        index={editingArtworkIndex}
+                        open={editingArtworkIndex !== null}
+                        onOpenChange={(open) => {
+                          if (!open) setEditingArtworkIndex(null);
+                        }}
+                        onSave={(updatedArtwork) => {
+                          const newArtworks = [...oneOfOneArtworks];
+                          newArtworks[editingArtworkIndex] = updatedArtwork;
+                          setOneOfOneArtworks(newArtworks);
+                        }}
+                      />
                     )}
                     
                     <div className="bg-muted/50 rounded-lg p-4">
