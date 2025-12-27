@@ -608,6 +608,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
           minted: 0,
           royalty_percent: parseFloat(royaltyPercent) || 5,
           status: "upcoming",
+          collection_type: collectionType,
           phases: JSON.parse(JSON.stringify(enabledPhasesData)),
           layers_metadata: layers.length > 0 ? JSON.parse(JSON.stringify(layers.map(l => ({
             id: l.id,
@@ -663,6 +664,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       setSocialDiscord("");
       setSocialWebsite("");
       setSocialTelegram("");
+      setCollectionType("generative");
     } catch (err) {
       console.error("Error:", err);
       toast.error("Something went wrong");
