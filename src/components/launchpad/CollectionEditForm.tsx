@@ -517,6 +517,70 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
             {errors.image_url && <p className="text-xs text-destructive">{errors.image_url}</p>}
           </div>
 
+          {/* Banner Upload */}
+          <div className="space-y-2">
+            <Label>Collection Banner</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Recommended size: 1500x500px. This will be displayed on your collection page.
+            </p>
+            <div className="space-y-3">
+              {bannerPreview ? (
+                <div className="relative w-full aspect-[3/1] rounded-lg overflow-hidden border border-border">
+                  <img 
+                    src={bannerPreview} 
+                    alt="Banner Preview" 
+                    className="w-full h-full object-cover" 
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8"
+                    onClick={() => {
+                      setBannerPreview(null);
+                      setBannerFile(null);
+                      setBannerUrl("");
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  {bannerFile && (
+                    <Badge variant="secondary" className="absolute bottom-2 left-2 text-xs">
+                      New banner selected
+                    </Badge>
+                  )}
+                </div>
+              ) : (
+                <div
+                  className="w-full aspect-[3/1] rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors cursor-pointer flex flex-col items-center justify-center bg-muted gap-2"
+                  onClick={() => document.getElementById("edit-banner-upload")?.click()}
+                >
+                  <Upload className="w-8 h-8 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Click to upload banner</span>
+                  <span className="text-xs text-muted-foreground">PNG, JPG up to 5MB</span>
+                </div>
+              )}
+              <input
+                id="edit-banner-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleBannerUpload}
+              />
+              {bannerPreview && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById("edit-banner-upload")?.click()}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Change Banner
+                </Button>
+              )}
+            </div>
+          </div>
+
           {/* Social Links */}
           <Separator className="my-4" />
           <div className="space-y-4">
