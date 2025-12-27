@@ -21,7 +21,11 @@ import {
   Shield,
   ArrowDownRight,
   Calendar,
-  Radio
+  Radio,
+  Palette,
+  Rocket,
+  FileEdit,
+  Trash2
 } from "lucide-react";
 import {
   LineChart,
@@ -36,6 +40,18 @@ import {
   BarChart,
   Bar
 } from "recharts";
+
+interface DraftCollection {
+  id: string;
+  name: string;
+  symbol: string;
+  description: string | null;
+  image_url: string | null;
+  total_supply: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
 
 // Mock data for charts - in production this would come from the database
 const viewerData = [
@@ -80,6 +96,8 @@ export default function Dashboard() {
     totalEarnings: 0,
     totalStreams: 0,
   });
+  const [draftCollections, setDraftCollections] = useState<DraftCollection[]>([]);
+  const [isLoadingCollections, setIsLoadingCollections] = useState(true);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -102,8 +120,57 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       fetchDashboardData();
+      fetchDraftCollections();
     }
   }, [user]);
+
+  const fetchDraftCollections = async () => {
+    setIsLoadingCollections(true);
+    try {
+      const { data, error } = await supabase
+        .from("collections")
+        .select("*")
+        .eq("creator_id", user.id)
+        .in("status", ["draft", "upcoming"])
+        .order("updated_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching collections:", error);
+      } else {
+        setDraftCollections(data || []);
+      }
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setIsLoadingCollections(false);
+    }
+  };
+
+  const handleDeleteDraft = async (collectionId: string) => {
+    try {
+      const { error } = await supabase
+        .from("collections")
+        .delete()
+        .eq("id", collectionId)
+        .eq("creator_id", user.id);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete collection",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Deleted",
+          description: "Collection draft removed",
+        });
+        fetchDraftCollections();
+      }
+    } catch (err) {
+      console.error("Error:", err);
+    }
+  };
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
@@ -179,6 +246,10 @@ export default function Dashboard() {
             <p className="text-muted-foreground">Track your stream performance and earnings</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={() => navigate("/launchpad")} className="w-full sm:w-auto">
+              <Palette className="w-4 h-4 mr-2" />
+              NFT Launchpad
+            </Button>
             <Button variant="outline" onClick={() => navigate("/moderation")} className="w-full sm:w-auto">
               <Shield className="w-4 h-4 mr-2" />
               Moderation
@@ -338,6 +409,103 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* NFT Collection Drafts Section */}
+        <Card className="glass-card border-border/50 mb-6 sm:mb-8">
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                  <Palette className="w-5 h-5" />
+                  Your NFT Collections
+                </CardTitle>
+                <CardDescription>Draft and upcoming collections you've created</CardDescription>
+              </div>
+              <Button onClick={() => navigate("/launchpad")} size="sm">
+                <Rocket className="w-4 h-4 mr-2" />
+                Create New
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 pt-0">
+            {isLoadingCollections ? (
+              <div className="space-y-3">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+            ) : draftCollections.length > 0 ? (
+              <div className="space-y-3 sm:space-y-4">
+                {draftCollections.map((collection) => (
+                  <div
+                    key={collection.id}
+                    className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                  >
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0 overflow-hidden">
+                      {collection.image_url ? (
+                        <img 
+                          src={collection.image_url} 
+                          alt={collection.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Palette className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-sm sm:text-base truncate">{collection.name}</h3>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                        <Badge 
+                          variant="secondary" 
+                          className={`text-xs ${
+                            collection.status === "draft" 
+                              ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/30"
+                              : collection.status === "upcoming"
+                              ? "bg-blue-500/20 text-blue-500 border-blue-500/30"
+                              : "bg-green-500/20 text-green-500 border-green-500/30"
+                          }`}
+                        >
+                          {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
+                        </Badge>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="hidden sm:inline">{collection.symbol}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="hidden sm:inline">{collection.total_supply.toLocaleString()} supply</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/launchpad/${collection.id}`)}
+                      >
+                        <FileEdit className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">View</span>
+                      </Button>
+                      {collection.status === "draft" && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteDraft(collection.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Palette className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No NFT collections yet</p>
+                <Button variant="link" onClick={() => navigate("/launchpad")}>
+                  Create your first collection
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Recent Activity */}
         <Tabs defaultValue="streams" className="w-full">

@@ -565,6 +565,7 @@ export default function CollectionDetail() {
                 )}
 
                 {/* Price Info */}
+                {activePhase && (
                 <div className="p-4 bg-muted/50 rounded-lg space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Price per NFT</span>
@@ -579,12 +580,14 @@ export default function CollectionDetail() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Remaining</span>
                     <span className="font-medium">
-                      {(activePhase.supply - activePhase.minted).toLocaleString()}
+                      {((activePhase.supply || 0) - (activePhase.minted || 0)).toLocaleString()}
                     </span>
                   </div>
                 </div>
+                )}
 
                 {/* Amount Selector */}
+                {activePhase && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Amount</label>
                   <div className="flex items-center gap-3">
@@ -599,21 +602,22 @@ export default function CollectionDetail() {
                     <Input 
                       type="number"
                       value={mintAmount}
-                      onChange={(e) => setMintAmount(Math.min(activePhase.maxPerWallet, Math.max(1, parseInt(e.target.value) || 1)))}
+                      onChange={(e) => setMintAmount(Math.min(activePhase.maxPerWallet || 10, Math.max(1, parseInt(e.target.value) || 1)))}
                       className="text-center w-20"
                       min={1}
-                      max={activePhase.maxPerWallet}
+                      max={activePhase.maxPerWallet || 10}
                     />
                     <Button 
                       variant="outline" 
                       size="icon"
-                      onClick={() => setMintAmount(Math.min(activePhase.maxPerWallet, mintAmount + 1))}
-                      disabled={mintAmount >= activePhase.maxPerWallet}
+                      onClick={() => setMintAmount(Math.min(activePhase.maxPerWallet || 10, mintAmount + 1))}
+                      disabled={mintAmount >= (activePhase.maxPerWallet || 10)}
                     >
                       <Plus className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
+                )}
 
                 <Separator />
 
@@ -737,14 +741,16 @@ export default function CollectionDetail() {
                   size="lg" 
                   className="w-full gap-2"
                   onClick={handleMint}
-                  disabled={isMinting || isSwitchingNetwork || activePhase.minted >= activePhase.supply || !isConnected || isWrongNetwork || hasInsufficientBalance}
+                  disabled={isMinting || isSwitchingNetwork || !activePhase || (activePhase.minted || 0) >= (activePhase.supply || 0) || !isConnected || isWrongNetwork || hasInsufficientBalance}
                 >
                   {isMinting ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
                       Minting...
                     </>
-                  ) : activePhase.minted >= activePhase.supply ? (
+                  ) : !activePhase ? (
+                    "No Phase Available"
+                  ) : (activePhase.minted || 0) >= (activePhase.supply || 0) ? (
                     "Sold Out"
                   ) : isWrongNetwork ? (
                     <>
@@ -769,7 +775,7 @@ export default function CollectionDetail() {
                   )}
                 </Button>
 
-                {activePhase.requiresAllowlist && (
+                {activePhase?.requiresAllowlist && (
                   <p className="text-xs text-center text-muted-foreground">
                     This phase requires allowlist verification
                   </p>
