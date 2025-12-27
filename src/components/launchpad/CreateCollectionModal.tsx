@@ -161,6 +161,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   const [editionArtwork, setEditionArtwork] = useState<{ file: File; preview: string } | null>(null);
   const [editionType, setEditionType] = useState<"open" | "limited" | "timed">("open");
   
+  // Drag and drop states
+  const [isOneOfOneDragging, setIsOneOfOneDragging] = useState(false);
+  const [isEditionDragging, setIsEditionDragging] = useState(false);
+  
   // Mint phases
   const [phases, setPhases] = useState<MintPhase[]>(defaultPhases);
   
@@ -532,6 +536,111 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
   const removeEditionArtwork = () => {
     setEditionArtwork(null);
+  };
+
+  // Drag and drop handlers for 1 of 1s
+  const handleOneOfOneDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsOneOfOneDragging(true);
+  };
+
+  const handleOneOfOneDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsOneOfOneDragging(false);
+  };
+
+  const handleOneOfOneDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleOneOfOneDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsOneOfOneDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    let addedCount = 0;
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image file`);
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} exceeds 10MB limit`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const artwork = {
+          id: `artwork-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          file,
+          preview: reader.result as string,
+          name: file.name.replace(/\.[^/.]+$/, ""),
+        };
+        setOneOfOneArtworks((prev) => [...prev, artwork]);
+        addedCount++;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Update total supply
+    setTimeout(() => {
+      setTotalSupply((prev) => String(oneOfOneArtworks.length + files.length));
+    }, 100);
+  };
+
+  // Drag and drop handlers for editions
+  const handleEditionDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsEditionDragging(true);
+  };
+
+  const handleEditionDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsEditionDragging(false);
+  };
+
+  const handleEditionDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleEditionDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsEditionDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please drop an image file");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image must be less than 10MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setEditionArtwork({
+        file,
+        preview: reader.result as string,
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   const uploadImageToStorage = async (userId: string): Promise<string | null> => {
@@ -1161,13 +1270,23 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Upload Area */}
+                    {/* Upload Area with Drag & Drop */}
                     <div 
-                      className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                      className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                        isOneOfOneDragging 
+                          ? "border-primary bg-primary/10" 
+                          : "border-border hover:border-primary/50"
+                      }`}
                       onClick={() => document.getElementById("one-of-one-upload")?.click()}
+                      onDragEnter={handleOneOfOneDragEnter}
+                      onDragLeave={handleOneOfOneDragLeave}
+                      onDragOver={handleOneOfOneDragOver}
+                      onDrop={handleOneOfOneDrop}
                     >
-                      <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                      <p className="font-medium text-sm mb-1">Add Artworks</p>
+                      <Upload className={`w-8 h-8 mx-auto mb-2 ${isOneOfOneDragging ? "text-primary" : "text-muted-foreground"}`} />
+                      <p className="font-medium text-sm mb-1">
+                        {isOneOfOneDragging ? "Drop artworks here" : "Drag & drop or click to add"}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         PNG, JPG, GIF, WEBP up to 10MB each
                       </p>
@@ -1278,11 +1397,21 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                       </div>
                     ) : (
                       <div 
-                        className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                          isEditionDragging 
+                            ? "border-primary bg-primary/10" 
+                            : "border-border hover:border-primary/50"
+                        }`}
                         onClick={() => document.getElementById("edition-artwork-upload")?.click()}
+                        onDragEnter={handleEditionDragEnter}
+                        onDragLeave={handleEditionDragLeave}
+                        onDragOver={handleEditionDragOver}
+                        onDrop={handleEditionDrop}
                       >
-                        <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                        <p className="font-medium mb-1">Upload Edition Artwork</p>
+                        <Upload className={`w-10 h-10 mx-auto mb-3 ${isEditionDragging ? "text-primary" : "text-muted-foreground"}`} />
+                        <p className="font-medium mb-1">
+                          {isEditionDragging ? "Drop artwork here" : "Drag & drop or click to upload"}
+                        </p>
                         <p className="text-sm text-muted-foreground mb-3">
                           This artwork will be minted as {totalSupply || "multiple"} editions
                         </p>
