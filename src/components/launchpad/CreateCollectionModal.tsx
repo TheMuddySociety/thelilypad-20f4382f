@@ -149,10 +149,17 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   // Collection type
   const [collectionType, setCollectionType] = useState<CollectionType>("generative");
   
-  // Art generation
+  // Art generation (Generative)
   const [layers, setLayers] = useState<Layer[]>([]);
   const [traitRules, setTraitRules] = useState<TraitRule[]>([]);
   const [artTab, setArtTab] = useState("layers");
+  
+  // 1 of 1 artworks
+  const [oneOfOneArtworks, setOneOfOneArtworks] = useState<{ id: string; file: File; preview: string; name: string }[]>([]);
+  
+  // Edition artwork
+  const [editionArtwork, setEditionArtwork] = useState<{ file: File; preview: string } | null>(null);
+  const [editionType, setEditionType] = useState<"open" | "limited" | "timed">("open");
   
   // Mint phases
   const [phases, setPhases] = useState<MintPhase[]>(defaultPhases);
@@ -448,6 +455,85 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     reader.readAsDataURL(file);
   };
 
+  // Handle 1 of 1 artwork uploads
+  const handleOneOfOneUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newArtworks: { id: string; file: File; preview: string; name: string }[] = [];
+    
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image file`);
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} exceeds 10MB limit`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const artwork = {
+          id: `artwork-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          file,
+          preview: reader.result as string,
+          name: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
+        };
+        setOneOfOneArtworks((prev) => [...prev, artwork]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Update total supply based on artworks count
+    setTotalSupply((prev) => {
+      const currentCount = oneOfOneArtworks.length;
+      const newCount = currentCount + files.length;
+      return String(newCount);
+    });
+
+    // Reset input
+    e.target.value = "";
+  };
+
+  const removeOneOfOneArtwork = (id: string) => {
+    setOneOfOneArtworks((prev) => {
+      const updated = prev.filter((a) => a.id !== id);
+      setTotalSupply(String(updated.length));
+      return updated;
+    });
+  };
+
+  // Handle edition artwork upload
+  const handleEditionArtworkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image must be less than 10MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setEditionArtwork({
+        file,
+        preview: reader.result as string,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeEditionArtwork = () => {
+    setEditionArtwork(null);
+  };
+
   const uploadImageToStorage = async (userId: string): Promise<string | null> => {
     if (!imageFile) return imagePreview; // Return existing URL if no new file
     
@@ -666,6 +752,9 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       setSocialWebsite("");
       setSocialTelegram("");
       setCollectionType("generative");
+      setOneOfOneArtworks([]);
+      setEditionArtwork(null);
+      setEditionType("open");
     } catch (err) {
       console.error("Error:", err);
       toast.error("Something went wrong");
@@ -1061,20 +1150,24 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                     <CardTitle className="flex items-center gap-2">
                       <Gem className="w-5 h-5 text-amber-500" />
                       1 of 1 Artworks
+                      {oneOfOneArtworks.length > 0 && (
+                        <Badge variant="secondary" className="ml-auto">
+                          {oneOfOneArtworks.length} artwork{oneOfOneArtworks.length !== 1 ? 's' : ''}
+                        </Badge>
+                      )}
                     </CardTitle>
                     <CardDescription>
                       Upload unique individual pieces. Each artwork will be a one-of-a-kind NFT.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                    {/* Upload Area */}
+                    <div 
+                      className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
                       onClick={() => document.getElementById("one-of-one-upload")?.click()}
                     >
-                      <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                      <p className="font-medium mb-1">Upload Artworks</p>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Drag and drop or click to upload multiple unique artworks
-                      </p>
+                      <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                      <p className="font-medium text-sm mb-1">Add Artworks</p>
                       <p className="text-xs text-muted-foreground">
                         PNG, JPG, GIF, WEBP up to 10MB each
                       </p>
@@ -1084,16 +1177,60 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                         accept="image/*" 
                         multiple
                         className="hidden" 
+                        onChange={handleOneOfOneUpload}
                       />
                     </div>
+
+                    {/* Artwork Preview Grid */}
+                    {oneOfOneArtworks.length > 0 && (
+                      <div className="space-y-3">
+                        <Label>Uploaded Artworks</Label>
+                        <div className="grid grid-cols-4 gap-3 max-h-[300px] overflow-y-auto p-1">
+                          {oneOfOneArtworks.map((artwork, index) => (
+                            <div 
+                              key={artwork.id} 
+                              className="relative group aspect-square rounded-lg overflow-hidden border border-border"
+                            >
+                              <img 
+                                src={artwork.preview} 
+                                alt={artwork.name}
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeOneOfOneArtwork(artwork.id);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                                <p className="text-white text-xs truncate">#{index + 1}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="bg-muted/50 rounded-lg p-4">
                       <div className="flex items-center gap-3 text-sm">
                         <Gem className="w-5 h-5 text-amber-500" />
                         <div>
-                          <p className="font-medium">Each artwork is unique</p>
+                          <p className="font-medium">
+                            {oneOfOneArtworks.length > 0 
+                              ? `${oneOfOneArtworks.length} unique artwork${oneOfOneArtworks.length !== 1 ? 's' : ''} ready`
+                              : 'Each artwork is unique'
+                            }
+                          </p>
                           <p className="text-muted-foreground text-xs">
-                            Total supply will match the number of artworks uploaded
+                            Total supply: {oneOfOneArtworks.length || 0} NFTs
                           </p>
                         </div>
                       </div>
@@ -1117,24 +1254,50 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                      onClick={() => document.getElementById("edition-artwork-upload")?.click()}
-                    >
-                      <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                      <p className="font-medium mb-1">Upload Edition Artwork</p>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        This artwork will be minted as {totalSupply || "multiple"} editions
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        PNG, JPG, GIF, WEBP up to 10MB
-                      </p>
-                      <input 
-                        id="edition-artwork-upload" 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                      />
-                    </div>
+                    {/* Artwork Upload/Preview */}
+                    {editionArtwork ? (
+                      <div className="relative rounded-lg overflow-hidden border border-border">
+                        <img 
+                          src={editionArtwork.preview} 
+                          alt="Edition Artwork"
+                          className="w-full aspect-square object-cover"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-3 right-3 h-8 w-8"
+                          onClick={removeEditionArtwork}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                          <p className="text-white font-medium">Edition Artwork</p>
+                          <p className="text-white/70 text-sm">{totalSupply} editions</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div 
+                        className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                        onClick={() => document.getElementById("edition-artwork-upload")?.click()}
+                      >
+                        <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                        <p className="font-medium mb-1">Upload Edition Artwork</p>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          This artwork will be minted as {totalSupply || "multiple"} editions
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          PNG, JPG, GIF, WEBP up to 10MB
+                        </p>
+                      </div>
+                    )}
+                    <input 
+                      id="edition-artwork-upload" 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden"
+                      onChange={handleEditionArtworkUpload}
+                    />
                     
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -1153,7 +1316,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                       </div>
                       <div className="space-y-2">
                         <Label>Edition Type</Label>
-                        <Select defaultValue="open">
+                        <Select value={editionType} onValueChange={(v) => setEditionType(v as typeof editionType)}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select type" />
                           </SelectTrigger>
@@ -1173,9 +1336,16 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                       <div className="flex items-center gap-3 text-sm">
                         <Copy className="w-5 h-5 text-emerald-500" />
                         <div>
-                          <p className="font-medium">{totalSupply || "0"} identical editions</p>
+                          <p className="font-medium">
+                            {editionArtwork 
+                              ? `${totalSupply || 0} identical editions ready` 
+                              : `${totalSupply || 0} identical editions`
+                            }
+                          </p>
                           <p className="text-muted-foreground text-xs">
-                            Each collector receives the same artwork, numbered edition
+                            {editionType === "open" && "Unlimited minting until supply runs out"}
+                            {editionType === "limited" && "Fixed supply, first come first served"}
+                            {editionType === "timed" && "Available for a limited time period"}
                           </p>
                         </div>
                       </div>
