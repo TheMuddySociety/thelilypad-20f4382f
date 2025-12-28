@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
-import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image } from "lucide-react";
+import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useWallet } from "@/providers/WalletProvider";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   Drawer,
   DrawerClose,
@@ -47,16 +48,22 @@ const accountLinks = [
   { label: "Go Live", href: "/go-live", icon: Radio },
 ];
 
-const allMobileLinks = [
-  ...primaryLinks,
-  ...exploreLinks,
-  ...accountLinks,
+const adminLinks = [
+  { label: "Admin Dashboard", href: "/admin", icon: ShieldCheck },
 ];
 
 export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const { network } = useWallet();
+  const { isAdmin } = useIsAdmin();
   const isTestnet = network === "testnet";
+
+  const allMobileLinks = [
+    ...primaryLinks,
+    ...exploreLinks,
+    ...accountLinks,
+    ...(isAdmin ? adminLinks : []),
+  ];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -140,6 +147,17 @@ export const Navbar: React.FC = () => {
                           </NavigationMenuLink>
                         </li>
                       ))}
+                      {isAdmin && (
+                        <li className="border-t border-border mt-2 pt-2">
+                          <NavigationMenuLink
+                            href="/admin"
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-muted rounded-md transition-colors font-medium"
+                          >
+                            <ShieldCheck className="w-4 h-4" />
+                            Admin Dashboard
+                          </NavigationMenuLink>
+                        </li>
+                      )}
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>

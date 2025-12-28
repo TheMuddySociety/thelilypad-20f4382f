@@ -27,6 +27,7 @@ import ChannelEmotes from "./pages/ChannelEmotes";
 import CollectionDetail from "./pages/CollectionDetail";
 import Watch from "./pages/Watch";
 import MyNFTs from "./pages/MyNFTs";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ const App = () => (
             <Route path="/launchpad/:collectionId" element={<CollectionDetail />} />
             <Route path="/my-nfts" element={<MyNFTs />} />
             <Route path="/watch/:playbackId" element={<Watch />} />
+            <Route path="/admin" element={<AdminDashboard />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
