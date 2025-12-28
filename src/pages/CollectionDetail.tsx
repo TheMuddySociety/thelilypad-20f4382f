@@ -903,8 +903,35 @@ export default function CollectionDetail() {
 
                 {/* Amount Selector */}
                 {activePhase && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <label className="text-sm font-medium">Amount</label>
+                  
+                  {/* Quick Select Buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    {[1, 3, 5, 10].filter(n => n <= (activePhase.maxPerWallet || 10)).map((amount) => (
+                      <Button
+                        key={amount}
+                        variant={mintAmount === amount ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setMintAmount(amount)}
+                        className="flex-1 min-w-[60px]"
+                      >
+                        {amount}
+                      </Button>
+                    ))}
+                    {(activePhase.maxPerWallet || 10) > 10 && (
+                      <Button
+                        variant={mintAmount === (activePhase.maxPerWallet || 10) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setMintAmount(activePhase.maxPerWallet || 10)}
+                        className="flex-1 min-w-[60px]"
+                      >
+                        Max ({activePhase.maxPerWallet})
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {/* Custom Amount Input */}
                   <div className="flex items-center gap-3">
                     <Button 
                       variant="outline" 
@@ -918,7 +945,7 @@ export default function CollectionDetail() {
                       type="number"
                       value={mintAmount}
                       onChange={(e) => setMintAmount(Math.min(activePhase.maxPerWallet || 10, Math.max(1, parseInt(e.target.value) || 1)))}
-                      className="text-center w-20"
+                      className="text-center flex-1"
                       min={1}
                       max={activePhase.maxPerWallet || 10}
                     />
@@ -931,6 +958,16 @@ export default function CollectionDetail() {
                       <Plus className="w-4 h-4" />
                     </Button>
                   </div>
+                  
+                  {/* Bulk Mint Savings Indicator */}
+                  {mintAmount > 1 && (
+                    <div className="flex items-center gap-2 p-2 bg-accent/10 rounded-lg border border-accent/30">
+                      <Sparkles className="w-4 h-4 text-accent" />
+                      <span className="text-xs text-accent">
+                        Bulk mint! {mintAmount} NFTs in a single transaction saves gas.
+                      </span>
+                    </div>
+                  )}
                 </div>
                 )}
 
