@@ -607,6 +607,62 @@ export type Database = {
         }
         Relationships: []
       }
+      nft_listings: {
+        Row: {
+          buyer_address: string | null
+          buyer_id: string | null
+          created_at: string
+          currency: string
+          expires_at: string | null
+          id: string
+          nft_id: string
+          price: number
+          seller_address: string
+          seller_id: string
+          sold_at: string | null
+          status: string
+          tx_hash: string | null
+        }
+        Insert: {
+          buyer_address?: string | null
+          buyer_id?: string | null
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          nft_id: string
+          price: number
+          seller_address: string
+          seller_id: string
+          sold_at?: string | null
+          status?: string
+          tx_hash?: string | null
+        }
+        Update: {
+          buyer_address?: string | null
+          buyer_id?: string | null
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          nft_id?: string
+          price?: number
+          seller_address?: string
+          seller_id?: string
+          sold_at?: string | null
+          status?: string
+          tx_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nft_listings_nft_id_fkey"
+            columns: ["nft_id"]
+            isOneToOne: false
+            referencedRelation: "minted_nfts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nft_transactions: {
         Row: {
           collection_id: string | null
