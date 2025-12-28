@@ -33,7 +33,19 @@ export function WalkthroughTooltip({
 }: WalkthroughTooltipProps) {
   const [position, setPosition] = useState<Position>({ top: 0, left: 0, arrowPosition: "top" });
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const prevStepRef = useRef(currentIndex);
+
+  // Detect step changes for transition animation
+  useEffect(() => {
+    if (prevStepRef.current !== currentIndex) {
+      setIsTransitioning(true);
+      const timer = setTimeout(() => setIsTransitioning(false), 300);
+      prevStepRef.current = currentIndex;
+      return () => clearTimeout(timer);
+    }
+  }, [currentIndex]);
 
   useEffect(() => {
     const updatePosition = () => {
@@ -106,19 +118,29 @@ export function WalkthroughTooltip({
     }
   }, [step.target]);
 
+  const progressPercentage = ((currentIndex + 1) / totalSteps) * 100;
+
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       <motion.div
+        key={step.id}
         ref={tooltipRef}
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        transition={{ duration: 0.2 }}
+        initial={{ opacity: 0, scale: 0.9, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: -10 }}
+        transition={{ 
+          duration: 0.3, 
+          ease: [0.4, 0, 0.2, 1],
+          scale: { type: "spring", stiffness: 300, damping: 25 }
+        }}
         className="fixed z-[10001] w-80 max-w-[calc(100vw-32px)]"
         style={{ top: position.top, left: position.left }}
       >
         {/* Arrow */}
-        <div
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
           className={`absolute w-3 h-3 bg-card border rotate-45 ${
             position.arrowPosition === "top"
               ? "-top-1.5 left-1/2 -translate-x-1/2 border-t border-l"
@@ -132,9 +154,33 @@ export function WalkthroughTooltip({
 
         {/* Tooltip content */}
         <div className="bg-card border rounded-lg shadow-xl overflow-hidden">
+          {/* Progress bar at top */}
+          <div className="h-1 bg-muted relative overflow-hidden">
+            <motion.div
+              className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80"
+              initial={{ width: `${((currentIndex) / totalSteps) * 100}%` }}
+              animate={{ width: `${progressPercentage}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+            {/* Shimmer effect */}
+            <motion.div
+              className="absolute inset-y-0 w-20 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+              initial={{ left: "-20%" }}
+              animate={{ left: "120%" }}
+              transition={{ duration: 1.5, delay: 0.3, ease: "easeInOut" }}
+            />
+          </div>
+
           {/* Header */}
           <div className="flex items-center justify-between p-4 pb-2">
-            <h3 className="font-semibold text-foreground">{step.title}</h3>
+            <motion.h3 
+              className="font-semibold text-foreground"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.15 }}
+            >
+              {step.title}
+            </motion.h3>
             <Button
               variant="ghost"
               size="icon"
@@ -146,54 +192,101 @@ export function WalkthroughTooltip({
           </div>
 
           {/* Description */}
-          <p className="px-4 pb-4 text-sm text-muted-foreground">
+          <motion.p 
+            className="px-4 pb-4 text-sm text-muted-foreground"
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
             {step.description}
-          </p>
+          </motion.p>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-4 py-3 bg-muted/50 border-t">
-            {/* Progress dots */}
+          <motion.div 
+            className="flex items-center justify-between px-4 py-3 bg-muted/50 border-t"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.25 }}
+          >
+            {/* Step counter with animated dots */}
             <div className="flex items-center gap-1.5">
               {Array.from({ length: totalSteps }).map((_, i) => (
-                <div
+                <motion.div
                   key={i}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    i === currentIndex
-                      ? "bg-primary"
-                      : i < currentIndex
-                      ? "bg-primary/40"
-                      : "bg-muted-foreground/30"
-                  }`}
+                  initial={false}
+                  animate={{
+                    scale: i === currentIndex ? 1.2 : 1,
+                    backgroundColor: i === currentIndex 
+                      ? "hsl(var(--primary))" 
+                      : i < currentIndex 
+                      ? "hsl(var(--primary) / 0.5)" 
+                      : "hsl(var(--muted-foreground) / 0.3)"
+                  }}
+                  transition={{ 
+                    duration: 0.3,
+                    scale: { type: "spring", stiffness: 400, damping: 20 }
+                  }}
+                  className="w-2 h-2 rounded-full"
                 />
               ))}
+              <span className="text-xs text-muted-foreground ml-2">
+                {currentIndex + 1}/{totalSteps}
+              </span>
             </div>
 
             {/* Navigation */}
             <div className="flex items-center gap-2">
               {!isFirst && (
-                <Button variant="ghost" size="sm" onClick={onPrev}>
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Back
-                </Button>
+                <motion.div
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <Button variant="ghost" size="sm" onClick={onPrev}>
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Back
+                  </Button>
+                </motion.div>
               )}
-              <Button size="sm" onClick={onNext}>
-                {isLast ? (
-                  "Got it!"
-                ) : (
-                  <>
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </>
-                )}
-              </Button>
+              <motion.div
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.35 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Button size="sm" onClick={onNext} className="relative overflow-hidden group">
+                  <span className="relative z-10">
+                    {isLast ? (
+                      "Got it!"
+                    ) : (
+                      <>
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1 inline-block group-hover:translate-x-0.5 transition-transform" />
+                      </>
+                    )}
+                  </span>
+                  {/* Button hover effect */}
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-primary/0 via-white/10 to-primary/0"
+                    initial={{ x: "-100%" }}
+                    whileHover={{ x: "100%" }}
+                    transition={{ duration: 0.5 }}
+                  />
+                </Button>
+              </motion.div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </motion.div>
 
       {/* Spotlight overlay */}
       {targetRect && (
-        <SpotlightOverlay rect={targetRect} padding={step.spotlightPadding || 8} />
+        <SpotlightOverlay 
+          rect={targetRect} 
+          padding={step.spotlightPadding || 8} 
+          stepId={step.id}
+        />
       )}
     </AnimatePresence>
   );
@@ -202,9 +295,10 @@ export function WalkthroughTooltip({
 interface SpotlightOverlayProps {
   rect: DOMRect;
   padding: number;
+  stepId: string;
 }
 
-function SpotlightOverlay({ rect, padding }: SpotlightOverlayProps) {
+function SpotlightOverlay({ rect, padding, stepId }: SpotlightOverlayProps) {
   const spotlightStyle = {
     top: rect.top - padding,
     left: rect.left - padding,
@@ -214,9 +308,11 @@ function SpotlightOverlay({ rect, padding }: SpotlightOverlayProps) {
 
   return (
     <motion.div
+      key={stepId}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
       className="fixed inset-0 z-[10000] pointer-events-none"
     >
       {/* Dark overlay with cutout */}
@@ -224,33 +320,72 @@ function SpotlightOverlay({ rect, padding }: SpotlightOverlayProps) {
         <defs>
           <mask id="spotlight-mask">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
-            <rect
-              x={spotlightStyle.left}
-              y={spotlightStyle.top}
-              width={spotlightStyle.width}
-              height={spotlightStyle.height}
+            <motion.rect
+              initial={{ 
+                x: spotlightStyle.left,
+                y: spotlightStyle.top,
+                width: spotlightStyle.width,
+                height: spotlightStyle.height,
+              }}
+              animate={{ 
+                x: spotlightStyle.left,
+                y: spotlightStyle.top,
+                width: spotlightStyle.width,
+                height: spotlightStyle.height,
+              }}
+              transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
               rx="8"
               fill="black"
             />
           </mask>
         </defs>
-        <rect
+        <motion.rect
           x="0"
           y="0"
           width="100%"
           height="100%"
           fill="rgba(0, 0, 0, 0.7)"
           mask="url(#spotlight-mask)"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
         />
       </svg>
 
-      {/* Glowing border around spotlight */}
+      {/* Animated glowing border around spotlight */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="absolute rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-transparent"
-        style={spotlightStyle}
-      />
+        initial={{ 
+          opacity: 0,
+          scale: 1.1,
+          ...spotlightStyle 
+        }}
+        animate={{ 
+          opacity: 1,
+          scale: 1,
+          ...spotlightStyle 
+        }}
+        transition={{ 
+          duration: 0.4, 
+          ease: [0.4, 0, 0.2, 1],
+          opacity: { delay: 0.1 }
+        }}
+        className="absolute rounded-lg ring-2 ring-primary shadow-[0_0_20px_rgba(var(--primary),0.3)]"
+        style={{ position: 'absolute' }}
+      >
+        {/* Pulse animation */}
+        <motion.div
+          className="absolute inset-0 rounded-lg ring-2 ring-primary/50"
+          animate={{ 
+            scale: [1, 1.05, 1],
+            opacity: [0.5, 0, 0.5]
+          }}
+          transition={{ 
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+      </motion.div>
     </motion.div>
   );
 }
