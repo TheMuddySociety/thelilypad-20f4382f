@@ -1,10 +1,11 @@
 import { defineChain } from "viem";
 
-// PLACEHOLDER: Replace with your regenerated Alchemy API key
-export const ALCHEMY_API_KEY = "YOUR_ALCHEMY_API_KEY_HERE";
-
 // Network type
 export type NetworkType = "mainnet" | "testnet";
+
+// RPC URLs
+export const MONAD_TESTNET_RPC = "https://rpc.ankr.com/monad_testnet";
+export const MONAD_MAINNET_RPC = "https://rpc.ankr.com/monad"; // Placeholder for mainnet
 
 // Monad Mainnet chain configuration
 export const monadMainnet = defineChain({
@@ -17,10 +18,10 @@ export const monadMainnet = defineChain({
   },
   rpcUrls: {
     default: {
-      http: [`https://monad-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`],
+      http: [MONAD_MAINNET_RPC],
     },
     public: {
-      http: [`https://monad-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`],
+      http: [MONAD_MAINNET_RPC],
     },
   },
   blockExplorers: {
@@ -33,7 +34,7 @@ export const monadMainnet = defineChain({
 
 // Monad Testnet chain configuration
 export const monadTestnet = defineChain({
-  id: 10144,
+  id: 10143,
   name: "Monad Testnet",
   nativeCurrency: {
     decimals: 18,
@@ -42,16 +43,16 @@ export const monadTestnet = defineChain({
   },
   rpcUrls: {
     default: {
-      http: [`https://monad-testnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`],
+      http: [MONAD_TESTNET_RPC],
     },
     public: {
-      http: [`https://monad-testnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`],
+      http: [MONAD_TESTNET_RPC],
     },
   },
   blockExplorers: {
     default: {
       name: "Monad Testnet Explorer",
-      url: "https://testnet.explorer.monad.xyz",
+      url: "https://testnet.monadexplorer.com",
     },
   },
 });
@@ -60,8 +61,6 @@ export const monadTestnet = defineChain({
 export const getMonadChain = (network: NetworkType) => 
   network === "mainnet" ? monadMainnet : monadTestnet;
 
-// Alchemy RPC endpoint
-export const getAlchemyRpcUrl = (network: NetworkType = "mainnet") => 
-  network === "mainnet"
-    ? `https://monad-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
-    : `https://monad-testnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+// Get RPC URL based on network type
+export const getRpcUrl = (network: NetworkType = "testnet") => 
+  network === "mainnet" ? MONAD_MAINNET_RPC : MONAD_TESTNET_RPC;
