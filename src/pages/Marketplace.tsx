@@ -11,7 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BuyNFTModal } from "@/components/BuyNFTModal";
-import { Store, Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart } from "lucide-react";
+import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
+import { Store, Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3 } from "lucide-react";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useSEO } from "@/hooks/useSEO";
@@ -174,6 +175,7 @@ export default function Marketplace() {
 
   const filterOptions = [
     { value: "all", label: "All Items", icon: LayoutGrid },
+    { value: "analytics", label: "Analytics", icon: BarChart3 },
     { value: "listings", label: "NFT Listings", icon: Tag },
     { value: "collections", label: "Collections", icon: Rocket },
     { value: "stickers", label: "Sticker Packs", icon: Sticker },
@@ -182,6 +184,7 @@ export default function Marketplace() {
   const selectedOption = filterOptions.find(opt => opt.value === activeFilter) || filterOptions[0];
   const SelectedIcon = selectedOption.icon;
 
+  const showAnalytics = activeFilter === "analytics";
   const showListings = activeFilter === "all" || activeFilter === "listings";
   const showCollections = activeFilter === "all" || activeFilter === "collections";
   const showStickers = activeFilter === "all" || activeFilter === "stickers";
@@ -280,6 +283,13 @@ export default function Marketplace() {
           </div>
         ) : (
           <div className="space-y-10">
+            {/* Analytics Section */}
+            {showAnalytics && (
+              <section>
+                <NFTSalesAnalytics />
+              </section>
+            )}
+
             {/* NFT Listings Section */}
             {showListings && nftListings.length > 0 && (
               <section>
