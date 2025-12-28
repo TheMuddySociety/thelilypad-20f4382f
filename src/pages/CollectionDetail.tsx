@@ -13,6 +13,7 @@ import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
 import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
 import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
 import { TransactionHistory } from "@/components/TransactionHistory";
+import { NFTGallery } from "@/components/NFTGallery";
 import { useSEO } from "@/hooks/useSEO";
 import { useContractMint } from "@/hooks/useContractMint";
 import { 
@@ -334,9 +335,9 @@ export default function CollectionDetail() {
         });
         return;
       }
-      txHash = await mintWithAllowlist(mintAmount, activePhase.price, allowlistAddresses, collection.id);
+      txHash = await mintWithAllowlist(mintAmount, activePhase.price, allowlistAddresses, collection.id, collection.name, collection.image_url);
     } else {
-      txHash = await mintPublic(mintAmount, activePhase.price, collection.id);
+      txHash = await mintPublic(mintAmount, activePhase.price, collection.id, collection.name, collection.image_url);
     }
 
     if (txHash) {
@@ -700,6 +701,14 @@ export default function CollectionDetail() {
                 )}
               </CardContent>
             </Card>
+
+            {/* NFT Gallery */}
+            <NFTGallery 
+              collectionId={collection.id}
+              collectionName={collection.name}
+              collectionImage={collection.image_url}
+              contractAddress={collection.contract_address}
+            />
           </div>
 
           {/* Right Column - Mint Card */}

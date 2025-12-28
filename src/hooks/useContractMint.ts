@@ -90,6 +90,41 @@ export function useContractMint(contractAddress: string | null) {
     });
   }, []);
 
+  // Record minted NFTs to database
+  const recordMintedNFTs = useCallback(async (
+    txHash: string,
+    collectionId: string,
+    quantity: number,
+    collectionName?: string,
+    collectionImage?: string | null
+  ) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !address) return;
+
+    // Get current minted count to calculate token IDs
+    const { data: collection } = await supabase
+      .from("collections")
+      .select("minted")
+      .eq("id", collectionId)
+      .maybeSingle();
+
+    const startTokenId = (collection?.minted || 0) - quantity + 1;
+
+    // Insert minted NFTs
+    const nftsToInsert = Array.from({ length: quantity }, (_, i) => ({
+      collection_id: collectionId,
+      owner_id: user.id,
+      owner_address: address,
+      token_id: startTokenId + i,
+      name: collectionName ? `${collectionName} #${startTokenId + i}` : null,
+      image_url: collectionImage,
+      tx_hash: txHash,
+      attributes: [],
+    }));
+
+    await supabase.from("minted_nfts").insert(nftsToInsert);
+  }, [address]);
+
   // Update transaction status
   const updateTransactionStatus = useCallback(async (txHash: string, status: string) => {
     await supabase
@@ -106,7 +141,9 @@ export function useContractMint(contractAddress: string | null) {
     quantity: number,
     pricePerNft: string,
     allowlistAddresses: string[],
-    collectionId?: string
+    collectionId?: string,
+    collectionName?: string,
+    collectionImage?: string | null
   ): Promise<string | null> => {
     if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
@@ -174,10 +211,11 @@ export function useContractMint(contractAddress: string | null) {
         throw new Error("Mint transaction failed");
       }
 
-      // Record confirmed transaction
+      // Record confirmed transaction and minted NFTs
       if (collectionId) {
         const totalPaid = parseFloat(pricePerNft) * quantity;
         await recordTransaction(txHash, collectionId, "mint", quantity, totalPaid, "confirmed");
+        await recordMintedNFTs(txHash, collectionId, quantity, collectionName, collectionImage);
       }
 
       setState({
@@ -212,13 +250,15 @@ export function useContractMint(contractAddress: string | null) {
 
       return null;
     }
-  }, [address, isConnected, contractAddress, generateMerkleProof, verifyAllowlist, recordTransaction]);
+  }, [address, isConnected, contractAddress, generateMerkleProof, verifyAllowlist, recordTransaction, recordMintedNFTs]);
 
   // Mint public (no proof required)
   const mintPublic = useCallback(async (
     quantity: number,
     pricePerNft: string,
-    collectionId?: string
+    collectionId?: string,
+    collectionName?: string,
+    collectionImage?: string | null
   ): Promise<string | null> => {
     if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
@@ -277,10 +317,11 @@ export function useContractMint(contractAddress: string | null) {
         throw new Error("Mint transaction failed");
       }
 
-      // Record confirmed transaction
+      // Record confirmed transaction and minted NFTs
       if (collectionId) {
         const totalPaid = parseFloat(pricePerNft) * quantity;
         await recordTransaction(txHash, collectionId, "mint", quantity, totalPaid, "confirmed");
+        await recordMintedNFTs(txHash, collectionId, quantity, collectionName, collectionImage);
       }
 
       setState({
@@ -317,7 +358,7 @@ export function useContractMint(contractAddress: string | null) {
 
       return null;
     }
-  }, [address, isConnected, contractAddress, recordTransaction]);
+  }, [address, isConnected, contractAddress, recordTransaction, recordMintedNFTs]);
 
   // Check user's balance to ensure they can afford mint
   const canAffordMint = useCallback((quantity: number, pricePerNft: string): boolean => {
