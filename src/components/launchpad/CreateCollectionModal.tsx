@@ -207,7 +207,51 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   // Allowlist management
   const [allowlistPhases, setAllowlistPhases] = useState<AllowlistPhase[]>([]);
 
-  // Upload draft images to storage
+  // Helper: upload a single image (returns original URL if not a data URL or on error)
+  const uploadSingleImage = async (
+    dataUrl: string | null | undefined,
+    fileName: string
+  ): Promise<string | null> => {
+    if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl || null;
+    
+    try {
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const fileExt = blob.type.split('/')[1] || 'png';
+      const fullPath = `${fileName}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(DRAFT_BUCKET)
+        .upload(fullPath, blob, { cacheControl: '3600', upsert: true });
+
+      if (uploadError) return dataUrl;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from(DRAFT_BUCKET)
+        .getPublicUrl(fullPath);
+      return publicUrl;
+    } catch (e) {
+      console.error("Failed to upload image:", e);
+      return dataUrl;
+    }
+  };
+
+  // Helper: batch upload with concurrency limit
+  const batchUpload = async <T, R>(
+    items: T[],
+    processor: (item: T) => Promise<R>,
+    batchSize = 5
+  ): Promise<R[]> => {
+    const results: R[] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(processor));
+      results.push(...batchResults);
+    }
+    return results;
+  };
+
+  // Upload draft images to storage (parallelized)
   const uploadDraftImages = async (userId: string): Promise<{
     coverImageUrl?: string;
     bannerImageUrl?: string;
@@ -215,156 +259,90 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     savedOneOfOneArtworks: SavedArtwork[];
     savedEditionArtwork?: { imageUrl: string; editionType: "open" | "limited" | "timed" };
   }> => {
-    let coverImageUrl = imagePreview;
-    let bannerImageUrl = bannerPreview;
-    const layersWithUrls = [...layers];
-    const savedOneOfOneArtworks: SavedArtwork[] = [];
-
-    // Upload collection cover image if it's a data URL
-    if (imagePreview && imagePreview.startsWith('data:')) {
-      try {
-        const response = await fetch(imagePreview);
-        const blob = await response.blob();
-        const fileExt = blob.type.split('/')[1] || 'png';
-        const fileName = `${userId}/cover-${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from(DRAFT_BUCKET)
-          .upload(fileName, blob, { cacheControl: '3600', upsert: true });
-
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from(DRAFT_BUCKET)
-            .getPublicUrl(fileName);
-          coverImageUrl = publicUrl;
-        }
-      } catch (e) {
-        console.error("Failed to upload cover image:", e);
-      }
-    }
-
-    // Upload banner image if it's a data URL
-    if (bannerPreview && bannerPreview.startsWith('data:')) {
-      try {
-        const response = await fetch(bannerPreview);
-        const blob = await response.blob();
-        const fileExt = blob.type.split('/')[1] || 'png';
-        const fileName = `${userId}/banner-${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from(DRAFT_BUCKET)
-          .upload(fileName, blob, { cacheControl: '3600', upsert: true });
-
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from(DRAFT_BUCKET)
-            .getPublicUrl(fileName);
-          bannerImageUrl = publicUrl;
-        }
-      } catch (e) {
-        console.error("Failed to upload banner image:", e);
-      }
-    }
-
-    // Upload trait images that are data URLs
-    for (let i = 0; i < layersWithUrls.length; i++) {
-      const layer = layersWithUrls[i];
-      for (let j = 0; j < layer.traits.length; j++) {
-        const trait = layer.traits[j];
+    const timestamp = Date.now();
+    
+    // Prepare all trait upload tasks
+    type TraitUploadTask = { layerIndex: number; traitIndex: number; trait: Layer['traits'][0]; layer: Layer };
+    const traitTasks: TraitUploadTask[] = [];
+    layers.forEach((layer, layerIndex) => {
+      layer.traits.forEach((trait, traitIndex) => {
         if (trait.imageUrl && trait.imageUrl.startsWith('data:')) {
-          try {
-            const response = await fetch(trait.imageUrl);
-            const blob = await response.blob();
-            const fileExt = blob.type.split('/')[1] || 'png';
-            const fileName = `${userId}/traits/${layer.id}-${trait.id}-${Date.now()}.${fileExt}`;
-
-            const { error: uploadError } = await supabase.storage
-              .from(DRAFT_BUCKET)
-              .upload(fileName, blob, { cacheControl: '3600', upsert: true });
-
-            if (!uploadError) {
-              const { data: { publicUrl } } = supabase.storage
-                .from(DRAFT_BUCKET)
-                .getPublicUrl(fileName);
-              layersWithUrls[i].traits[j] = { ...trait, imageUrl: publicUrl };
-            }
-          } catch (e) {
-            console.error("Failed to upload trait image:", e);
-          }
+          traitTasks.push({ layerIndex, traitIndex, trait, layer });
         }
-      }
-    }
-
-    // Upload 1-of-1 artworks
-    for (const artwork of oneOfOneArtworks) {
-      let artworkImageUrl = artwork.preview;
-      
-      // Upload if it's a data URL
-      if (artwork.preview && artwork.preview.startsWith('data:')) {
-        try {
-          const response = await fetch(artwork.preview);
-          const blob = await response.blob();
-          const fileExt = blob.type.split('/')[1] || 'png';
-          const fileName = `${userId}/artworks/${artwork.id}-${Date.now()}.${fileExt}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from(DRAFT_BUCKET)
-            .upload(fileName, blob, { cacheControl: '3600', upsert: true });
-
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from(DRAFT_BUCKET)
-              .getPublicUrl(fileName);
-            artworkImageUrl = publicUrl;
-          }
-        } catch (e) {
-          console.error("Failed to upload artwork image:", e);
-        }
-      }
-
-      savedOneOfOneArtworks.push({
-        id: artwork.id,
-        name: artwork.name,
-        description: artwork.metadata?.description,
-        attributes: artwork.metadata?.traits?.map(t => ({ trait_type: t.trait_type, value: t.value })),
-        imageUrl: artworkImageUrl,
       });
-    }
+    });
 
-    // Upload edition artwork
-    let savedEditionArtwork: { imageUrl: string; editionType: "open" | "limited" | "timed" } | undefined;
-    if (editionArtwork) {
-      let editionImageUrl = editionArtwork.preview;
-      
-      if (editionArtwork.preview && editionArtwork.preview.startsWith('data:')) {
-        try {
-          const response = await fetch(editionArtwork.preview);
-          const blob = await response.blob();
-          const fileExt = blob.type.split('/')[1] || 'png';
-          const fileName = `${userId}/edition-${Date.now()}.${fileExt}`;
+    // Prepare artwork upload tasks (only data URLs)
+    const artworkTasks = oneOfOneArtworks.filter(a => a.preview && a.preview.startsWith('data:'));
 
-          const { error: uploadError } = await supabase.storage
-            .from(DRAFT_BUCKET)
-            .upload(fileName, blob, { cacheControl: '3600', upsert: true });
+    // Upload cover, banner, and edition in parallel (these are single items)
+    const [coverImageUrl, bannerImageUrl, editionImageUrl] = await Promise.all([
+      uploadSingleImage(imagePreview, `${userId}/cover-${timestamp}`),
+      uploadSingleImage(bannerPreview, `${userId}/banner-${timestamp}`),
+      editionArtwork?.preview 
+        ? uploadSingleImage(editionArtwork.preview, `${userId}/edition-${timestamp}`)
+        : Promise.resolve(null),
+    ]);
 
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from(DRAFT_BUCKET)
-              .getPublicUrl(fileName);
-            editionImageUrl = publicUrl;
-          }
-        } catch (e) {
-          console.error("Failed to upload edition artwork:", e);
-        }
-      }
+    // Upload traits in batches of 5
+    const traitResults = await batchUpload(
+      traitTasks,
+      async (task) => {
+        const url = await uploadSingleImage(
+          task.trait.imageUrl,
+          `${userId}/traits/${task.layer.id}-${task.trait.id}-${timestamp}`
+        );
+        return { ...task, uploadedUrl: url };
+      },
+      5
+    );
 
-      savedEditionArtwork = {
-        imageUrl: editionImageUrl,
-        editionType,
-      };
-    }
+    // Upload artworks in batches of 5
+    const artworkResults = await batchUpload(
+      artworkTasks,
+      async (artwork) => {
+        const url = await uploadSingleImage(
+          artwork.preview,
+          `${userId}/artworks/${artwork.id}-${timestamp}`
+        );
+        return { artwork, uploadedUrl: url };
+      },
+      5
+    );
 
-    return { coverImageUrl, bannerImageUrl, layersWithUrls, savedOneOfOneArtworks, savedEditionArtwork };
+    // Build layersWithUrls from trait results
+    const layersWithUrls = layers.map((layer, layerIndex) => ({
+      ...layer,
+      traits: layer.traits.map((trait, traitIndex) => {
+        const result = traitResults.find(
+          r => r.layerIndex === layerIndex && r.traitIndex === traitIndex
+        );
+        return result ? { ...trait, imageUrl: result.uploadedUrl || trait.imageUrl } : trait;
+      }),
+    }));
+
+    // Build savedOneOfOneArtworks (include all, update URLs for uploaded ones)
+    const artworkUrlMap = new Map(artworkResults.map(r => [r.artwork.id, r.uploadedUrl]));
+    const savedOneOfOneArtworks: SavedArtwork[] = oneOfOneArtworks.map(artwork => ({
+      id: artwork.id,
+      name: artwork.name,
+      description: artwork.metadata?.description,
+      attributes: artwork.metadata?.traits?.map(t => ({ trait_type: t.trait_type, value: t.value })),
+      imageUrl: artworkUrlMap.get(artwork.id) || artwork.preview,
+    }));
+
+    // Build savedEditionArtwork
+    const savedEditionArtwork = editionArtwork
+      ? { imageUrl: editionImageUrl || editionArtwork.preview, editionType }
+      : undefined;
+
+    return {
+      coverImageUrl: coverImageUrl || undefined,
+      bannerImageUrl: bannerImageUrl || undefined,
+      layersWithUrls,
+      savedOneOfOneArtworks,
+      savedEditionArtwork,
+    };
   };
 
   // Save draft function (non-debounced for interval use)
