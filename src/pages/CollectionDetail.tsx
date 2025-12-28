@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
+import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
 import { useSEO } from "@/hooks/useSEO";
 import { 
   ArrowLeft, 
@@ -89,6 +90,7 @@ export default function CollectionDetail() {
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
 
   const isTestnet = network === "testnet";
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
@@ -385,14 +387,26 @@ export default function CollectionDetail() {
           </Button>
           
           {isCreator && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setIsEditMode(true)}
-            >
-              <Pencil className="w-4 h-4 mr-2" />
-              Edit Collection
-            </Button>
+            <div className="flex items-center gap-2">
+              {!collection.contract_address && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={() => setIsDeployModalOpen(true)}
+                >
+                  <Rocket className="w-4 h-4 mr-2" />
+                  Deploy Contract
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setIsEditMode(true)}
+              >
+                <Pencil className="w-4 h-4 mr-2" />
+                Edit Collection
+              </Button>
+            </div>
           )}
         </div>
 
@@ -934,6 +948,24 @@ export default function CollectionDetail() {
           </div>
         </div>
       </main>
+
+      {/* Deploy Contract Modal */}
+      {collection && (
+        <ContractDeployModal
+          open={isDeployModalOpen}
+          onOpenChange={setIsDeployModalOpen}
+          collection={collection}
+          onDeploySuccess={async (contractAddress) => {
+            // Update collection with contract address
+            await supabase
+              .from("collections")
+              .update({ contract_address: contractAddress, status: "live" })
+              .eq("id", collection.id);
+            fetchCollection();
+            setIsDeployModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
