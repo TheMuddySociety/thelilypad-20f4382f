@@ -4,8 +4,13 @@ import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2, FileEdit, Trash2, FolderOpen, Image as ImageIcon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2, FileEdit, Trash2, FolderOpen, Image as ImageIcon, LayoutGrid, ChevronDown, Check } from "lucide-react";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -228,20 +233,59 @@ export default function Launchpad() {
           </Card>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="live">Live</TabsTrigger>
-            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="ended">Ended</TabsTrigger>
-            <TabsTrigger value="drafts" className="gap-1.5">
-              <FileEdit className="w-3.5 h-3.5" />
-              My Drafts
-              {draft && <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">1</Badge>}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* Filter Dropdown */}
+        {(() => {
+          const filterOptions = [
+            { value: "all", label: "All Collections", icon: LayoutGrid },
+            { value: "live", label: "Live", icon: Sparkles },
+            { value: "upcoming", label: "Upcoming", icon: Clock },
+            { value: "ended", label: "Ended", icon: CheckCircle },
+            { value: "drafts", label: "My Drafts", icon: FileEdit },
+          ];
+          const selectedOption = filterOptions.find(opt => opt.value === activeTab) || filterOptions[0];
+          const SelectedIcon = selectedOption.icon;
+
+          return (
+            <div className="mb-8">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2 min-w-[180px] justify-between">
+                    <div className="flex items-center gap-2">
+                      <SelectedIcon className="w-4 h-4" />
+                      <span>{selectedOption.label}</span>
+                      {activeTab === "drafts" && draft && (
+                        <Badge variant="secondary" className="h-5 px-1.5 text-xs">1</Badge>
+                      )}
+                    </div>
+                    <ChevronDown className="w-4 h-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[200px] bg-popover">
+                  {filterOptions.map((option) => {
+                    const Icon = option.icon;
+                    const isSelected = activeTab === option.value;
+                    return (
+                      <DropdownMenuItem
+                        key={option.value}
+                        onClick={() => setActiveTab(option.value)}
+                        className="flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4" />
+                          <span>{option.label}</span>
+                          {option.value === "drafts" && draft && (
+                            <Badge variant="secondary" className="h-5 px-1.5 text-xs">1</Badge>
+                          )}
+                        </div>
+                        {isSelected && <Check className="w-4 h-4 text-primary" />}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        })()}
 
         {/* Drafts Tab Content */}
         {activeTab === "drafts" && (
