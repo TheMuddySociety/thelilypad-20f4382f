@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"; // Updated to use dropdown menu
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2, FileEdit, Trash2, FolderOpen, Image as ImageIcon, LayoutGrid, ChevronDown, Check } from "lucide-react";
+import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2, FileEdit, Trash2, FolderOpen, Image as ImageIcon, LayoutGrid, ChevronDown, Check, HelpCircle } from "lucide-react";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,8 @@ import lilypadLogo from "@/assets/lilypad-logo.png";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { useSEO } from "@/hooks/useSEO";
+import { LaunchpadWalkthrough } from "@/components/walkthrough/LaunchpadWalkthrough";
+import { useLaunchpadWalkthrough } from "@/hooks/useLaunchpadWalkthrough";
 
 interface DraftCollection {
   name: string;
@@ -69,6 +71,7 @@ export default function Launchpad() {
   const [editingDraft, setEditingDraft] = useState(false);
 
   const isTestnet = network === "testnet";
+  const walkthrough = useLaunchpadWalkthrough();
 
   useSEO({
     title: "NFT Launchpad | The Lily Pad",
@@ -166,10 +169,11 @@ export default function Launchpad() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+      <LaunchpadWalkthrough walkthrough={walkthrough} />
       
       <main className="container mx-auto px-4 pt-24 pb-12">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8" data-walkthrough="header">
           <div className="flex items-center gap-4">
             <img 
               src={lilypadLogo} 
@@ -193,20 +197,38 @@ export default function Launchpad() {
                   )}
                   {currentChain.name}
                 </Badge>
+                {/* Help button to restart walkthrough */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    walkthrough.resetWalkthrough();
+                    walkthrough.startWalkthrough();
+                  }}
+                  title="Start tutorial"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </Button>
               </div>
               <p className="text-muted-foreground">
                 Launch your NFT collection on {currentChain.name}
               </p>
             </div>
           </div>
-          <Button onClick={() => setIsCreateModalOpen(true)} size="lg" className="gap-2">
+          <Button 
+            onClick={() => setIsCreateModalOpen(true)} 
+            size="lg" 
+            className="gap-2"
+            data-walkthrough="create-button"
+          >
             <Plus className="w-5 h-5" />
             Create Collection
           </Button>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" data-walkthrough="stats">
           <Card>
             <CardContent className="pt-6">
               <div className="text-2xl font-bold">127</div>
@@ -246,7 +268,7 @@ export default function Launchpad() {
           const SelectedIcon = selectedOption.icon;
 
           return (
-            <div className="mb-8">
+            <div className="mb-8" data-walkthrough="filter">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="gap-2 min-w-[180px] justify-between">
