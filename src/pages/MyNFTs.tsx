@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionHistory } from "@/components/TransactionHistory";
+import { NFTTransferModal } from "@/components/NFTTransferModal";
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
@@ -19,9 +20,11 @@ import {
   Wallet,
   Grid3X3,
   List,
-  ArrowUpRight
+  ArrowUpRight,
+  Send
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 interface NFT {
   id: string;
@@ -60,6 +63,7 @@ export default function MyNFTs() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [collectionStats, setCollectionStats] = useState<CollectionStats[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+  const [transferNft, setTransferNft] = useState<NFT | null>(null);
 
   useSEO({
     title: "My NFTs | The Lily Pad",
@@ -475,27 +479,43 @@ export default function MyNFTs() {
                     </div>
                   )}
 
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex flex-col gap-2 pt-2">
+                    {/* Transfer Button */}
                     <Button
-                      variant="outline"
+                      variant="default"
                       size="sm"
-                      className="flex-1"
-                      onClick={() => window.open(explorerUrl(selectedNft.tx_hash), "_blank")}
+                      className="w-full"
+                      onClick={() => {
+                        setSelectedNft(null);
+                        setTransferNft(selectedNft);
+                      }}
                     >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      View TX
+                      <Send className="w-4 h-4 mr-2" />
+                      Transfer NFT
                     </Button>
-                    {tokenExplorerUrl(selectedNft.collection?.contract_address || null, selectedNft.token_id) && (
+                    
+                    <div className="flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         className="flex-1"
-                        onClick={() => window.open(tokenExplorerUrl(selectedNft.collection?.contract_address || null, selectedNft.token_id)!, "_blank")}
+                        onClick={() => window.open(explorerUrl(selectedNft.tx_hash), "_blank")}
                       >
                         <ExternalLink className="w-4 h-4 mr-2" />
-                        View Token
+                        View TX
                       </Button>
-                    )}
+                      {tokenExplorerUrl(selectedNft.collection?.contract_address || null, selectedNft.token_id) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => window.open(tokenExplorerUrl(selectedNft.collection?.contract_address || null, selectedNft.token_id)!, "_blank")}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          View Token
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -503,6 +523,18 @@ export default function MyNFTs() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Transfer Modal */}
+      <NFTTransferModal
+        open={!!transferNft}
+        onOpenChange={(open) => !open && setTransferNft(null)}
+        nft={transferNft}
+        onTransferSuccess={() => {
+          toast.success("NFT transferred successfully!");
+          setTransferNft(null);
+          fetchNFTs();
+        }}
+      />
     </div>
   );
 }
