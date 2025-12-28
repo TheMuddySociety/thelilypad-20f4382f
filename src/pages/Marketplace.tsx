@@ -10,7 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Store, Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle } from "lucide-react";
+import { BuyNFTModal } from "@/components/BuyNFTModal";
+import { Store, Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart } from "lucide-react";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useSEO } from "@/hooks/useSEO";
@@ -42,6 +43,29 @@ interface ShopItem {
   created_at: string;
 }
 
+interface NFTListing {
+  id: string;
+  nft_id: string;
+  seller_id: string;
+  seller_address: string;
+  price: number;
+  currency: string;
+  created_at: string;
+  expires_at: string | null;
+  nft: {
+    id: string;
+    token_id: number;
+    name: string | null;
+    image_url: string | null;
+    collection_id: string | null;
+    owner_address: string;
+    collection?: {
+      name: string;
+      contract_address: string | null;
+    };
+  };
+}
+
 const statusColors = {
   live: "bg-green-500/20 text-green-400 border-green-500/30",
   upcoming: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
@@ -60,11 +84,13 @@ export default function Marketplace() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [collections, setCollections] = useState<Collection[]>([]);
   const [stickerPacks, setStickerPacks] = useState<ShopItem[]>([]);
+  const [nftListings, setNftListings] = useState<NFTListing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
 
   useSEO({
     title: "Marketplace | The Lily Pad",
-    description: "Browse NFT collections and sticker packs on The Lily Pad marketplace. Discover unique digital collectibles on Monad."
+    description: "Browse NFT collections, listings, and sticker packs on The Lily Pad marketplace. Discover unique digital collectibles on Monad."
   });
 
   const fetchData = async () => {
@@ -95,6 +121,38 @@ export default function Marketplace() {
       } else {
         setStickerPacks(stickersData || []);
       }
+
+      // Fetch active NFT listings
+      const { data: listingsData, error: listingsError } = await supabase
+        .from("nft_listings")
+        .select(`
+          *,
+          nft:minted_nfts(
+            id,
+            token_id,
+            name,
+            image_url,
+            collection_id,
+            owner_address,
+            collection:collections(name, contract_address)
+          )
+        `)
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (listingsError) {
+        console.error("Error fetching listings:", listingsError);
+      } else {
+        // Transform data to match our interface
+        const transformedListings = (listingsData || []).map(listing => ({
+          ...listing,
+          nft: listing.nft ? {
+            ...listing.nft,
+            collection: listing.nft.collection as { name: string; contract_address: string | null } | undefined
+          } : null
+        })).filter(listing => listing.nft !== null) as NFTListing[];
+        setNftListings(transformedListings);
+      }
     } catch (err) {
       console.error("Error:", err);
     } finally {
@@ -116,6 +174,7 @@ export default function Marketplace() {
 
   const filterOptions = [
     { value: "all", label: "All Items", icon: LayoutGrid },
+    { value: "listings", label: "NFT Listings", icon: Tag },
     { value: "collections", label: "Collections", icon: Rocket },
     { value: "stickers", label: "Sticker Packs", icon: Sticker },
   ];
@@ -123,6 +182,7 @@ export default function Marketplace() {
   const selectedOption = filterOptions.find(opt => opt.value === activeFilter) || filterOptions[0];
   const SelectedIcon = selectedOption.icon;
 
+  const showListings = activeFilter === "all" || activeFilter === "listings";
   const showCollections = activeFilter === "all" || activeFilter === "collections";
   const showStickers = activeFilter === "all" || activeFilter === "stickers";
 
@@ -147,7 +207,13 @@ export default function Marketplace() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">{nftListings.length}</div>
+              <p className="text-sm text-muted-foreground">NFT Listings</p>
+            </CardContent>
+          </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="text-2xl font-bold">{collections.length}</div>
@@ -214,6 +280,72 @@ export default function Marketplace() {
           </div>
         ) : (
           <div className="space-y-10">
+            {/* NFT Listings Section */}
+            {showListings && nftListings.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <Tag className="w-5 h-5 text-primary" />
+                  <h2 className="text-xl font-semibold">NFT Listings</h2>
+                  <Badge variant="secondary">{nftListings.length}</Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {nftListings.map((listing) => (
+                    <Card 
+                      key={listing.id} 
+                      className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group"
+                      onClick={() => setSelectedListing(listing)}
+                    >
+                      <div className="aspect-square relative overflow-hidden bg-muted">
+                        {listing.nft.image_url ? (
+                          <img
+                            src={listing.nft.image_url}
+                            alt={listing.nft.name || `Token #${listing.nft.token_id}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ImageIcon className="w-12 h-12 text-muted-foreground" />
+                          </div>
+                        )}
+                        <Badge 
+                          variant="outline" 
+                          className="absolute top-3 right-3 bg-green-500/20 text-green-400 border-green-500/30"
+                        >
+                          <Tag className="w-3 h-3 mr-1" />
+                          For Sale
+                        </Badge>
+                      </div>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg truncate">
+                          {listing.nft.name || `Token #${listing.nft.token_id}`}
+                        </CardTitle>
+                        {listing.nft.collection && (
+                          <CardDescription>{listing.nft.collection.name}</CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between text-sm mb-2">
+                          <span className="text-muted-foreground">Price</span>
+                          <span className="font-bold text-lg">{listing.price} {listing.currency}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Seller</span>
+                          <span className="font-mono text-xs">
+                            {listing.seller_address.slice(0, 6)}...{listing.seller_address.slice(-4)}
+                          </span>
+                        </div>
+                        <Button className="w-full mt-3" size="sm">
+                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          Buy Now
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )}
+
+
             {/* Collections Section */}
             {showCollections && collections.length > 0 && (
               <section>
@@ -336,7 +468,7 @@ export default function Marketplace() {
             )}
 
             {/* Empty State */}
-            {!isLoading && collections.length === 0 && stickerPacks.length === 0 && (
+            {!isLoading && collections.length === 0 && stickerPacks.length === 0 && nftListings.length === 0 && (
               <div className="text-center py-12">
                 <Store className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-2">No items found</h3>
@@ -350,6 +482,19 @@ export default function Marketplace() {
             )}
 
             {/* Filtered Empty States */}
+            {!isLoading && activeFilter === "listings" && nftListings.length === 0 && (
+              <div className="text-center py-12">
+                <Tag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No NFT listings yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  List your NFTs for sale from My NFTs page.
+                </p>
+                <Button onClick={() => navigate("/my-nfts")}>
+                  View My NFTs
+                </Button>
+              </div>
+            )}
+
             {!isLoading && activeFilter === "collections" && collections.length === 0 && (
               <div className="text-center py-12">
                 <Rocket className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -375,6 +520,17 @@ export default function Marketplace() {
           </div>
         )}
       </main>
+
+      {/* Buy NFT Modal */}
+      <BuyNFTModal
+        listing={selectedListing}
+        open={!!selectedListing}
+        onOpenChange={(open) => !open && setSelectedListing(null)}
+        onSuccess={() => {
+          setSelectedListing(null);
+          fetchData();
+        }}
+      />
     </div>
   );
 }

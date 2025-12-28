@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTTransferModal } from "@/components/NFTTransferModal";
+import { ListNFTModal } from "@/components/ListNFTModal";
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
@@ -21,7 +22,8 @@ import {
   Grid3X3,
   List,
   ArrowUpRight,
-  Send
+  Send,
+  Tag
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -64,6 +66,8 @@ export default function MyNFTs() {
   const [collectionStats, setCollectionStats] = useState<CollectionStats[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [transferNft, setTransferNft] = useState<NFT | null>(null);
+  const [listNft, setListNft] = useState<NFT | null>(null);
+  const [listedNftIds, setListedNftIds] = useState<Set<string>>(new Set());
 
   useSEO({
     title: "My NFTs | The Lily Pad",
@@ -122,6 +126,20 @@ export default function MyNFTs() {
         }
       });
       setCollectionStats(Object.values(stats));
+
+      // Fetch active listings for user's NFTs
+      const nftIds = nftData.map(nft => nft.id);
+      if (nftIds.length > 0) {
+        const { data: listings } = await supabase
+          .from("nft_listings")
+          .select("nft_id")
+          .in("nft_id", nftIds)
+          .eq("status", "active");
+
+        if (listings) {
+          setListedNftIds(new Set(listings.map(l => l.nft_id)));
+        }
+      }
     }
     setIsLoading(false);
   };
@@ -480,15 +498,36 @@ export default function MyNFTs() {
                   )}
 
                   <div className="flex flex-col gap-2 pt-2">
+                    {/* List for Sale Button */}
+                    {!listedNftIds.has(selectedNft.id) ? (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedNft(null);
+                          setListNft(selectedNft);
+                        }}
+                      >
+                        <Tag className="w-4 h-4 mr-2" />
+                        List for Sale
+                      </Button>
+                    ) : (
+                      <Badge variant="secondary" className="w-full justify-center py-2">
+                        Listed for Sale
+                      </Badge>
+                    )}
+                    
                     {/* Transfer Button */}
                     <Button
-                      variant="default"
+                      variant="outline"
                       size="sm"
                       className="w-full"
                       onClick={() => {
                         setSelectedNft(null);
                         setTransferNft(selectedNft);
                       }}
+                      disabled={listedNftIds.has(selectedNft.id)}
                     >
                       <Send className="w-4 h-4 mr-2" />
                       Transfer NFT
@@ -532,6 +571,25 @@ export default function MyNFTs() {
         onTransferSuccess={() => {
           toast.success("NFT transferred successfully!");
           setTransferNft(null);
+          fetchNFTs();
+        }}
+      />
+
+      {/* List Modal */}
+      <ListNFTModal
+        nft={listNft ? {
+          id: listNft.id,
+          token_id: listNft.token_id,
+          name: listNft.name,
+          image_url: listNft.image_url,
+          collection_id: listNft.collection_id,
+          owner_address: listNft.owner_address,
+          owner_id: currentUserId || ""
+        } : null}
+        open={!!listNft}
+        onOpenChange={(open) => !open && setListNft(null)}
+        onSuccess={() => {
+          setListNft(null);
           fetchNFTs();
         }}
       />
