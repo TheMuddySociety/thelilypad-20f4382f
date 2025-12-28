@@ -288,6 +288,11 @@ export default function CollectionDetail() {
     setIsSwitchingNetwork(false);
   };
 
+  // Calculate remaining supply
+  const remainingSupply = totalSupply - liveSupply;
+  const exceedsSupply = mintAmount > remainingSupply;
+  const isSoldOut = remainingSupply <= 0;
+
   const handleMint = async () => {
     // Check if wallet is connected
     if (!isConnected) {
@@ -309,6 +314,22 @@ export default function CollectionDetail() {
           label: "Switch Network",
           onClick: handleSwitchNetwork,
         },
+      });
+      return;
+    }
+
+    // Check if collection is sold out
+    if (isSoldOut) {
+      toast.error("Sold Out", {
+        description: "This collection is completely sold out",
+      });
+      return;
+    }
+
+    // Check if mint amount exceeds remaining supply
+    if (exceedsSupply) {
+      toast.error("Exceeds available supply", {
+        description: `Only ${remainingSupply} NFT${remainingSupply === 1 ? '' : 's'} remaining. Please reduce your mint amount.`,
       });
       return;
     }
@@ -959,8 +980,36 @@ export default function CollectionDetail() {
                     </Button>
                   </div>
                   
+                  {/* Supply Warning */}
+                  {isSoldOut && (
+                    <div className="flex items-center gap-2 p-2 bg-destructive/10 rounded-lg border border-destructive/30">
+                      <AlertTriangle className="w-4 h-4 text-destructive" />
+                      <span className="text-xs text-destructive font-medium">
+                        Sold out! No more NFTs available to mint.
+                      </span>
+                    </div>
+                  )}
+                  
+                  {!isSoldOut && exceedsSupply && (
+                    <div className="flex items-center gap-2 p-2 bg-destructive/10 rounded-lg border border-destructive/30">
+                      <AlertTriangle className="w-4 h-4 text-destructive" />
+                      <span className="text-xs text-destructive">
+                        Only {remainingSupply} NFT{remainingSupply === 1 ? '' : 's'} remaining. Please reduce amount.
+                      </span>
+                    </div>
+                  )}
+                  
+                  {!isSoldOut && !exceedsSupply && remainingSupply <= 10 && remainingSupply > 0 && (
+                    <div className="flex items-center gap-2 p-2 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs text-amber-600 dark:text-amber-400">
+                        Almost sold out! Only {remainingSupply} NFT{remainingSupply === 1 ? '' : 's'} left.
+                      </span>
+                    </div>
+                  )}
+                  
                   {/* Bulk Mint Savings Indicator */}
-                  {mintAmount > 1 && (
+                  {mintAmount > 1 && !exceedsSupply && !isSoldOut && (
                     <div className="flex items-center gap-2 p-2 bg-accent/10 rounded-lg border border-accent/30">
                       <Sparkles className="w-4 h-4 text-accent" />
                       <span className="text-xs text-accent">
@@ -1110,6 +1159,8 @@ export default function CollectionDetail() {
                     isMinting || 
                     isSwitchingNetwork || 
                     !activePhase || 
+                    isSoldOut ||
+                    exceedsSupply ||
                     (activePhase.minted || 0) >= (activePhase.supply || 0) || 
                     !isConnected || 
                     isWrongNetwork || 
@@ -1130,8 +1181,13 @@ export default function CollectionDetail() {
                     </>
                   ) : !activePhase ? (
                     "No Phase Available"
-                  ) : (activePhase.minted || 0) >= (activePhase.supply || 0) ? (
+                  ) : isSoldOut || (activePhase.minted || 0) >= (activePhase.supply || 0) ? (
                     "Sold Out"
+                  ) : exceedsSupply ? (
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      Only {remainingSupply} Left
+                    </>
                   ) : isWrongNetwork ? (
                     <>
                       <AlertTriangle className="w-4 h-4" />
