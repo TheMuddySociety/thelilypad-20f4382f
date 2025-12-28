@@ -3,6 +3,7 @@ import { useWallet } from "@/providers/WalletProvider";
 import { NFT_CONTRACT_ABI } from "@/config/nftContract";
 import { encodeFunctionData, parseEther, keccak256, encodePacked } from "viem";
 import { MerkleTree } from "merkletreejs";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MintState {
   isMinting: boolean;
@@ -65,11 +66,47 @@ export function useContractMint(contractAddress: string | null) {
     return tree.verify(proof, leaf, root);
   }, []);
 
+  // Record transaction to database
+  const recordTransaction = useCallback(async (
+    txHash: string,
+    collectionId: string,
+    txType: string,
+    quantity: number,
+    pricePaid: number,
+    status: string
+  ) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from("nft_transactions").insert({
+      user_id: user.id,
+      collection_id: collectionId,
+      tx_hash: txHash,
+      tx_type: txType,
+      quantity,
+      price_paid: pricePaid,
+      status,
+      confirmed_at: status === "confirmed" ? new Date().toISOString() : null,
+    });
+  }, []);
+
+  // Update transaction status
+  const updateTransactionStatus = useCallback(async (txHash: string, status: string) => {
+    await supabase
+      .from("nft_transactions")
+      .update({ 
+        status, 
+        confirmed_at: status === "confirmed" ? new Date().toISOString() : null 
+      })
+      .eq("tx_hash", txHash);
+  }, []);
+
   // Mint with allowlist (requires proof)
   const mintWithAllowlist = useCallback(async (
     quantity: number,
     pricePerNft: string,
-    allowlistAddresses: string[]
+    allowlistAddresses: string[],
+    collectionId?: string
   ): Promise<string | null> => {
     if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
@@ -137,11 +174,17 @@ export function useContractMint(contractAddress: string | null) {
         throw new Error("Mint transaction failed");
       }
 
+      // Record confirmed transaction
+      if (collectionId) {
+        const totalPaid = parseFloat(pricePerNft) * quantity;
+        await recordTransaction(txHash, collectionId, "mint", quantity, totalPaid, "confirmed");
+      }
+
       setState({
         isMinting: false,
         txHash,
         error: null,
-        mintedTokenIds: [], // Would parse from logs in production
+        mintedTokenIds: [],
       });
 
       return txHash;
@@ -169,12 +212,13 @@ export function useContractMint(contractAddress: string | null) {
 
       return null;
     }
-  }, [address, isConnected, contractAddress, generateMerkleProof, verifyAllowlist]);
+  }, [address, isConnected, contractAddress, generateMerkleProof, verifyAllowlist, recordTransaction]);
 
   // Mint public (no proof required)
   const mintPublic = useCallback(async (
     quantity: number,
-    pricePerNft: string
+    pricePerNft: string,
+    collectionId?: string
   ): Promise<string | null> => {
     if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
@@ -233,6 +277,12 @@ export function useContractMint(contractAddress: string | null) {
         throw new Error("Mint transaction failed");
       }
 
+      // Record confirmed transaction
+      if (collectionId) {
+        const totalPaid = parseFloat(pricePerNft) * quantity;
+        await recordTransaction(txHash, collectionId, "mint", quantity, totalPaid, "confirmed");
+      }
+
       setState({
         isMinting: false,
         txHash,
@@ -267,7 +317,7 @@ export function useContractMint(contractAddress: string | null) {
 
       return null;
     }
-  }, [address, isConnected, contractAddress]);
+  }, [address, isConnected, contractAddress, recordTransaction]);
 
   // Check user's balance to ensure they can afford mint
   const canAffordMint = useCallback((quantity: number, pricePerNft: string): boolean => {
@@ -286,5 +336,7 @@ export function useContractMint(contractAddress: string | null) {
     verifyAllowlist,
     canAffordMint,
     resetState,
+    recordTransaction,
+    updateTransactionStatus,
   };
 }

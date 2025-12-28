@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
 import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
 import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
+import { TransactionHistory } from "@/components/TransactionHistory";
 import { useSEO } from "@/hooks/useSEO";
 import { useContractMint } from "@/hooks/useContractMint";
 import { 
@@ -333,9 +334,9 @@ export default function CollectionDetail() {
         });
         return;
       }
-      txHash = await mintWithAllowlist(mintAmount, activePhase.price, allowlistAddresses);
+      txHash = await mintWithAllowlist(mintAmount, activePhase.price, allowlistAddresses, collection.id);
     } else {
-      txHash = await mintPublic(mintAmount, activePhase.price);
+      txHash = await mintPublic(mintAmount, activePhase.price, collection.id);
     }
 
     if (txHash) {
@@ -1088,6 +1089,11 @@ export default function CollectionDetail() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Transaction History */}
+            {currentUserId && (
+              <TransactionHistory userId={currentUserId} collectionId={collection.id} limit={5} />
+            )}
           </div>
         </div>
       </main>

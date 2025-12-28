@@ -557,6 +557,56 @@ export type Database = {
         }
         Relationships: []
       }
+      nft_transactions: {
+        Row: {
+          collection_id: string | null
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          price_paid: number
+          quantity: number
+          status: string
+          token_ids: number[] | null
+          tx_hash: string
+          tx_type: string
+          user_id: string
+        }
+        Insert: {
+          collection_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          price_paid?: number
+          quantity?: number
+          status?: string
+          token_ids?: number[] | null
+          tx_hash: string
+          tx_type?: string
+          user_id: string
+        }
+        Update: {
+          collection_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          price_paid?: number
+          quantity?: number
+          status?: string
+          token_ids?: number[] | null
+          tx_hash?: string
+          tx_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nft_transactions_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           auth: string
