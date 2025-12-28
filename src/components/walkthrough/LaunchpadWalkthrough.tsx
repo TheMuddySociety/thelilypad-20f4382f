@@ -1,5 +1,6 @@
 import React from "react";
 import { WalkthroughTooltip } from "./WalkthroughTooltip";
+import { ConfettiCelebration } from "./ConfettiCelebration";
 import { useLaunchpadWalkthrough, useModalWalkthrough } from "@/hooks/useLaunchpadWalkthrough";
 
 interface LaunchpadWalkthroughProps {
@@ -15,21 +16,29 @@ export function LaunchpadWalkthrough({ walkthrough }: LaunchpadWalkthroughProps)
     nextStep,
     prevStep,
     skipWalkthrough,
+    showCelebration,
+    onCelebrationComplete,
   } = walkthrough;
 
-  if (!isActive || !currentStep) return null;
-
   return (
-    <WalkthroughTooltip
-      step={currentStep}
-      currentIndex={currentStepIndex}
-      totalSteps={totalSteps}
-      onNext={nextStep}
-      onPrev={prevStep}
-      onSkip={skipWalkthrough}
-      isFirst={currentStepIndex === 0}
-      isLast={currentStepIndex === totalSteps - 1}
-    />
+    <>
+      {isActive && currentStep && (
+        <WalkthroughTooltip
+          step={currentStep}
+          currentIndex={currentStepIndex}
+          totalSteps={totalSteps}
+          onNext={nextStep}
+          onPrev={prevStep}
+          onSkip={skipWalkthrough}
+          isFirst={currentStepIndex === 0}
+          isLast={currentStepIndex === totalSteps - 1}
+        />
+      )}
+      <ConfettiCelebration 
+        isActive={showCelebration} 
+        onComplete={onCelebrationComplete}
+      />
+    </>
   );
 }
 
@@ -46,20 +55,28 @@ export function ModalWalkthrough({ walkthrough }: ModalWalkthroughProps) {
     nextStep,
     prevStep,
     skipWalkthrough,
+    showCelebration,
+    onCelebrationComplete,
   } = walkthrough;
 
-  if (!isActive || !currentStep) return null;
-
   return (
-    <WalkthroughTooltip
-      step={currentStep}
-      currentIndex={currentStepIndex}
-      totalSteps={totalSteps}
-      onNext={nextStep}
-      onPrev={prevStep}
-      onSkip={skipWalkthrough}
-      isFirst={currentStepIndex === 0}
-      isLast={currentStepIndex === totalSteps - 1}
-    />
+    <>
+      {isActive && currentStep && (
+        <WalkthroughTooltip
+          step={currentStep}
+          currentIndex={currentStepIndex}
+          totalSteps={totalSteps}
+          onNext={nextStep}
+          onPrev={prevStep}
+          onSkip={skipWalkthrough}
+          isFirst={currentStepIndex === 0}
+          isLast={currentStepIndex === totalSteps - 1}
+        />
+      )}
+      <ConfettiCelebration 
+        isActive={showCelebration} 
+        onComplete={onCelebrationComplete}
+      />
+    </>
   );
 }

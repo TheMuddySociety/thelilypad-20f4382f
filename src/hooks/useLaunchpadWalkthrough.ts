@@ -85,6 +85,7 @@ export function useLaunchpadWalkthrough() {
   const [isActive, setIsActive] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [hasSeenWalkthrough, setHasSeenWalkthrough] = useState(true);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   useEffect(() => {
     const completed = localStorage.getItem(STORAGE_KEY);
@@ -103,6 +104,7 @@ export function useLaunchpadWalkthrough() {
   const startWalkthrough = useCallback(() => {
     setCurrentStepIndex(0);
     setIsActive(true);
+    setShowCelebration(false);
   }, []);
 
   const nextStep = useCallback(() => {
@@ -127,14 +129,20 @@ export function useLaunchpadWalkthrough() {
 
   const completeWalkthrough = useCallback(() => {
     setIsActive(false);
+    setShowCelebration(true);
     localStorage.setItem(STORAGE_KEY, "true");
     setHasSeenWalkthrough(true);
+  }, []);
+
+  const onCelebrationComplete = useCallback(() => {
+    setShowCelebration(false);
   }, []);
 
   const resetWalkthrough = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setHasSeenWalkthrough(false);
     setCurrentStepIndex(0);
+    setShowCelebration(false);
   }, []);
 
   const currentStep = launchpadSteps[currentStepIndex] || null;
@@ -145,12 +153,14 @@ export function useLaunchpadWalkthrough() {
     currentStepIndex,
     totalSteps: launchpadSteps.length,
     hasSeenWalkthrough,
+    showCelebration,
     startWalkthrough,
     nextStep,
     prevStep,
     skipWalkthrough,
     completeWalkthrough,
     resetWalkthrough,
+    onCelebrationComplete,
   };
 }
 
@@ -158,6 +168,7 @@ export function useModalWalkthrough() {
   const [isActive, setIsActive] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [hasSeenWalkthrough, setHasSeenWalkthrough] = useState(true);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   useEffect(() => {
     const completed = localStorage.getItem(MODAL_STORAGE_KEY);
@@ -167,6 +178,7 @@ export function useModalWalkthrough() {
   const startWalkthrough = useCallback(() => {
     setCurrentStepIndex(0);
     setIsActive(true);
+    setShowCelebration(false);
   }, []);
 
   const autoStartIfNeeded = useCallback(() => {
@@ -200,14 +212,20 @@ export function useModalWalkthrough() {
 
   const completeWalkthrough = useCallback(() => {
     setIsActive(false);
+    setShowCelebration(true);
     localStorage.setItem(MODAL_STORAGE_KEY, "true");
     setHasSeenWalkthrough(true);
+  }, []);
+
+  const onCelebrationComplete = useCallback(() => {
+    setShowCelebration(false);
   }, []);
 
   const resetWalkthrough = useCallback(() => {
     localStorage.removeItem(MODAL_STORAGE_KEY);
     setHasSeenWalkthrough(false);
     setCurrentStepIndex(0);
+    setShowCelebration(false);
   }, []);
 
   const currentStep = modalSteps[currentStepIndex] || null;
@@ -218,6 +236,7 @@ export function useModalWalkthrough() {
     currentStepIndex,
     totalSteps: modalSteps.length,
     hasSeenWalkthrough,
+    showCelebration,
     startWalkthrough,
     autoStartIfNeeded,
     nextStep,
@@ -225,5 +244,6 @@ export function useModalWalkthrough() {
     skipWalkthrough,
     completeWalkthrough,
     resetWalkthrough,
+    onCelebrationComplete,
   };
 }
