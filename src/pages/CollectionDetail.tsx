@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
 import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
+import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
 import { useSEO } from "@/hooks/useSEO";
 import { 
   ArrowLeft, 
@@ -91,6 +92,7 @@ export default function CollectionDetail() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
+  const [isAllowlistModalOpen, setIsAllowlistModalOpen] = useState(false);
 
   const isTestnet = network === "testnet";
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
@@ -396,6 +398,16 @@ export default function CollectionDetail() {
                 >
                   <Rocket className="w-4 h-4 mr-2" />
                   Deploy Contract
+                </Button>
+              )}
+              {collection.contract_address && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setIsAllowlistModalOpen(true)}
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Manage Allowlist
                 </Button>
               )}
               <Button 
@@ -964,6 +976,18 @@ export default function CollectionDetail() {
             fetchCollection();
             setIsDeployModalOpen(false);
           }}
+        />
+      )}
+
+      {/* Allowlist Manager Modal */}
+      {collection && currentUserId && (
+        <ContractAllowlistManager
+          open={isAllowlistModalOpen}
+          onOpenChange={setIsAllowlistModalOpen}
+          collectionId={collection.id}
+          contractAddress={collection.contract_address}
+          phases={phases}
+          creatorId={currentUserId}
         />
       )}
     </div>
