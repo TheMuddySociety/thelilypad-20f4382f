@@ -22,6 +22,7 @@ import { useSEO } from "@/hooks/useSEO";
 import { LaunchpadWalkthrough } from "@/components/walkthrough/LaunchpadWalkthrough";
 import { useLaunchpadWalkthrough } from "@/hooks/useLaunchpadWalkthrough";
 import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
+import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
 
 interface DraftCollection {
   name: string;
@@ -289,7 +290,10 @@ export default function Launchpad() {
           </Card>
         </div>
 
-        {/* Filter Dropdown */}
+        {/* Recent Sales */}
+        <div className="mb-8">
+          <RecentSalesTable />
+        </div>
         {(() => {
           const filterOptions = [
             { value: "all", label: "All Collections", icon: LayoutGrid },
