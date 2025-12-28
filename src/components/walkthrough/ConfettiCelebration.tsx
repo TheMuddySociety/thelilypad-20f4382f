@@ -61,6 +61,11 @@ export function ConfettiCelebration({ isActive, onComplete }: ConfettiCelebratio
       setConfetti(generateConfetti(50));
       setShowMessage(true);
       
+      // Play celebration sound
+      import("@/hooks/useWalkthroughSounds").then(({ walkthroughSounds }) => {
+        walkthroughSounds.playCelebrationSound();
+      });
+      
       const timer = setTimeout(() => {
         setConfetti([]);
         setShowMessage(false);

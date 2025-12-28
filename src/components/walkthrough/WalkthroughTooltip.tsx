@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Volume2, VolumeX } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { WalkthroughStep } from "@/hooks/useLaunchpadWalkthrough";
+import { useWalkthroughSounds } from "@/hooks/useWalkthroughSounds";
 
 interface WalkthroughTooltipProps {
   step: WalkthroughStep;
@@ -34,18 +35,39 @@ export function WalkthroughTooltip({
   const [position, setPosition] = useState<Position>({ top: 0, left: 0, arrowPosition: "top" });
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const prevStepRef = useRef(currentIndex);
+  const { playStep, playBack, playSkip, setEnabled, isEnabled } = useWalkthroughSounds();
 
-  // Detect step changes for transition animation
+  // Detect step changes for transition animation and play sound
   useEffect(() => {
     if (prevStepRef.current !== currentIndex) {
       setIsTransitioning(true);
       const timer = setTimeout(() => setIsTransitioning(false), 300);
+      
+      // Play appropriate sound based on direction
+      if (currentIndex > prevStepRef.current) {
+        playStep();
+      } else {
+        playBack();
+      }
+      
       prevStepRef.current = currentIndex;
       return () => clearTimeout(timer);
     }
-  }, [currentIndex]);
+  }, [currentIndex, playStep, playBack]);
+
+  const handleToggleSound = () => {
+    const newState = !soundEnabled;
+    setSoundEnabled(newState);
+    setEnabled(newState);
+  };
+
+  const handleSkip = () => {
+    playSkip();
+    onSkip();
+  };
 
   useEffect(() => {
     const updatePosition = () => {
@@ -181,14 +203,30 @@ export function WalkthroughTooltip({
             >
               {step.title}
             </motion.h3>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 -mr-2"
-              onClick={onSkip}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {/* Sound toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={handleToggleSound}
+                title={soundEnabled ? "Mute sounds" : "Enable sounds"}
+              >
+                {soundEnabled ? (
+                  <Volume2 className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <VolumeX className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 -mr-2"
+                onClick={handleSkip}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Description */}
