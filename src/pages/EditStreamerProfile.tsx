@@ -71,52 +71,65 @@ const EditStreamerProfile = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.user) {
-        navigate('/auth');
-        return;
-      }
-
-      setUserId(session.user.id);
-
-      const { data: profile, error } = await supabase
-        .from('streamer_profiles')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching profile:', error);
-      }
-
-      if (profile) {
-        setDisplayName(profile.display_name || "");
-        setBio(profile.bio || "");
-        setAvatarUrl(profile.avatar_url || "");
-        setBannerUrl((profile as any).banner_url || "");
-        setSocialTwitter(profile.social_twitter || "");
-        setSocialYoutube(profile.social_youtube || "");
-        setSocialDiscord(profile.social_discord || "");
-        setSocialInstagram(profile.social_instagram || "");
-        setSocialTiktok(profile.social_tiktok || "");
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        // Parse schedule
-        try {
-          const rawSchedule = profile.schedule as unknown;
-          const parsedSchedule = Array.isArray(rawSchedule) 
-            ? (rawSchedule as ScheduleItem[])
-            : [];
-          setSchedule(parsedSchedule);
-        } catch {
-          setSchedule([]);
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          setLoading(false);
+          navigate('/auth');
+          return;
+        }
+        
+        if (!session?.user) {
+          setLoading(false);
+          navigate('/auth');
+          return;
         }
 
-        // Parse categories
-        setCategories(Array.isArray(profile.categories) ? profile.categories : []);
-      }
+        setUserId(session.user.id);
 
-      setLoading(false);
+        const { data: profile, error } = await supabase
+          .from('streamer_profiles')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+          // Don't return - user might be creating a new profile
+        }
+
+        if (profile) {
+          setDisplayName(profile.display_name || "");
+          setBio(profile.bio || "");
+          setAvatarUrl(profile.avatar_url || "");
+          setBannerUrl(profile.banner_url || "");
+          setSocialTwitter(profile.social_twitter || "");
+          setSocialYoutube(profile.social_youtube || "");
+          setSocialDiscord(profile.social_discord || "");
+          setSocialInstagram(profile.social_instagram || "");
+          setSocialTiktok(profile.social_tiktok || "");
+          
+          // Parse schedule
+          try {
+            const rawSchedule = profile.schedule as unknown;
+            const parsedSchedule = Array.isArray(rawSchedule) 
+              ? (rawSchedule as ScheduleItem[])
+              : [];
+            setSchedule(parsedSchedule);
+          } catch {
+            setSchedule([]);
+          }
+
+          // Parse categories
+          setCategories(Array.isArray(profile.categories) ? profile.categories : []);
+        }
+      } catch (err) {
+        console.error('Error in fetchProfile:', err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchProfile();
