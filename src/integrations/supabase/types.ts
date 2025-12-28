@@ -453,6 +453,56 @@ export type Database = {
         }
         Relationships: []
       }
+      minted_nfts: {
+        Row: {
+          attributes: Json | null
+          collection_id: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          minted_at: string
+          name: string | null
+          owner_address: string
+          owner_id: string
+          token_id: number
+          tx_hash: string
+        }
+        Insert: {
+          attributes?: Json | null
+          collection_id?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          minted_at?: string
+          name?: string | null
+          owner_address: string
+          owner_id: string
+          token_id: number
+          tx_hash: string
+        }
+        Update: {
+          attributes?: Json | null
+          collection_id?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          minted_at?: string
+          name?: string | null
+          owner_address?: string
+          owner_id?: string
+          token_id?: number
+          tx_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "minted_nfts_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       moderation_actions: {
         Row: {
           action_by: string | null
