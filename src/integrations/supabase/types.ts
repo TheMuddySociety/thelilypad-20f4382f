@@ -663,6 +663,72 @@ export type Database = {
           },
         ]
       }
+      nft_offers: {
+        Row: {
+          created_at: string
+          currency: string
+          expires_at: string | null
+          id: string
+          listing_id: string | null
+          message: string | null
+          nft_id: string
+          offer_price: number
+          offerer_address: string
+          offerer_id: string
+          owner_address: string
+          owner_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          listing_id?: string | null
+          message?: string | null
+          nft_id: string
+          offer_price: number
+          offerer_address: string
+          offerer_id: string
+          owner_address: string
+          owner_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          listing_id?: string | null
+          message?: string | null
+          nft_id?: string
+          offer_price?: number
+          offerer_address?: string
+          offerer_id?: string
+          owner_address?: string
+          owner_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nft_offers_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "nft_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nft_offers_nft_id_fkey"
+            columns: ["nft_id"]
+            isOneToOne: false
+            referencedRelation: "minted_nfts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nft_transactions: {
         Row: {
           collection_id: string | null
