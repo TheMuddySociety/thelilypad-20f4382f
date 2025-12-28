@@ -15,6 +15,7 @@ import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowli
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTGallery } from "@/components/NFTGallery";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
+import { NFTRevealModal } from "@/components/NFTRevealModal";
 import { useSEO } from "@/hooks/useSEO";
 import { useContractMint } from "@/hooks/useContractMint";
 import { 
@@ -97,6 +98,14 @@ export default function CollectionDetail() {
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [isAllowlistModalOpen, setIsAllowlistModalOpen] = useState(false);
   const [allowlistAddresses, setAllowlistAddresses] = useState<string[]>([]);
+  const [showRevealModal, setShowRevealModal] = useState(false);
+  const [revealedNfts, setRevealedNfts] = useState<Array<{
+    tokenId: number;
+    name: string;
+    image: string | null;
+    attributes: Array<{ trait_type: string; value: string; rarity?: number }>;
+  }>>([]);
+  const [revealTxHash, setRevealTxHash] = useState<string>("");
 
   // Contract minting hook
   const { 
@@ -342,17 +351,55 @@ export default function CollectionDetail() {
     }
 
     if (txHash) {
-      toast.success(`Successfully minted ${mintAmount} NFT${mintAmount > 1 ? 's' : ''}!`, {
-        description: "Check your wallet for your new NFTs",
-        action: {
-          label: "View TX",
-          onClick: () => window.open(`${currentChain.blockExplorers?.default?.url}/tx/${txHash}`, "_blank"),
-        },
-      });
+      // Generate mock revealed NFTs with random attributes for the reveal animation
+      const mockAttributes = generateRandomAttributes(mintAmount, collection.minted);
+      setRevealedNfts(mockAttributes);
+      setRevealTxHash(txHash);
+      setShowRevealModal(true);
       
       // Refresh collection data
       fetchCollection();
     }
+  };
+
+  // Generate random attributes for reveal animation (simulated - in production these would come from blockchain)
+  const generateRandomAttributes = (quantity: number, currentMinted: number) => {
+    const traitTypes = [
+      { name: "Background", values: ["Cosmic", "Ocean", "Forest", "Desert", "Arctic", "Volcanic"], rarities: [5, 15, 25, 25, 20, 10] },
+      { name: "Body", values: ["Rare Frog", "Common Frog", "Golden Frog", "Crystal Frog", "Shadow Frog"], rarities: [2, 60, 5, 3, 30] },
+      { name: "Eyes", values: ["Laser", "Hypnotic", "Normal", "Sleepy", "Angry", "Happy"], rarities: [1, 5, 40, 20, 15, 19] },
+      { name: "Accessory", values: ["Crown", "Top Hat", "None", "Monocle", "Headphones"], rarities: [2, 8, 50, 15, 25] },
+      { name: "Mouth", values: ["Diamond Grill", "Smile", "Tongue Out", "Serious", "Singing"], rarities: [1, 35, 25, 25, 14] },
+    ];
+
+    return Array.from({ length: quantity }, (_, i) => {
+      const tokenId = currentMinted + i + 1;
+      const attributes = traitTypes.map(traitType => {
+        // Weighted random selection
+        const random = Math.random() * 100;
+        let cumulative = 0;
+        let selectedIndex = 0;
+        for (let j = 0; j < traitType.rarities.length; j++) {
+          cumulative += traitType.rarities[j];
+          if (random <= cumulative) {
+            selectedIndex = j;
+            break;
+          }
+        }
+        return {
+          trait_type: traitType.name,
+          value: traitType.values[selectedIndex],
+          rarity: traitType.rarities[selectedIndex]
+        };
+      });
+
+      return {
+        tokenId,
+        name: `${collection.name} #${tokenId}`,
+        image: collection.image_url,
+        attributes
+      };
+    });
   };
 
   const handleCopyAddress = () => {
@@ -1144,6 +1191,16 @@ export default function CollectionDetail() {
           creatorId={currentUserId}
         />
       )}
+
+      {/* NFT Reveal Modal */}
+      <NFTRevealModal
+        open={showRevealModal}
+        onOpenChange={setShowRevealModal}
+        nfts={revealedNfts}
+        collectionName={collection?.name || ""}
+        txHash={revealTxHash}
+        explorerUrl={currentChain.blockExplorers?.default?.url}
+      />
     </div>
   );
 }
