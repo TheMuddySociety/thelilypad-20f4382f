@@ -63,9 +63,9 @@ export const StickerEmojiPicker = ({ userId, onSelect }: StickerEmojiPickerProps
               No sticker packs yet
             </p>
             <Button asChild size="sm" variant="outline">
-              <Link to="/shop" onClick={() => setOpen(false)}>
+              <Link to="/marketplace" onClick={() => setOpen(false)}>
                 <ShoppingBag className="h-4 w-4 mr-2" />
-                Browse Shop
+                Browse Marketplace
               </Link>
             </Button>
           </div>
