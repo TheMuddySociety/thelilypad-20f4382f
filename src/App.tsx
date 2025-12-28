@@ -20,6 +20,7 @@ import Following from "./pages/Following";
 import ClipViewer from "./pages/ClipViewer";
 import Moderation from "./pages/Moderation";
 import Launchpad from "./pages/Launchpad";
+import Marketplace from "./pages/Marketplace";
 import CollectionDetail from "./pages/CollectionDetail";
 import Watch from "./pages/Watch";
 import NotFound from "./pages/NotFound";
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/following" element={<Following />} />
             <Route path="/clip/:clipId" element={<ClipViewer />} />
             <Route path="/moderation" element={<Moderation />} />
+            <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/launchpad" element={<Launchpad />} />
             <Route path="/launchpad/:collectionId" element={<CollectionDetail />} />
             <Route path="/watch/:playbackId" element={<Watch />} />
