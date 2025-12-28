@@ -14,6 +14,7 @@ import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal"
 import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTGallery } from "@/components/NFTGallery";
+import { CollectionAnalytics } from "@/components/CollectionAnalytics";
 import { useSEO } from "@/hooks/useSEO";
 import { useContractMint } from "@/hooks/useContractMint";
 import { 
@@ -560,6 +561,13 @@ export default function CollectionDetail() {
                 )}
               </div>
             </div>
+
+            {/* Collection Analytics */}
+            <CollectionAnalytics 
+              collectionId={collection.id}
+              totalSupply={collection.total_supply}
+              minted={collection.minted}
+            />
 
             {/* Description */}
             <Card>
