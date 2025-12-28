@@ -77,6 +77,36 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_emotes: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          is_active: boolean
+          name: string
+          streamer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          is_active?: boolean
+          name: string
+          streamer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          is_active?: boolean
+          name?: string
+          streamer_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clip_comments: {
         Row: {
           clip_id: string

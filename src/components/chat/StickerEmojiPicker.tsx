@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Smile, Sticker, Loader2, ShoppingBag, Clock } from 'lucide-react';
+import { Smile, Sticker, Loader2, ShoppingBag, Clock, Sparkles } from 'lucide-react';
 import { usePurchasedStickers } from '@/hooks/usePurchasedStickers';
+import { useChannelEmotes } from '@/hooks/useChannelEmotes';
 import { Link } from 'react-router-dom';
 
 interface SelectedSticker {
@@ -21,6 +22,7 @@ interface StickerEmojiPickerProps {
 export const StickerEmojiPicker = ({ userId, onSelect }: StickerEmojiPickerProps) => {
   const [open, setOpen] = useState(false);
   const { stickerPacks, emojiPacks, recentStickers, isLoading, addToRecent } = usePurchasedStickers(userId);
+  const { streamerEmotes, loading: emotesLoading } = useChannelEmotes(userId);
 
   const handleSelect = (sticker: SelectedSticker) => {
     addToRecent(sticker);
@@ -30,8 +32,17 @@ export const StickerEmojiPicker = ({ userId, onSelect }: StickerEmojiPickerProps
 
   const hasStickers = stickerPacks.length > 0;
   const hasEmojis = emojiPacks.length > 0;
+  const hasChannelEmotes = streamerEmotes.length > 0;
   const hasRecent = recentStickers.length > 0;
-  const hasPacks = hasStickers || hasEmojis;
+  const hasPacks = hasStickers || hasEmojis || hasChannelEmotes;
+  const isLoadingAny = isLoading || emotesLoading;
+
+  const getDefaultTab = () => {
+    if (hasChannelEmotes) return "channel";
+    if (hasStickers) return "stickers";
+    if (hasEmojis) return "emojis";
+    return "stickers";
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -52,7 +63,7 @@ export const StickerEmojiPicker = ({ userId, onSelect }: StickerEmojiPickerProps
         align="start"
         sideOffset={8}
       >
-        {isLoading ? (
+        {isLoadingAny ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
@@ -70,25 +81,74 @@ export const StickerEmojiPicker = ({ userId, onSelect }: StickerEmojiPickerProps
             </Button>
           </div>
         ) : (
-          <Tabs defaultValue={hasStickers ? "stickers" : "emojis"} className="w-full">
-            <TabsList className="w-full grid grid-cols-2 rounded-none border-b bg-transparent h-10">
+          <Tabs defaultValue={getDefaultTab()} className="w-full">
+            <TabsList className="w-full grid grid-cols-3 rounded-none border-b bg-transparent h-10">
+              <TabsTrigger 
+                value="channel" 
+                className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary text-xs"
+                disabled={!hasChannelEmotes}
+              >
+                <Sparkles className="h-3.5 w-3.5 mr-1" />
+                Channel
+              </TabsTrigger>
               <TabsTrigger 
                 value="stickers" 
-                className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary text-xs"
                 disabled={!hasStickers}
               >
-                <Sticker className="h-4 w-4 mr-1.5" />
+                <Sticker className="h-3.5 w-3.5 mr-1" />
                 Stickers
               </TabsTrigger>
               <TabsTrigger 
                 value="emojis"
-                className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary text-xs"
                 disabled={!hasEmojis}
               >
-                <Smile className="h-4 w-4 mr-1.5" />
+                <Smile className="h-3.5 w-3.5 mr-1" />
                 Emojis
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="channel" className="mt-0">
+              <ScrollArea className="h-64">
+                <div className="p-2 space-y-3">
+                  {streamerEmotes.map((streamer) => (
+                    <div key={streamer.streamerId}>
+                      <p className="text-xs font-medium text-muted-foreground px-1 mb-1.5">
+                        {streamer.streamerName}
+                      </p>
+                      <div className="grid grid-cols-5 gap-1">
+                        {streamer.emotes.map((emote) => (
+                          <button
+                            key={emote.id}
+                            onClick={() => handleSelect({
+                              url: emote.image_url,
+                              name: emote.name,
+                              itemId: `emote-${emote.id}`,
+                            })}
+                            className="aspect-square rounded-md hover:bg-accent p-1 transition-colors"
+                            title={`:${emote.name}:`}
+                          >
+                            <img
+                              src={emote.image_url}
+                              alt={emote.name}
+                              className="w-full h-full object-contain"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {!hasChannelEmotes && (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground">
+                        Follow streamers to unlock their custom emotes!
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </TabsContent>
 
             <TabsContent value="stickers" className="mt-0">
               <ScrollArea className="h-64">
