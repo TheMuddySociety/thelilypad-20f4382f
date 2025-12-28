@@ -23,7 +23,9 @@ import {
   List,
   ArrowUpRight,
   Send,
-  Tag
+  Tag,
+  XCircle,
+  Loader2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -68,6 +70,8 @@ export default function MyNFTs() {
   const [transferNft, setTransferNft] = useState<NFT | null>(null);
   const [listNft, setListNft] = useState<NFT | null>(null);
   const [listedNftIds, setListedNftIds] = useState<Set<string>>(new Set());
+  const [listingsMap, setListingsMap] = useState<Map<string, { id: string; price: number }>>(new Map());
+  const [isCancelling, setIsCancelling] = useState<string | null>(null);
 
   useSEO({
     title: "My NFTs | The Lily Pad",
@@ -132,12 +136,17 @@ export default function MyNFTs() {
       if (nftIds.length > 0) {
         const { data: listings } = await supabase
           .from("nft_listings")
-          .select("nft_id")
+          .select("id, nft_id, price")
           .in("nft_id", nftIds)
           .eq("status", "active");
 
         if (listings) {
           setListedNftIds(new Set(listings.map(l => l.nft_id)));
+          const newListingsMap = new Map<string, { id: string; price: number }>();
+          listings.forEach(l => {
+            newListingsMap.set(l.nft_id, { id: l.id, price: Number(l.price) });
+          });
+          setListingsMap(newListingsMap);
         }
       }
     }
@@ -152,6 +161,40 @@ export default function MyNFTs() {
     setIsRefreshing(true);
     await fetchNFTs();
     setIsRefreshing(false);
+  };
+
+  const handleCancelListing = async (nftId: string) => {
+    const listing = listingsMap.get(nftId);
+    if (!listing) return;
+
+    setIsCancelling(nftId);
+    try {
+      const { error } = await supabase
+        .from("nft_listings")
+        .delete()
+        .eq("id", listing.id);
+
+      if (error) throw error;
+
+      toast.success("Listing cancelled successfully");
+      
+      // Update local state
+      setListedNftIds(prev => {
+        const updated = new Set(prev);
+        updated.delete(nftId);
+        return updated;
+      });
+      setListingsMap(prev => {
+        const updated = new Map(prev);
+        updated.delete(nftId);
+        return updated;
+      });
+    } catch (error) {
+      console.error("Error cancelling listing:", error);
+      toast.error("Failed to cancel listing");
+    } finally {
+      setIsCancelling(null);
+    }
   };
 
   const formatAddress = (addr: string) => {
@@ -513,9 +556,25 @@ export default function MyNFTs() {
                         List for Sale
                       </Button>
                     ) : (
-                      <Badge variant="secondary" className="w-full justify-center py-2">
-                        Listed for Sale
-                      </Badge>
+                      <div className="flex flex-col gap-2">
+                        <Badge variant="secondary" className="w-full justify-center py-2">
+                          Listed for {listingsMap.get(selectedNft.id)?.price.toFixed(2)} MON
+                        </Badge>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleCancelListing(selectedNft.id)}
+                          disabled={isCancelling === selectedNft.id}
+                        >
+                          {isCancelling === selectedNft.id ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <XCircle className="w-4 h-4 mr-2" />
+                          )}
+                          Cancel Listing
+                        </Button>
+                      </div>
                     )}
                     
                     {/* Transfer Button */}
