@@ -43,7 +43,8 @@ import {
   Pencil,
   Settings2,
   Tags,
-  Download
+  Download,
+  HelpCircle
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -57,6 +58,8 @@ import { ImportMetadataEditor } from "./ImportMetadataEditor";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { formatDistanceToNow } from "date-fns";
+import { ModalWalkthrough } from "@/components/walkthrough/LaunchpadWalkthrough";
+import { useModalWalkthrough } from "@/hooks/useLaunchpadWalkthrough";
 
 interface CreateCollectionModalProps {
   open: boolean;
@@ -141,6 +144,7 @@ interface DraftData {
 
 export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated }: CreateCollectionModalProps) {
   const { address } = useWallet();
+  const modalWalkthrough = useModalWalkthrough();
   const [currentStep, setCurrentStep] = useState(1);
   const [isDeploying, setIsDeploying] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
@@ -451,7 +455,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     performSave(true);
   };
 
-  // Load draft on mount
+  // Load draft on mount and auto-start walkthrough
   useEffect(() => {
     if (open) {
       try {
@@ -467,8 +471,11 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       } catch (e) {
         console.error("Failed to load draft:", e);
       }
+      
+      // Auto-start modal walkthrough for first-time users
+      modalWalkthrough.autoStartIfNeeded();
     }
-  }, [open]);
+  }, [open, modalWalkthrough.autoStartIfNeeded]);
 
 
   const loadDraft = () => {
@@ -1013,13 +1020,29 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <ModalWalkthrough walkthrough={modalWalkthrough} />
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle>Create NFT Collection</DialogTitle>
-              <DialogDescription>
-                Launch your NFT collection on Monad Mainnet
-              </DialogDescription>
+            <div className="flex items-center gap-2">
+              <div>
+                <DialogTitle>Create NFT Collection</DialogTitle>
+                <DialogDescription>
+                  Launch your NFT collection on Monad Mainnet
+                </DialogDescription>
+              </div>
+              {/* Help button to restart modal walkthrough */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  modalWalkthrough.resetWalkthrough();
+                  modalWalkthrough.startWalkthrough();
+                }}
+                title="Start tutorial"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </Button>
             </div>
             {/* Auto-save indicator */}
             {(lastSavedAt || isSaving || showSaveIndicator) && (
@@ -1064,7 +1087,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         )}
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6" data-walkthrough="modal-steps">
           {steps.map((step, index) => (
             <React.Fragment key={step.id}>
               <div className="flex items-center gap-2">
@@ -1098,9 +1121,9 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
         {/* Step 1: Collection Details */}
         {currentStep === 1 && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-walkthrough="collection-details">
             {/* Collection Type Selector */}
-            <div className="space-y-3">
+            <div className="space-y-3" data-walkthrough="collection-type">
               <Label>Collection Type *</Label>
               <div className="grid grid-cols-3 gap-3">
                 <Card 
@@ -2152,7 +2175,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         )}
 
         {/* Navigation Buttons */}
-        <div className="flex items-center justify-between pt-4 border-t">
+        <div className="flex items-center justify-between pt-4 border-t" data-walkthrough="navigation">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -2167,6 +2190,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
               onClick={handleManualSave}
               disabled={isSaving}
               className="gap-2"
+              data-walkthrough="save-draft"
             >
               {isSaving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
