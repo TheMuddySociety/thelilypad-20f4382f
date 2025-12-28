@@ -1,0 +1,328 @@
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Navbar } from "@/components/Navbar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, Sticker, Loader2, ShoppingCart, Check, Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useSEO } from "@/hooks/useSEO";
+
+interface ShopItem {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  price_mon: number;
+  category: string;
+  tier: string;
+  total_sales: number;
+  creator_id: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+interface StickerContent {
+  id: string;
+  item_id: string;
+  name: string;
+  file_url: string;
+  display_order: number;
+  created_at: string;
+}
+
+export default function StickerPackDetail() {
+  const { packId } = useParams<{ packId: string }>();
+  const navigate = useNavigate();
+  const [pack, setPack] = useState<ShopItem | null>(null);
+  const [stickers, setStickers] = useState<StickerContent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [hasPurchased, setHasPurchased] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useSEO({
+    title: pack ? `${pack.name} | The Lily Pad` : "Sticker Pack | The Lily Pad",
+    description: pack?.description || "View this sticker pack on The Lily Pad marketplace."
+  });
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserId(user?.id || null);
+    };
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!packId) return;
+      
+      setIsLoading(true);
+      try {
+        // Fetch pack details
+        const { data: packData, error: packError } = await supabase
+          .from("shop_items")
+          .select("*")
+          .eq("id", packId)
+          .maybeSingle();
+
+        if (packError) {
+          console.error("Error fetching pack:", packError);
+          toast.error("Failed to load sticker pack");
+          return;
+        }
+
+        if (!packData) {
+          toast.error("Sticker pack not found");
+          navigate("/marketplace");
+          return;
+        }
+
+        setPack(packData);
+
+        // Fetch stickers in the pack
+        const { data: stickersData, error: stickersError } = await supabase
+          .from("shop_item_contents")
+          .select("*")
+          .eq("item_id", packId)
+          .order("display_order", { ascending: true });
+
+        if (stickersError) {
+          console.error("Error fetching stickers:", stickersError);
+        } else {
+          setStickers(stickersData || []);
+        }
+
+        // Check if user has already purchased
+        if (userId) {
+          const { data: purchaseData } = await supabase
+            .from("shop_purchases")
+            .select("id")
+            .eq("item_id", packId)
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          setHasPurchased(!!purchaseData);
+        }
+      } catch (err) {
+        console.error("Error:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [packId, userId, navigate]);
+
+  const handlePurchase = async () => {
+    if (!userId) {
+      toast.error("Please sign in to purchase");
+      navigate("/auth");
+      return;
+    }
+
+    if (!pack) return;
+
+    setIsPurchasing(true);
+    try {
+      // Insert purchase record
+      const { error } = await supabase
+        .from("shop_purchases")
+        .insert({
+          item_id: pack.id,
+          user_id: userId,
+          price_paid: pack.price_mon,
+        });
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("You already own this sticker pack!");
+          setHasPurchased(true);
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      setHasPurchased(true);
+      toast.success("Sticker pack purchased successfully!");
+    } catch (err) {
+      console.error("Purchase error:", err);
+      toast.error("Failed to complete purchase");
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const tierColors: Record<string, string> = {
+    basic: "bg-muted text-muted-foreground border-border",
+    premium: "bg-primary/20 text-primary border-primary/30",
+    exclusive: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto px-4 pt-24 pb-12">
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!pack) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto px-4 pt-24 pb-12">
+          <div className="text-center py-20">
+            <Sticker className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Sticker pack not found</h2>
+            <Button onClick={() => navigate("/marketplace")} variant="outline">
+              Back to Marketplace
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      
+      <main className="container mx-auto px-4 pt-24 pb-12">
+        {/* Back Button */}
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate("/marketplace")}
+          className="mb-6 gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Marketplace
+        </Button>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Pack Info */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-24">
+              <div className="aspect-square relative overflow-hidden bg-muted rounded-t-lg">
+                {pack.image_url ? (
+                  <img
+                    src={pack.image_url}
+                    alt={pack.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                    <Sticker className="w-20 h-20 text-primary" />
+                  </div>
+                )}
+                <Badge 
+                  variant="outline" 
+                  className={`absolute top-3 right-3 ${tierColors[pack.tier] || tierColors.basic}`}
+                >
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  {pack.tier.charAt(0).toUpperCase() + pack.tier.slice(1)}
+                </Badge>
+              </div>
+              <CardContent className="pt-6 space-y-4">
+                <div>
+                  <h1 className="text-2xl font-bold mb-2">{pack.name}</h1>
+                  {pack.description && (
+                    <p className="text-muted-foreground">{pack.description}</p>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Stickers</span>
+                    <span className="font-medium">{stickers.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Total Sales</span>
+                    <span className="font-medium">{pack.total_sales}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Price</span>
+                    <span className="font-bold text-lg">
+                      {pack.price_mon > 0 ? `${pack.price_mon} MON` : "Free"}
+                    </span>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {hasPurchased ? (
+                  <Button disabled className="w-full gap-2" variant="secondary">
+                    <Check className="w-4 h-4" />
+                    Owned
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={handlePurchase}
+                    disabled={isPurchasing}
+                    className="w-full gap-2"
+                  >
+                    {isPurchasing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ShoppingCart className="w-4 h-4" />
+                    )}
+                    {pack.price_mon > 0 ? `Buy for ${pack.price_mon} MON` : "Get for Free"}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Stickers Grid */}
+          <div className="lg:col-span-2">
+            <div className="flex items-center gap-2 mb-6">
+              <Sticker className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold">Stickers in this Pack</h2>
+              <Badge variant="secondary">{stickers.length}</Badge>
+            </div>
+
+            {stickers.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {stickers.map((sticker) => (
+                  <Card 
+                    key={sticker.id} 
+                    className="overflow-hidden hover:border-primary/50 transition-colors group"
+                  >
+                    <div className="aspect-square relative overflow-hidden bg-muted p-4">
+                      <img
+                        src={sticker.file_url}
+                        alt={sticker.name}
+                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
+                      />
+                    </div>
+                    <CardContent className="p-3">
+                      <p className="text-sm font-medium truncate text-center">{sticker.name}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 border border-dashed rounded-lg">
+                <Sticker className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  No stickers in this pack yet
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

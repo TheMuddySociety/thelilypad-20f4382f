@@ -292,6 +292,7 @@ export default function Marketplace() {
                     <Card 
                       key={pack.id} 
                       className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group"
+                      onClick={() => navigate(`/marketplace/sticker/${pack.id}`)}
                     >
                       <div className="aspect-square relative overflow-hidden bg-muted">
                         {pack.image_url ? (
