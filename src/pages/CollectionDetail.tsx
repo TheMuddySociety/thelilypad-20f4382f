@@ -13,6 +13,7 @@ import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
 import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
 import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
 import { useSEO } from "@/hooks/useSEO";
+import { useContractMint } from "@/hooks/useContractMint";
 import { 
   ArrowLeft, 
   ExternalLink, 
@@ -80,12 +81,11 @@ interface Phase {
 export default function CollectionDetail() {
   const { collectionId } = useParams();
   const navigate = useNavigate();
-  const { network, currentChain, isConnected, chainId, switchToMonad, connect, balance } = useWallet();
+  const { network, currentChain, isConnected, chainId, switchToMonad, connect, balance, address } = useWallet();
   const [collection, setCollection] = useState<Collection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mintAmount, setMintAmount] = useState(1);
   const [activePhase, setActivePhase] = useState<Phase | null>(null);
-  const [isMinting, setIsMinting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
@@ -93,6 +93,18 @@ export default function CollectionDetail() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [isAllowlistModalOpen, setIsAllowlistModalOpen] = useState(false);
+  const [allowlistAddresses, setAllowlistAddresses] = useState<string[]>([]);
+
+  // Contract minting hook
+  const { 
+    isMinting, 
+    txHash: mintTxHash, 
+    error: mintError, 
+    mintWithAllowlist, 
+    mintPublic, 
+    verifyAllowlist,
+    resetState: resetMintState 
+  } = useContractMint(collection?.contract_address || null);
 
   const isTestnet = network === "testnet";
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
@@ -162,6 +174,32 @@ export default function CollectionDetail() {
       return [];
     }
   };
+
+  // Load allowlist addresses for current phase
+  useEffect(() => {
+    const loadAllowlist = async () => {
+      if (!collectionId || !activePhase?.requiresAllowlist) {
+        setAllowlistAddresses([]);
+        return;
+      }
+      
+      try {
+        const { data } = await supabase
+          .from("allowlist_entries")
+          .select("wallet_address")
+          .eq("collection_id", collectionId)
+          .eq("phase_name", activePhase.id);
+        
+        if (data) {
+          setAllowlistAddresses(data.map(e => e.wallet_address));
+        }
+      } catch (err) {
+        console.error("Error loading allowlist:", err);
+      }
+    };
+    
+    loadAllowlist();
+  }, [collectionId, activePhase]);
   
   // Calculate if user has enough balance
   const totalCost = activePhase ? parseFloat(activePhase.price) * mintAmount : 0;
@@ -271,18 +309,47 @@ export default function CollectionDetail() {
       return;
     }
 
-    setIsMinting(true);
-    
-    // Simulate minting transaction
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    toast.success(`Successfully minted ${mintAmount} NFT${mintAmount > 1 ? 's' : ''}!`, {
-      description: "Check your wallet for your new NFTs",
-    });
-    
-    // Refresh collection data
-    fetchCollection();
-    setIsMinting(false);
+    // Check if contract is deployed
+    if (!collection?.contract_address) {
+      toast.error("Contract not deployed", {
+        description: "This collection's smart contract has not been deployed yet",
+      });
+      return;
+    }
+
+    if (!activePhase) {
+      toast.error("No active mint phase");
+      return;
+    }
+
+    let txHash: string | null = null;
+
+    // Use appropriate mint function based on phase type
+    if (activePhase.requiresAllowlist) {
+      // Check if user is on allowlist
+      if (address && !verifyAllowlist(address, allowlistAddresses)) {
+        toast.error("Not on allowlist", {
+          description: "Your wallet address is not on the allowlist for this phase",
+        });
+        return;
+      }
+      txHash = await mintWithAllowlist(mintAmount, activePhase.price, allowlistAddresses);
+    } else {
+      txHash = await mintPublic(mintAmount, activePhase.price);
+    }
+
+    if (txHash) {
+      toast.success(`Successfully minted ${mintAmount} NFT${mintAmount > 1 ? 's' : ''}!`, {
+        description: "Check your wallet for your new NFTs",
+        action: {
+          label: "View TX",
+          onClick: () => window.open(`${currentChain.blockExplorers?.default?.url}/tx/${txHash}`, "_blank"),
+        },
+      });
+      
+      // Refresh collection data
+      fetchCollection();
+    }
   };
 
   const handleCopyAddress = () => {
@@ -735,7 +802,38 @@ export default function CollectionDetail() {
                       {((activePhase.supply || 0) - (activePhase.minted || 0)).toLocaleString()}
                     </span>
                   </div>
+                  {/* Allowlist Status */}
+                  {activePhase.requiresAllowlist && (
+                    <div className="flex justify-between text-sm pt-2 border-t border-border">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Shield className="w-3 h-3" />
+                        Allowlist Status
+                      </span>
+                      {address && verifyAllowlist(address, allowlistAddresses) ? (
+                        <Badge variant="outline" className="text-green-500 border-green-500/30 bg-green-500/10">
+                          <Check className="w-3 h-3 mr-1" />
+                          Eligible
+                        </Badge>
+                      ) : address ? (
+                        <Badge variant="outline" className="text-destructive border-destructive/30 bg-destructive/10">
+                          Not Eligible
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Connect wallet</span>
+                      )}
+                    </div>
+                  )}
                 </div>
+                )}
+
+                {/* Mint Error */}
+                {mintError && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                    <div className="flex items-center gap-2 text-destructive">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span className="text-sm">{mintError}</span>
+                    </div>
+                  </div>
                 )}
 
                 {/* Amount Selector */}
@@ -888,17 +986,45 @@ export default function CollectionDetail() {
                   </div>
                 )}
 
+                {/* No Contract Warning */}
+                {!collection?.contract_address && isConnected && !isWrongNetwork && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                    <div className="flex items-center gap-2 text-amber-500 mb-2">
+                      <Rocket className="w-4 h-4" />
+                      <span className="text-sm font-medium">Contract Not Deployed</span>
+                    </div>
+                    <p className="text-xs text-amber-500/80">
+                      The smart contract for this collection has not been deployed yet. Minting will be available once the creator deploys the contract.
+                    </p>
+                  </div>
+                )}
+
                 {/* Mint Button */}
                 <Button 
                   size="lg" 
                   className="w-full gap-2"
                   onClick={handleMint}
-                  disabled={isMinting || isSwitchingNetwork || !activePhase || (activePhase.minted || 0) >= (activePhase.supply || 0) || !isConnected || isWrongNetwork || hasInsufficientBalance}
+                  disabled={
+                    isMinting || 
+                    isSwitchingNetwork || 
+                    !activePhase || 
+                    (activePhase.minted || 0) >= (activePhase.supply || 0) || 
+                    !isConnected || 
+                    isWrongNetwork || 
+                    hasInsufficientBalance ||
+                    !collection?.contract_address ||
+                    (activePhase?.requiresAllowlist && address && !verifyAllowlist(address, allowlistAddresses))
+                  }
                 >
                   {isMinting ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
                       Minting...
+                    </>
+                  ) : !collection?.contract_address ? (
+                    <>
+                      <Rocket className="w-4 h-4" />
+                      Contract Not Deployed
                     </>
                   ) : !activePhase ? (
                     "No Phase Available"
@@ -918,6 +1044,11 @@ export default function CollectionDetail() {
                     <>
                       <AlertTriangle className="w-4 h-4" />
                       Insufficient Balance
+                    </>
+                  ) : activePhase?.requiresAllowlist && address && !verifyAllowlist(address, allowlistAddresses) ? (
+                    <>
+                      <Shield className="w-4 h-4" />
+                      Not on Allowlist
                     </>
                   ) : (
                     <>
