@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
 import { createPublicClient, http, formatEther, parseEther, Chain } from "viem";
-import { monadMainnet, monadTestnet, getAlchemyRpcUrl, getMonadChain, NetworkType } from "@/config/alchemy";
+import { monadMainnet, monadTestnet, getRpcUrl, getMonadChain, NetworkType } from "@/config/alchemy";
 
 interface WalletState {
   address: string | null;
@@ -43,7 +43,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       isConnecting: false,
       balance: null,
       chainId: null,
-      network: savedNetwork || "mainnet",
+      network: savedNetwork || "testnet",
     };
   });
 
@@ -51,7 +51,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
   const publicClient = useMemo(() => createPublicClient({
     chain: currentChain,
-    transport: http(getAlchemyRpcUrl(walletState.network)),
+    transport: http(getRpcUrl(walletState.network)),
   }), [walletState.network, currentChain]);
 
   const fetchBalance = useCallback(async (address: string) => {
