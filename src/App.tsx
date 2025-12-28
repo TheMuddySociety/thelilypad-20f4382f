@@ -22,6 +22,7 @@ import Moderation from "./pages/Moderation";
 import Launchpad from "./pages/Launchpad";
 import Marketplace from "./pages/Marketplace";
 import StickerPackDetail from "./pages/StickerPackDetail";
+import CreatorStickerPacks from "./pages/CreatorStickerPacks";
 import CollectionDetail from "./pages/CollectionDetail";
 import Watch from "./pages/Watch";
 import NotFound from "./pages/NotFound";
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/moderation" element={<Moderation />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/marketplace/sticker/:packId" element={<StickerPackDetail />} />
+            <Route path="/my-sticker-packs" element={<CreatorStickerPacks />} />
             <Route path="/launchpad" element={<Launchpad />} />
             <Route path="/launchpad/:collectionId" element={<CollectionDetail />} />
             <Route path="/watch/:playbackId" element={<Watch />} />
