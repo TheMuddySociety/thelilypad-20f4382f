@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
-import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile } from "lucide-react";
+import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -39,6 +39,7 @@ const exploreLinks = [
 
 const accountLinks = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "My NFTs", href: "/my-nfts", icon: Image },
   { label: "My Sticker Packs", href: "/my-sticker-packs", icon: Sticker },
   { label: "Channel Emotes", href: "/channel-emotes", icon: Smile },
   { label: "My Donations", href: "/donor-profile", icon: Gift },
