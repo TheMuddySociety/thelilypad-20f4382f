@@ -2,9 +2,32 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Sparkles, Rocket } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { usePlatformStats } from "@/hooks/usePlatformStats";
 import monadLogo from "@/assets/monad-logo.svg";
 
+const formatNumber = (num: number): string => {
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toLocaleString();
+};
+
+const formatVolume = (num: number): string => {
+  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M MON`;
+  if (num >= 1000) return `${(num / 1000).toFixed(2)}K MON`;
+  return `${num.toFixed(2)} MON`;
+};
+
 export const HeroSection: React.FC = () => {
+  const { stats, isLoading } = usePlatformStats();
+
+  const statsData = [
+    { label: "Total Collections", value: formatNumber(stats.totalCollections) },
+    { label: "Live Now", value: formatNumber(stats.liveNow) },
+    { label: "NFTs Minted", value: formatNumber(stats.nftsMinted) },
+    { label: "Total Volume", value: formatVolume(stats.totalVolume) },
+  ];
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-14 sm:pt-16 md:pt-20">
       {/* Background gradient */}
@@ -77,14 +100,13 @@ export const HeroSection: React.FC = () => {
           className="mt-12 sm:mt-16 md:mt-20 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 max-w-4xl mx-auto opacity-0 animate-fade-in"
           style={{ animationDelay: "1s" }}
         >
-          {[
-            { label: "Collections", value: "500+" },
-            { label: "Creators", value: "2.5K+" },
-            { label: "Volume", value: "$12M+" },
-            { label: "Community", value: "50K+" },
-          ].map((stat) => (
+          {statsData.map((stat) => (
             <div key={stat.label} className="glass-card p-3 sm:p-4">
-              <div className="text-xl sm:text-2xl md:text-3xl font-bold gradient-text">{stat.value}</div>
+              {isLoading ? (
+                <Skeleton className="h-7 sm:h-8 md:h-9 w-16 mx-auto mb-1" />
+              ) : (
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold gradient-text">{stat.value}</div>
+              )}
               <div className="text-xs sm:text-sm text-muted-foreground">{stat.label}</div>
             </div>
           ))}
