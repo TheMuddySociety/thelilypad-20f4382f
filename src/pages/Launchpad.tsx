@@ -4,6 +4,7 @@ import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useSEO } from "@/hooks/useSEO";
 import { LaunchpadWalkthrough } from "@/components/walkthrough/LaunchpadWalkthrough";
 import { useLaunchpadWalkthrough } from "@/hooks/useLaunchpadWalkthrough";
+import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
 
 interface DraftCollection {
   name: string;
@@ -72,6 +74,7 @@ export default function Launchpad() {
 
   const isTestnet = network === "testnet";
   const walkthrough = useLaunchpadWalkthrough();
+  const { stats, isLoading: statsLoading } = useLaunchpadStats();
 
   useSEO({
     title: "NFT Launchpad | The Lily Pad",
@@ -231,25 +234,56 @@ export default function Launchpad() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" data-walkthrough="stats">
           <Card>
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold">127</div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-16 mb-1" />
+              ) : (
+                <div className="text-2xl font-bold">{stats.totalCollections.toLocaleString()}</div>
+              )}
               <p className="text-sm text-muted-foreground">Total Collections</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold">12</div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-12 mb-1" />
+              ) : (
+                <div className="text-2xl font-bold flex items-center gap-2">
+                  {stats.liveNow}
+                  {stats.liveNow > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  )}
+                </div>
+              )}
               <p className="text-sm text-muted-foreground">Live Now</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold">1.2M</div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-20 mb-1" />
+              ) : (
+                <div className="text-2xl font-bold">
+                  {stats.nftsMinted >= 1000000 
+                    ? `${(stats.nftsMinted / 1000000).toFixed(1)}M`
+                    : stats.nftsMinted >= 1000 
+                      ? `${(stats.nftsMinted / 1000).toFixed(1)}K`
+                      : stats.nftsMinted.toLocaleString()}
+                </div>
+              )}
               <p className="text-sm text-muted-foreground">NFTs Minted</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold">5.4K MON</div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-24 mb-1" />
+              ) : (
+                <div className="text-2xl font-bold">
+                  {stats.totalVolume >= 1000 
+                    ? `${(stats.totalVolume / 1000).toFixed(1)}K`
+                    : stats.totalVolume.toLocaleString()} MON
+                </div>
+              )}
               <p className="text-sm text-muted-foreground">Total Volume</p>
             </CardContent>
           </Card>
