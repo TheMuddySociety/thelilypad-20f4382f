@@ -7,8 +7,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { TraitRarityFilter, SelectedTraitsBar } from "@/components/TraitRarityFilter";
-import { ExternalLink, Image as ImageIcon, RefreshCw, User, Search, Grid3X3, List, SlidersHorizontal } from "lucide-react";
+import { MakeOfferModal } from "@/components/MakeOfferModal";
+import { NFTOffersList } from "@/components/NFTOffersList";
+import { ExternalLink, Image as ImageIcon, RefreshCw, User, Search, Grid3X3, List, SlidersHorizontal, Tag, MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface NFT {
@@ -19,6 +22,7 @@ interface NFT {
   image_url: string | null;
   attributes: { trait_type: string; value: string }[];
   owner_address: string;
+  owner_id: string;
   tx_hash: string;
   minted_at: string;
 }
@@ -49,6 +53,22 @@ export function NFTGallery({
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedTraits, setSelectedTraits] = useState<Map<string, Set<string>>>(new Map());
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [offerCounts, setOfferCounts] = useState<Record<string, number>>({});
+
+  // Get current user
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const fetchNFTs = async () => {
     setIsLoading(true);
@@ -578,6 +598,38 @@ export function NFTGallery({
                     </div>
                   )}
 
+                  <Separator className="my-4" />
+
+                  {/* Make Offer / Offers Section */}
+                  <div className="space-y-3">
+                    {/* Make Offer Button - only show if not owner */}
+                    {currentUserId && currentUserId !== selectedNft.owner_id && (
+                      <Button
+                        className="w-full gap-2"
+                        onClick={() => setShowOfferModal(true)}
+                      >
+                        <Tag className="w-4 h-4" />
+                        Make an Offer
+                      </Button>
+                    )}
+
+                    {/* Offers List */}
+                    <div>
+                      <h4 className="font-medium mb-2 flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" />
+                        Offers
+                      </h4>
+                      <NFTOffersList
+                        nftId={selectedNft.id}
+                        isOwner={currentUserId === selectedNft.owner_id}
+                        onOfferAccepted={(offer) => {
+                          // Handle offer accepted - could trigger transfer flow
+                          setSelectedNft(null);
+                        }}
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex gap-2 pt-2">
                     <Button
                       variant="outline"
@@ -606,6 +658,25 @@ export function NFTGallery({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Make Offer Modal */}
+      {selectedNft && (
+        <MakeOfferModal
+          open={showOfferModal}
+          onOpenChange={setShowOfferModal}
+          nft={{
+            id: selectedNft.id,
+            name: selectedNft.name,
+            image_url: selectedNft.image_url,
+            owner_id: selectedNft.owner_id,
+            owner_address: selectedNft.owner_address,
+            token_id: selectedNft.token_id,
+          }}
+          onOfferMade={() => {
+            // Refresh offers list
+          }}
+        />
+      )}
     </>
   );
 }
