@@ -9,31 +9,47 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import FrogLoader from '@/components/FrogLoader';
 import { toast } from '@/hooks/use-toast';
 import { 
   Users, 
   Layers, 
   ShieldCheck, 
-  Image, 
   Video, 
   Search,
   Trash2,
   Eye,
-  Ban,
   CheckCircle,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  Ban,
+  UserCog,
+  Crown
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-interface User {
+interface AdminUser {
   id: string;
   email: string;
   created_at: string;
   last_sign_in_at: string | null;
+  role: 'admin' | 'moderator' | 'user' | null;
+  is_banned: boolean;
+  ban_info: {
+    reason: string | null;
+    banned_at: string;
+    expires_at: string | null;
+  } | null;
+  profile: {
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null;
 }
 
 interface Collection {
@@ -68,7 +84,7 @@ interface ModerationItem {
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [streams, setStreams] = useState<Stream[]>([]);
   const [moderationQueue, setModerationQueue] = useState<ModerationItem[]>([]);
@@ -80,6 +96,13 @@ const AdminDashboard: React.FC = () => {
     totalStreams: 0,
     pendingModeration: 0
   });
+
+  // Modal states
+  const [banModalOpen, setBanModalOpen] = useState(false);
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [banReason, setBanReason] = useState('');
+  const [selectedRole, setSelectedRole] = useState<string>('user');
 
   useSEO({
     title: 'Admin Dashboard | The Lily Pad',
@@ -107,6 +130,7 @@ const AdminDashboard: React.FC = () => {
     setLoading(true);
     try {
       await Promise.all([
+        fetchUsers(),
         fetchCollections(),
         fetchStreams(),
         fetchModerationQueue(),
@@ -116,6 +140,27 @@ const AdminDashboard: React.FC = () => {
       console.error('Error fetching admin data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await supabase.functions.invoke('admin-users', {
+        body: { action: 'list' }
+      });
+
+      if (response.error) {
+        console.error('Error fetching users:', response.error);
+        return;
+      }
+
+      setUsers(response.data.users || []);
+      setStats(prev => ({ ...prev, totalUsers: response.data.users?.length || 0 }));
+    } catch (error) {
+      console.error('Error fetching users:', error);
     }
   };
 
@@ -168,12 +213,12 @@ const AdminDashboard: React.FC = () => {
       supabase.from('moderation_queue').select('id', { count: 'exact', head: true }).eq('status', 'pending')
     ]);
 
-    setStats({
-      totalUsers: 0, // We can't directly count auth.users from client
+    setStats(prev => ({
+      ...prev,
       totalCollections: collectionsCount.count || 0,
       totalStreams: streamsCount.count || 0,
       pendingModeration: moderationCount.count || 0
-    });
+    }));
   };
 
   const handleDeleteCollection = async (id: string) => {
@@ -220,6 +265,106 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleBanUser = async () => {
+    if (!selectedUser) return;
+
+    try {
+      const response = await supabase.functions.invoke('admin-users', {
+        body: { 
+          action: 'ban', 
+          userId: selectedUser.id,
+          reason: banReason.trim() || null
+        }
+      });
+
+      if (response.error) throw response.error;
+
+      toast({
+        title: 'User Banned',
+        description: `${selectedUser.email} has been banned.`
+      });
+      
+      setBanModalOpen(false);
+      setBanReason('');
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error banning user:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to ban user',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleUnbanUser = async (user: AdminUser) => {
+    try {
+      const response = await supabase.functions.invoke('admin-users', {
+        body: { action: 'unban', userId: user.id }
+      });
+
+      if (response.error) throw response.error;
+
+      toast({
+        title: 'User Unbanned',
+        description: `${user.email} has been unbanned.`
+      });
+      
+      fetchUsers();
+    } catch (error) {
+      console.error('Error unbanning user:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to unban user',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleAssignRole = async () => {
+    if (!selectedUser) return;
+
+    try {
+      const response = await supabase.functions.invoke('admin-users', {
+        body: { 
+          action: 'assign_role', 
+          userId: selectedUser.id,
+          role: selectedRole
+        }
+      });
+
+      if (response.error) throw response.error;
+
+      toast({
+        title: 'Role Updated',
+        description: `${selectedUser.email} is now a ${selectedRole}.`
+      });
+      
+      setRoleModalOpen(false);
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error assigning role:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to assign role',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const openBanModal = (user: AdminUser) => {
+    setSelectedUser(user);
+    setBanModalOpen(true);
+  };
+
+  const openRoleModal = (user: AdminUser) => {
+    setSelectedUser(user);
+    setSelectedRole(user.role || 'user');
+    setRoleModalOpen(true);
+  };
+
   if (adminLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -232,6 +377,11 @@ const AdminDashboard: React.FC = () => {
     return null;
   }
 
+  const filteredUsers = users.filter(u =>
+    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.profile?.display_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const filteredCollections = collections.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.symbol.toLowerCase().includes(searchTerm.toLowerCase())
@@ -240,6 +390,17 @@ const AdminDashboard: React.FC = () => {
   const filteredStreams = streams.filter(s =>
     s.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const getRoleBadge = (role: string | null) => {
+    switch (role) {
+      case 'admin':
+        return <Badge className="bg-primary"><Crown className="w-3 h-3 mr-1" />Admin</Badge>;
+      case 'moderator':
+        return <Badge variant="secondary"><ShieldCheck className="w-3 h-3 mr-1" />Moderator</Badge>;
+      default:
+        return <Badge variant="outline">User</Badge>;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -260,6 +421,19 @@ const AdminDashboard: React.FC = () => {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total Users
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                <span className="text-2xl font-bold">{stats.totalUsers}</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
                 Total Collections
               </CardTitle>
             </CardHeader>
@@ -273,25 +447,12 @@ const AdminDashboard: React.FC = () => {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Streams
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Video className="w-5 h-5 text-primary" />
-                <span className="text-2xl font-bold">{stats.totalStreams}</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
                 Pending Moderation
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-warning" />
+                <AlertTriangle className="w-5 h-5 text-yellow-500" />
                 <span className="text-2xl font-bold">{stats.pendingModeration}</span>
               </div>
             </CardContent>
@@ -317,7 +478,7 @@ const AdminDashboard: React.FC = () => {
         <div className="relative mb-6">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search collections, streams..."
+            placeholder="Search users, collections, streams..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -325,8 +486,12 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="collections" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+        <Tabs defaultValue="users" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+            <TabsTrigger value="users" className="gap-2">
+              <Users className="w-4 h-4" />
+              Users
+            </TabsTrigger>
             <TabsTrigger value="collections" className="gap-2">
               <Layers className="w-4 h-4" />
               Collections
@@ -340,6 +505,112 @@ const AdminDashboard: React.FC = () => {
               Moderation
             </TabsTrigger>
           </TabsList>
+
+          {/* Users Tab */}
+          <TabsContent value="users">
+            <Card>
+              <CardHeader>
+                <CardTitle>All Users</CardTitle>
+                <CardDescription>
+                  Manage user accounts, roles, and bans
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[500px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Joined</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="w-8 h-8">
+                                <AvatarImage src={user.profile?.avatar_url || ''} />
+                                <AvatarFallback>
+                                  {user.email?.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="font-medium">
+                                {user.profile?.display_name || 'No name'}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {user.email}
+                          </TableCell>
+                          <TableCell>
+                            {getRoleBadge(user.role)}
+                          </TableCell>
+                          <TableCell>
+                            {user.is_banned ? (
+                              <Badge variant="destructive">
+                                <Ban className="w-3 h-3 mr-1" />
+                                Banned
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-green-500 border-green-500">
+                                Active
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {format(new Date(user.created_at), 'MMM d, yyyy')}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openRoleModal(user)}
+                                title="Assign Role"
+                              >
+                                <UserCog className="w-4 h-4" />
+                              </Button>
+                              {user.is_banned ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleUnbanUser(user)}
+                                  title="Unban User"
+                                >
+                                  <CheckCircle className="w-4 h-4 text-green-500" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openBanModal(user)}
+                                  title="Ban User"
+                                >
+                                  <Ban className="w-4 h-4 text-destructive" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {filteredUsers.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                            No users found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Collections Tab */}
           <TabsContent value="collections">
@@ -564,6 +835,74 @@ const AdminDashboard: React.FC = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Ban User Modal */}
+        <Dialog open={banModalOpen} onOpenChange={setBanModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Ban User</DialogTitle>
+              <DialogDescription>
+                Ban {selectedUser?.email} from the platform. They will not be able to access their account.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="text-sm font-medium">Reason (optional)</label>
+                <Textarea
+                  placeholder="Enter reason for ban..."
+                  value={banReason}
+                  onChange={(e) => setBanReason(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setBanModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleBanUser}>
+                <Ban className="w-4 h-4 mr-2" />
+                Ban User
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Assign Role Modal */}
+        <Dialog open={roleModalOpen} onOpenChange={setRoleModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Assign Role</DialogTitle>
+              <DialogDescription>
+                Change the role for {selectedUser?.email}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="text-sm font-medium">Role</label>
+                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="moderator">Moderator</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRoleModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAssignRole}>
+                <UserCog className="w-4 h-4 mr-2" />
+                Assign Role
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
