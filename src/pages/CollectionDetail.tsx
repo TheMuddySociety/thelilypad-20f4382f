@@ -253,25 +253,102 @@ export default function CollectionDetail() {
   // Live supply from collection
   const liveSupply = collection?.minted || 0;
   const totalSupply = collection?.total_supply || 0;
+  const [isLivePolling, setIsLivePolling] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Simulate live blockchain updates
+  // Real-time supply polling during active mints
   useEffect(() => {
-    if (!collection) return;
-    const interval = setInterval(() => {
-      // In production, this would fetch from blockchain
-    }, 3000);
+    if (!collection || !collectionId) return;
+    
+    // Only poll if collection isn't sold out and has a deployed contract
+    const shouldPoll = liveSupply < totalSupply && collection.contract_address;
+    
+    if (!shouldPoll) {
+      setIsLivePolling(false);
+      return;
+    }
 
-    return () => clearInterval(interval);
-  }, [collection?.total_supply]);
+    setIsLivePolling(true);
+    
+    const pollSupply = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("collections")
+          .select("minted")
+          .eq("id", collectionId)
+          .maybeSingle();
+        
+        if (!error && data && data.minted !== collection.minted) {
+          // Update collection with new minted count
+          setCollection(prev => prev ? { ...prev, minted: data.minted } : prev);
+          setLastUpdated(new Date());
+        }
+      } catch (err) {
+        console.error("Error polling supply:", err);
+      }
+    };
+
+    // Poll every 5 seconds
+    const interval = setInterval(pollSupply, 5000);
+    
+    // Initial poll
+    pollSupply();
+
+    return () => {
+      clearInterval(interval);
+      setIsLivePolling(false);
+    };
+  }, [collectionId, collection?.contract_address, liveSupply, totalSupply]);
+
+  // Subscribe to real-time updates for the collection
+  useEffect(() => {
+    if (!collectionId) return;
+
+    const channel = supabase
+      .channel(`collection-${collectionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'collections',
+          filter: `id=eq.${collectionId}`
+        },
+        (payload) => {
+          console.log('Real-time update:', payload);
+          if (payload.new && typeof payload.new.minted === 'number') {
+            setCollection(prev => prev ? { ...prev, minted: payload.new.minted } : prev);
+            setLastUpdated(new Date());
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [collectionId]);
 
   const phases = getPhases();
   const mintProgress = totalSupply > 0 ? (liveSupply / totalSupply) * 100 : 0;
 
   const handleRefreshSupply = async () => {
     setIsRefreshing(true);
-    // Simulate fetching from blockchain
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast.success("Supply updated from blockchain");
+    try {
+      const { data, error } = await supabase
+        .from("collections")
+        .select("minted")
+        .eq("id", collectionId)
+        .maybeSingle();
+      
+      if (!error && data) {
+        setCollection(prev => prev ? { ...prev, minted: data.minted } : prev);
+        setLastUpdated(new Date());
+        toast.success("Supply updated");
+      }
+    } catch (err) {
+      toast.error("Failed to refresh supply");
+    }
     setIsRefreshing(false);
   };
 
@@ -790,10 +867,21 @@ export default function CollectionDetail() {
           {/* Right Column - Mint Card */}
           <div className="space-y-6">
             {/* Live Supply Card */}
-            <Card className="border-primary/50">
+            <Card className={`border-primary/50 ${isLivePolling ? 'ring-1 ring-primary/30' : ''}`}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Live Supply</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">Live Supply</CardTitle>
+                    {isLivePolling && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        <span className="text-xs text-green-500 font-medium">Live</span>
+                      </div>
+                    )}
+                  </div>
                   <Button 
                     variant="ghost" 
                     size="icon" 
@@ -807,7 +895,7 @@ export default function CollectionDetail() {
               </CardHeader>
               <CardContent>
                 <div className="text-center mb-4">
-                  <div className="text-4xl font-bold text-primary">
+                  <div className="text-4xl font-bold text-primary transition-all duration-300">
                     {Math.min(liveSupply, totalSupply).toLocaleString()}
                   </div>
                   <div className="text-muted-foreground">
@@ -815,9 +903,16 @@ export default function CollectionDetail() {
                   </div>
                 </div>
                 <Progress value={totalSupply > 0 ? Math.min((liveSupply / totalSupply) * 100, 100) : 0} className="h-3" />
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  Updates in real-time from blockchain
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-muted-foreground">
+                    {isLivePolling ? "Auto-updating every 5s" : "Updates paused"}
+                  </p>
+                  {lastUpdated && (
+                    <p className="text-xs text-muted-foreground">
+                      Last: {lastUpdated.toLocaleTimeString()}
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
