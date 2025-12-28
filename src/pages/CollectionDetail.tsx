@@ -16,6 +16,7 @@ import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTGallery } from "@/components/NFTGallery";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
 import { NFTRevealModal } from "@/components/NFTRevealModal";
+import { MintCountdown } from "@/components/MintCountdown";
 import { useSEO } from "@/hooks/useSEO";
 import { useContractMint } from "@/hooks/useContractMint";
 import { 
@@ -941,7 +942,16 @@ export default function CollectionDetail() {
                 </Tabs>
                 )}
 
-                {/* Wallet Balance */}
+                {/* Phase Countdown Timer */}
+                {activePhase && (
+                  <MintCountdown
+                    startTime={activePhase.startTime}
+                    endTime={activePhase.endTime}
+                    phaseName={activePhase.name}
+                    isSoldOut={isSoldOut || (activePhase.minted || 0) >= (activePhase.supply || 0)}
+                  />
+                )}
+
                 {isConnected && !isWrongNetwork && (
                   <div className={`p-4 rounded-lg border ${hasInsufficientBalance ? 'bg-destructive/5 border-destructive/30' : 'bg-primary/5 border-primary/30'}`}>
                     <div className="flex justify-between items-center">
