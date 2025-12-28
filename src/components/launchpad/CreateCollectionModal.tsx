@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { debounce } from "@/lib/utils";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -148,7 +147,6 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
-  const autoSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Collection details
   const [name, setName] = useState("");
@@ -472,43 +470,6 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     }
   }, [open]);
 
-  // Auto-save every 30 seconds when modal is open
-  useEffect(() => {
-    if (open) {
-      // Clear any existing interval
-      if (autoSaveIntervalRef.current) {
-        clearInterval(autoSaveIntervalRef.current);
-      }
-      
-      // Set up new interval for auto-save every 30 seconds
-      autoSaveIntervalRef.current = setInterval(() => {
-        performSave();
-      }, 30000);
-      
-      // Cleanup on close
-      return () => {
-        if (autoSaveIntervalRef.current) {
-          clearInterval(autoSaveIntervalRef.current);
-          autoSaveIntervalRef.current = null;
-        }
-      };
-    }
-  }, [open, performSave]);
-
-  // Also save on significant changes (debounced)
-  const saveDraft = useCallback(
-    debounce(() => {
-      performSave();
-    }, 2000),
-    [performSave]
-  );
-
-  // Trigger debounced save on changes
-  useEffect(() => {
-    if (open && (name || layers.length > 0 || oneOfOneArtworks.length > 0 || phases.some(p => p.enabled))) {
-      saveDraft();
-    }
-  }, [open, name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, oneOfOneArtworks, editionArtwork, saveDraft]);
 
   const loadDraft = () => {
     try {
