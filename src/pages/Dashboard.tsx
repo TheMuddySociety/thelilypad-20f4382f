@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { ShopItemsList } from "@/components/shop/ShopItemsList";
 import { ClaimFunds } from "@/components/ClaimFunds";
+import { WithdrawalHistory } from "@/components/WithdrawalHistory";
 import { CreateShopItemModal } from "@/components/shop/CreateShopItemModal";
 import {
   LineChart,
@@ -555,8 +556,11 @@ export default function Dashboard() {
           onSuccess={() => setShopItemRefreshTrigger((t) => t + 1)}
         />
 
-        {/* Claim Funds */}
-        <ClaimFunds />
+        {/* Claim Funds & Withdrawal History */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ClaimFunds />
+          <WithdrawalHistory />
+        </div>
 
         {/* Recent Activity */}
         <Tabs defaultValue="streams" className="w-full">
