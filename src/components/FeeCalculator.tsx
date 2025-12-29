@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Calculator, Fuel, Percent, Info, Sparkles, ArrowRight, Minus, Plus, TrendingDown, TrendingUp, Gauge } from "lucide-react";
+import { Calculator, Fuel, Percent, Info, Sparkles, ArrowRight, Minus, Plus, TrendingDown, TrendingUp, Gauge, Rocket } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -323,14 +323,23 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
           </div>
         )}
 
-        {/* Link to Fees Page */}
-        <Link 
-          to="/fees" 
-          className="flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors group"
-        >
-          Learn more about fees
-          <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-        </Link>
+        {/* Links */}
+        <div className="flex flex-col gap-2">
+          <Link 
+            to="/launchpad" 
+            className="flex items-center justify-center gap-2 p-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium"
+          >
+            <Rocket className="w-4 h-4" />
+            Try Generator
+          </Link>
+          <Link 
+            to="/fees" 
+            className="flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors group"
+          >
+            Learn more about fees
+            <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );
