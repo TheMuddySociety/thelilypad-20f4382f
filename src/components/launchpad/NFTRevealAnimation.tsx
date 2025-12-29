@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, PartyPopper, ChevronLeft, ChevronRight, X, Volume2, VolumeX } from "lucide-react";
+import { Sparkles, PartyPopper, ChevronLeft, ChevronRight, X, Volume2, VolumeX, Flame, Snowflake, Star } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useRevealSounds } from "@/hooks/useRevealSounds";
+
+export type RevealTheme = "magic" | "fire" | "ice" | "galaxy";
 
 interface RevealedNFT {
   id: string;
@@ -20,7 +22,99 @@ interface NFTRevealAnimationProps {
   nfts: RevealedNFT[];
   unrevealedImage: string | null;
   collectionName: string;
+  theme?: RevealTheme;
 }
+
+const THEME_CONFIG = {
+  magic: {
+    icon: Sparkles,
+    colors: {
+      border: "border-amber-500/50",
+      shadow: "shadow-amber-500/20",
+      revealedBorder: "border-primary/50",
+      revealedShadow: "shadow-primary/20",
+      badgeBg: "bg-amber-500/90",
+      badgeText: "text-amber-50",
+      iconBg: "from-primary/20 to-accent/20",
+      iconColor: "text-primary",
+      particleColor: "bg-primary",
+      glowColor: "from-primary/40",
+    },
+    confettiColors: [
+      ["#a855f7", "#6366f1", "#14b8a6"],
+      ["#f59e0b", "#10b981", "#3b82f6"],
+      ["#ec4899", "#8b5cf6", "#06b6d4"],
+    ],
+    shimmerColor: "via-white/30",
+    label: "Revealing...",
+  },
+  fire: {
+    icon: Flame,
+    colors: {
+      border: "border-orange-500/50",
+      shadow: "shadow-orange-500/30",
+      revealedBorder: "border-red-500/50",
+      revealedShadow: "shadow-red-500/30",
+      badgeBg: "bg-orange-600/90",
+      badgeText: "text-orange-50",
+      iconBg: "from-orange-500/20 to-red-500/20",
+      iconColor: "text-orange-500",
+      particleColor: "bg-orange-500",
+      glowColor: "from-orange-500/40",
+    },
+    confettiColors: [
+      ["#f97316", "#ef4444", "#fbbf24"],
+      ["#dc2626", "#f59e0b", "#ea580c"],
+      ["#fb923c", "#f43f5e", "#fcd34d"],
+    ],
+    shimmerColor: "via-orange-300/40",
+    label: "Igniting...",
+  },
+  ice: {
+    icon: Snowflake,
+    colors: {
+      border: "border-cyan-400/50",
+      shadow: "shadow-cyan-400/30",
+      revealedBorder: "border-blue-400/50",
+      revealedShadow: "shadow-blue-400/30",
+      badgeBg: "bg-cyan-500/90",
+      badgeText: "text-cyan-50",
+      iconBg: "from-cyan-400/20 to-blue-500/20",
+      iconColor: "text-cyan-400",
+      particleColor: "bg-cyan-400",
+      glowColor: "from-cyan-400/40",
+    },
+    confettiColors: [
+      ["#22d3ee", "#38bdf8", "#a5f3fc"],
+      ["#0ea5e9", "#67e8f9", "#bae6fd"],
+      ["#06b6d4", "#7dd3fc", "#e0f2fe"],
+    ],
+    shimmerColor: "via-cyan-200/50",
+    label: "Shattering...",
+  },
+  galaxy: {
+    icon: Star,
+    colors: {
+      border: "border-violet-500/50",
+      shadow: "shadow-violet-500/30",
+      revealedBorder: "border-fuchsia-500/50",
+      revealedShadow: "shadow-fuchsia-500/30",
+      badgeBg: "bg-violet-600/90",
+      badgeText: "text-violet-50",
+      iconBg: "from-violet-500/20 to-fuchsia-500/20",
+      iconColor: "text-violet-400",
+      particleColor: "bg-violet-400",
+      glowColor: "from-violet-500/40",
+    },
+    confettiColors: [
+      ["#a855f7", "#d946ef", "#8b5cf6"],
+      ["#c084fc", "#e879f9", "#a78bfa"],
+      ["#7c3aed", "#f0abfc", "#ddd6fe"],
+    ],
+    shimmerColor: "via-fuchsia-300/40",
+    label: "Warping...",
+  },
+};
 
 export function NFTRevealAnimation({
   open,
@@ -28,6 +122,7 @@ export function NFTRevealAnimation({
   nfts,
   unrevealedImage,
   collectionName,
+  theme = "magic",
 }: NFTRevealAnimationProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -44,7 +139,17 @@ export function NFTRevealAnimation({
     setEnabled 
   } = useRevealSounds();
 
+  const themeConfig = THEME_CONFIG[theme];
+  const ThemeIcon = themeConfig.icon;
   const currentNft = nfts[currentIndex];
+
+  // Generate random positions for particles on mount
+  const particlePositions = useMemo(() => 
+    [...Array(12)].map(() => ({
+      x: (Math.random() - 0.5) * 150,
+      y: (Math.random() - 0.5) * 150,
+    })), [currentIndex]
+  );
 
   useEffect(() => {
     setEnabled(soundEnabled);
@@ -61,7 +166,6 @@ export function NFTRevealAnimation({
 
   useEffect(() => {
     if (open && !isFlipped) {
-      // Auto-flip after a short delay
       const timer = setTimeout(() => {
         if (!hasPlayedFlipSound.current) {
           playFlipStart();
@@ -75,7 +179,6 @@ export function NFTRevealAnimation({
 
   useEffect(() => {
     if (isFlipped && !hasTriggeredConfetti) {
-      // Play reveal sound slightly before confetti for better timing
       setTimeout(() => {
         playReveal();
       }, 200);
@@ -104,32 +207,35 @@ export function NFTRevealAnimation({
       });
     }
 
+    // Use theme-specific colors
+    const colors = themeConfig.confettiColors;
+
     fire(0.25, {
       spread: 26,
       startVelocity: 55,
-      colors: ["#a855f7", "#6366f1", "#14b8a6"],
+      colors: colors[0],
     });
     fire(0.2, {
       spread: 60,
-      colors: ["#f59e0b", "#10b981", "#3b82f6"],
+      colors: colors[1],
     });
     fire(0.35, {
       spread: 100,
       decay: 0.91,
       scalar: 0.8,
-      colors: ["#ec4899", "#8b5cf6", "#06b6d4"],
+      colors: colors[2],
     });
     fire(0.1, {
       spread: 120,
       startVelocity: 25,
       decay: 0.92,
       scalar: 1.2,
-      colors: ["#fbbf24", "#34d399", "#60a5fa"],
+      colors: colors[0],
     });
     fire(0.1, {
       spread: 120,
       startVelocity: 45,
-      colors: ["#f472b6", "#a78bfa", "#22d3d8"],
+      colors: colors[1],
     });
   };
 
@@ -172,7 +278,7 @@ export function NFTRevealAnimation({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0 overflow-hidden bg-gradient-to-b from-background to-background/95 border-primary/20">
+      <DialogContent className={`sm:max-w-lg p-0 overflow-hidden bg-gradient-to-b from-background to-background/95 border-${theme === "fire" ? "orange" : theme === "ice" ? "cyan" : theme === "galaxy" ? "violet" : "primary"}-500/20`}>
         {/* Header */}
         <div className="relative p-6 pb-0">
           <div className="absolute right-4 top-4 z-10 flex gap-2">
@@ -198,9 +304,9 @@ export function NFTRevealAnimation({
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: "spring", duration: 0.6 }}
-              className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 mb-4"
+              className={`inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br ${themeConfig.colors.iconBg} mb-4`}
             >
-              <Sparkles className="w-8 h-8 text-primary" />
+              <ThemeIcon className={`w-8 h-8 ${themeConfig.colors.iconColor}`} />
             </motion.div>
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
@@ -247,7 +353,7 @@ export function NFTRevealAnimation({
                 >
                   {/* Front (Unrevealed) */}
                   <div
-                    className="absolute inset-0 rounded-2xl overflow-hidden border-4 border-amber-500/50 shadow-2xl shadow-amber-500/20"
+                    className={`absolute inset-0 rounded-2xl overflow-hidden border-4 ${themeConfig.colors.border} shadow-2xl ${themeConfig.colors.shadow}`}
                     style={{ backfaceVisibility: "hidden" }}
                   >
                     {unrevealedImage ? (
@@ -257,33 +363,79 @@ export function NFTRevealAnimation({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-amber-500/20 to-purple-500/20 flex items-center justify-center">
-                        <Sparkles className="w-16 h-16 text-amber-500 animate-pulse" />
+                      <div className={`w-full h-full bg-gradient-to-br ${themeConfig.colors.iconBg} flex items-center justify-center`}>
+                        <ThemeIcon className={`w-16 h-16 ${themeConfig.colors.iconColor} animate-pulse`} />
                       </div>
                     )}
-                    {/* Shimmer Effect */}
+                    
+                    {/* Theme-specific shimmer/effect */}
                     <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                      className={`absolute inset-0 bg-gradient-to-r from-transparent ${themeConfig.shimmerColor} to-transparent`}
                       animate={{
                         x: ["-100%", "200%"],
                       }}
                       transition={{
-                        duration: 1.5,
+                        duration: theme === "ice" ? 2 : 1.5,
                         repeat: Infinity,
-                        repeatDelay: 1,
+                        repeatDelay: theme === "galaxy" ? 0.5 : 1,
                       }}
                     />
+                    
+                    {/* Theme-specific overlay effects */}
+                    {theme === "fire" && (
+                      <motion.div 
+                        className="absolute inset-0 bg-gradient-to-t from-orange-600/30 via-transparent to-transparent"
+                        animate={{ opacity: [0.3, 0.6, 0.3] }}
+                        transition={{ duration: 0.5, repeat: Infinity }}
+                      />
+                    )}
+                    
+                    {theme === "ice" && (
+                      <motion.div 
+                        className="absolute inset-0"
+                        style={{
+                          background: "radial-gradient(circle at 30% 30%, rgba(34, 211, 238, 0.2) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(56, 189, 248, 0.2) 0%, transparent 50%)"
+                        }}
+                        animate={{ opacity: [0.5, 0.8, 0.5] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                    )}
+                    
+                    {theme === "galaxy" && (
+                      <>
+                        {[...Array(5)].map((_, i) => (
+                          <motion.div
+                            key={i}
+                            className="absolute w-1 h-1 rounded-full bg-white"
+                            style={{
+                              left: `${20 + i * 15}%`,
+                              top: `${20 + i * 12}%`,
+                            }}
+                            animate={{
+                              opacity: [0, 1, 0],
+                              scale: [0.5, 1, 0.5],
+                            }}
+                            transition={{
+                              duration: 1.5,
+                              repeat: Infinity,
+                              delay: i * 0.3,
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
+                    
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Badge className="bg-amber-500/90 text-amber-50 text-lg px-4 py-2">
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Revealing...
+                      <Badge className={`${themeConfig.colors.badgeBg} ${themeConfig.colors.badgeText} text-lg px-4 py-2`}>
+                        <ThemeIcon className="w-4 h-4 mr-2" />
+                        {themeConfig.label}
                       </Badge>
                     </div>
                   </div>
 
                   {/* Back (Revealed) */}
                   <div
-                    className="absolute inset-0 rounded-2xl overflow-hidden border-4 border-primary/50 shadow-2xl shadow-primary/20"
+                    className={`absolute inset-0 rounded-2xl overflow-hidden border-4 ${themeConfig.colors.revealedBorder} shadow-2xl ${themeConfig.colors.revealedShadow}`}
                     style={{ 
                       backfaceVisibility: "hidden",
                       transform: "rotateY(180deg)",
@@ -296,13 +448,13 @@ export function NFTRevealAnimation({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                        <PartyPopper className="w-16 h-16 text-primary" />
+                      <div className={`w-full h-full bg-gradient-to-br ${themeConfig.colors.iconBg} flex items-center justify-center`}>
+                        <PartyPopper className={`w-16 h-16 ${themeConfig.colors.iconColor}`} />
                       </div>
                     )}
                     {/* Glow Effect */}
                     <motion.div
-                      className="absolute inset-0 bg-gradient-to-t from-primary/40 via-transparent to-transparent"
+                      className={`absolute inset-0 bg-gradient-to-t ${themeConfig.colors.glowColor} via-transparent to-transparent`}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: [0, 0.5, 0] }}
                       transition={{ duration: 2, repeat: Infinity }}
@@ -312,28 +464,29 @@ export function NFTRevealAnimation({
               </motion.div>
             </AnimatePresence>
 
-            {/* Sparkle Particles */}
+            {/* Theme-specific Particles */}
             {isFlipped && (
               <>
-                {[...Array(8)].map((_, i) => (
+                {particlePositions.map((pos, i) => (
                   <motion.div
                     key={i}
-                    className="absolute w-2 h-2 rounded-full bg-primary"
+                    className={`absolute ${themeConfig.colors.particleColor} ${theme === "ice" ? "w-3 h-1" : theme === "galaxy" ? "w-1 h-1" : "w-2 h-2"} ${theme === "ice" ? "rotate-45" : "rounded-full"}`}
                     initial={{
-                      x: "50%",
-                      y: "50%",
+                      left: "50%",
+                      top: "50%",
                       scale: 0,
                       opacity: 1,
                     }}
                     animate={{
-                      x: `${50 + (Math.random() - 0.5) * 150}%`,
-                      y: `${50 + (Math.random() - 0.5) * 150}%`,
-                      scale: [0, 1.5, 0],
+                      left: `${50 + pos.x}%`,
+                      top: `${50 + pos.y}%`,
+                      scale: [0, theme === "galaxy" ? 2 : 1.5, 0],
                       opacity: [1, 1, 0],
+                      rotate: theme === "fire" ? [0, 180] : theme === "galaxy" ? [0, 360] : 0,
                     }}
                     transition={{
-                      duration: 1,
-                      delay: i * 0.05,
+                      duration: theme === "galaxy" ? 1.5 : 1,
+                      delay: i * 0.04,
                       ease: "easeOut",
                     }}
                   />
