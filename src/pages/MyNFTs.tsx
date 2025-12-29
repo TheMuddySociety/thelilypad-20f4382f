@@ -260,7 +260,7 @@ export default function MyNFTs() {
       
       <main className="container mx-auto px-4 pt-24 pb-12">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold mb-2">My NFTs</h1>
             <p className="text-muted-foreground">
@@ -303,6 +303,53 @@ export default function MyNFTs() {
             </Button>
           </div>
         </div>
+
+        {/* Portfolio Stats */}
+        {!isLoading && nfts.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/20 rounded-lg">
+                    <ImageIcon className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total NFTs</p>
+                    <p className="text-2xl font-bold">{nfts.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-secondary/50 to-secondary/20 border-secondary/30">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-secondary rounded-lg">
+                    <Grid3X3 className="w-5 h-5 text-secondary-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Collections</p>
+                    <p className="text-2xl font-bold">{collectionStats.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-accent/50 to-accent/20 border-accent/30">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-accent rounded-lg">
+                    <Tag className="w-5 h-5 text-accent-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Est. Floor Value</p>
+                    <p className="text-2xl font-bold">
+                      {Array.from(listingsMap.values()).reduce((sum, l) => sum + l.price, 0).toFixed(2)} MON
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar - Collection Filter */}
