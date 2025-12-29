@@ -30,8 +30,11 @@ import {
   Sticker,
   Plus,
   Loader2,
-  Lock
+  Lock,
+  AlertCircle,
+  Image as ImageIcon
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { ShopItemsList } from "@/components/shop/ShopItemsList";
 import { ClaimFunds } from "@/components/ClaimFunds";
 import { WithdrawalHistory } from "@/components/WithdrawalHistory";
@@ -692,13 +695,58 @@ export default function Dashboard() {
 
       {/* Delete Collection Confirmation */}
       <AlertDialog open={!!deleteCollectionId} onOpenChange={(open) => !open && setDeleteCollectionId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Collection?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your collection and all its associated data including layers, traits, and artwork.
-            </AlertDialogDescription>
+            <AlertDialogTitle className="text-destructive flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              Delete Collection?
+            </AlertDialogTitle>
           </AlertDialogHeader>
+          
+          {/* Collection Preview Card */}
+          {(() => {
+            const collectionToDelete = draftCollections.find(c => c.id === deleteCollectionId);
+            if (!collectionToDelete) return null;
+            return (
+              <div className="flex gap-4 p-4 bg-muted/50 rounded-lg border">
+                <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
+                  {collectionToDelete.image_url ? (
+                    <img 
+                      src={collectionToDelete.image_url} 
+                      alt={collectionToDelete.name}
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate">{collectionToDelete.name}</p>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Badge variant="outline" className="text-xs">{collectionToDelete.status}</Badge>
+                    <span>•</span>
+                    <span>{collectionToDelete.total_supply} items</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Created {formatDistanceToNow(new Date(collectionToDelete.created_at))} ago
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
+          <AlertDialogDescription className="text-sm">
+            This action <strong>cannot be undone</strong>. This will permanently delete:
+            <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
+              <li>All collection metadata and settings</li>
+              <li>All layers and trait configurations</li>
+              <li>All artwork uploads</li>
+              <li>Allowlist entries</li>
+            </ul>
+          </AlertDialogDescription>
+          
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -714,7 +762,7 @@ export default function Dashboard() {
               ) : (
                 <>
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
+                  Delete Collection
                 </>
               )}
             </AlertDialogAction>
