@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, ArrowRightLeft, ShoppingCart, Wallet } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -235,41 +236,45 @@ export const TopCollectionsHighlights: React.FC = () => {
                         </>
                       ) : collections.length > 0 ? (
                         collections.map((collection, index) => (
-                          <motion.div
+                          <Link
                             key={collection.id}
-                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-background/50 transition-colors cursor-pointer group"
-                            whileHover={{ x: 4 }}
+                            to={`/collection/${collection.id}`}
                           >
-                            {/* Rank Badge */}
-                            <div className="w-6 h-6 rounded-full bg-background/80 flex items-center justify-center text-xs font-bold text-muted-foreground">
-                              {index + 1}
-                            </div>
-                            
-                            {/* Collection Image */}
-                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                              {collection.image_url ? (
-                                <img
-                                  src={collection.image_url}
-                                  alt={collection.name}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs font-bold">
-                                  {collection.symbol?.slice(0, 2) || "?"}
-                                </div>
-                              )}
-                            </div>
+                            <motion.div
+                              className="flex items-center gap-3 p-2 rounded-lg hover:bg-background/50 transition-colors cursor-pointer group"
+                              whileHover={{ x: 4 }}
+                            >
+                              {/* Rank Badge */}
+                              <div className="w-6 h-6 rounded-full bg-background/80 flex items-center justify-center text-xs font-bold text-muted-foreground">
+                                {index + 1}
+                              </div>
+                              
+                              {/* Collection Image */}
+                              <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                                {collection.image_url ? (
+                                  <img
+                                    src={collection.image_url}
+                                    alt={collection.name}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs font-bold">
+                                    {collection.symbol?.slice(0, 2) || "?"}
+                                  </div>
+                                )}
+                              </div>
 
-                            {/* Collection Info */}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm text-foreground truncate">
-                                {collection.name}
-                              </p>
-                              <p className={`text-xs ${category.iconColor}`}>
-                                {category.format(collection.value)}
-                              </p>
-                            </div>
-                          </motion.div>
+                              {/* Collection Info */}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm text-foreground truncate group-hover:text-primary transition-colors">
+                                  {collection.name}
+                                </p>
+                                <p className={`text-xs ${category.iconColor}`}>
+                                  {category.format(collection.value)}
+                                </p>
+                              </div>
+                            </motion.div>
+                          </Link>
                         ))
                       ) : (
                         <div className="text-center py-4 text-muted-foreground text-sm">
