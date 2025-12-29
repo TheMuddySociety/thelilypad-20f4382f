@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTTransferModal } from "@/components/NFTTransferModal";
 import { ListNFTModal } from "@/components/ListNFTModal";
+import { PortfolioValueChart } from "@/components/PortfolioValueChart";
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
@@ -432,6 +433,14 @@ export default function MyNFTs() {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Portfolio Value Chart */}
+        {!isLoading && nfts.length > 0 && (
+          <PortfolioValueChart 
+            nfts={nfts.map(n => ({ id: n.id, minted_at: n.minted_at, collection_id: n.collection_id }))} 
+            collectionStats={collectionStats} 
+          />
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
