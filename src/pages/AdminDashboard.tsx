@@ -30,9 +30,11 @@ import {
   AlertTriangle,
   Ban,
   UserCog,
-  Crown
+  Crown,
+  Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { FeaturedCollectionsManager } from '@/components/admin/FeaturedCollectionsManager';
 
 interface AdminUser {
   id: string;
@@ -487,7 +489,7 @@ const AdminDashboard: React.FC = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
             <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" />
               Users
@@ -495,6 +497,10 @@ const AdminDashboard: React.FC = () => {
             <TabsTrigger value="collections" className="gap-2">
               <Layers className="w-4 h-4" />
               Collections
+            </TabsTrigger>
+            <TabsTrigger value="featured" className="gap-2">
+              <Sparkles className="w-4 h-4" />
+              Featured
             </TabsTrigger>
             <TabsTrigger value="streams" className="gap-2">
               <Video className="w-4 h-4" />
@@ -682,6 +688,11 @@ const AdminDashboard: React.FC = () => {
                 </ScrollArea>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Featured Collections Tab */}
+          <TabsContent value="featured">
+            <FeaturedCollectionsManager />
           </TabsContent>
 
           {/* Streams Tab */}
