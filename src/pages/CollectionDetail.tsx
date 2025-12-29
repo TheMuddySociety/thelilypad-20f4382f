@@ -19,6 +19,7 @@ import { NFTGallery } from "@/components/NFTGallery";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
 import { NFTRevealModal } from "@/components/NFTRevealModal";
 import { MintCountdown } from "@/components/MintCountdown";
+import { RevealCountdown } from "@/components/RevealCountdown";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
 import { useSEO } from "@/hooks/useSEO";
 import { useContractMint } from "@/hooks/useContractMint";
@@ -1018,6 +1019,14 @@ export default function CollectionDetail() {
                     endTime={activePhase.endTime}
                     phaseName={activePhase.name}
                     isSoldOut={isSoldOut || (activePhase.minted || 0) >= (activePhase.supply || 0)}
+                  />
+                )}
+
+                {/* Reveal Countdown Timer */}
+                {collection.scheduled_reveal_at && !collection.is_revealed && (
+                  <RevealCountdown
+                    scheduledRevealAt={collection.scheduled_reveal_at}
+                    isRevealed={collection.is_revealed}
                   />
                 )}
 
