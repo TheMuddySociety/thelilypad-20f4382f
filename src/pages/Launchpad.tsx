@@ -11,6 +11,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2, FileEdit, Trash2, FolderOpen, Image as ImageIcon, LayoutGrid, ChevronDown, Check, HelpCircle, Pencil, Lock, AlertCircle, ArrowRight, Layers, FileImage, Users, Zap } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -85,6 +95,8 @@ export default function Launchpad() {
   const [draft, setDraft] = useState<DraftCollection | null>(null);
   const [editingDraft, setEditingDraft] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Get current user
   useEffect(() => {
@@ -126,6 +138,27 @@ export default function Launchpad() {
     localStorage.removeItem("collection-draft");
     setDraft(null);
     toast.success("Draft deleted");
+  };
+
+  const deleteCollection = async (collectionId: string) => {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("collections")
+        .delete()
+        .eq("id", collectionId);
+      
+      if (error) throw error;
+      
+      toast.success("Collection deleted successfully");
+      setDeleteCollectionId(null);
+      await fetchCollections();
+    } catch (error: any) {
+      console.error("Error deleting collection:", error);
+      toast.error(error.message || "Failed to delete collection");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const continueDraft = () => {
@@ -566,13 +599,26 @@ export default function Launchpad() {
                         )}
                         <div className="absolute top-3 right-3 flex gap-2">
                           {canEdit && (
-                            <Badge 
-                              variant="outline" 
-                              className="bg-amber-500/20 text-amber-400 border-amber-500/30"
-                            >
-                              <Pencil className="w-3 h-3 mr-1" />
-                              Editable
-                            </Badge>
+                            <>
+                              <Badge 
+                                variant="outline" 
+                                className="bg-amber-500/20 text-amber-400 border-amber-500/30"
+                              >
+                                <Pencil className="w-3 h-3 mr-1" />
+                                Editable
+                              </Badge>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-6 w-6 bg-destructive/20 text-destructive border-destructive/30 hover:bg-destructive/30"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteCollectionId(collection.id);
+                                }}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </>
                           )}
                           {isOwner && isDeployed && (
                             <Badge 
@@ -725,6 +771,38 @@ export default function Launchpad() {
         onOpenChange={setIsCreateModalOpen}
         onCollectionCreated={fetchCollections}
       />
+
+      {/* Delete Collection Confirmation */}
+      <AlertDialog open={!!deleteCollectionId} onOpenChange={(open) => !open && setDeleteCollectionId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Collection?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your collection and all its associated data including layers, traits, and artwork.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteCollectionId && deleteCollection(deleteCollectionId)}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
