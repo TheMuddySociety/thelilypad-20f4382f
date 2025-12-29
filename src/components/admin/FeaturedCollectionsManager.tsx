@@ -11,8 +11,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, Calendar, Plus, Trash2, Edit, Sparkles, Search } from "lucide-react";
+import { Crown, Calendar, Plus, Trash2, Edit, Sparkles, Search, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { FeaturedCollectionsSlideshow } from "@/components/sections/FeaturedCollectionsSlideshow";
 
 interface Collection {
   id: string;
@@ -39,6 +40,7 @@ export const FeaturedCollectionsManager: React.FC = () => {
   const [availableCollections, setAvailableCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [collectionSearchTerm, setCollectionSearchTerm] = useState("");
 
@@ -296,10 +298,16 @@ export const FeaturedCollectionsManager: React.FC = () => {
                 Manage monthly and weekly featured collections for the landing page
               </CardDescription>
             </div>
-            <Button onClick={openAddModal} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Featured
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setPreviewOpen(true)} className="gap-2">
+                <Eye className="w-4 h-4" />
+                Preview
+              </Button>
+              <Button onClick={openAddModal} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Add Featured
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -614,6 +622,57 @@ export const FeaturedCollectionsManager: React.FC = () => {
             <Button onClick={handleSubmit}>
               {editingId ? "Update" : "Add Featured"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Modal */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5" />
+              Landing Page Preview
+            </DialogTitle>
+            <DialogDescription>
+              Preview how the featured collections will appear on the landing page
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Monthly Preview */}
+            <FeaturedCollectionsSlideshow
+              featureType="monthly"
+              title="Collection of the Month"
+              subtitle="Our top pick for this month"
+              icon={<Crown className="w-5 h-5" />}
+              gradientFrom="from-amber-500/20"
+              gradientTo="to-orange-500/20"
+              autoPlayInterval={6000}
+            />
+
+            {/* Weekly Preview */}
+            <FeaturedCollectionsSlideshow
+              featureType="weekly"
+              title="Weekly Spotlight"
+              subtitle="This week's highlighted collections"
+              icon={<Calendar className="w-5 h-5" />}
+              gradientFrom="from-violet-500/20"
+              gradientTo="to-purple-500/20"
+              autoPlayInterval={4000}
+            />
+
+            {monthlyFeatured.length === 0 && weeklyFeatured.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium">No Active Featured Collections</p>
+                <p className="text-sm">Add some featured collections to see the preview</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setPreviewOpen(false)}>Close Preview</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
