@@ -124,8 +124,21 @@ export function useContractDeploy() {
       let errorMessage = "Deployment failed";
       if (error.code === 4001) {
         errorMessage = "Transaction rejected by user";
+      } else if (error.code === -32000) {
+        errorMessage = "Insufficient funds for gas";
+      } else if (error.code === -32603) {
+        errorMessage = "Internal error - the contract bytecode may be invalid";
+      } else if (error.message?.includes("gas")) {
+        errorMessage = "Gas estimation failed - ensure you have enough testnet MON";
+      } else if (error.message?.includes("nonce")) {
+        errorMessage = "Nonce error - please try again";
+      } else if (error.message?.includes("intrinsic gas too low")) {
+        errorMessage = "Gas too low - transaction cannot be processed";
       } else if (error.message) {
-        errorMessage = error.message;
+        // Truncate long error messages
+        errorMessage = error.message.length > 100 
+          ? error.message.substring(0, 100) + "..." 
+          : error.message;
       }
 
       setState({
