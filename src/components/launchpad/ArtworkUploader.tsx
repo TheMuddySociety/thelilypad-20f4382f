@@ -3,20 +3,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Upload,
   X,
   Trash2,
   Image as ImageIcon,
-  GripVertical,
   Loader2,
   Plus,
   FileImage,
   Edit2,
-  Check
+  Check,
+  CheckSquare,
+  Square,
+  Pencil,
+  Hash,
+  Type,
+  FileText
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +53,8 @@ interface ArtworkUploaderProps {
   maxItems?: number;
 }
 
+type NamingPattern = "prefix" | "suffix" | "replace" | "numbered";
+
 export function ArtworkUploader({
   artworks,
   onArtworksChange,
@@ -48,6 +65,18 @@ export function ArtworkUploader({
   const [isDragging, setIsDragging] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Selection mode for batch editing
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
+  // Batch edit modal
+  const [isBatchEditOpen, setIsBatchEditOpen] = useState(false);
+  const [namingPattern, setNamingPattern] = useState<NamingPattern>("prefix");
+  const [batchNameValue, setBatchNameValue] = useState("");
+  const [batchDescription, setBatchDescription] = useState("");
+  const [applyDescription, setApplyDescription] = useState(false);
+  const [startNumber, setStartNumber] = useState(1);
 
   const handleDrag = useCallback((e: React.DragEvent, isDragging: boolean) => {
     e.preventDefault();
@@ -79,11 +108,9 @@ export function ArtworkUploader({
         continue;
       }
 
-      // Create preview
       const id = `artwork-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
       
-      // Upload to storage
       try {
         const fileExt = file.name.split('.').pop();
         const fileName = `${creatorId}/artwork/${id}.${fileExt}`;
@@ -144,7 +171,6 @@ export function ArtworkUploader({
   const removeArtwork = async (id: string) => {
     const artwork = artworks.find(a => a.id === id);
     if (artwork?.imageUrl && artwork.imageUrl.includes('collection-images')) {
-      // Try to delete from storage
       try {
         const urlParts = artwork.imageUrl.split('/collection-images/');
         if (urlParts[1]) {
@@ -157,19 +183,115 @@ export function ArtworkUploader({
       }
     }
     onArtworksChange(artworks.filter(a => a.id !== id));
+    selectedIds.delete(id);
+    setSelectedIds(new Set(selectedIds));
   };
 
   const updateArtwork = (id: string, updates: Partial<ArtworkItem>) => {
     onArtworksChange(artworks.map(a => a.id === id ? { ...a, ...updates } : a));
   };
 
-  const moveArtwork = (fromIndex: number, direction: 'up' | 'down') => {
-    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
-    if (toIndex < 0 || toIndex >= artworks.length) return;
+  // Selection helpers
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(artworks.map(a => a.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  const deleteSelected = async () => {
+    const selectedArtworks = artworks.filter(a => selectedIds.has(a.id));
     
-    const newArtworks = [...artworks];
-    [newArtworks[fromIndex], newArtworks[toIndex]] = [newArtworks[toIndex], newArtworks[fromIndex]];
-    onArtworksChange(newArtworks);
+    for (const artwork of selectedArtworks) {
+      if (artwork.imageUrl && artwork.imageUrl.includes('collection-images')) {
+        try {
+          const urlParts = artwork.imageUrl.split('/collection-images/');
+          if (urlParts[1]) {
+            await supabase.storage
+              .from('collection-images')
+              .remove([urlParts[1]]);
+          }
+        } catch (err) {
+          console.error("Error deleting file:", err);
+        }
+      }
+    }
+    
+    onArtworksChange(artworks.filter(a => !selectedIds.has(a.id)));
+    setSelectedIds(new Set());
+    setIsSelectionMode(false);
+    toast.success(`Deleted ${selectedArtworks.length} artwork${selectedArtworks.length > 1 ? 's' : ''}`);
+  };
+
+  // Batch edit logic
+  const applyBatchEdit = () => {
+    const selectedArtworksList = artworks.filter(a => selectedIds.has(a.id));
+    
+    if (selectedArtworksList.length === 0) {
+      toast.error("No artworks selected");
+      return;
+    }
+
+    const updatedArtworks = artworks.map((artwork, globalIndex) => {
+      if (!selectedIds.has(artwork.id)) return artwork;
+      
+      const selectedIndex = selectedArtworksList.findIndex(a => a.id === artwork.id);
+      let newName = artwork.name;
+      
+      switch (namingPattern) {
+        case "prefix":
+          if (batchNameValue) {
+            newName = `${batchNameValue} ${artwork.name}`;
+          }
+          break;
+        case "suffix":
+          if (batchNameValue) {
+            newName = `${artwork.name} ${batchNameValue}`;
+          }
+          break;
+        case "replace":
+          if (batchNameValue) {
+            newName = batchNameValue;
+          }
+          break;
+        case "numbered":
+          if (batchNameValue) {
+            newName = `${batchNameValue} #${startNumber + selectedIndex}`;
+          } else {
+            newName = `#${startNumber + selectedIndex}`;
+          }
+          break;
+      }
+      
+      return {
+        ...artwork,
+        name: newName,
+        description: applyDescription ? batchDescription : artwork.description
+      };
+    });
+
+    onArtworksChange(updatedArtworks);
+    setIsBatchEditOpen(false);
+    setBatchNameValue("");
+    setBatchDescription("");
+    setApplyDescription(false);
+    toast.success(`Updated ${selectedArtworksList.length} artwork${selectedArtworksList.length > 1 ? 's' : ''}`);
+  };
+
+  const exitSelectionMode = () => {
+    setIsSelectionMode(false);
+    setSelectedIds(new Set());
   };
 
   return (
@@ -228,18 +350,64 @@ export function ArtworkUploader({
         />
       </div>
 
-      {/* Stats */}
+      {/* Stats & Actions Bar */}
       {artworks.length > 0 && (
-        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+        <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-muted/50 rounded-lg">
           <div className="flex items-center gap-2">
             <FileImage className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm font-medium">
               {artworks.length} artwork{artworks.length !== 1 ? 's' : ''} uploaded
             </span>
+            <Badge variant="outline">
+              {maxItems - artworks.length} slots remaining
+            </Badge>
           </div>
-          <Badge variant="outline">
-            {maxItems - artworks.length} slots remaining
-          </Badge>
+          
+          <div className="flex items-center gap-2">
+            {isSelectionMode ? (
+              <>
+                <span className="text-sm text-muted-foreground">
+                  {selectedIds.size} selected
+                </span>
+                <Button variant="outline" size="sm" onClick={selectAll}>
+                  Select All
+                </Button>
+                <Button variant="outline" size="sm" onClick={deselectAll}>
+                  Deselect
+                </Button>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={() => setIsBatchEditOpen(true)}
+                  disabled={selectedIds.size === 0}
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Batch Edit
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={deleteSelected}
+                  disabled={selectedIds.size === 0}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+                <Button variant="ghost" size="sm" onClick={exitSelectionMode}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setIsSelectionMode(true)}
+              >
+                <CheckSquare className="w-4 h-4 mr-2" />
+                Batch Edit
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -250,9 +418,10 @@ export function ArtworkUploader({
             {artworks.map((artwork, index) => (
               <Card 
                 key={artwork.id}
-                className={`group relative overflow-hidden transition-all ${
+                className={`group relative overflow-hidden transition-all cursor-pointer ${
                   editingId === artwork.id ? 'ring-2 ring-primary' : ''
-                }`}
+                } ${selectedIds.has(artwork.id) ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+                onClick={() => isSelectionMode && toggleSelection(artwork.id)}
               >
                 <div className="aspect-square relative">
                   {artwork.imageUrl ? (
@@ -267,25 +436,46 @@ export function ArtworkUploader({
                     </div>
                   )}
                   
-                  {/* Overlay Controls */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setEditingId(editingId === artwork.id ? null : artwork.id)}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => removeArtwork(artwork.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+                  {/* Selection Checkbox */}
+                  {isSelectionMode && (
+                    <div className="absolute top-2 right-2 z-10">
+                      <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
+                        selectedIds.has(artwork.id) 
+                          ? 'bg-primary border-primary text-primary-foreground' 
+                          : 'bg-background/80 border-border'
+                      }`}>
+                        {selectedIds.has(artwork.id) && <Check className="w-4 h-4" />}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Overlay Controls (hidden in selection mode) */}
+                  {!isSelectionMode && (
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingId(editingId === artwork.id ? null : artwork.id);
+                        }}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeArtwork(artwork.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Index Badge */}
                   <Badge 
@@ -297,13 +487,14 @@ export function ArtworkUploader({
                 </div>
 
                 <CardContent className="p-3 space-y-2">
-                  {editingId === artwork.id ? (
+                  {editingId === artwork.id && !isSelectionMode ? (
                     <>
                       <Input
                         value={artwork.name}
                         onChange={(e) => updateArtwork(artwork.id, { name: e.target.value })}
                         placeholder="Artwork name"
                         className="h-8 text-sm"
+                        onClick={(e) => e.stopPropagation()}
                       />
                       <Textarea
                         value={artwork.description || ""}
@@ -311,11 +502,15 @@ export function ArtworkUploader({
                         placeholder="Description (optional)"
                         className="text-sm min-h-[60px]"
                         rows={2}
+                        onClick={(e) => e.stopPropagation()}
                       />
                       <Button 
                         size="sm" 
                         className="w-full"
-                        onClick={() => setEditingId(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingId(null);
+                        }}
                       >
                         <Check className="w-4 h-4 mr-2" />
                         Done
@@ -350,6 +545,116 @@ export function ArtworkUploader({
           </p>
         </div>
       )}
+
+      {/* Batch Edit Modal */}
+      <Dialog open={isBatchEditOpen} onOpenChange={setIsBatchEditOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5" />
+              Batch Edit {selectedIds.size} Artwork{selectedIds.size !== 1 ? 's' : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Apply naming patterns and descriptions to multiple artworks at once.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Naming Pattern */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Type className="w-4 h-4" />
+                Naming Pattern
+              </Label>
+              <Select value={namingPattern} onValueChange={(v) => setNamingPattern(v as NamingPattern)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="prefix">Add Prefix</SelectItem>
+                  <SelectItem value="suffix">Add Suffix</SelectItem>
+                  <SelectItem value="replace">Replace Name</SelectItem>
+                  <SelectItem value="numbered">Numbered Sequence</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Input
+                value={batchNameValue}
+                onChange={(e) => setBatchNameValue(e.target.value)}
+                placeholder={
+                  namingPattern === "prefix" ? "Prefix text..." :
+                  namingPattern === "suffix" ? "Suffix text..." :
+                  namingPattern === "replace" ? "New name..." :
+                  "Base name (e.g., 'Cosmic Frog')"
+                }
+              />
+              
+              {namingPattern === "numbered" && (
+                <div className="flex items-center gap-2">
+                  <Label className="flex items-center gap-2 whitespace-nowrap">
+                    <Hash className="w-4 h-4" />
+                    Start at:
+                  </Label>
+                  <Input
+                    type="number"
+                    value={startNumber}
+                    onChange={(e) => setStartNumber(parseInt(e.target.value) || 1)}
+                    className="w-24"
+                    min={1}
+                  />
+                </div>
+              )}
+              
+              {/* Preview */}
+              {batchNameValue && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Preview:</p>
+                  <p className="text-sm font-medium">
+                    {namingPattern === "prefix" && `${batchNameValue} [original name]`}
+                    {namingPattern === "suffix" && `[original name] ${batchNameValue}`}
+                    {namingPattern === "replace" && batchNameValue}
+                    {namingPattern === "numbered" && `${batchNameValue} #${startNumber}`}
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            {/* Description */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="applyDescription"
+                  checked={applyDescription}
+                  onCheckedChange={(checked) => setApplyDescription(checked === true)}
+                />
+                <Label htmlFor="applyDescription" className="flex items-center gap-2 cursor-pointer">
+                  <FileText className="w-4 h-4" />
+                  Update Description
+                </Label>
+              </div>
+              
+              {applyDescription && (
+                <Textarea
+                  value={batchDescription}
+                  onChange={(e) => setBatchDescription(e.target.value)}
+                  placeholder="Enter description for all selected artworks..."
+                  rows={3}
+                />
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBatchEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={applyBatchEdit}>
+              <Check className="w-4 h-4 mr-2" />
+              Apply Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
