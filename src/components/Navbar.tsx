@@ -170,9 +170,6 @@ export const Navbar: React.FC = () => {
             <NetworkSwitch />
             <NotificationBell />
             <ConnectWallet />
-            <Button variant="default" size="sm">
-              Launch
-            </Button>
           </div>
 
           {/* Mobile menu drawer */}
@@ -246,9 +243,6 @@ export const Navbar: React.FC = () => {
                   <span className="text-sm text-muted-foreground">Live Notifications</span>
                 </div>
                 <ConnectWallet className="w-full justify-center" />
-                <Button variant="default" size="default" className="w-full">
-                  Launch
-                </Button>
               </div>
             </DrawerContent>
           </Drawer>
