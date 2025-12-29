@@ -26,8 +26,11 @@ import {
   Send,
   Tag,
   XCircle,
-  Loader2
+  Loader2,
+  Search,
+  X
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
@@ -74,6 +77,7 @@ export default function MyNFTs() {
   const [listedNftIds, setListedNftIds] = useState<Set<string>>(new Set());
   const [listingsMap, setListingsMap] = useState<Map<string, { id: string; price: number }>>(new Map());
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useSEO({
     title: "My NFTs | The Lily Pad",
@@ -306,9 +310,21 @@ export default function MyNFTs() {
     return `https://testnet.monadexplorer.com/token/${contractAddress}?a=${tokenId}`;
   };
 
-  const filteredNfts = selectedCollection 
-    ? nfts.filter(nft => nft.collection?.id === selectedCollection)
-    : nfts;
+  // Filter NFTs by collection and search query
+  const filteredNfts = nfts.filter(nft => {
+    // Collection filter
+    if (selectedCollection && nft.collection?.id !== selectedCollection) {
+      return false;
+    }
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const name = (nft.name || `${nft.collection?.name} #${nft.token_id}`).toLowerCase();
+      const collectionName = nft.collection?.name?.toLowerCase() || "";
+      return name.includes(query) || collectionName.includes(query) || nft.token_id.toString().includes(query);
+    }
+    return true;
+  });
 
   // Not connected state - require wallet OR login
   if (!isConnected && !currentUserId) {
@@ -499,6 +515,27 @@ export default function MyNFTs() {
 
           {/* Main Content - NFT Grid/List */}
           <div className="lg:col-span-3">
+            {/* Search Input */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, collection, or token ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-10"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+
             {isLoading ? (
               <div className={viewMode === "grid" 
                 ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
