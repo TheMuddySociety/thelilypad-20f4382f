@@ -599,6 +599,92 @@ export default function MyNFTs() {
               </CardContent>
             </Card>
 
+            {/* Rarity Leaderboard */}
+            {nfts.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Diamond className="w-4 h-4 text-amber-400" />
+                    Rarest NFTs
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {(() => {
+                    // Get top 5 rarest NFTs
+                    const sortedByRarity = [...nfts]
+                      .filter(nft => nft.attributes.length > 0)
+                      .sort((a, b) => {
+                        const scoreA = rarityScores.get(a.id) ?? 0;
+                        const scoreB = rarityScores.get(b.id) ?? 0;
+                        return scoreB - scoreA;
+                      })
+                      .slice(0, 5);
+
+                    if (sortedByRarity.length === 0) {
+                      return (
+                        <p className="text-sm text-muted-foreground text-center py-2">
+                          No NFTs with traits found
+                        </p>
+                      );
+                    }
+
+                    return sortedByRarity.map((nft, index) => {
+                      const score = rarityScores.get(nft.id) ?? 50;
+                      const tier = getRarityTier(score);
+                      const rarity = RARITY_CONFIG[tier];
+                      const RarityIcon = rarity.icon;
+
+                      return (
+                        <div
+                          key={nft.id}
+                          className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+                          onClick={() => setSelectedNft(nft)}
+                        >
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                            index === 0 ? 'bg-amber-500/20 text-amber-400' :
+                            index === 1 ? 'bg-slate-300/20 text-slate-300' :
+                            index === 2 ? 'bg-orange-600/20 text-orange-500' :
+                            'bg-muted text-muted-foreground'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <div className="w-10 h-10 rounded overflow-hidden bg-muted flex-shrink-0">
+                            {nft.image_url ? (
+                              <img
+                                src={nft.image_url}
+                                alt={nft.name || `#${nft.token_id}`}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {nft.name || `#${nft.token_id}`}
+                            </p>
+                            <div className="flex items-center gap-1">
+                              <RarityIcon className={`w-3 h-3 ${rarity.color}`} />
+                              <span className={`text-[10px] font-medium ${rarity.color}`}>
+                                {rarity.label}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs font-semibold text-muted-foreground">
+                              {score.toFixed(0)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Transaction History */}
             <TransactionHistory userId={currentUserId} limit={5} />
           </div>
