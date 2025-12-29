@@ -321,6 +321,7 @@ export type Database = {
           symbol: string
           total_supply: number
           trait_rules: Json | null
+          unrevealed_image_url: string | null
           updated_at: string
         }
         Insert: {
@@ -347,6 +348,7 @@ export type Database = {
           symbol: string
           total_supply?: number
           trait_rules?: Json | null
+          unrevealed_image_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -373,6 +375,7 @@ export type Database = {
           symbol?: string
           total_supply?: number
           trait_rules?: Json | null
+          unrevealed_image_url?: string | null
           updated_at?: string
         }
         Relationships: []
