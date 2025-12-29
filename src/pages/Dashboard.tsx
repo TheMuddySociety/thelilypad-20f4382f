@@ -41,6 +41,7 @@ import { ShopItemsList } from "@/components/shop/ShopItemsList";
 import { ClaimFunds } from "@/components/ClaimFunds";
 import { WithdrawalHistory } from "@/components/WithdrawalHistory";
 import { CreateShopItemModal } from "@/components/shop/CreateShopItemModal";
+import { CreatorNotifications } from "@/components/CreatorNotifications";
 import {
   LineChart,
   Line,
@@ -490,6 +491,11 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Notifications Section */}
+        <div className="mb-6 sm:mb-8">
+          <CreatorNotifications />
         </div>
 
         {/* Shop Items Section */}
