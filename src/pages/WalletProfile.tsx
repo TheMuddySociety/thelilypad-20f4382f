@@ -10,10 +10,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { useSEO } from "@/hooks/useSEO";
 import { useWalletNFTs, NFT } from "@/hooks/useWalletNFTs";
+import { useNFTFloorPrices } from "@/hooks/useNFTFloorPrices";
 import { toast } from "sonner";
 import { WalletAvatar } from "@/components/wallet/WalletAvatar";
 import { NFTNetworkSelector, NFT_NETWORKS } from "@/components/wallet/NFTNetworkSelector";
 import { WalletNFTDetailModal } from "@/components/wallet/WalletNFTDetailModal";
+import { PortfolioValueCard } from "@/components/wallet/PortfolioValueCard";
 import { NFTFilters, filterAndSortNFTs, SortOption } from "@/components/wallet/NFTFilters";
 import { 
   Wallet, 
@@ -67,6 +69,20 @@ export default function WalletProfile() {
     loadMore, 
     refresh: refreshNFTs 
   } = useWalletNFTs(address, selectedNetwork);
+
+  // Fetch floor prices for portfolio value estimation
+  const {
+    totalValue,
+    isLoading: floorPricesLoading,
+    error: floorPricesError,
+    currency: portfolioCurrency,
+    refresh: refreshFloorPrices,
+  } = useNFTFloorPrices(nfts, selectedNetwork);
+
+  // Get unique collection count
+  const uniqueCollections = useMemo(() => {
+    return [...new Set(nfts.map(nft => nft.contractAddress))].length;
+  }, [nfts]);
 
   const handleNetworkChange = (network: string) => {
     setSelectedNetwork(network);
@@ -354,6 +370,21 @@ export default function WalletProfile() {
 
           {/* NFTs Tab */}
           <TabsContent value="nfts">
+            {/* Portfolio Value Card */}
+            {nfts.length > 0 && selectedNetwork !== "solana-mainnet" && (
+              <div className="mb-4">
+                <PortfolioValueCard
+                  totalValue={totalValue}
+                  currency={portfolioCurrency}
+                  nftCount={nfts.length}
+                  collectionCount={uniqueCollections}
+                  isLoading={floorPricesLoading}
+                  error={floorPricesError}
+                  onRefresh={refreshFloorPrices}
+                />
+              </div>
+            )}
+            
             <Card className="glass-card border-border/50">
               <CardHeader className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
