@@ -345,27 +345,28 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     };
   };
 
-  // Save draft function (non-debounced for interval use)
-  const performSave = useCallback(async (showToast = false) => {
+  // Save draft function - instant local save (no uploads)
+  const performSave = useCallback((showToast = false) => {
     if (!name && layers.length === 0 && oneOfOneArtworks.length === 0 && !editionArtwork && !phases.some(p => p.enabled && p.id !== "public")) {
       if (showToast) toast.error("Nothing to save");
-      return false; // Nothing to save
+      return false;
     }
     
     try {
       setIsSaving(true);
       
-      // Get current user for storage upload
-      const { data: { user } } = await supabase.auth.getUser();
+      // Save artwork previews directly (data URLs or existing URLs)
+      const savedOneOfOneArtworks: SavedArtwork[] = oneOfOneArtworks.map(artwork => ({
+        id: artwork.id,
+        name: artwork.name,
+        description: artwork.metadata?.description,
+        attributes: artwork.metadata?.traits?.map(t => ({ trait_type: t.trait_type, value: t.value })),
+        imageUrl: artwork.preview,
+      }));
       
-      if (!user) {
-        if (showToast) toast.error("Please sign in to save drafts");
-        setIsSaving(false);
-        return false;
-      }
-      
-      // Upload all images to storage
-      const { coverImageUrl, bannerImageUrl, layersWithUrls, savedOneOfOneArtworks, savedEditionArtwork } = await uploadDraftImages(user.id);
+      const savedEditionArtwork = editionArtwork
+        ? { imageUrl: editionArtwork.preview, editionType }
+        : undefined;
       
       const draftData: DraftData = {
         name,
@@ -373,13 +374,13 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         description,
         totalSupply,
         royaltyPercent,
-        layers: layersWithUrls,
+        layers, // Keep data URLs as-is for instant save
         traitRules,
         phases,
         currentStep,
         savedAt: Date.now(),
-        imageUrl: coverImageUrl,
-        bannerUrl: bannerImageUrl,
+        imageUrl: imagePreview || undefined,
+        bannerUrl: bannerPreview || undefined,
         socialTwitter,
         socialDiscord,
         socialWebsite,
@@ -398,11 +399,11 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         description,
         totalSupply,
         royalty: royaltyPercent,
-        layers: layersWithUrls,
+        layers,
         phases,
         currentStep,
         savedAt: new Date().toISOString(),
-        imageUrl: coverImageUrl,
+        imageUrl: imagePreview || undefined,
         oneOfOneArtworks: savedOneOfOneArtworks,
       }));
       
@@ -411,8 +412,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       setShowSaveIndicator(true);
       
       if (showToast) {
-        toast.success("Draft saved successfully!", {
-          description: `Saved ${savedOneOfOneArtworks.length > 0 ? `${savedOneOfOneArtworks.length} artworks` : 'collection details'}`,
+        toast.success("Draft saved!", {
+          description: savedOneOfOneArtworks.length > 0 ? `${savedOneOfOneArtworks.length} artworks saved` : undefined,
         });
       }
       
