@@ -12,6 +12,7 @@ import { useSEO } from "@/hooks/useSEO";
 import { useWalletNFTs } from "@/hooks/useWalletNFTs";
 import { toast } from "sonner";
 import { WalletAvatar } from "@/components/wallet/WalletAvatar";
+import { NFTNetworkSelector, NFT_NETWORKS } from "@/components/wallet/NFTNetworkSelector";
 import { 
   Wallet, 
   ArrowUpRight, 
@@ -45,8 +46,9 @@ export default function WalletProfile() {
   const [walletName, setWalletName] = useState<string>("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempWalletName, setTempWalletName] = useState("");
+  const [selectedNetwork, setSelectedNetwork] = useState("eth-mainnet");
   
-  // Fetch real NFTs from Alchemy
+  // Fetch real NFTs from Alchemy based on selected network
   const { 
     nfts, 
     totalCount: nftCount, 
@@ -54,7 +56,13 @@ export default function WalletProfile() {
     hasMore, 
     loadMore, 
     refresh: refreshNFTs 
-  } = useWalletNFTs(address, "eth-mainnet");
+  } = useWalletNFTs(address, selectedNetwork);
+
+  const handleNetworkChange = (network: string) => {
+    setSelectedNetwork(network);
+  };
+
+  const selectedNetworkInfo = NFT_NETWORKS.find(n => n.id === selectedNetwork);
 
   // Load wallet name from localStorage
   useEffect(() => {
@@ -324,20 +332,35 @@ export default function WalletProfile() {
           {/* NFTs Tab */}
           <TabsContent value="nfts">
             <Card className="glass-card border-border/50">
-              <CardHeader className="p-4 sm:p-6 flex flex-row items-center justify-between">
-                <CardTitle className="text-base sm:text-lg">NFT Holdings</CardTitle>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={refreshNFTs}
-                  disabled={nftsLoading}
-                >
-                  {nftsLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                </Button>
+              <CardHeader className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <CardTitle className="text-base sm:text-lg">NFT Holdings</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <NFTNetworkSelector
+                      value={selectedNetwork}
+                      onValueChange={handleNetworkChange}
+                      disabled={nftsLoading}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={refreshNFTs}
+                      disabled={nftsLoading}
+                    >
+                      {nftsLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                {selectedNetworkInfo && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Showing NFTs on {selectedNetworkInfo.name}
+                    {selectedNetwork === "solana-mainnet" && " (Note: Requires Solana wallet address)"}
+                  </p>
+                )}
               </CardHeader>
               <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                 {nftsLoading && nfts.length === 0 ? (
