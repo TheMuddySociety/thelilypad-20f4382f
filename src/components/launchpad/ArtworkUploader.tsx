@@ -91,6 +91,11 @@ export function ArtworkUploader({
   const [applyDescription, setApplyDescription] = useState(false);
   const [startNumber, setStartNumber] = useState(1);
   
+  // Batch trait editing
+  const [applyTraits, setApplyTraits] = useState(false);
+  const [traitMode, setTraitMode] = useState<"append" | "replace" | "remove">("append");
+  const [batchTraits, setBatchTraits] = useState<TraitAttribute[]>([]);
+  
   // Drag-and-drop reordering
   const [reorderDragIndex, setReorderDragIndex] = useState<number | null>(null);
   const [reorderDropIndex, setReorderDropIndex] = useState<number | null>(null);
@@ -293,11 +298,32 @@ export function ArtworkUploader({
           }
           break;
       }
+      // Handle traits
+      let newAttributes = artwork.attributes || [];
+      if (applyTraits && batchTraits.length > 0) {
+        switch (traitMode) {
+          case "replace":
+            newAttributes = [...batchTraits];
+            break;
+          case "append":
+            // Add new traits, avoiding duplicates by trait_type
+            const existingTypes = new Set(newAttributes.map(a => a.trait_type.toLowerCase()));
+            const traitsToAdd = batchTraits.filter(t => !existingTypes.has(t.trait_type.toLowerCase()));
+            newAttributes = [...newAttributes, ...traitsToAdd];
+            break;
+          case "remove":
+            // Remove traits that match the trait_type
+            const typesToRemove = new Set(batchTraits.map(t => t.trait_type.toLowerCase()));
+            newAttributes = newAttributes.filter(a => !typesToRemove.has(a.trait_type.toLowerCase()));
+            break;
+        }
+      }
       
       return {
         ...artwork,
         name: newName,
-        description: applyDescription ? batchDescription : artwork.description
+        description: applyDescription ? batchDescription : artwork.description,
+        attributes: newAttributes
       };
     });
 
@@ -306,12 +332,28 @@ export function ArtworkUploader({
     setBatchNameValue("");
     setBatchDescription("");
     setApplyDescription(false);
+    setApplyTraits(false);
+    setBatchTraits([]);
     toast.success(`Updated ${selectedArtworksList.length} artwork${selectedArtworksList.length > 1 ? 's' : ''}`);
   };
 
   const exitSelectionMode = () => {
     setIsSelectionMode(false);
     setSelectedIds(new Set());
+  };
+
+  const addBatchTrait = () => {
+    setBatchTraits([...batchTraits, { trait_type: "", value: "", rarity: "common" }]);
+  };
+
+  const updateBatchTrait = (index: number, updates: Partial<TraitAttribute>) => {
+    const newTraits = [...batchTraits];
+    newTraits[index] = { ...newTraits[index], ...updates };
+    setBatchTraits(newTraits);
+  };
+
+  const removeBatchTrait = (index: number) => {
+    setBatchTraits(batchTraits.filter((_, i) => i !== index));
   };
 
   // Drag-and-drop reordering handlers
@@ -983,6 +1025,102 @@ export function ArtworkUploader({
                   placeholder="Enter description for all selected artworks..."
                   rows={3}
                 />
+              )}
+            </div>
+            
+            {/* Bulk Traits */}
+            <div className="space-y-3 pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="applyTraits"
+                  checked={applyTraits}
+                  onCheckedChange={(checked) => setApplyTraits(checked === true)}
+                />
+                <Label htmlFor="applyTraits" className="flex items-center gap-2 cursor-pointer">
+                  <Tag className="w-4 h-4" />
+                  Update Traits
+                </Label>
+              </div>
+              
+              {applyTraits && (
+                <div className="space-y-3">
+                  <Select value={traitMode} onValueChange={(v) => setTraitMode(v as typeof traitMode)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="append">Append (add new traits)</SelectItem>
+                      <SelectItem value="replace">Replace (overwrite all traits)</SelectItem>
+                      <SelectItem value="remove">Remove (delete matching traits)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <div className="space-y-2">
+                    {batchTraits.map((trait, index) => (
+                      <div key={index} className="flex gap-2 items-start">
+                        <div className="flex-1 space-y-1">
+                          <Input
+                            value={trait.trait_type}
+                            onChange={(e) => updateBatchTrait(index, { trait_type: e.target.value })}
+                            placeholder="Trait type (e.g., Background)"
+                            className="h-8 text-sm"
+                          />
+                          {traitMode !== "remove" && (
+                            <Input
+                              value={trait.value}
+                              onChange={(e) => updateBatchTrait(index, { value: e.target.value })}
+                              placeholder="Value (e.g., Blue)"
+                              className="h-8 text-sm"
+                            />
+                          )}
+                        </div>
+                        {traitMode !== "remove" && (
+                          <Select
+                            value={trait.rarity || "common"}
+                            onValueChange={(v) => updateBatchTrait(index, { rarity: v as TraitAttribute["rarity"] })}
+                          >
+                            <SelectTrigger className="w-24 h-8 text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="common">Common</SelectItem>
+                              <SelectItem value="uncommon">Uncommon</SelectItem>
+                              <SelectItem value="rare">Rare</SelectItem>
+                              <SelectItem value="epic">Epic</SelectItem>
+                              <SelectItem value="legendary">Legendary</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => removeBatchTrait(index)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={addBatchTrait}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Trait
+                    </Button>
+                    
+                    {batchTraits.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        {traitMode === "remove" 
+                          ? "Add trait types to remove from selected artworks"
+                          : "Add traits to apply to selected artworks"}
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
