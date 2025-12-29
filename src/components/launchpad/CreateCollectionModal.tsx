@@ -6,6 +6,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -151,6 +161,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+  const [draftInfo, setDraftInfo] = useState<{ name: string; savedAt: Date; step: number } | null>(null);
   
   // Collection details
   const [name, setName] = useState("");
@@ -434,7 +446,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     performSave(true);
   };
 
-  // Load draft on mount and auto-start walkthrough
+  // Load draft on mount and show recovery dialog
   useEffect(() => {
     if (open) {
       try {
@@ -445,6 +457,13 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
           if (Date.now() - draft.savedAt < 24 * 60 * 60 * 1000) {
             setHasDraft(true);
             setLastSavedAt(new Date(draft.savedAt));
+            setDraftInfo({
+              name: draft.name || "Untitled Collection",
+              savedAt: new Date(draft.savedAt),
+              step: draft.currentStep,
+            });
+            // Show recovery dialog
+            setShowRecoveryDialog(true);
           }
         }
       } catch (e) {
@@ -453,6 +472,9 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       
       // Auto-start modal walkthrough for first-time users
       modalWalkthrough.autoStartIfNeeded();
+    } else {
+      // Reset recovery dialog state when modal closes
+      setShowRecoveryDialog(false);
     }
   }, [open, modalWalkthrough.autoStartIfNeeded]);
 
@@ -523,7 +545,20 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
   const clearDraft = () => {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem("collection-draft");
     setHasDraft(false);
+    setShowRecoveryDialog(false);
+    setDraftInfo(null);
+  };
+
+  const handleRecoverDraft = () => {
+    loadDraft();
+    setShowRecoveryDialog(false);
+  };
+
+  const handleStartFresh = () => {
+    clearDraft();
+    toast.success("Starting fresh!");
   };
 
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -997,7 +1032,40 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   const enabledPhases = phases.filter(p => p.enabled);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      {/* Draft Recovery Dialog */}
+      <AlertDialog open={showRecoveryDialog} onOpenChange={setShowRecoveryDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              Recover Your Draft?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>You have an unsaved draft from a previous session.</p>
+              {draftInfo && (
+                <div className="mt-3 p-3 bg-muted rounded-lg space-y-1">
+                  <p className="font-medium text-foreground">{draftInfo.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Saved {formatDistanceToNow(draftInfo.savedAt, { addSuffix: true })} • Step {draftInfo.step} of 5
+                  </p>
+                </div>
+              )}
+              <p className="text-sm pt-2">Would you like to continue where you left off?</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleStartFresh}>
+              Start Fresh
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleRecoverDraft}>
+              Restore Draft
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <ModalWalkthrough walkthrough={modalWalkthrough} />
         <DialogHeader>
@@ -1046,24 +1114,6 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
             )}
           </div>
         </DialogHeader>
-
-        {/* Draft Restoration Banner */}
-        {hasDraft && (
-          <div className="flex items-center justify-between p-3 bg-primary/10 border border-primary/20 rounded-lg mb-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-sm">You have an unsaved draft from a previous session</span>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={clearDraft}>
-                Dismiss
-              </Button>
-              <Button variant="default" size="sm" onClick={loadDraft}>
-                Restore Draft
-              </Button>
-            </div>
-          </div>
-        )}
 
         {/* Progress Steps */}
         <div className="flex items-center justify-between mb-6" data-walkthrough="modal-steps">
@@ -2200,5 +2250,6 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
