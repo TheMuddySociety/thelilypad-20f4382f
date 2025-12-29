@@ -12,9 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import { Heart, Loader2, Wallet, Coins } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { Heart, Loader2, Wallet, Coins, CheckCircle2 } from "lucide-react";
 import { monadMainnet } from "@/config/alchemy";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface TipModalProps {
   isOpen: boolean;
@@ -27,6 +28,8 @@ interface TipModalProps {
 
 const presetAmounts = [0.1, 0.5, 1, 5, 10];
 
+type TipState = "idle" | "confirming" | "pending" | "success" | "error";
+
 export const TipModal: React.FC<TipModalProps> = ({
   isOpen,
   onClose,
@@ -35,14 +38,28 @@ export const TipModal: React.FC<TipModalProps> = ({
   streamerId,
   streamId,
 }) => {
-  const { toast } = useToast();
   const { isConnected, address, balance, connect, sendTransaction } = useWallet();
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
-  const [isSending, setIsSending] = useState(false);
+  const [tipState, setTipState] = useState<TipState>("idle");
+  const [sentAmount, setSentAmount] = useState("");
 
   const handlePresetClick = (preset: number) => {
     setAmount(preset.toString());
+  };
+
+  const resetState = () => {
+    setTipState("idle");
+    setAmount("");
+    setMessage("");
+    setSentAmount("");
+  };
+
+  const handleClose = () => {
+    if (tipState !== "pending") {
+      resetState();
+      onClose();
+    }
   };
 
   const handleSendTip = async () => {
@@ -73,19 +90,25 @@ export const TipModal: React.FC<TipModalProps> = ({
       return;
     }
 
-    setIsSending(true);
+    // Optimistic: Show confirming state immediately
+    setTipState("confirming");
+    setSentAmount(amount);
 
     try {
-      // Send the transaction
+      // Move to pending once wallet interaction starts
+      setTipState("pending");
+
       const txHash = await sendTransaction(streamerAddress, amount);
 
       if (txHash) {
-        // Get current user session
+        // Show success immediately (optimistic)
+        setTipState("success");
+
+        // Record in database in background
         const { data: { session } } = await supabase.auth.getSession();
         
-        // Record the donation in the database
         if (session?.user) {
-          await supabase.from("earnings").insert({
+          supabase.from("earnings").insert({
             user_id: streamerId,
             stream_id: streamId || null,
             amount: parseFloat(amount),
@@ -94,6 +117,10 @@ export const TipModal: React.FC<TipModalProps> = ({
             from_user_id: session.user.id,
             from_username: address.slice(0, 6) + "..." + address.slice(-4),
             message: message || null,
+          }).then((result) => {
+            if (result.error) {
+              console.error("Failed to record tip:", result.error);
+            }
           });
         }
 
@@ -114,131 +141,215 @@ export const TipModal: React.FC<TipModalProps> = ({
           ),
         });
 
-        setAmount("");
-        setMessage("");
-        onClose();
+        // Auto-close after success animation
+        setTimeout(() => {
+          resetState();
+          onClose();
+        }, 2000);
       }
     } catch (error: any) {
       console.error("Error sending tip:", error);
+      setTipState("error");
       toast({
         title: "Transaction failed",
         description: error.message || "Failed to send tip. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsSending(false);
+      
+      // Reset to idle after error
+      setTimeout(() => {
+        setTipState("idle");
+      }, 1500);
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Heart className="w-5 h-5 text-primary" />
-            Send a Tip
-          </DialogTitle>
-          <DialogDescription>
-            Support {streamerName} with a crypto donation
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 pt-2">
-          {!isConnected ? (
-            <div className="text-center py-6 space-y-4">
-              <Wallet className="w-12 h-12 mx-auto text-muted-foreground" />
-              <p className="text-muted-foreground">Connect your wallet to send a tip</p>
-              <Button onClick={connect} className="w-full">
-                Connect Wallet
-              </Button>
-            </div>
-          ) : (
-            <>
-              {/* Balance display */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <span className="text-sm text-muted-foreground">Your Balance</span>
-                <span className="font-medium">
-                  {balance ? parseFloat(balance).toFixed(4) : "0"} MON
-                </span>
-              </div>
-
-              {/* Preset amounts */}
-              <div className="space-y-2">
-                <Label>Quick Amounts</Label>
-                <div className="grid grid-cols-5 gap-2">
-                  {presetAmounts.map((preset) => (
-                    <Button
-                      key={preset}
-                      variant={amount === preset.toString() ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePresetClick(preset)}
-                      className="text-xs"
-                    >
-                      {preset}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Custom amount */}
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount (MON)</Label>
-                <div className="relative">
-                  <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              {/* Message */}
-              <div className="space-y-2">
-                <Label htmlFor="message">Message (optional)</Label>
-                <Textarea
-                  id="message"
-                  placeholder="Say something nice..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  maxLength={200}
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground text-right">
-                  {message.length}/200
-                </p>
-              </div>
-
-              {/* Send button */}
-              <Button
-                onClick={handleSendTip}
-                disabled={isSending || !amount || parseFloat(amount) <= 0}
-                className="w-full"
+        <AnimatePresence mode="wait">
+          {tipState === "success" ? (
+            <motion.div
+              key="success"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="py-12 text-center space-y-4"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", delay: 0.1 }}
               >
-                {isSending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
+                <CheckCircle2 className="w-16 h-16 mx-auto text-green-500" />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <h3 className="text-xl font-semibold">Tip Sent!</h3>
+                <p className="text-muted-foreground mt-1">
+                  {sentAmount} MON sent to {streamerName}
+                </p>
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="form"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Heart className="w-5 h-5 text-primary" />
+                  Send a Tip
+                </DialogTitle>
+                <DialogDescription>
+                  Support {streamerName} with a crypto donation
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 pt-2">
+                {!isConnected ? (
+                  <div className="text-center py-6 space-y-4">
+                    <Wallet className="w-12 h-12 mx-auto text-muted-foreground" />
+                    <p className="text-muted-foreground">Connect your wallet to send a tip</p>
+                    <Button onClick={connect} className="w-full">
+                      Connect Wallet
+                    </Button>
+                  </div>
                 ) : (
                   <>
-                    <Heart className="w-4 h-4 mr-2" />
-                    Send {amount || "0"} MON
+                    {/* Balance display */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <span className="text-sm text-muted-foreground">Your Balance</span>
+                      <span className="font-medium">
+                        {balance ? parseFloat(balance).toFixed(4) : "0"} MON
+                      </span>
+                    </div>
+
+                    {/* Preset amounts */}
+                    <div className="space-y-2">
+                      <Label>Quick Amounts</Label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {presetAmounts.map((preset) => (
+                          <Button
+                            key={preset}
+                            variant={amount === preset.toString() ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePresetClick(preset)}
+                            className="text-xs"
+                            disabled={tipState !== "idle"}
+                          >
+                            {preset}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Custom amount */}
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Amount (MON)</Label>
+                      <div className="relative">
+                        <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          id="amount"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          className="pl-10"
+                          disabled={tipState !== "idle"}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Message */}
+                    <div className="space-y-2">
+                      <Label htmlFor="message">Message (optional)</Label>
+                      <Textarea
+                        id="message"
+                        placeholder="Say something nice..."
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        maxLength={200}
+                        rows={3}
+                        disabled={tipState !== "idle"}
+                      />
+                      <p className="text-xs text-muted-foreground text-right">
+                        {message.length}/200
+                      </p>
+                    </div>
+
+                    {/* Send button */}
+                    <Button
+                      onClick={handleSendTip}
+                      disabled={tipState !== "idle" || !amount || parseFloat(amount) <= 0}
+                      className="w-full relative overflow-hidden"
+                    >
+                      <AnimatePresence mode="wait">
+                        {tipState === "idle" && (
+                          <motion.span
+                            key="idle"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="flex items-center"
+                          >
+                            <Heart className="w-4 h-4 mr-2" />
+                            Send {amount || "0"} MON
+                          </motion.span>
+                        )}
+                        {tipState === "confirming" && (
+                          <motion.span
+                            key="confirming"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="flex items-center"
+                          >
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Confirm in wallet...
+                          </motion.span>
+                        )}
+                        {tipState === "pending" && (
+                          <motion.span
+                            key="pending"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="flex items-center"
+                          >
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Sending...
+                          </motion.span>
+                        )}
+                        {tipState === "error" && (
+                          <motion.span
+                            key="error"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="text-destructive-foreground"
+                          >
+                            Failed - Try again
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </Button>
+
+                    <p className="text-xs text-center text-muted-foreground">
+                      Powered by Monad. Transaction fees apply.
+                    </p>
                   </>
                 )}
-              </Button>
-
-              <p className="text-xs text-center text-muted-foreground">
-                Powered by Monad. Transaction fees apply.
-              </p>
-            </>
+              </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </DialogContent>
     </Dialog>
   );
