@@ -17,16 +17,19 @@ import {
   Hash,
   FileText,
   Layers,
-  Sparkles
+  Sparkles,
+  Send
 } from "lucide-react";
 import { toast } from "sonner";
 import type { NFT } from "@/hooks/useWalletNFTs";
+import { NFTTransferModal } from "./NFTTransferModal";
 
 interface WalletNFTDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   nft: NFT | null;
   network: string;
+  onTransferSuccess?: () => void;
 }
 
 const NETWORK_CONFIG: Record<string, { 
@@ -78,8 +81,10 @@ export const WalletNFTDetailModal: React.FC<WalletNFTDetailModalProps> = ({
   onClose,
   nft,
   network,
+  onTransferSuccess,
 }) => {
   const [copied, setCopied] = React.useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = React.useState(false);
 
   if (!nft) return null;
 
@@ -218,6 +223,17 @@ export const WalletNFTDetailModal: React.FC<WalletNFTDetailModalProps> = ({
 
           <Separator />
 
+          {/* Transfer Button - Only for EVM networks */}
+          {network !== "solana-mainnet" && (
+            <Button
+              className="w-full"
+              onClick={() => setIsTransferModalOpen(true)}
+            >
+              <Send className="w-4 h-4 mr-2" />
+              Transfer NFT
+            </Button>
+          )}
+
           {/* External Links */}
           <div className="flex gap-2">
             {openSeaLink && (
@@ -242,6 +258,18 @@ export const WalletNFTDetailModal: React.FC<WalletNFTDetailModalProps> = ({
             </Button>
           </div>
         </div>
+
+        {/* Transfer Modal */}
+        <NFTTransferModal
+          isOpen={isTransferModalOpen}
+          onClose={() => setIsTransferModalOpen(false)}
+          nft={nft}
+          network={network}
+          onTransferSuccess={() => {
+            setIsTransferModalOpen(false);
+            onTransferSuccess?.();
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
