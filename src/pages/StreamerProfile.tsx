@@ -132,83 +132,87 @@ const StreamerProfile = () => {
 
       setLoading(true);
 
-      // Fetch streamer profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('streamer_profiles')
-        .select('*')
-        .eq('user_id', streamerId)
-        .maybeSingle();
+      try {
+        // Fetch streamer profile
+        const { data: profileData, error: profileError } = await supabase
+          .from('streamer_profiles')
+          .select('*')
+          .eq('user_id', streamerId)
+          .maybeSingle();
 
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-      }
-
-      // Parse schedule JSON safely
-      let parsedSchedule: ScheduleItem[] = [];
-      if (profileData?.schedule) {
-        try {
-          const rawSchedule = profileData.schedule as unknown;
-          parsedSchedule = Array.isArray(rawSchedule) 
-            ? (rawSchedule as ScheduleItem[])
-            : [];
-        } catch {
-          parsedSchedule = [];
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
         }
+
+        // Parse schedule JSON safely
+        let parsedSchedule: ScheduleItem[] = [];
+        if (profileData?.schedule) {
+          try {
+            const rawSchedule = profileData.schedule as unknown;
+            parsedSchedule = Array.isArray(rawSchedule) 
+              ? (rawSchedule as ScheduleItem[])
+              : [];
+          } catch {
+            parsedSchedule = [];
+          }
+        }
+
+        setProfile(profileData ? { ...profileData, schedule: parsedSchedule, banner_url: (profileData as any).banner_url || null } : null);
+
+        // Fetch follower count
+        const { count: followerCount } = await supabase
+          .from('followers')
+          .select('*', { count: 'exact', head: true })
+          .eq('streamer_id', streamerId);
+
+        // Fetch streams with views
+        const { data: streams } = await supabase
+          .from('streams')
+          .select('id, title, category, thumbnail_url, total_views, is_live, started_at, ended_at, duration_seconds')
+          .eq('user_id', streamerId)
+          .order('started_at', { ascending: false });
+
+        const totalStreams = streams?.length || 0;
+        const totalViews = streams?.reduce((sum, s) => sum + (s.total_views || 0), 0) || 0;
+        const liveStream = streams?.find(s => s.is_live);
+        
+        // Get past broadcasts (not live, limit to 6)
+        const pastStreams = streams?.filter(s => !s.is_live).slice(0, 6) || [];
+        setRecentStreams(pastStreams);
+
+        // Fetch clips
+        const { data: clipsData } = await supabase
+          .from('clips')
+          .select('id, title, description, thumbnail_url, clip_url, stream_id, start_time_seconds, duration_seconds, views, created_at')
+          .eq('user_id', streamerId)
+          .order('created_at', { ascending: false })
+          .limit(6);
+        
+        setClips(clipsData || []);
+
+        // Fetch collections
+        const { data: collectionsData, count: collectionsCount } = await supabase
+          .from('collections')
+          .select('id, name, description, image_url, status, total_supply, minted, created_at', { count: 'exact' })
+          .eq('creator_id', streamerId)
+          .order('created_at', { ascending: false })
+          .limit(6);
+        
+        setCollections(collectionsData || []);
+
+        setStats({
+          followerCount: followerCount || 0,
+          totalStreams,
+          totalViews,
+          collectionsCount: collectionsCount || 0,
+          isLive: !!liveStream,
+          currentStreamTitle: liveStream?.title
+        });
+      } catch (error) {
+        console.error('Error fetching streamer profile data:', error);
+      } finally {
+        setLoading(false);
       }
-
-      setProfile(profileData ? { ...profileData, schedule: parsedSchedule, banner_url: (profileData as any).banner_url || null } : null);
-
-      // Fetch follower count
-      const { count: followerCount } = await supabase
-        .from('followers')
-        .select('*', { count: 'exact', head: true })
-        .eq('streamer_id', streamerId);
-
-      // Fetch streams with views
-      const { data: streams } = await supabase
-        .from('streams')
-        .select('id, title, category, thumbnail_url, total_views, is_live, started_at, ended_at, duration_seconds')
-        .eq('user_id', streamerId)
-        .order('started_at', { ascending: false });
-
-      const totalStreams = streams?.length || 0;
-      const totalViews = streams?.reduce((sum, s) => sum + (s.total_views || 0), 0) || 0;
-      const liveStream = streams?.find(s => s.is_live);
-      
-      // Get past broadcasts (not live, limit to 6)
-      const pastStreams = streams?.filter(s => !s.is_live).slice(0, 6) || [];
-      setRecentStreams(pastStreams);
-
-      // Fetch clips
-      const { data: clipsData } = await supabase
-        .from('clips')
-        .select('id, title, description, thumbnail_url, clip_url, stream_id, start_time_seconds, duration_seconds, views, created_at')
-        .eq('user_id', streamerId)
-        .order('created_at', { ascending: false })
-        .limit(6);
-      
-      setClips(clipsData || []);
-
-      // Fetch collections
-      const { data: collectionsData, count: collectionsCount } = await supabase
-        .from('collections')
-        .select('id, name, description, image_url, status, total_supply, minted, created_at', { count: 'exact' })
-        .eq('creator_id', streamerId)
-        .order('created_at', { ascending: false })
-        .limit(6);
-      
-      setCollections(collectionsData || []);
-
-      setStats({
-        followerCount: followerCount || 0,
-        totalStreams,
-        totalViews,
-        collectionsCount: collectionsCount || 0,
-        isLive: !!liveStream,
-        currentStreamTitle: liveStream?.title
-      });
-
-      setLoading(false);
     };
 
     const checkCurrentUser = async () => {
