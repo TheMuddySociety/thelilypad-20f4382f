@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
+import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
 import { Store, Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3 } from "lucide-react";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +29,7 @@ interface Collection {
   phases: unknown;
   royalty_percent: number;
   created_at: string;
+  contract_address: string | null;
 }
 
 interface ShopItem {
@@ -324,6 +326,13 @@ export default function Marketplace() {
                           <Tag className="w-3 h-3 mr-1" />
                           For Sale
                         </Badge>
+                        {/* LilyPad Verification */}
+                        <div className="absolute top-3 left-3">
+                          <LilyPadVerificationBadge 
+                            contractAddress={listing.nft.collection?.contract_address} 
+                            size="sm"
+                          />
+                        </div>
                       </div>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-lg truncate">
@@ -392,6 +401,15 @@ export default function Marketplace() {
                             <StatusIcon className="w-3 h-3 mr-1" />
                             {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
                           </Badge>
+                          {/* LilyPad Verification - only show for deployed contracts */}
+                          {collection.contract_address && (
+                            <div className="absolute top-3 left-3">
+                              <LilyPadVerificationBadge 
+                                contractAddress={collection.contract_address} 
+                                size="sm"
+                              />
+                            </div>
+                          )}
                         </div>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-lg truncate">{collection.name}</CardTitle>
