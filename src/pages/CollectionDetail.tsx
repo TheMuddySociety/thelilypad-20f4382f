@@ -16,6 +16,7 @@ import { LaunchChecklist } from "@/components/launchpad/LaunchChecklist";
 import { RevealManager } from "@/components/launchpad/RevealManager";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTGallery } from "@/components/NFTGallery";
+import { RevealHistory } from "@/components/RevealHistory";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
 import { NFTRevealModal } from "@/components/NFTRevealModal";
 import { MintCountdown } from "@/components/MintCountdown";
@@ -933,6 +934,9 @@ export default function CollectionDetail() {
               unrevealedImage={collection.unrevealed_image_url}
               contractAddress={collection.contract_address}
             />
+
+            {/* Reveal History */}
+            <RevealHistory collectionId={collection.id} />
           </div>
 
           {/* Right Column - Mint Card */}
