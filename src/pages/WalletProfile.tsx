@@ -271,7 +271,7 @@ export default function WalletProfile() {
 
         {/* Tabs Section */}
         <Tabs defaultValue="transactions" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 h-10 sm:h-11">
+          <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 h-10 sm:h-11 sticky top-16 sm:top-20 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <TabsTrigger value="transactions" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
               <History className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xs:inline sm:inline">History</span>
