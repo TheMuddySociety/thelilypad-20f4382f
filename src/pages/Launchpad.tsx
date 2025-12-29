@@ -11,7 +11,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2, FileEdit, Trash2, FolderOpen, Image as ImageIcon, LayoutGrid, ChevronDown, Check, HelpCircle, Pencil, Lock } from "lucide-react";
+import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2, FileEdit, Trash2, FolderOpen, Image as ImageIcon, LayoutGrid, ChevronDown, Check, HelpCircle, Pencil, Lock, AlertCircle, ArrowRight, Layers, FileImage, Users, Zap } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +44,8 @@ interface Collection {
   id: string;
   name: string;
   image_url: string | null;
+  banner_url: string | null;
+  description: string | null;
   creator_address: string;
   creator_id: string;
   total_supply: number;
@@ -51,6 +55,12 @@ interface Collection {
   royalty_percent: number;
   created_at: string;
   contract_address: string | null;
+  collection_type: string | null;
+  layers_metadata: unknown;
+  artworks_metadata: unknown;
+  social_twitter: string | null;
+  social_discord: string | null;
+  social_website: string | null;
 }
 
 const statusColors = {
@@ -184,6 +194,59 @@ export default function Launchpad() {
     const phases = collection.phases as any[];
     if (!phases || phases.length === 0) return ["public"];
     return phases.map(p => p.id || p.name?.toLowerCase() || "public");
+  };
+
+  // Calculate collection setup progress
+  const getCollectionProgress = (collection: Collection) => {
+    const steps = [
+      { name: "Basic Info", complete: !!(collection.name && collection.total_supply > 0), icon: FileEdit },
+      { name: "Cover Image", complete: !!collection.image_url, icon: ImageIcon },
+      { name: "Artwork/Layers", complete: hasArtwork(collection), icon: Layers },
+      { name: "Mint Phases", complete: hasValidPhases(collection), icon: Clock },
+      { name: "Deploy Contract", complete: !!collection.contract_address, icon: Rocket },
+    ];
+
+    const completedSteps = steps.filter(s => s.complete).length;
+    const percentage = Math.round((completedSteps / steps.length) * 100);
+    const nextStep = steps.find(s => !s.complete);
+
+    return { steps, completedSteps, percentage, nextStep };
+  };
+
+  const hasArtwork = (collection: Collection) => {
+    const type = collection.collection_type || "generative";
+    if (type === "generative") {
+      const layers = collection.layers_metadata as any[] | null;
+      return layers && layers.length > 0 && layers.some(l => l.traits && l.traits.length > 0);
+    } else {
+      const artworks = collection.artworks_metadata as any[] | null;
+      return artworks && artworks.length > 0;
+    }
+  };
+
+  const hasValidPhases = (collection: Collection) => {
+    const phases = collection.phases as any[];
+    return phases && phases.length > 0 && phases.some(p => p.supply > 0);
+  };
+
+  // Get collection health status
+  const getHealthStatus = (collection: Collection) => {
+    const progress = getCollectionProgress(collection);
+    const isDeployed = !!collection.contract_address;
+    
+    if (isDeployed && collection.status === "live") {
+      return { status: "healthy", label: "Live & Active", color: "text-green-500" };
+    }
+    if (isDeployed) {
+      return { status: "deployed", label: "Deployed", color: "text-blue-500" };
+    }
+    if (progress.percentage >= 80) {
+      return { status: "ready", label: "Ready to Deploy", color: "text-primary" };
+    }
+    if (progress.percentage >= 40) {
+      return { status: "in-progress", label: "Setup In Progress", color: "text-yellow-500" };
+    }
+    return { status: "needs-setup", label: "Needs Setup", color: "text-orange-500" };
   };
 
   return (
@@ -480,6 +543,8 @@ export default function Launchpad() {
                   const isOwner = currentUserId && collection.creator_id === currentUserId;
                   const isDeployed = !!collection.contract_address;
                   const canEdit = isOwner && !isDeployed;
+                  const progress = getCollectionProgress(collection);
+                  const health = getHealthStatus(collection);
                   
                   return (
                     <Card 
@@ -528,25 +593,102 @@ export default function Launchpad() {
                         </Badge>
                       </div>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{collection.name}</CardTitle>
-                        <CardDescription>by {collection.creator_address.slice(0, 6)}...{collection.creator_address.slice(-4)}</CardDescription>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <CardTitle className="text-lg">{collection.name}</CardTitle>
+                            <CardDescription>by {collection.creator_address.slice(0, 6)}...{collection.creator_address.slice(-4)}</CardDescription>
+                          </div>
+                          {isOwner && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Badge 
+                                    variant="outline" 
+                                    className={`text-[10px] px-1.5 ${health.color} border-current/30 bg-current/10`}
+                                  >
+                                    {progress.percentage}%
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-[200px]">
+                                  <p className="font-medium mb-1">{health.label}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {progress.completedSteps}/{progress.steps.length} steps complete
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
                       </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between text-sm mb-3">
+                      <CardContent className="space-y-3">
+                        {/* Setup Progress (only for owner's undeployed collections) */}
+                        {isOwner && !isDeployed && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Setup Progress</span>
+                              <span className={`font-medium ${health.color}`}>{health.label}</span>
+                            </div>
+                            <Progress value={progress.percentage} className="h-1.5" />
+                            <div className="flex items-center gap-1">
+                              {progress.steps.map((step, i) => {
+                                const StepIcon = step.icon;
+                                return (
+                                  <TooltipProvider key={step.name}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div 
+                                          className={`flex-1 h-1 rounded-full transition-colors ${
+                                            step.complete ? 'bg-primary' : 'bg-muted'
+                                          }`}
+                                        />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <div className="flex items-center gap-1.5">
+                                          <StepIcon className="w-3 h-3" />
+                                          <span>{step.name}</span>
+                                          {step.complete ? (
+                                            <Check className="w-3 h-3 text-green-500" />
+                                          ) : (
+                                            <AlertCircle className="w-3 h-3 text-muted-foreground" />
+                                          )}
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                );
+                              })}
+                            </div>
+                            {progress.nextStep && (
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <ArrowRight className="w-3 h-3 text-primary" />
+                                <span>Next: {progress.nextStep.name}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Mint Progress (for deployed collections) */}
+                        {isDeployed && (
+                          <>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Minted</span>
+                              <span className="font-medium">{collection.minted} / {collection.total_supply}</span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-2">
+                              <div 
+                                className="bg-primary h-2 rounded-full transition-all"
+                                style={{ width: `${collection.total_supply > 0 ? (collection.minted / collection.total_supply) * 100 : 0}%` }}
+                              />
+                            </div>
+                          </>
+                        )}
+                        
+                        {/* Price and Phases */}
+                        <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Price</span>
                           <span className="font-medium">{getPrice(collection)}</span>
                         </div>
-                        <div className="flex items-center justify-between text-sm mb-3">
-                          <span className="text-muted-foreground">Supply</span>
-                          <span className="font-medium">{collection.minted} / {collection.total_supply}</span>
-                        </div>
-                        {/* Progress bar */}
-                        <div className="w-full bg-muted rounded-full h-2 mb-3">
-                          <div 
-                            className="bg-primary h-2 rounded-full transition-all"
-                            style={{ width: `${collection.total_supply > 0 ? (collection.minted / collection.total_supply) * 100 : 0}%` }}
-                          />
-                        </div>
+                        
                         {/* Phases */}
                         <div className="flex flex-wrap gap-1">
                           {getPhaseNames(collection).map((phase) => (
