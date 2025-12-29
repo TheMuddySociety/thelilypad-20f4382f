@@ -21,11 +21,14 @@ import {
   Loader2, 
   CheckCircle2, 
   Image as ImageIcon,
-  Wand2
+  Wand2,
+  Flame,
+  Snowflake,
+  Star
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { NFTRevealAnimation } from "./NFTRevealAnimation";
+import { NFTRevealAnimation, RevealTheme } from "./NFTRevealAnimation";
 
 interface MintedNFT {
   id: string;
@@ -44,6 +47,13 @@ interface RevealManagerProps {
   onRevealComplete: () => void;
 }
 
+const REVEAL_THEMES: { id: RevealTheme; name: string; icon: React.ReactNode; description: string }[] = [
+  { id: "magic", name: "Magic", icon: <Sparkles className="w-4 h-4" />, description: "Magical sparkles & confetti" },
+  { id: "fire", name: "Fire", icon: <Flame className="w-4 h-4" />, description: "Blazing flames reveal" },
+  { id: "ice", name: "Ice", icon: <Snowflake className="w-4 h-4" />, description: "Frozen crystal shatter" },
+  { id: "galaxy", name: "Galaxy", icon: <Star className="w-4 h-4" />, description: "Cosmic stardust explosion" },
+];
+
 export function RevealManager({
   collectionId,
   collectionName,
@@ -59,6 +69,7 @@ export function RevealManager({
   const [showRevealAnimation, setShowRevealAnimation] = useState(false);
   const [revealedNftsForAnimation, setRevealedNftsForAnimation] = useState<MintedNFT[]>([]);
   const [revealMode, setRevealMode] = useState<"all" | "selected">("all");
+  const [selectedTheme, setSelectedTheme] = useState<RevealTheme>("magic");
 
   useEffect(() => {
     fetchNFTs();
@@ -289,6 +300,34 @@ export function RevealManager({
             </div>
           )}
 
+          {/* Theme Selector */}
+          {unrevealedCount > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Reveal Animation Theme</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {REVEAL_THEMES.map((theme) => (
+                  <button
+                    key={theme.id}
+                    onClick={() => setSelectedTheme(theme.id)}
+                    className={`p-3 rounded-lg border-2 transition-all text-left ${
+                      selectedTheme === theme.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={selectedTheme === theme.id ? "text-primary" : "text-muted-foreground"}>
+                        {theme.icon}
+                      </span>
+                      <span className="font-medium text-sm">{theme.name}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{theme.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           {unrevealedCount > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -442,6 +481,7 @@ export function RevealManager({
         nfts={revealedNftsForAnimation}
         unrevealedImage={unrevealedImageUrl}
         collectionName={collectionName}
+        theme={selectedTheme}
       />
     </>
   );
