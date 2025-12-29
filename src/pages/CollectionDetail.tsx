@@ -936,7 +936,7 @@ export default function CollectionDetail() {
             />
 
             {/* Reveal History */}
-            <RevealHistory collectionId={collection.id} />
+            <RevealHistory collectionId={collection.id} collectionName={collection.name} />
           </div>
 
           {/* Right Column - Mint Card */}

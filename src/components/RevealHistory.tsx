@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { History, Sparkles, Clock, Image as ImageIcon } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { RevealedNFTDetailModal } from "@/components/RevealedNFTDetailModal";
 
 interface RevealedNFT {
   id: string;
@@ -13,16 +14,19 @@ interface RevealedNFT {
   name: string | null;
   image_url: string | null;
   revealed_at: string;
-  attributes: Array<{ trait_type: string; value: string }> | null;
+  attributes: Array<{ trait_type: string; value: string; rarity?: number }> | null;
 }
 
 interface RevealHistoryProps {
   collectionId: string;
+  collectionName?: string;
 }
 
-export const RevealHistory: React.FC<RevealHistoryProps> = ({ collectionId }) => {
+export const RevealHistory: React.FC<RevealHistoryProps> = ({ collectionId, collectionName }) => {
   const [revealedNfts, setRevealedNfts] = useState<RevealedNFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedNft, setSelectedNft] = useState<RevealedNFT | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchRevealedNfts = async () => {
@@ -41,7 +45,7 @@ export const RevealHistory: React.FC<RevealHistoryProps> = ({ collectionId }) =>
       } else {
         const typedData = (data || []).map(item => ({
           ...item,
-          attributes: item.attributes as Array<{ trait_type: string; value: string }> | null
+          attributes: item.attributes as Array<{ trait_type: string; value: string; rarity?: number }> | null
         }));
         setRevealedNfts(typedData);
       }
@@ -50,6 +54,16 @@ export const RevealHistory: React.FC<RevealHistoryProps> = ({ collectionId }) =>
 
     fetchRevealedNfts();
   }, [collectionId]);
+
+  const handleNftClick = (nft: RevealedNFT) => {
+    setSelectedNft(nft);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedNft(null);
+  };
 
   // Group NFTs by reveal date
   const groupedByDate = revealedNfts.reduce((acc, nft) => {
@@ -107,87 +121,97 @@ export const RevealHistory: React.FC<RevealHistoryProps> = ({ collectionId }) =>
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <History className="w-5 h-5 text-primary" />
-          Reveal History
-          <Badge variant="secondary" className="ml-auto">
-            {revealedNfts.length} Revealed
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[400px] pr-4">
-          <div className="space-y-6">
-            {Object.entries(groupedByDate).map(([dateKey, nfts]) => {
-              const revealDate = new Date(nfts[0].revealed_at);
-              return (
-                <div key={dateKey} className="space-y-3">
-                  {/* Date Header */}
-                  <div className="flex items-center gap-2 sticky top-0 bg-card py-2 z-10">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">
-                      {format(revealDate, "MMM d, yyyy 'at' h:mm a")}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      ({formatDistanceToNow(revealDate, { addSuffix: true })})
-                    </span>
-                    <Badge variant="outline" className="ml-auto text-xs">
-                      {nfts.length} NFT{nfts.length !== 1 ? 's' : ''}
-                    </Badge>
-                  </div>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="w-5 h-5 text-primary" />
+            Reveal History
+            <Badge variant="secondary" className="ml-auto">
+              {revealedNfts.length} Revealed
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[400px] pr-4">
+            <div className="space-y-6">
+              {Object.entries(groupedByDate).map(([dateKey, nfts]) => {
+                const revealDate = new Date(nfts[0].revealed_at);
+                return (
+                  <div key={dateKey} className="space-y-3">
+                    {/* Date Header */}
+                    <div className="flex items-center gap-2 sticky top-0 bg-card py-2 z-10">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">
+                        {format(revealDate, "MMM d, yyyy 'at' h:mm a")}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        ({formatDistanceToNow(revealDate, { addSuffix: true })})
+                      </span>
+                      <Badge variant="outline" className="ml-auto text-xs">
+                        {nfts.length} NFT{nfts.length !== 1 ? 's' : ''}
+                      </Badge>
+                    </div>
 
-                  {/* NFT Grid */}
-                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                    {nfts.map((nft) => (
-                      <div
-                        key={nft.id}
-                        className="group relative aspect-square rounded-lg overflow-hidden border border-border bg-muted/50 hover:border-primary/50 transition-all cursor-pointer"
-                      >
-                        {nft.image_url ? (
-                          <img
-                            src={nft.image_url}
-                            alt={nft.name || `#${nft.token_id}`}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                          </div>
-                        )}
-                        
-                        {/* Hover Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-1.5">
-                          <p className="text-[10px] font-medium text-white truncate">
-                            {nft.name || `#${nft.token_id}`}
-                          </p>
-                          {nft.attributes && nft.attributes.length > 0 && (
-                            <p className="text-[9px] text-white/70 truncate">
-                              {nft.attributes.length} traits
-                            </p>
+                    {/* NFT Grid */}
+                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                      {nfts.map((nft) => (
+                        <div
+                          key={nft.id}
+                          onClick={() => handleNftClick(nft)}
+                          className="group relative aspect-square rounded-lg overflow-hidden border border-border bg-muted/50 hover:border-primary/50 hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer"
+                        >
+                          {nft.image_url ? (
+                            <img
+                              src={nft.image_url}
+                              alt={nft.name || `#${nft.token_id}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                            </div>
                           )}
-                        </div>
+                          
+                          {/* Hover Overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-1.5">
+                            <p className="text-[10px] font-medium text-white truncate">
+                              {nft.name || `#${nft.token_id}`}
+                            </p>
+                            {nft.attributes && nft.attributes.length > 0 && (
+                              <p className="text-[9px] text-white/70 truncate">
+                                {nft.attributes.length} traits
+                              </p>
+                            )}
+                          </div>
 
-                        {/* Token ID Badge */}
-                        <div className="absolute top-1 right-1">
-                          <Badge 
-                            variant="secondary" 
-                            className="text-[9px] px-1 py-0 h-4 bg-black/60 text-white border-none"
-                          >
-                            #{nft.token_id}
-                          </Badge>
+                          {/* Token ID Badge */}
+                          <div className="absolute top-1 right-1">
+                            <Badge 
+                              variant="secondary" 
+                              className="text-[9px] px-1 py-0 h-4 bg-black/60 text-white border-none"
+                            >
+                              #{nft.token_id}
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      <RevealedNFTDetailModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        nft={selectedNft}
+        collectionName={collectionName}
+      />
+    </>
   );
 };
 
