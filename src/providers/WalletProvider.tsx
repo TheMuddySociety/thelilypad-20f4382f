@@ -113,13 +113,44 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     localStorage.removeItem("walletConnected");
   }, []);
 
-  const switchNetwork = useCallback((network: NetworkType) => {
+  const switchNetwork = useCallback(async (network: NetworkType) => {
     setWalletState(prev => ({
       ...prev,
       network,
     }));
     localStorage.setItem("monadNetwork", network);
-  }, []);
+    
+    // If connected, prompt wallet to switch to the new network
+    if (walletState.isConnected && typeof window.ethereum !== "undefined") {
+      const targetChain = getMonadChain(network);
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: `0x${targetChain.id.toString(16)}` }],
+        });
+      } catch (switchError: any) {
+        // Chain not added, try to add it
+        if (switchError.code === 4902) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: `0x${targetChain.id.toString(16)}`,
+                  chainName: targetChain.name,
+                  nativeCurrency: targetChain.nativeCurrency,
+                  rpcUrls: [targetChain.rpcUrls.default.http[0]],
+                  blockExplorerUrls: [targetChain.blockExplorers.default.url],
+                },
+              ],
+            });
+          } catch (addError) {
+            console.error("Error adding chain:", addError);
+          }
+        }
+      }
+    }
+  }, [walletState.isConnected]);
 
   const switchToMonad = useCallback(async () => {
     if (typeof window.ethereum === "undefined") return;

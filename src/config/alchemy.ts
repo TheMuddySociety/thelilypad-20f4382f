@@ -7,9 +7,9 @@ export type NetworkType = "mainnet" | "testnet";
 export const MONAD_TESTNET_RPC = "https://rpc.ankr.com/monad_testnet";
 export const MONAD_MAINNET_RPC = "https://rpc.ankr.com/monad"; // Placeholder for mainnet
 
-// Monad Mainnet chain configuration
+// Monad Mainnet chain configuration (placeholder - update when mainnet launches)
 export const monadMainnet = defineChain({
-  id: 10143,
+  id: 1, // Placeholder mainnet chain ID - update when available
   name: "Monad Mainnet",
   nativeCurrency: {
     decimals: 18,
