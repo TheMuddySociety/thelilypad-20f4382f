@@ -44,7 +44,9 @@ import {
   Pencil,
   Twitter,
   MessageCircle,
-  Send
+  Send,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
@@ -100,6 +102,7 @@ export default function CollectionDetail() {
   const [copied, setCopied] = useState(false);
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [isAllowlistModalOpen, setIsAllowlistModalOpen] = useState(false);
@@ -598,6 +601,25 @@ export default function CollectionDetail() {
       </div>
 
       <main className="container mx-auto px-4 -mt-20 relative z-10 pb-12">
+        {/* Preview Mode Banner */}
+        {isPreviewMode && (
+          <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <Eye className="w-4 h-4" />
+              <span className="text-sm font-medium">Preview Mode - Viewing as a collector would see this page</span>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setIsPreviewMode(false)}
+              className="border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+            >
+              <EyeOff className="w-4 h-4 mr-2" />
+              Exit Preview
+            </Button>
+          </div>
+        )}
+
         {/* Back button and Edit button */}
         <div className="flex items-center justify-between mb-4">
           <Button 
@@ -609,10 +631,18 @@ export default function CollectionDetail() {
             Back to Launchpad
           </Button>
           
-          {isCreator && (
+          {isCreator && !isPreviewMode && (
             <div className="flex items-center gap-2">
               {!collection.contract_address && (
                 <>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setIsPreviewMode(true)}
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    Preview
+                  </Button>
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -721,8 +751,8 @@ export default function CollectionDetail() {
               </div>
             </div>
 
-            {/* Launch Checklist for creators with undeployed collections */}
-            {isCreator && !collection.contract_address && (
+            {/* Launch Checklist for creators with undeployed collections (hidden in preview mode) */}
+            {isCreator && !collection.contract_address && !isPreviewMode && (
               <LaunchChecklist
                 collection={collection}
                 onEditClick={() => setIsEditMode(true)}
