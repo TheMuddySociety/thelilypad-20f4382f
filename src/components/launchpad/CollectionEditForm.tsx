@@ -41,7 +41,8 @@ import {
   FileText,
   Clock,
   Palette,
-  Info
+  Info,
+  Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -73,6 +74,7 @@ interface Collection {
   description: string | null;
   image_url: string | null;
   banner_url: string | null;
+  unrevealed_image_url: string | null;
   creator_address: string;
   creator_id: string;
   total_supply: number;
@@ -129,6 +131,10 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [bannerUrl, setBannerUrl] = useState("");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [unrevealedUrl, setUnrevealedUrl] = useState("");
+  const [unrevealedFile, setUnrevealedFile] = useState<File | null>(null);
+  const [unrevealedPreview, setUnrevealedPreview] = useState<string | null>(null);
+  const [isDraggingUnrevealed, setIsDraggingUnrevealed] = useState(false);
   const [totalSupply, setTotalSupply] = useState(0);
   const [royaltyPercent, setRoyaltyPercent] = useState(0);
   const [status, setStatus] = useState("upcoming");
@@ -166,6 +172,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       setImagePreview(collection.image_url);
       setBannerUrl(collection.banner_url || "");
       setBannerPreview(collection.banner_url);
+      setUnrevealedUrl(collection.unrevealed_image_url || "");
+      setUnrevealedPreview(collection.unrevealed_image_url);
       setTotalSupply(collection.total_supply);
       setRoyaltyPercent(collection.royalty_percent);
       setStatus(collection.status);
@@ -367,6 +375,76 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     }
   };
 
+  const processUnrevealedFile = (file: File) => {
+    if (!file.type.startsWith('image/') && !file.type.includes('gif')) {
+      toast.error("Please upload an image or GIF file");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File must be less than 10MB");
+      return;
+    }
+
+    setUnrevealedFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setUnrevealedPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUnrevealedUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processUnrevealedFile(file);
+  };
+
+  const handleUnrevealedDrag = (e: React.DragEvent, isDragging: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingUnrevealed(isDragging);
+  };
+
+  const handleUnrevealedDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingUnrevealed(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processUnrevealedFile(file);
+  };
+
+  const uploadUnrevealedToStorage = async (): Promise<string | null> => {
+    if (!unrevealedFile) return unrevealedUrl || null;
+    
+    try {
+      const fileExt = unrevealedFile.name.split('.').pop();
+      const fileName = `${collection.creator_id}/unrevealed-${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('collection-images')
+        .upload(fileName, unrevealedFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error("Unrevealed upload error:", error);
+        toast.error("Failed to upload unrevealed image");
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('collection-images')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (err) {
+      console.error("Unrevealed upload error:", err);
+      toast.error("Failed to upload unrevealed image");
+      return null;
+    }
+  };
+
   const validateForm = () => {
     try {
       collectionSchema.parse({
@@ -459,6 +537,15 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
         }
       }
 
+      // Upload unrevealed image if there's a new file
+      let finalUnrevealedUrl = unrevealedUrl;
+      if (unrevealedFile) {
+        const uploadedUnrevealedUrl = await uploadUnrevealedToStorage();
+        if (uploadedUnrevealedUrl) {
+          finalUnrevealedUrl = uploadedUnrevealedUrl;
+        }
+      }
+
       // Convert phases to JSON-compatible format
       const phasesJson = phases.map(p => ({
         id: p.id,
@@ -481,6 +568,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           description: description.trim() || null,
           image_url: finalImageUrl.trim() || null,
           banner_url: finalBannerUrl?.trim() || null,
+          unrevealed_image_url: finalUnrevealedUrl?.trim() || null,
           total_supply: totalSupply,
           royalty_percent: royaltyPercent,
           status,
@@ -972,6 +1060,84 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                   <Upload className="w-4 h-4 mr-2" />
                   Change Banner
                 </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Unrevealed Image Upload */}
+          <div className="space-y-2">
+            <Label>Unrevealed Image (Optional)</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              This image/GIF will be shown before your NFTs are revealed. Perfect for building suspense!
+            </p>
+            <div 
+              className={`space-y-3 p-3 rounded-lg border-2 border-dashed transition-colors ${
+                isDraggingUnrevealed 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-transparent'
+              }`}
+              onDragEnter={(e) => handleUnrevealedDrag(e, true)}
+              onDragOver={(e) => handleUnrevealedDrag(e, true)}
+              onDragLeave={(e) => handleUnrevealedDrag(e, false)}
+              onDrop={handleUnrevealedDrop}
+            >
+              {unrevealedPreview ? (
+                <div className="relative w-40 h-40 rounded-lg overflow-hidden border border-border mx-auto">
+                  <img 
+                    src={unrevealedPreview} 
+                    alt="Unrevealed Preview" 
+                    className="w-full h-full object-cover" 
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8"
+                    onClick={() => {
+                      setUnrevealedPreview(null);
+                      setUnrevealedFile(null);
+                      setUnrevealedUrl("");
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  {unrevealedFile && (
+                    <Badge variant="secondary" className="absolute bottom-2 left-2 text-xs">
+                      New file selected
+                    </Badge>
+                  )}
+                </div>
+              ) : (
+                <div
+                  className={`w-40 h-40 mx-auto rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center bg-muted gap-2 ${
+                    isDraggingUnrevealed ? 'border-primary' : 'border-border hover:border-primary/50'
+                  }`}
+                  onClick={() => document.getElementById("edit-unrevealed-upload")?.click()}
+                >
+                  <Sparkles className="w-8 h-8 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground text-center px-2">Drag & drop or click to upload</span>
+                  <span className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB</span>
+                </div>
+              )}
+              <input
+                id="edit-unrevealed-upload"
+                type="file"
+                accept="image/*,.gif"
+                className="hidden"
+                onChange={handleUnrevealedUpload}
+              />
+              {unrevealedPreview && (
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById("edit-unrevealed-upload")?.click()}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Change Image
+                  </Button>
+                </div>
               )}
             </div>
           </div>
