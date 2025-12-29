@@ -11,6 +11,7 @@ import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTTransferModal } from "@/components/NFTTransferModal";
 import { ListNFTModal } from "@/components/ListNFTModal";
 import { PortfolioValueChart } from "@/components/PortfolioValueChart";
+import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
@@ -776,6 +777,13 @@ export default function MyNFTs() {
                           <span className={`text-[10px] font-medium ${rarity.color}`}>{rarity.label}</span>
                         </div>
                       )}
+                      {/* LilyPad Verification Badge */}
+                      <div className="absolute top-2 left-2">
+                        <LilyPadVerificationBadge 
+                          contractAddress={nft.collection?.contract_address} 
+                          size="sm"
+                        />
+                      </div>
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
                         <p className="text-white font-medium text-sm truncate">
                           {nft.name || `${nft.collection?.name} #${nft.token_id}`}
@@ -822,7 +830,7 @@ export default function MyNFTs() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium truncate">
                             {nft.name || `${nft.collection?.name} #${nft.token_id}`}
                           </p>
@@ -832,6 +840,10 @@ export default function MyNFTs() {
                               <span className={`text-[10px] font-medium ${rarity.color}`}>{rarity.label}</span>
                             </div>
                           )}
+                          <LilyPadVerificationBadge 
+                            contractAddress={nft.collection?.contract_address} 
+                            size="sm"
+                          />
                         </div>
                         <p className="text-sm text-muted-foreground">
                           {nft.collection?.name} · Token #{nft.token_id}
