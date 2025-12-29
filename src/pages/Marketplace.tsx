@@ -15,7 +15,8 @@ import {
 import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
-import { Store, Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf } from "lucide-react";
+import { Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf } from "lucide-react";
+import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -216,9 +217,7 @@ export default function Marketplace() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Store className="w-8 h-8 text-primary" />
-            </div>
+            <LilyPadLogo size={56} />
             <div>
               <h1 className="text-3xl sm:text-4xl font-bold">Lily Marketplace</h1>
               <p className="text-muted-foreground">
@@ -559,7 +558,7 @@ export default function Marketplace() {
             {/* Empty State */}
             {!isLoading && collections.length === 0 && stickerPacks.length === 0 && nftListings.length === 0 && (
               <div className="text-center py-12">
-                <Store className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <LilyPadLogo size={48} className="mx-auto mb-4 opacity-50" />
                 <h3 className="text-lg font-medium mb-2">No items found</h3>
                 <p className="text-muted-foreground mb-4">
                   Be the first to create something!
