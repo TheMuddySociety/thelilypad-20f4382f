@@ -101,8 +101,8 @@ export default function Marketplace() {
   const factoryAvailable = isFactoryConfigured();
 
   useSEO({
-    title: "Marketplace | The Lily Pad",
-    description: "Browse NFT collections, listings, and sticker packs on The Lily Pad marketplace. Discover unique digital collectibles on Monad."
+    title: "Lily Marketplace | The Lily Pad",
+    description: "Browse NFT collections, listings, and sticker packs on Lily Marketplace. Discover unique digital collectibles on Monad."
   });
 
   const fetchData = async () => {
