@@ -308,6 +308,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          is_revealed: boolean
           layers_metadata: Json | null
           minted: number
           name: string
@@ -335,6 +336,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_revealed?: boolean
           layers_metadata?: Json | null
           minted?: number
           name: string
@@ -362,6 +364,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_revealed?: boolean
           layers_metadata?: Json | null
           minted?: number
           name?: string
@@ -493,10 +496,12 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          is_revealed: boolean
           minted_at: string
           name: string | null
           owner_address: string
           owner_id: string
+          revealed_at: string | null
           token_id: number
           tx_hash: string
         }
@@ -506,10 +511,12 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_revealed?: boolean
           minted_at?: string
           name?: string | null
           owner_address: string
           owner_id: string
+          revealed_at?: string | null
           token_id: number
           tx_hash: string
         }
@@ -519,10 +526,12 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_revealed?: boolean
           minted_at?: string
           name?: string | null
           owner_address?: string
           owner_id?: string
+          revealed_at?: string | null
           token_id?: number
           tx_hash?: string
         }
