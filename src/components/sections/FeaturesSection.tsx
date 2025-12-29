@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
   Layers, 
@@ -19,6 +20,7 @@ const features = [
     description: "Create stunning generative art collections with our powerful no-code generator.",
     bullets: ["Layer uploads", "Rarity tools", "Metadata builder", "Preview engine", "One-click Monad deployment"],
     cta: "Try Generator",
+    href: "/launchpad",
     imagePosition: "left",
     accent: "primary",
   },
@@ -29,6 +31,7 @@ const features = [
     description: "Go live and connect with your community. Host reveals, auctions, Q&As, and accept tips.",
     bullets: ["Live streaming", "Real-time chat", "Tip system", "Auction integration", "Community building"],
     cta: "Go Live",
+    href: "/go-live",
     imagePosition: "right",
     accent: "secondary",
   },
@@ -39,6 +42,7 @@ const features = [
     description: "Earn from your activity, engagement, and volume on the platform.",
     bullets: ["Activity rewards", "Volume bonuses", "Tier progression", "Exclusive perks", "Leaderboard rankings"],
     cta: "View Rewards",
+    href: "/dashboard",
     imagePosition: "left",
     accent: "accent",
   },
@@ -49,6 +53,7 @@ const features = [
     description: "Multiple auction formats to maximize your sales potential.",
     bullets: ["Timed auctions", "Dutch auctions", "English auctions", "Livestream-linked", "Reserve prices"],
     cta: "Run an Auction",
+    href: "/marketplace",
     imagePosition: "right",
     accent: "primary",
   },
@@ -59,6 +64,7 @@ const features = [
     description: "Create excitement with mystery mechanics and fair raffles.",
     bullets: ["Customizable raffles", "Blind box reveals", "Multiple winners", "Entry limits", "Fair randomization"],
     cta: "Start a Raffle",
+    href: "/launchpad",
     imagePosition: "left",
     accent: "secondary",
   },
@@ -69,6 +75,7 @@ const features = [
     description: "Revolutionary tokenomics that protect and reward your community.",
     bullets: ["10% supply locked to platform", "Rewards Lily Pad NFT holders", "Anti-rug treasury mechanism", "Community governance", "Sustainable growth"],
     cta: "Learn Token System",
+    href: "/fees",
     imagePosition: "right",
     accent: "accent",
     premium: true,
@@ -80,6 +87,7 @@ const features = [
     description: "Mint and sell multimedia NFTs with full playback support.",
     bullets: ["Audio NFTs", "Music collections", "Video content", "Cover art required", "Streaming preview"],
     cta: "Mint Audio/Video",
+    href: "/launchpad",
     imagePosition: "left",
     accent: "primary",
   },
@@ -141,9 +149,11 @@ export const FeaturesSection: React.FC = () => {
                   ))}
                 </ul>
                 
-                <Button variant={feature.premium ? "premium" : "default"} className="group mt-4">
-                  {feature.cta}
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <Button variant={feature.premium ? "premium" : "default"} className="group mt-4" asChild>
+                  <Link to={feature.href}>
+                    {feature.cta}
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </Link>
                 </Button>
               </div>
               
