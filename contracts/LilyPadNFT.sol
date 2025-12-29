@@ -5,8 +5,23 @@ pragma solidity ^0.8.20;
  * @title LilyPadNFT
  * @dev ERC721 NFT contract with phases, allowlists, and royalties
  * @notice Each collection deployed by the factory is an instance of this contract
+ * @custom:platform The Lily Pad - NFT Launchpad on Monad
  */
 contract LilyPadNFT {
+    // ============ Platform Identification ============
+    
+    /// @notice Platform identifier - proves this is a LilyPad collection
+    string public constant PLATFORM_NAME = "The Lily Pad";
+    
+    /// @notice Platform version for compatibility tracking
+    string public constant PLATFORM_VERSION = "1.0.0";
+    
+    /// @notice The factory that deployed this collection (address(0) if deployed directly)
+    address public immutable factory;
+    
+    /// @notice Chain identifier for multi-chain support
+    uint256 public immutable deployedOnChainId;
+
     // ERC721 Events
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
     event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
@@ -15,6 +30,17 @@ contract LilyPadNFT {
     // Custom Events
     event PhaseConfigured(uint256 indexed phaseId, uint256 price, uint256 maxPerWallet, uint256 supply);
     event Minted(address indexed to, uint256 indexed tokenId);
+    
+    // Platform Events
+    event LilyPadCollectionCreated(
+        address indexed collection,
+        address indexed creator,
+        address indexed factory,
+        string name,
+        string symbol,
+        uint256 maxSupply,
+        uint256 chainId
+    );
 
     // ERC721 Storage
     string public name;
@@ -60,7 +86,8 @@ contract LilyPadNFT {
         uint256 maxSupply_,
         uint256 royaltyBps_,
         address royaltyReceiver_,
-        address owner_
+        address owner_,
+        address factory_
     ) {
         name = name_;
         symbol = symbol_;
@@ -68,6 +95,66 @@ contract LilyPadNFT {
         royaltyBps = royaltyBps_;
         royaltyReceiver = royaltyReceiver_;
         owner = owner_;
+        factory = factory_;
+        deployedOnChainId = block.chainid;
+        
+        // Emit platform identification event
+        emit LilyPadCollectionCreated(
+            address(this),
+            owner_,
+            factory_,
+            name_,
+            symbol_,
+            maxSupply_,
+            block.chainid
+        );
+    }
+
+    // ============ Platform Identification Functions ============
+    
+    /**
+     * @notice Returns true if this is a LilyPad collection
+     * @dev Can be used by marketplaces/indexers to identify LilyPad NFTs
+     */
+    function isLilyPadCollection() external pure returns (bool) {
+        return true;
+    }
+    
+    /**
+     * @notice Returns platform information
+     * @return platformName The platform name
+     * @return version The contract version
+     * @return factoryAddress The factory that deployed this collection
+     * @return chainId The chain this was deployed on
+     */
+    function getPlatformInfo() external view returns (
+        string memory platformName,
+        string memory version,
+        address factoryAddress,
+        uint256 chainId
+    ) {
+        return (PLATFORM_NAME, PLATFORM_VERSION, factory, deployedOnChainId);
+    }
+    
+    /**
+     * @notice Contract-level metadata URI (OpenSea standard)
+     * @dev Returns metadata about the collection itself, including LilyPad branding
+     */
+    function contractURI() external view returns (string memory) {
+        // Return a data URI with collection metadata
+        // In production, this could point to an IPFS/API endpoint
+        return string(abi.encodePacked(
+            "data:application/json;utf8,{",
+            '"name":"', name, '",',
+            '"symbol":"', symbol, '",',
+            '"description":"NFT Collection created on The Lily Pad - Premier NFT Launchpad on Monad",',
+            '"external_link":"https://thelilypad.app",',
+            '"platform":"The Lily Pad",',
+            '"platform_version":"', PLATFORM_VERSION, '",',
+            '"seller_fee_basis_points":', _toString(royaltyBps), ',',
+            '"fee_recipient":"', _toHexString(royaltyReceiver), '"',
+            "}"
+        ));
     }
 
     // ============ ERC721 Functions ============
@@ -273,6 +360,18 @@ contract LilyPadNFT {
             digits--;
             buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
             value /= 10;
+        }
+        return string(buffer);
+    }
+    
+    function _toHexString(address addr) internal pure returns (string memory) {
+        bytes memory buffer = new bytes(42);
+        buffer[0] = '0';
+        buffer[1] = 'x';
+        bytes memory hexChars = "0123456789abcdef";
+        for (uint256 i = 0; i < 20; i++) {
+            buffer[2 + i * 2] = hexChars[uint8(uint160(addr) >> (8 * (19 - i) + 4)) & 0x0f];
+            buffer[3 + i * 2] = hexChars[uint8(uint160(addr) >> (8 * (19 - i))) & 0x0f];
         }
         return string(buffer);
     }
