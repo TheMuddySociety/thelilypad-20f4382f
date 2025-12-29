@@ -110,6 +110,7 @@ const collectionSchema = z.object({
 
 export function CollectionEditForm({ collection, onSave, onCancel }: CollectionEditFormProps) {
   const navigate = useNavigate();
+  const [isInitialized, setIsInitialized] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -119,75 +120,104 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [activeTab, setActiveTab] = useState("details");
   
   // Form state
-  const [name, setName] = useState(collection.name);
-  const [symbol, setSymbol] = useState(collection.symbol);
-  const [description, setDescription] = useState(collection.description || "");
-  const [imageUrl, setImageUrl] = useState(collection.image_url || "");
+  const [name, setName] = useState("");
+  const [symbol, setSymbol] = useState("");
+  const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(collection.image_url);
-  const [bannerUrl, setBannerUrl] = useState(collection.banner_url || "");
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [bannerUrl, setBannerUrl] = useState("");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
-  const [bannerPreview, setBannerPreview] = useState<string | null>(collection.banner_url);
-  const [totalSupply, setTotalSupply] = useState(collection.total_supply);
-  const [royaltyPercent, setRoyaltyPercent] = useState(collection.royalty_percent);
-  const [status, setStatus] = useState(collection.status);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [totalSupply, setTotalSupply] = useState(0);
+  const [royaltyPercent, setRoyaltyPercent] = useState(0);
+  const [status, setStatus] = useState("upcoming");
   
   // Social links
-  const [socialTwitter, setSocialTwitter] = useState(collection.social_twitter || "");
-  const [socialDiscord, setSocialDiscord] = useState(collection.social_discord || "");
-  const [socialWebsite, setSocialWebsite] = useState(collection.social_website || "");
-  const [socialTelegram, setSocialTelegram] = useState(collection.social_telegram || "");
+  const [socialTwitter, setSocialTwitter] = useState("");
+  const [socialDiscord, setSocialDiscord] = useState("");
+  const [socialWebsite, setSocialWebsite] = useState("");
+  const [socialTelegram, setSocialTelegram] = useState("");
   
   // Collection type
-  const [collectionType, setCollectionType] = useState<CollectionType>(
-    (collection.collection_type as CollectionType) || "generative"
-  );
+  const [collectionType, setCollectionType] = useState<CollectionType>("generative");
   
   // Layers and traits for generative collections
-  const initialLayers = (() => {
-    try {
-      const layers = collection.layers_metadata as unknown as Layer[];
-      return Array.isArray(layers) ? layers : [];
-    } catch {
-      return [];
-    }
-  })();
-  
-  const initialTraitRules = (() => {
-    try {
-      const rules = collection.trait_rules as unknown as TraitRule[];
-      return Array.isArray(rules) ? rules : [];
-    } catch {
-      return [];
-    }
-  })();
-  
-  const [layers, setLayers] = useState<Layer[]>(initialLayers);
-  const [traitRules, setTraitRules] = useState<TraitRule[]>(initialTraitRules);
+  const [layers, setLayers] = useState<Layer[]>([]);
+  const [traitRules, setTraitRules] = useState<TraitRule[]>([]);
   
   // Artwork for 1-of-1 and editions
-  const initialArtworks = (() => {
-    try {
-      const artworks = collection.artworks_metadata as unknown as ArtworkItem[];
-      return Array.isArray(artworks) ? artworks : [];
-    } catch {
-      return [];
-    }
-  })();
+  const [artworks, setArtworks] = useState<ArtworkItem[]>([]);
   
-  const [artworks, setArtworks] = useState<ArtworkItem[]>(initialArtworks);
-  
-  // Parse phases from collection
-  const initialPhases = (() => {
-    try {
-      const phases = collection.phases as unknown as Phase[];
-      return Array.isArray(phases) ? phases : [];
-    } catch {
-      return [];
-    }
-  })();
-  
-  const [phases, setPhases] = useState<Phase[]>(initialPhases);
+  // Phases
+  const [phases, setPhases] = useState<Phase[]>([]);
+
+  // Initialize form state from collection data
+  useEffect(() => {
+    if (!collection) return;
+    
+    // Use requestAnimationFrame to defer heavy parsing to next frame
+    const initializeForm = () => {
+      // Basic fields
+      setName(collection.name);
+      setSymbol(collection.symbol);
+      setDescription(collection.description || "");
+      setImageUrl(collection.image_url || "");
+      setImagePreview(collection.image_url);
+      setBannerUrl(collection.banner_url || "");
+      setBannerPreview(collection.banner_url);
+      setTotalSupply(collection.total_supply);
+      setRoyaltyPercent(collection.royalty_percent);
+      setStatus(collection.status);
+      
+      // Social links
+      setSocialTwitter(collection.social_twitter || "");
+      setSocialDiscord(collection.social_discord || "");
+      setSocialWebsite(collection.social_website || "");
+      setSocialTelegram(collection.social_telegram || "");
+      
+      // Collection type
+      setCollectionType((collection.collection_type as CollectionType) || "generative");
+      
+      // Parse layers
+      try {
+        const parsedLayers = collection.layers_metadata as unknown as Layer[];
+        setLayers(Array.isArray(parsedLayers) ? parsedLayers : []);
+      } catch {
+        setLayers([]);
+      }
+      
+      // Parse trait rules
+      try {
+        const parsedRules = collection.trait_rules as unknown as TraitRule[];
+        setTraitRules(Array.isArray(parsedRules) ? parsedRules : []);
+      } catch {
+        setTraitRules([]);
+      }
+      
+      // Parse artworks
+      try {
+        const parsedArtworks = collection.artworks_metadata as unknown as ArtworkItem[];
+        setArtworks(Array.isArray(parsedArtworks) ? parsedArtworks : []);
+      } catch {
+        setArtworks([]);
+      }
+      
+      // Parse phases
+      try {
+        const parsedPhases = collection.phases as unknown as Phase[];
+        setPhases(Array.isArray(parsedPhases) ? parsedPhases : []);
+      } catch {
+        setPhases([]);
+      }
+      
+      setIsInitialized(true);
+    };
+
+    // Use setTimeout to ensure DOM is ready and prevent blocking
+    const timeoutId = setTimeout(initializeForm, 0);
+    return () => clearTimeout(timeoutId);
+  }, [collection]);
 
   const canEditSupply = collection.minted === 0;
   const isLive = collection.status === "live";
@@ -560,6 +590,42 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       setIsDeleting(false);
     }
   };
+
+  // Show loading state while initializing
+  if (!isInitialized) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+            <div className="h-4 w-72 bg-muted animate-pulse rounded mt-2" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-10 w-24 bg-muted animate-pulse rounded" />
+            <div className="h-10 w-32 bg-muted animate-pulse rounded" />
+          </div>
+        </div>
+        <div className="h-12 w-full bg-muted animate-pulse rounded" />
+        <Card>
+          <CardHeader>
+            <div className="h-6 w-40 bg-muted animate-pulse rounded" />
+            <div className="h-4 w-60 bg-muted animate-pulse rounded mt-2" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+            </div>
+            <div className="h-24 bg-muted animate-pulse rounded" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
