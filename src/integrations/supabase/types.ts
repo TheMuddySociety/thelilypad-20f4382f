@@ -483,6 +483,50 @@ export type Database = {
           },
         ]
       }
+      featured_collections: {
+        Row: {
+          collection_id: string
+          created_at: string
+          created_by: string | null
+          display_order: number
+          end_date: string
+          feature_type: string
+          id: string
+          is_active: boolean
+          start_date: string
+        }
+        Insert: {
+          collection_id: string
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          end_date: string
+          feature_type: string
+          id?: string
+          is_active?: boolean
+          start_date: string
+        }
+        Update: {
+          collection_id?: string
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          end_date?: string
+          feature_type?: string
+          id?: string
+          is_active?: boolean
+          start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "featured_collections_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       followers: {
         Row: {
           created_at: string
