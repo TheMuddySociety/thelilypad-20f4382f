@@ -901,6 +901,9 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   };
 
   const handleDeploy = async () => {
+    // Auto-save draft before attempting to create - prevents data loss on failure
+    performSave(false);
+    
     setIsDeploying(true);
     
     try {
@@ -982,9 +985,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       if (error) {
         console.error("Error creating collection:", error);
         toast.error("Failed to create collection", {
-          description: error.message,
+          description: `${error.message}. Your draft has been saved.`,
         });
         setIsDeploying(false);
+        // Draft is preserved so user can try again
         return;
       }
     
@@ -1022,10 +1026,13 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       setOneOfOneArtworks([]);
       setEditionArtwork(null);
       setEditionType("open");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error:", err);
-      toast.error("Something went wrong");
+      toast.error("Something went wrong", {
+        description: "Your draft has been saved. You can try again.",
+      });
       setIsDeploying(false);
+      // Draft is preserved so user can try again
     }
   };
 
