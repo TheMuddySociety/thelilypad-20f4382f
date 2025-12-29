@@ -28,6 +28,7 @@ import CollectionDetail from "./pages/CollectionDetail";
 import Watch from "./pages/Watch";
 import MyNFTs from "./pages/MyNFTs";
 import AdminDashboard from "./pages/AdminDashboard";
+import FeesAndPricing from "./pages/FeesAndPricing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ const App = () => (
             <Route path="/my-nfts" element={<MyNFTs />} />
             <Route path="/watch/:playbackId" element={<Watch />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/fees" element={<FeesAndPricing />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
