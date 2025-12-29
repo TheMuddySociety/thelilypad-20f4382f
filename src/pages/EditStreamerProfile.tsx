@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSEO } from "@/hooks/useSEO";
 import { 
   User, ArrowLeft, Save, Plus, Trash2,
-  Twitter, Youtube, MessageCircle, Instagram, Music2, Calendar, Tag, X, Upload, ImageIcon
+  Twitter, Youtube, MessageCircle, Instagram, Music2, Calendar, Tag, X, Upload, ImageIcon, Wallet, CheckCircle
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -63,6 +63,7 @@ const EditStreamerProfile = () => {
   const [socialTiktok, setSocialTiktok] = useState("");
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [payoutWalletAddress, setPayoutWalletAddress] = useState("");
 
   useSEO({
     title: "Edit Profile | The Lily Pad",
@@ -124,6 +125,9 @@ const EditStreamerProfile = () => {
 
           // Parse categories
           setCategories(Array.isArray(profile.categories) ? profile.categories : []);
+          
+          // Set payout wallet
+          setPayoutWalletAddress(profile.payout_wallet_address || "");
         }
       } catch (err) {
         console.error('Error in fetchProfile:', err);
@@ -160,6 +164,7 @@ const EditStreamerProfile = () => {
       social_tiktok: socialTiktok || null,
       schedule: JSON.parse(JSON.stringify(schedule)),
       categories: categories,
+      payout_wallet_address: payoutWalletAddress || null,
     };
 
     let error;
@@ -712,6 +717,40 @@ const EditStreamerProfile = () => {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Payout Wallet */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" />
+                Payout Wallet
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Set a specific wallet address to receive your earnings from donations, NFT sales, and shop sales. 
+                Leave empty to use your currently connected wallet.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="payoutWallet">Wallet Address</Label>
+                <Input
+                  id="payoutWallet"
+                  value={payoutWalletAddress}
+                  onChange={(e) => setPayoutWalletAddress(e.target.value)}
+                  placeholder="0x... (leave empty to use connected wallet)"
+                  className="font-mono text-sm"
+                />
+              </div>
+              {payoutWalletAddress && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <p className="text-sm text-green-500">
+                    Earnings will be sent to: {payoutWalletAddress.slice(0, 6)}...{payoutWalletAddress.slice(-4)}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

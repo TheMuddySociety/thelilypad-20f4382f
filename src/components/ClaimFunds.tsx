@@ -13,7 +13,8 @@ import {
   ArrowRight,
   CheckCircle,
   Loader2,
-  TrendingUp
+  TrendingUp,
+  Settings
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +48,7 @@ export const ClaimFunds: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [claimingType, setClaimingType] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [payoutWalletAddress, setPayoutWalletAddress] = useState<string | null>(null);
 
   useEffect(() => {
     const getUser = async () => {
@@ -55,6 +57,27 @@ export const ClaimFunds: React.FC = () => {
     };
     getUser();
   }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setIsLoading(false);
+      return;
+    }
+    fetchEarnings();
+    fetchPayoutWallet();
+  }, [userId]);
+
+  const fetchPayoutWallet = async () => {
+    if (!userId) return;
+    
+    const { data: profile } = await supabase
+      .from("streamer_profiles")
+      .select("payout_wallet_address")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    setPayoutWalletAddress(profile?.payout_wallet_address ?? null);
+  };
 
   useEffect(() => {
     if (!userId) {
@@ -340,6 +363,30 @@ export const ClaimFunds: React.FC = () => {
                 Claim All
               </Button>
             )}
+          </div>
+          {/* Payout Wallet Info */}
+          <div className="mt-3 pt-3 border-t border-primary/20">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Payout to:</span>
+              {payoutWalletAddress ? (
+                <span className="font-mono text-primary">
+                  {payoutWalletAddress.slice(0, 6)}...{payoutWalletAddress.slice(-4)}
+                </span>
+              ) : isConnected && address ? (
+                <span className="font-mono text-muted-foreground">
+                  {address.slice(0, 6)}...{address.slice(-4)} (connected)
+                </span>
+              ) : (
+                <span className="text-muted-foreground italic">No wallet configured</span>
+              )}
+              <a 
+                href="/edit-profile" 
+                className="text-primary hover:underline flex items-center gap-1"
+              >
+                <Settings className="w-3 h-3" />
+                Configure
+              </a>
+            </div>
           </div>
         </div>
 
