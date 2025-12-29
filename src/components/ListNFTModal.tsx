@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tag, CalendarIcon, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Tag, CalendarIcon, Loader2, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { Link } from "react-router-dom";
 import { format, addDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -201,7 +202,16 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
             </Popover>
           </div>
 
-          {/* Status Messages */}
+          {/* Fee Disclaimer */}
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30">
+            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
+              A 2.5% marketplace fee will be deducted from your sale.{' '}
+              <Link to="/fees" className="text-primary hover:underline">
+                Learn more
+              </Link>
+            </p>
+          </div>
           {listingStatus === 'success' && (
             <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-950/30 p-3 rounded-lg">
               <CheckCircle className="h-5 w-5" />

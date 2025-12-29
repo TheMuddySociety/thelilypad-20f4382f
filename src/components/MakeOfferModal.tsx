@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Loader2, Tag, Clock, MessageSquare } from "lucide-react";
+import { CalendarIcon, Loader2, Tag, Clock, MessageSquare, Info } from "lucide-react";
+import { Link } from "react-router-dom";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -237,6 +238,17 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               rows={2}
               maxLength={500}
             />
+          </div>
+
+          {/* Fee Disclaimer */}
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30">
+            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
+              If accepted, gas fees apply to complete the transfer.{' '}
+              <Link to="/fees" className="text-primary hover:underline">
+                View pricing
+              </Link>
+            </p>
           </div>
 
           <DialogFooter>
