@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +10,17 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { 
   Save, 
   X, 
@@ -97,7 +109,9 @@ const collectionSchema = z.object({
 });
 
 export function CollectionEditForm({ collection, onSave, onCancel }: CollectionEditFormProps) {
+  const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isDraggingImage, setIsDraggingImage] = useState(false);
@@ -473,6 +487,80 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     }
   };
 
+  const handleDelete = async () => {
+    if (isDeployed) {
+      toast.error("Cannot delete a deployed collection");
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      // Delete related allowlist entries first
+      await supabase
+        .from("allowlist_entries")
+        .delete()
+        .eq("collection_id", collection.id);
+
+      // Delete collection images from storage
+      if (collection.image_url?.includes('collection-images')) {
+        try {
+          const urlParts = collection.image_url.split('/collection-images/');
+          if (urlParts[1]) {
+            await supabase.storage.from('collection-images').remove([urlParts[1]]);
+          }
+        } catch (e) {
+          console.error("Error deleting image:", e);
+        }
+      }
+
+      if (collection.banner_url?.includes('collection-images')) {
+        try {
+          const urlParts = collection.banner_url.split('/collection-images/');
+          if (urlParts[1]) {
+            await supabase.storage.from('collection-images').remove([urlParts[1]]);
+          }
+        } catch (e) {
+          console.error("Error deleting banner:", e);
+        }
+      }
+
+      // Delete artwork files if any
+      const artworksData = collection.artworks_metadata as ArtworkItem[] | null;
+      if (artworksData && Array.isArray(artworksData)) {
+        const filesToDelete = artworksData
+          .filter(a => a.imageUrl?.includes('collection-images'))
+          .map(a => {
+            const parts = a.imageUrl.split('/collection-images/');
+            return parts[1];
+          })
+          .filter(Boolean);
+
+        if (filesToDelete.length > 0) {
+          await supabase.storage.from('collection-images').remove(filesToDelete);
+        }
+      }
+
+      // Delete the collection
+      const { error } = await supabase
+        .from("collections")
+        .delete()
+        .eq("id", collection.id);
+
+      if (error) {
+        console.error("Error deleting collection:", error);
+        toast.error("Failed to delete collection");
+      } else {
+        toast.success("Collection deleted successfully");
+        navigate("/launchpad");
+      }
+    } catch (err) {
+      console.error("Error:", err);
+      toast.error("Failed to delete collection");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -482,11 +570,46 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           <p className="text-muted-foreground">Update your collection details, artwork, and mint phases</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={onCancel} disabled={isSaving}>
+          {/* Delete button - only show if not deployed */}
+          {!isDeployed && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="text-destructive hover:bg-destructive/10" disabled={isSaving || isDeleting}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Collection</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete "{collection.name}"? This action cannot be undone. 
+                    All artwork, allowlist entries, and collection data will be permanently removed.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4 mr-2" />
+                    )}
+                    Delete Collection
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          
+          <Button variant="outline" onClick={onCancel} disabled={isSaving || isDeleting}>
             <X className="w-4 h-4 mr-2" />
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving || isDeleting}>
             {isSaving ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
