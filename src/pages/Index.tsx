@@ -2,6 +2,7 @@ import React from "react";
 import { Navbar } from "@/components/Navbar";
 import { HeroSection } from "@/components/sections/HeroSection";
 import { PresentationCard } from "@/components/sections/PresentationCard";
+import { FeaturedCollectionsSection } from "@/components/sections/FeaturedCollectionsSection";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
 import { ValuePropsSection } from "@/components/sections/ValuePropsSection";
 import { FeaturesSection } from "@/components/sections/FeaturesSection";
@@ -40,6 +41,7 @@ const Index: React.FC = () => {
       <Navbar />
       <HeroSection />
       <PresentationCard />
+      <FeaturedCollectionsSection />
       <TopCollectionsHighlights />
       <ValuePropsSection />
       <FeaturesSection />
