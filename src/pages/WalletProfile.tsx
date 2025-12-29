@@ -616,6 +616,10 @@ export default function WalletProfile() {
         onClose={() => setIsNFTModalOpen(false)}
         nft={selectedNFT}
         network={selectedNetwork}
+        onTransferSuccess={() => {
+          setIsNFTModalOpen(false);
+          refreshNFTs();
+        }}
       />
     </div>
   );
