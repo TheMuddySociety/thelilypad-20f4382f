@@ -62,6 +62,7 @@ interface Collection {
   banner_url: string | null;
   unrevealed_image_url: string | null;
   is_revealed: boolean;
+  scheduled_reveal_at: string | null;
   creator_address: string;
   creator_id: string;
   total_supply: number;
@@ -771,6 +772,7 @@ export default function CollectionDetail() {
                 collectionName={collection.name}
                 unrevealedImageUrl={collection.unrevealed_image_url}
                 isCollectionRevealed={collection.is_revealed}
+                scheduledRevealAt={collection.scheduled_reveal_at}
                 onRevealComplete={fetchCollection}
               />
             )}
