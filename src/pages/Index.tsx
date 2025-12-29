@@ -1,6 +1,7 @@
 import React from "react";
 import { Navbar } from "@/components/Navbar";
 import { HeroSection } from "@/components/sections/HeroSection";
+import { PresentationCard } from "@/components/sections/PresentationCard";
 import { ValuePropsSection } from "@/components/sections/ValuePropsSection";
 import { FeaturesSection } from "@/components/sections/FeaturesSection";
 import { MarketplacePreview } from "@/components/sections/MarketplacePreview";
@@ -37,6 +38,7 @@ const Index: React.FC = () => {
     <main className="min-h-screen bg-background overflow-hidden">
       <Navbar />
       <HeroSection />
+      <PresentationCard />
       <ValuePropsSection />
       <FeaturesSection />
       <MarketplacePreview />
