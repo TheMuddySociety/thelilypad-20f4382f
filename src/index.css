@@ -173,3 +173,16 @@
 .animate-drift-up {
   animation: drift-up 15s linear infinite;
 }
+
+/* 3D Perspective for card flip animations */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
