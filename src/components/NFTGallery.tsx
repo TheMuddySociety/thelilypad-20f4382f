@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { TraitRarityFilter, SelectedTraitsBar } from "@/components/TraitRarityFilter";
 import { MakeOfferModal } from "@/components/MakeOfferModal";
 import { NFTOffersList } from "@/components/NFTOffersList";
-import { ExternalLink, Image as ImageIcon, RefreshCw, User, Search, Grid3X3, List, SlidersHorizontal, Tag, MessageSquare } from "lucide-react";
+import { ExternalLink, Image as ImageIcon, RefreshCw, User, Search, Grid3X3, List, SlidersHorizontal, Tag, MessageSquare, EyeOff } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface NFT {
@@ -25,12 +25,15 @@ interface NFT {
   owner_id: string;
   tx_hash: string;
   minted_at: string;
+  is_revealed: boolean;
+  revealed_at: string | null;
 }
 
 interface NFTGalleryProps {
   collectionId: string;
   collectionName?: string;
   collectionImage?: string | null;
+  unrevealedImage?: string | null;
   contractAddress?: string | null;
   limit?: number;
   showFilters?: boolean;
@@ -40,6 +43,7 @@ export function NFTGallery({
   collectionId, 
   collectionName,
   collectionImage,
+  unrevealedImage,
   contractAddress,
   limit = 100,
   showFilters = true
@@ -422,7 +426,22 @@ export function NFTGallery({
                         className="group relative aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover:ring-2 hover:ring-primary transition-all"
                         onClick={() => setSelectedNft(nft)}
                       >
-                        {nft.image_url ? (
+                        {/* Show unrevealed image if not revealed, otherwise show actual image */}
+                        {!nft.is_revealed && unrevealedImage ? (
+                          <>
+                            <img
+                              src={unrevealedImage}
+                              alt="Unrevealed NFT"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute top-2 left-2">
+                              <Badge variant="outline" className="text-[10px] bg-amber-500/20 text-amber-500 border-amber-500/30">
+                                <EyeOff className="w-3 h-3 mr-1" />
+                                Unrevealed
+                              </Badge>
+                            </div>
+                          </>
+                        ) : nft.image_url ? (
                           <img
                             src={nft.image_url}
                             alt={nft.name || `#${nft.token_id}`}
@@ -439,8 +458,8 @@ export function NFTGallery({
                             <ImageIcon className="w-8 h-8 text-muted-foreground" />
                           </div>
                         )}
-                        {/* Rarity Badge */}
-                        {nft.attributes.length > 0 && (
+                        {/* Rarity Badge - only show if revealed */}
+                        {nft.is_revealed && nft.attributes.length > 0 && (
                           <Badge 
                             variant="outline"
                             className={`absolute top-2 right-2 text-[10px] ${rarity.color}`}
@@ -450,7 +469,7 @@ export function NFTGallery({
                         )}
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
                           <p className="text-white font-medium text-sm truncate">
-                            {nft.name || `${collectionName} #${nft.token_id}`}
+                            {nft.is_revealed ? (nft.name || `${collectionName} #${nft.token_id}`) : `${collectionName} #${nft.token_id}`}
                           </p>
                           <p className="text-white/70 text-xs">
                             #{nft.token_id}

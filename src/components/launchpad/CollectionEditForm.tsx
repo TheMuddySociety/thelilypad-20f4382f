@@ -75,6 +75,7 @@ interface Collection {
   image_url: string | null;
   banner_url: string | null;
   unrevealed_image_url: string | null;
+  is_revealed: boolean;
   creator_address: string;
   creator_id: string;
   total_supply: number;

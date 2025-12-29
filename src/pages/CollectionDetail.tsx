@@ -13,6 +13,7 @@ import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
 import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
 import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
 import { LaunchChecklist } from "@/components/launchpad/LaunchChecklist";
+import { RevealManager } from "@/components/launchpad/RevealManager";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTGallery } from "@/components/NFTGallery";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
@@ -60,6 +61,7 @@ interface Collection {
   image_url: string | null;
   banner_url: string | null;
   unrevealed_image_url: string | null;
+  is_revealed: boolean;
   creator_address: string;
   creator_id: string;
   total_supply: number;
@@ -762,6 +764,17 @@ export default function CollectionDetail() {
               />
             )}
 
+            {/* Reveal Manager for creators with deployed collections (hidden in preview mode) */}
+            {isCreator && collection.contract_address && !isPreviewMode && collection.minted > 0 && (
+              <RevealManager
+                collectionId={collection.id}
+                collectionName={collection.name}
+                unrevealedImageUrl={collection.unrevealed_image_url}
+                isCollectionRevealed={collection.is_revealed}
+                onRevealComplete={fetchCollection}
+              />
+            )}
+
             {/* Collection Analytics */}
             <CollectionAnalytics 
               collectionId={collection.id}
@@ -914,6 +927,7 @@ export default function CollectionDetail() {
               collectionId={collection.id}
               collectionName={collection.name}
               collectionImage={collection.image_url}
+              unrevealedImage={collection.unrevealed_image_url}
               contractAddress={collection.contract_address}
             />
           </div>
