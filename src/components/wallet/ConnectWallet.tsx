@@ -37,7 +37,7 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
   size = "sm",
   className,
 }) => {
-  const { address, isConnected, isConnecting, balance, chainId, connect, disconnect, currentChain } = useWallet();
+  const { address, isConnected, isConnecting, balance, chainId, connect, disconnect, currentChain, switchToMonad } = useWallet();
   const navigate = useNavigate();
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
@@ -78,7 +78,7 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
         variant="destructive"
         size={size}
         className={className}
-        onClick={() => {}}
+        onClick={switchToMonad}
       >
         Switch to {currentChain.name}
       </Button>
