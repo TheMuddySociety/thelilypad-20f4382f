@@ -32,7 +32,10 @@ import {
   Hash,
   Type,
   FileText,
-  GripVertical
+  GripVertical,
+  Eye,
+  LayoutGrid,
+  ShoppingCart
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -82,6 +85,9 @@ export function ArtworkUploader({
   // Drag-and-drop reordering
   const [reorderDragIndex, setReorderDragIndex] = useState<number | null>(null);
   const [reorderDropIndex, setReorderDropIndex] = useState<number | null>(null);
+  
+  // Preview mode
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   const handleDrag = useCallback((e: React.DragEvent, isDragging: boolean) => {
     e.preventDefault();
@@ -447,21 +453,42 @@ export function ArtworkUploader({
                 </Button>
               </>
             ) : (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setIsSelectionMode(true)}
-              >
-                <CheckSquare className="w-4 h-4 mr-2" />
-                Batch Edit
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant={isPreviewMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setIsPreviewMode(!isPreviewMode)}
+                >
+                  {isPreviewMode ? (
+                    <>
+                      <LayoutGrid className="w-4 h-4 mr-2" />
+                      Edit Mode
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-4 h-4 mr-2" />
+                      Preview NFTs
+                    </>
+                  )}
+                </Button>
+                {!isPreviewMode && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setIsSelectionMode(true)}
+                  >
+                    <CheckSquare className="w-4 h-4 mr-2" />
+                    Batch Edit
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>
       )}
 
       {/* Artwork Grid */}
-      {artworks.length > 0 && (
+      {artworks.length > 0 && !isPreviewMode && (
         <ScrollArea className="h-[400px] pr-4">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {artworks.map((artwork, index) => (
@@ -596,6 +623,88 @@ export function ArtworkUploader({
             ))}
           </div>
         </ScrollArea>
+      )}
+
+      {/* NFT Card Preview Mode */}
+      {artworks.length > 0 && isPreviewMode && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+            <Eye className="w-4 h-4 text-primary" />
+            <span className="text-sm">
+              Preview Mode: This is how your NFTs will appear in the marketplace
+            </span>
+          </div>
+          
+          <ScrollArea className="h-[500px] pr-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {artworks.map((artwork, index) => (
+                <Card 
+                  key={artwork.id}
+                  className="group overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 cursor-pointer"
+                >
+                  {/* NFT Image */}
+                  <div className="aspect-square relative overflow-hidden">
+                    {artwork.imageUrl ? (
+                      <img 
+                        src={artwork.imageUrl}
+                        alt={artwork.name}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <ImageIcon className="w-12 h-12 text-muted-foreground" />
+                      </div>
+                    )}
+                    
+                    {/* Verified Badge Placeholder */}
+                    <div className="absolute top-3 left-3">
+                      <Badge className="bg-primary/90 hover:bg-primary text-primary-foreground text-xs">
+                        LilyPad
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  {/* NFT Info */}
+                  <CardHeader className="pb-2 pt-3">
+                    <CardTitle className="text-base truncate">
+                      {artwork.name || `Token #${index + 1}`}
+                    </CardTitle>
+                    <CardDescription className="text-xs truncate">
+                      {collectionType === "one_of_one" ? "1 of 1" : "Edition"}
+                    </CardDescription>
+                  </CardHeader>
+                  
+                  <CardContent className="pb-3">
+                    {artwork.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                        {artwork.description}
+                      </p>
+                    )}
+                    
+                    {/* Mock Price Display */}
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-muted-foreground">Price</span>
+                      <span className="font-bold">-- MON</span>
+                    </div>
+                    
+                    {/* Mock Buy Button */}
+                    <Button className="w-full" size="sm" variant="outline" disabled>
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      Buy Now
+                    </Button>
+                    
+                    {/* Token ID indicator */}
+                    <div className="mt-2 pt-2 border-t border-border">
+                      <p className="text-xs text-muted-foreground text-center">
+                        Token ID: #{index + 1}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
       )}
 
       {/* Empty State */}
