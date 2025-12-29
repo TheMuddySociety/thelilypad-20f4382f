@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, CheckCircle, Heart, Radio, ExternalLink, Calendar, Tag, Loader2, Sparkles, Filter, ArrowUpDown, Search, X, LayoutGrid, List } from "lucide-react";
+import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -485,6 +486,9 @@ const Following = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-12">
+          <div className="flex justify-center mb-4">
+            <LilyPadLogo size={64} />
+          </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Following

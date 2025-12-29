@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Search, Filter, Users, CheckCircle, Calendar, ExternalLink, Heart, ArrowUpDown, Radio, Tag } from "lucide-react";
+import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -248,6 +249,9 @@ const availableCategories = [
       <main className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-12">
+          <div className="flex justify-center mb-4">
+            <LilyPadLogo size={64} />
+          </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Lily Streamers

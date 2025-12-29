@@ -35,6 +35,7 @@ import {
   Star,
   Gem
 } from "lucide-react";
+import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -447,18 +448,21 @@ export default function MyNFTs() {
       <main className="container mx-auto px-4 pt-24 pb-12">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">My NFTs</h1>
-            <p className="text-muted-foreground">
-              {isConnected && address ? (
-                <span className="flex items-center gap-2">
-                  <Wallet className="w-4 h-4" />
-                  {formatAddress(address)}
-                </span>
-              ) : currentUserId ? (
-                <span className="text-sm">Showing NFTs linked to your account</span>
-              ) : null}
-            </p>
+          <div className="flex items-center gap-4">
+            <LilyPadLogo size={48} />
+            <div>
+              <h1 className="text-3xl font-bold">My NFTs</h1>
+              <p className="text-muted-foreground">
+                {isConnected && address ? (
+                  <span className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4" />
+                    {formatAddress(address)}
+                  </span>
+                ) : currentUserId ? (
+                  <span className="text-sm">Showing NFTs linked to your account</span>
+                ) : null}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center border rounded-lg p-1">
