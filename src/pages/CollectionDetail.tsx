@@ -608,14 +608,24 @@ export default function CollectionDetail() {
           {isCreator && (
             <div className="flex items-center gap-2">
               {!collection.contract_address && (
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  onClick={() => setIsDeployModalOpen(true)}
-                >
-                  <Rocket className="w-4 h-4 mr-2" />
-                  Deploy Contract
-                </Button>
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Edit Collection
+                  </Button>
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    onClick={() => setIsDeployModalOpen(true)}
+                  >
+                    <Rocket className="w-4 h-4 mr-2" />
+                    Deploy Contract
+                  </Button>
+                </>
               )}
               {collection.contract_address && (
                 <Button 
@@ -627,14 +637,6 @@ export default function CollectionDetail() {
                   Manage Allowlist
                 </Button>
               )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setIsEditMode(true)}
-              >
-                <Pencil className="w-4 h-4 mr-2" />
-                Edit Collection
-              </Button>
             </div>
           )}
         </div>

@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2, FileEdit, Trash2, FolderOpen, Image as ImageIcon, LayoutGrid, ChevronDown, Check, HelpCircle } from "lucide-react";
+import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader2, FileEdit, Trash2, FolderOpen, Image as ImageIcon, LayoutGrid, ChevronDown, Check, HelpCircle, Pencil, Lock } from "lucide-react";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,12 +43,14 @@ interface Collection {
   name: string;
   image_url: string | null;
   creator_address: string;
+  creator_id: string;
   total_supply: number;
   minted: number;
   status: string;
   phases: unknown;
   royalty_percent: number;
   created_at: string;
+  contract_address: string | null;
 }
 
 const statusColors = {
@@ -72,6 +74,20 @@ export default function Launchpad() {
   const [isLoading, setIsLoading] = useState(true);
   const [draft, setDraft] = useState<DraftCollection | null>(null);
   const [editingDraft, setEditingDraft] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Get current user
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const isTestnet = network === "testnet";
   const walkthrough = useLaunchpadWalkthrough();
@@ -461,10 +477,14 @@ export default function Launchpad() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredCollections.map((collection) => {
                   const StatusIcon = statusIcons[collection.status as keyof typeof statusIcons];
+                  const isOwner = currentUserId && collection.creator_id === currentUserId;
+                  const isDeployed = !!collection.contract_address;
+                  const canEdit = isOwner && !isDeployed;
+                  
                   return (
                     <Card 
                       key={collection.id} 
-                      className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
+                      className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer ${canEdit ? 'border-amber-500/30' : ''}`}
                       onClick={() => navigate(`/launchpad/${collection.id}`)}
                     >
                       <div className="aspect-square relative overflow-hidden bg-muted">
@@ -479,9 +499,29 @@ export default function Launchpad() {
                             <Rocket className="w-12 h-12 text-muted-foreground" />
                           </div>
                         )}
+                        <div className="absolute top-3 right-3 flex gap-2">
+                          {canEdit && (
+                            <Badge 
+                              variant="outline" 
+                              className="bg-amber-500/20 text-amber-400 border-amber-500/30"
+                            >
+                              <Pencil className="w-3 h-3 mr-1" />
+                              Editable
+                            </Badge>
+                          )}
+                          {isOwner && isDeployed && (
+                            <Badge 
+                              variant="outline" 
+                              className="bg-green-500/20 text-green-400 border-green-500/30"
+                            >
+                              <Lock className="w-3 h-3 mr-1" />
+                              Deployed
+                            </Badge>
+                          )}
+                        </div>
                         <Badge 
                           variant="outline" 
-                          className={`absolute top-3 right-3 ${statusColors[collection.status as keyof typeof statusColors]}`}
+                          className={`absolute top-3 left-3 ${statusColors[collection.status as keyof typeof statusColors]}`}
                         >
                           <StatusIcon className="w-3 h-3 mr-1" />
                           {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
