@@ -30,8 +30,10 @@ export const NetworkSwitch: React.FC = () => {
       </div>
       <Switch
         checked={isTestnet}
-        onCheckedChange={(checked) => switchNetwork(checked ? "testnet" : "mainnet")}
-        disabled={isConnected}
+        onCheckedChange={async (checked) => {
+          const newNetwork = checked ? "testnet" : "mainnet";
+          switchNetwork(newNetwork);
+        }}
         aria-label="Toggle network"
       />
       {isTestnet && (
@@ -44,11 +46,6 @@ export const NetworkSwitch: React.FC = () => {
           <Droplets className="w-3 h-3 mr-1" />
           Faucet
         </Button>
-      )}
-      {isConnected && !isTestnet && (
-        <span className="text-xs text-muted-foreground">
-          Disconnect to switch
-        </span>
       )}
     </div>
   );
