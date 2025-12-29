@@ -463,7 +463,7 @@ export default function MyNFTs() {
                   <Button
                     key={collection.id}
                     variant={selectedCollection === collection.id ? "secondary" : "ghost"}
-                    className="w-full justify-between"
+                    className="w-full justify-between h-auto py-2"
                     onClick={() => setSelectedCollection(collection.id)}
                   >
                     <span className="flex items-center gap-2 truncate">
@@ -480,7 +480,14 @@ export default function MyNFTs() {
                       )}
                       <span className="truncate">{collection.name}</span>
                     </span>
-                    <Badge variant="outline">{collection.count}</Badge>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <Badge variant="outline" className="text-xs">{collection.count}</Badge>
+                      {collection.floorPrice !== null && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {collection.floorPrice.toFixed(2)} MON
+                        </span>
+                      )}
+                    </div>
                   </Button>
                 ))}
               </CardContent>
