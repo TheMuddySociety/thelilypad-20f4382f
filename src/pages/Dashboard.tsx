@@ -31,6 +31,7 @@ import {
   Plus
 } from "lucide-react";
 import { ShopItemsList } from "@/components/shop/ShopItemsList";
+import { ClaimFunds } from "@/components/ClaimFunds";
 import { CreateShopItemModal } from "@/components/shop/CreateShopItemModal";
 import {
   LineChart,
@@ -553,6 +554,9 @@ export default function Dashboard() {
           userId={user.id}
           onSuccess={() => setShopItemRefreshTrigger((t) => t + 1)}
         />
+
+        {/* Claim Funds */}
+        <ClaimFunds />
 
         {/* Recent Activity */}
         <Tabs defaultValue="streams" className="w-full">
