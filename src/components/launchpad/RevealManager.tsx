@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -17,18 +19,21 @@ import {
 import { 
   Sparkles, 
   Eye, 
-  EyeOff, 
   Loader2, 
   CheckCircle2, 
   Image as ImageIcon,
   Wand2,
   Flame,
   Snowflake,
-  Star
+  Star,
+  Clock,
+  Calendar,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { NFTRevealAnimation, RevealTheme } from "./NFTRevealAnimation";
+import { format, parseISO, isFuture } from "date-fns";
 
 interface MintedNFT {
   id: string;
@@ -44,6 +49,7 @@ interface RevealManagerProps {
   collectionName: string;
   unrevealedImageUrl: string | null;
   isCollectionRevealed: boolean;
+  scheduledRevealAt: string | null;
   onRevealComplete: () => void;
 }
 
@@ -59,6 +65,7 @@ export function RevealManager({
   collectionName,
   unrevealedImageUrl,
   isCollectionRevealed,
+  scheduledRevealAt,
   onRevealComplete,
 }: RevealManagerProps) {
   const [nfts, setNfts] = useState<MintedNFT[]>([]);
@@ -70,6 +77,17 @@ export function RevealManager({
   const [revealedNftsForAnimation, setRevealedNftsForAnimation] = useState<MintedNFT[]>([]);
   const [revealMode, setRevealMode] = useState<"all" | "selected">("all");
   const [selectedTheme, setSelectedTheme] = useState<RevealTheme>("magic");
+  
+  // Scheduled reveal state
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+  const [localScheduledAt, setLocalScheduledAt] = useState<string | null>(scheduledRevealAt);
+
+  useEffect(() => {
+    setLocalScheduledAt(scheduledRevealAt);
+  }, [scheduledRevealAt]);
 
   useEffect(() => {
     fetchNFTs();
@@ -126,6 +144,65 @@ export function RevealManager({
     }
     setRevealMode("selected");
     setShowConfirmDialog(true);
+  };
+
+  const handleSaveSchedule = async () => {
+    if (!scheduleDate || !scheduleTime) {
+      toast.error("Please select both date and time");
+      return;
+    }
+
+    const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
+    
+    if (!isFuture(scheduledDateTime)) {
+      toast.error("Scheduled time must be in the future");
+      return;
+    }
+
+    setIsSavingSchedule(true);
+    
+    try {
+      const { error } = await supabase
+        .from("collections")
+        .update({ scheduled_reveal_at: scheduledDateTime.toISOString() })
+        .eq("id", collectionId);
+
+      if (error) throw error;
+
+      setLocalScheduledAt(scheduledDateTime.toISOString());
+      setShowScheduleForm(false);
+      setScheduleDate("");
+      setScheduleTime("");
+      toast.success("Reveal scheduled successfully!");
+      onRevealComplete();
+    } catch (error) {
+      console.error("Error scheduling reveal:", error);
+      toast.error("Failed to schedule reveal");
+    } finally {
+      setIsSavingSchedule(false);
+    }
+  };
+
+  const handleCancelSchedule = async () => {
+    setIsSavingSchedule(true);
+    
+    try {
+      const { error } = await supabase
+        .from("collections")
+        .update({ scheduled_reveal_at: null })
+        .eq("id", collectionId);
+
+      if (error) throw error;
+
+      setLocalScheduledAt(null);
+      toast.success("Scheduled reveal cancelled");
+      onRevealComplete();
+    } catch (error) {
+      console.error("Error cancelling schedule:", error);
+      toast.error("Failed to cancel scheduled reveal");
+    } finally {
+      setIsSavingSchedule(false);
+    }
   };
 
   const executeReveal = async () => {
@@ -325,6 +402,110 @@ export function RevealManager({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Scheduled Reveal Section */}
+          {unrevealedCount > 0 && (
+            <div className="space-y-3 p-4 bg-muted/30 rounded-lg border border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <p className="font-medium text-sm">Scheduled Reveal</p>
+                </div>
+                {localScheduledAt && (
+                  <Badge variant="outline" className="text-primary border-primary/30">
+                    <Calendar className="w-3 h-3 mr-1" />
+                    Scheduled
+                  </Badge>
+                )}
+              </div>
+              
+              {localScheduledAt ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm">
+                      Auto-reveal scheduled for{" "}
+                      <span className="font-medium text-primary">
+                        {format(parseISO(localScheduledAt), "MMM d, yyyy 'at' h:mm a")}
+                      </span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      All unrevealed NFTs will be revealed automatically
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCancelSchedule}
+                    disabled={isSavingSchedule}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    {isSavingSchedule ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <X className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              ) : showScheduleForm ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="schedule-date" className="text-xs">Date</Label>
+                      <Input
+                        id="schedule-date"
+                        type="date"
+                        value={scheduleDate}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                        min={format(new Date(), "yyyy-MM-dd")}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="schedule-time" className="text-xs">Time</Label>
+                      <Input
+                        id="schedule-time"
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveSchedule}
+                      disabled={!scheduleDate || !scheduleTime || isSavingSchedule}
+                    >
+                      {isSavingSchedule ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Clock className="w-4 h-4 mr-2" />
+                      )}
+                      Schedule Reveal
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowScheduleForm(false)}
+                      disabled={isSavingSchedule}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowScheduleForm(true)}
+                >
+                  <Clock className="w-4 h-4 mr-2" />
+                  Schedule Auto-Reveal
+                </Button>
+              )}
             </div>
           )}
 
