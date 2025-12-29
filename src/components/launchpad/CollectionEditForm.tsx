@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Save, 
   X, 
@@ -23,11 +24,19 @@ import {
   Send,
   Gem,
   Copy,
-  Shuffle
+  Shuffle,
+  Layers,
+  FileText,
+  Clock,
+  Palette,
+  Info
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
+import { LayerManager, Layer } from "./LayerManager";
+import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
+import { GenerationPreview } from "./GenerationPreview";
 
 interface Phase {
   id: string;
@@ -65,6 +74,8 @@ interface Collection {
   social_website: string | null;
   social_telegram: string | null;
   collection_type?: string;
+  layers_metadata?: unknown;
+  trait_rules?: unknown;
 }
 
 interface CollectionEditFormProps {
@@ -89,6 +100,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [isDraggingBanner, setIsDraggingBanner] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
   
   // Form state
   const [name, setName] = useState(collection.name);
@@ -115,6 +127,36 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     (collection.collection_type as CollectionType) || "generative"
   );
   
+  // Layers and traits for generative collections
+  const initialLayers = (() => {
+    try {
+      const layers = collection.layers_metadata as unknown as Layer[];
+      return Array.isArray(layers) ? layers : [];
+    } catch {
+      return [];
+    }
+  })();
+  
+  const initialTraitRules = (() => {
+    try {
+      const rules = collection.trait_rules as unknown as TraitRule[];
+      return Array.isArray(rules) ? rules : [];
+    } catch {
+      return [];
+    }
+  })();
+  
+  const [layers, setLayers] = useState<Layer[]>(initialLayers);
+  const [traitRules, setTraitRules] = useState<TraitRule[]>(initialTraitRules);
+  
+  // Artwork for 1-of-1 and editions
+  const [artworkFiles, setArtworkFiles] = useState<Array<{
+    id: string;
+    name: string;
+    imageUrl: string;
+    description?: string;
+  }>>([]);
+  
   // Parse phases from collection
   const initialPhases = (() => {
     try {
@@ -129,6 +171,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
   const canEditSupply = collection.minted === 0;
   const isLive = collection.status === "live";
+  const isDeployed = !!collection.contract_address;
 
   const processImageFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -393,6 +436,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           status,
           collection_type: collectionType,
           phases: phasesJson as unknown as undefined,
+          layers_metadata: collectionType === "generative" ? (layers as unknown as undefined) : null,
+          trait_rules: collectionType === "generative" ? (traitRules as unknown as undefined) : null,
           social_twitter: socialTwitter.trim() || null,
           social_discord: socialDiscord.trim() || null,
           social_website: socialWebsite.trim() || null,
@@ -422,7 +467,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Edit Collection</h2>
-          <p className="text-muted-foreground">Update your collection details and mint phases</p>
+          <p className="text-muted-foreground">Update your collection details, artwork, and mint phases</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={onCancel} disabled={isSaving}>
@@ -452,7 +497,38 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
         </div>
       )}
 
-      {/* Basic Info */}
+      {isDeployed && (
+        <div className="p-4 bg-primary/10 border border-primary/30 rounded-lg flex items-start gap-3">
+          <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-primary">Contract Deployed</p>
+            <p className="text-sm text-primary/80">
+              Artwork and layers cannot be modified after contract deployment. You can still update details and phases.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Tabbed Interface */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="details" className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Details
+          </TabsTrigger>
+          <TabsTrigger value="artwork" className="flex items-center gap-2" disabled={isDeployed}>
+            <Palette className="w-4 h-4" />
+            {collectionType === "generative" ? "Layers & Traits" : "Artwork"}
+            {isDeployed && <Badge variant="outline" className="ml-1 text-xs">Locked</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="phases" className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            Mint Phases
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Details Tab */}
+        <TabsContent value="details" className="space-y-6 mt-6">
       <Card>
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
@@ -827,120 +903,210 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
 
-      {/* Mint Phases */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Mint Phases</CardTitle>
-              <CardDescription>Configure your mint schedule and pricing</CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleAddPhase}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Phase
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {phases.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No phases configured</p>
-              <Button variant="link" onClick={handleAddPhase}>
-                Add your first phase
-              </Button>
-            </div>
+        {/* Artwork / Layers Tab */}
+        <TabsContent value="artwork" className="space-y-6 mt-6">
+          {collectionType === "generative" ? (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Layers className="w-5 h-5" />
+                    Layers & Traits
+                  </CardTitle>
+                  <CardDescription>
+                    Define your layers and upload trait images. Each layer represents a component of your NFT (e.g., Background, Body, Eyes, Accessories).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <LayerManager 
+                    layers={layers}
+                    onLayersChange={setLayers}
+                  />
+                </CardContent>
+              </Card>
+
+              {layers.length > 0 && (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Trait Rules</CardTitle>
+                      <CardDescription>
+                        Define compatibility rules between traits (optional)
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <TraitRulesManager
+                        layers={layers}
+                        rules={traitRules}
+                        onRulesChange={setTraitRules}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Generation Preview</CardTitle>
+                      <CardDescription>
+                        Preview how your generative NFTs will look
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <GenerationPreview 
+                        layers={layers}
+                        rules={traitRules}
+                        totalSupply={totalSupply.toString()}
+                      />
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </>
           ) : (
-            phases.map((phase, index) => (
-              <div
-                key={phase.id}
-                className="p-4 border rounded-lg space-y-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">Phase {index + 1}</Badge>
-                    <Input
-                      value={phase.name}
-                      onChange={(e) => handlePhaseChange(phase.id, "name", e.target.value)}
-                      className="w-40 h-8"
-                      placeholder="Phase name"
-                      maxLength={50}
-                    />
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive/10"
-                    onClick={() => handleRemovePhase(phase.id)}
-                    disabled={phases.length <= 1}
-                  >
-                    <Trash2 className="w-4 h-4" />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  {collectionType === "one_of_one" ? (
+                    <Gem className="w-5 h-5 text-amber-500" />
+                  ) : (
+                    <Copy className="w-5 h-5 text-emerald-500" />
+                  )}
+                  {collectionType === "one_of_one" ? "1 of 1 Artwork" : "Edition Artwork"}
+                </CardTitle>
+                <CardDescription>
+                  {collectionType === "one_of_one" 
+                    ? "Upload unique artwork for each NFT in your collection."
+                    : "Upload artwork for your editions collection."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <Upload className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Artwork upload for {collectionType === "one_of_one" ? "1 of 1" : "editions"} collections coming soon.</p>
+                  <p className="text-sm mt-2">For now, you can configure your collection details and mint phases.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Mint Phases Tab */}
+        <TabsContent value="phases" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Mint Phases</CardTitle>
+                  <CardDescription>Configure your mint schedule and pricing</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleAddPhase}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Phase
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {phases.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No phases configured</p>
+                  <Button variant="link" onClick={handleAddPhase}>
+                    Add your first phase
                   </Button>
                 </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Price (MON)</Label>
-                    <Input
-                      type="number"
-                      value={phase.price}
-                      onChange={(e) => handlePhaseChange(phase.id, "price", e.target.value)}
-                      min={0}
-                      step={0.01}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Supply</Label>
-                    <Input
-                      type="number"
-                      value={phase.supply}
-                      onChange={(e) => handlePhaseChange(phase.id, "supply", parseInt(e.target.value) || 0)}
-                      min={1}
-                      max={totalSupply}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Max/Wallet</Label>
-                    <Input
-                      type="number"
-                      value={phase.maxPerWallet}
-                      onChange={(e) => handlePhaseChange(phase.id, "maxPerWallet", parseInt(e.target.value) || 1)}
-                      min={1}
-                      max={100}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Requires Allowlist</Label>
-                    <div className="flex items-center h-10">
-                      <Switch
-                        checked={phase.requiresAllowlist}
-                        onCheckedChange={(checked) => handlePhaseChange(phase.id, "requiresAllowlist", checked)}
-                      />
+              ) : (
+                phases.map((phase, index) => (
+                  <div
+                    key={phase.id}
+                    className="p-4 border rounded-lg space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">Phase {index + 1}</Badge>
+                        <Input
+                          value={phase.name}
+                          onChange={(e) => handlePhaseChange(phase.id, "name", e.target.value)}
+                          className="w-40 h-8"
+                          placeholder="Phase name"
+                          maxLength={50}
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:bg-destructive/10"
+                        onClick={() => handleRemovePhase(phase.id)}
+                        disabled={phases.length <= 1}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Price (MON)</Label>
+                        <Input
+                          type="number"
+                          value={phase.price}
+                          onChange={(e) => handlePhaseChange(phase.id, "price", e.target.value)}
+                          min={0}
+                          step={0.01}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Supply</Label>
+                        <Input
+                          type="number"
+                          value={phase.supply}
+                          onChange={(e) => handlePhaseChange(phase.id, "supply", parseInt(e.target.value) || 0)}
+                          min={1}
+                          max={totalSupply}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Max/Wallet</Label>
+                        <Input
+                          type="number"
+                          value={phase.maxPerWallet}
+                          onChange={(e) => handlePhaseChange(phase.id, "maxPerWallet", parseInt(e.target.value) || 1)}
+                          min={1}
+                          max={100}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Requires Allowlist</Label>
+                        <div className="flex items-center h-10">
+                          <Switch
+                            checked={phase.requiresAllowlist}
+                            onCheckedChange={(checked) => handlePhaseChange(phase.id, "requiresAllowlist", checked)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {phase.minted !== undefined && phase.minted > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {phase.minted} already minted in this phase
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+
+              {phases.length > 0 && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total Phase Supply</span>
+                    <span className={`font-medium ${phases.reduce((sum, p) => sum + p.supply, 0) > totalSupply ? "text-destructive" : ""}`}>
+                      {phases.reduce((sum, p) => sum + p.supply, 0).toLocaleString()} / {totalSupply.toLocaleString()}
+                    </span>
                   </div>
                 </div>
-
-                {phase.minted !== undefined && phase.minted > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {phase.minted} already minted in this phase
-                  </p>
-                )}
-              </div>
-            ))
-          )}
-
-          {phases.length > 0 && (
-            <div className="p-3 bg-muted/50 rounded-lg">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Total Phase Supply</span>
-                <span className={`font-medium ${phases.reduce((sum, p) => sum + p.supply, 0) > totalSupply ? "text-destructive" : ""}`}>
-                  {phases.reduce((sum, p) => sum + p.supply, 0).toLocaleString()} / {totalSupply.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
