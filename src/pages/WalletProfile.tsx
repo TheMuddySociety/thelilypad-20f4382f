@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { useSEO } from "@/hooks/useSEO";
+import { useWalletNFTs } from "@/hooks/useWalletNFTs";
 import { toast } from "sonner";
 import { WalletAvatar } from "@/components/wallet/WalletAvatar";
 import { 
@@ -22,7 +23,9 @@ import {
   Settings,
   CheckCircle,
   Pencil,
-  X
+  X,
+  RefreshCw,
+  Loader2
 } from "lucide-react";
 import { monadMainnet } from "@/config/alchemy";
 
@@ -34,13 +37,6 @@ const mockTransactions = [
   { id: "4", type: "receive", amount: "10.0", from: "0x7777...8888", timestamp: "2024-01-12T20:00:00Z", hash: "0xjkl...012" },
 ];
 
-// Mock NFT data - in production this would come from Alchemy NFT API
-const mockNFTs = [
-  { id: "1", name: "Lily Pad #001", collection: "Lily Pad Genesis", image: "/placeholder.svg" },
-  { id: "2", name: "Monad Frog #042", collection: "Monad Frogs", image: "/placeholder.svg" },
-  { id: "3", name: "Stream Pass #123", collection: "Creator Passes", image: "/placeholder.svg" },
-];
-
 export default function WalletProfile() {
   const { address, isConnected, balance, chainId, disconnect } = useWallet();
   const navigate = useNavigate();
@@ -49,6 +45,16 @@ export default function WalletProfile() {
   const [walletName, setWalletName] = useState<string>("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempWalletName, setTempWalletName] = useState("");
+  
+  // Fetch real NFTs from Alchemy
+  const { 
+    nfts, 
+    totalCount: nftCount, 
+    isLoading: nftsLoading, 
+    hasMore, 
+    loadMore, 
+    refresh: refreshNFTs 
+  } = useWalletNFTs(address, "eth-mainnet");
 
   // Load wallet name from localStorage
   useEffect(() => {
@@ -203,7 +209,7 @@ export default function WalletProfile() {
               {isLoading ? (
                 <Skeleton className="h-6 sm:h-8 w-8 sm:w-16" />
               ) : (
-                <div className="text-lg sm:text-xl md:text-2xl font-bold">{mockNFTs.length}</div>
+                <div className="text-lg sm:text-xl md:text-2xl font-bold">{nftCount}</div>
               )}
             </CardContent>
           </Card>
@@ -318,11 +324,23 @@ export default function WalletProfile() {
           {/* NFTs Tab */}
           <TabsContent value="nfts">
             <Card className="glass-card border-border/50">
-              <CardHeader className="p-4 sm:p-6">
+              <CardHeader className="p-4 sm:p-6 flex flex-row items-center justify-between">
                 <CardTitle className="text-base sm:text-lg">NFT Holdings</CardTitle>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={refreshNFTs}
+                  disabled={nftsLoading}
+                >
+                  {nftsLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                </Button>
               </CardHeader>
               <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                {isLoading ? (
+                {nftsLoading && nfts.length === 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
                     {[1, 2, 3].map((i) => (
                       <div key={i} className="rounded-lg sm:rounded-xl overflow-hidden bg-muted">
@@ -334,27 +352,67 @@ export default function WalletProfile() {
                       </div>
                     ))}
                   </div>
-                ) : mockNFTs.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
-                    {mockNFTs.map((nft) => (
-                      <div
-                        key={nft.id}
-                        className="rounded-lg sm:rounded-xl overflow-hidden bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
-                      >
-                        <div className="aspect-square bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                          <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground/50 group-hover:scale-110 transition-transform" />
+                ) : nfts.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
+                      {nfts.map((nft) => (
+                        <div
+                          key={`${nft.contractAddress}-${nft.tokenId}`}
+                          className="rounded-lg sm:rounded-xl overflow-hidden bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
+                        >
+                          {nft.image ? (
+                            <div className="aspect-square overflow-hidden">
+                              <img
+                                src={nft.image}
+                                alt={nft.name}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                              <div className="hidden aspect-square bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                                <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground/50" />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="aspect-square bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                              <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground/50 group-hover:scale-110 transition-transform" />
+                            </div>
+                          )}
+                          <div className="p-2.5 sm:p-4">
+                            <h3 className="font-semibold text-xs sm:text-base truncate">{nft.name}</h3>
+                            <p className="text-[10px] sm:text-sm text-muted-foreground truncate">{nft.collection}</p>
+                          </div>
                         </div>
-                        <div className="p-2.5 sm:p-4">
-                          <h3 className="font-semibold text-xs sm:text-base truncate">{nft.name}</h3>
-                          <p className="text-[10px] sm:text-sm text-muted-foreground truncate">{nft.collection}</p>
-                        </div>
+                      ))}
+                    </div>
+                    {hasMore && (
+                      <div className="mt-4 text-center">
+                        <Button
+                          variant="outline"
+                          onClick={loadMore}
+                          disabled={nftsLoading}
+                        >
+                          {nftsLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            "Load More"
+                          )}
+                        </Button>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 ) : (
                   <div className="text-center py-8 sm:py-12 text-muted-foreground">
                     <ImageIcon className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
                     <p className="text-sm sm:text-base">No NFTs in your wallet</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      NFTs on Ethereum mainnet will appear here
+                    </p>
                   </div>
                 )}
               </CardContent>
