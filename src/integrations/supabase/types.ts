@@ -305,6 +305,7 @@ export type Database = {
           created_at: string
           creator_address: string
           creator_id: string
+          deleted_at: string | null
           description: string | null
           id: string
           image_url: string | null
@@ -314,6 +315,7 @@ export type Database = {
           name: string
           phases: Json
           royalty_percent: number
+          scheduled_permanent_delete_at: string | null
           scheduled_reveal_at: string | null
           social_discord: string | null
           social_telegram: string | null
@@ -334,6 +336,7 @@ export type Database = {
           created_at?: string
           creator_address: string
           creator_id: string
+          deleted_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
@@ -343,6 +346,7 @@ export type Database = {
           name: string
           phases?: Json
           royalty_percent?: number
+          scheduled_permanent_delete_at?: string | null
           scheduled_reveal_at?: string | null
           social_discord?: string | null
           social_telegram?: string | null
@@ -363,6 +367,7 @@ export type Database = {
           created_at?: string
           creator_address?: string
           creator_id?: string
+          deleted_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
@@ -372,6 +377,7 @@ export type Database = {
           name?: string
           phases?: Json
           royalty_percent?: number
+          scheduled_permanent_delete_at?: string | null
           scheduled_reveal_at?: string | null
           social_discord?: string | null
           social_telegram?: string | null

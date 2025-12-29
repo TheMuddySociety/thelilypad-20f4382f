@@ -7,7 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, toast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+import { addDays } from "date-fns";
 import { useSEO } from "@/hooks/useSEO";
 import { 
   BarChart3, 
@@ -164,6 +166,7 @@ export default function Dashboard() {
         .select("*")
         .eq("creator_id", user.id)
         .in("status", ["draft", "upcoming"])
+        .is("deleted_at", null)
         .order("updated_at", { ascending: false });
 
       if (error) {
@@ -180,10 +183,18 @@ export default function Dashboard() {
 
   const handleDeleteDraft = async (collectionId: string) => {
     setIsDeleting(true);
+    const collectionToDelete = draftCollections.find(c => c.id === collectionId);
+    const collectionName = collectionToDelete?.name || "Collection";
+    
     try {
+      const scheduledDeleteAt = addDays(new Date(), 7);
+      
       const { error } = await supabase
         .from("collections")
-        .delete()
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          scheduled_permanent_delete_at: scheduledDeleteAt.toISOString()
+        })
         .eq("id", collectionId)
         .eq("creator_id", user.id);
 
@@ -194,17 +205,52 @@ export default function Dashboard() {
           variant: "destructive",
         });
       } else {
-        toast({
-          title: "Deleted",
-          description: "Collection removed successfully",
-        });
         setDeleteCollectionId(null);
         fetchDraftCollections();
+        
+        toast({
+          title: `"${collectionName}" moved to trash`,
+          description: "Will be permanently deleted in 7 days",
+          action: (
+            <ToastAction altText="Undo" onClick={() => handleUndoDelete(collectionId, collectionName)}>
+              Undo
+            </ToastAction>
+          ),
+        });
       }
     } catch (err) {
       console.error("Error:", err);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleUndoDelete = async (collectionId: string, collectionName: string) => {
+    try {
+      const { error } = await supabase
+        .from("collections")
+        .update({ 
+          deleted_at: null,
+          scheduled_permanent_delete_at: null
+        })
+        .eq("id", collectionId)
+        .eq("creator_id", user.id);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to restore collection",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Collection restored",
+          description: `"${collectionName}" has been restored`,
+        });
+        fetchDraftCollections();
+      }
+    } catch (err) {
+      console.error("Error restoring collection:", err);
     }
   };
 
@@ -738,7 +784,7 @@ export default function Dashboard() {
           })()}
 
           <AlertDialogDescription className="text-sm">
-            This action <strong>cannot be undone</strong>. This will permanently delete:
+            This collection will be moved to trash and <strong>permanently deleted in 7 days</strong>. You can undo this action immediately after deletion.
             <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
               <li>All collection metadata and settings</li>
               <li>All layers and trait configurations</li>
@@ -762,7 +808,7 @@ export default function Dashboard() {
               ) : (
                 <>
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Collection
+                  Move to Trash
                 </>
               )}
             </AlertDialogAction>
