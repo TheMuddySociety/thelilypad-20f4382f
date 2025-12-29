@@ -93,10 +93,15 @@ export function useWalletNFTs(
 
   const refresh = useCallback(async () => {
     setPageKey(undefined);
+    setNfts([]);
     await fetchNFTs(false);
   }, [fetchNFTs]);
 
+  // Reset and fetch when wallet or network changes
   useEffect(() => {
+    setNfts([]);
+    setPageKey(undefined);
+    setHasMore(false);
     fetchNFTs(false);
   }, [walletAddress, network]);
 
