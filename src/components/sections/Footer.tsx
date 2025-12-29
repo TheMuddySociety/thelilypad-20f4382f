@@ -1,14 +1,15 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Twitter, MessageCircle, Github } from "lucide-react";
 
 const footerLinks = {
   platform: [
-    { label: "Marketplace", href: "#" },
-    { label: "Launchpad", href: "#" },
-    { label: "Streams", href: "#" },
-    { label: "Raffles", href: "#" },
-    { label: "Documentation", href: "#" },
+    { label: "Marketplace", href: "/marketplace" },
+    { label: "Launchpad", href: "/launchpad" },
+    { label: "Streams", href: "/streams" },
+    { label: "Streamers", href: "/streamers" },
+    { label: "Go Live", href: "/go-live" },
   ],
   legal: [
     { label: "Terms of Service", href: "#" },
@@ -45,12 +46,12 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2">
               {footerLinks.platform.map((link) => (
                 <li key={link.label}>
-                  <a
-                    href={link.href}
+                  <Link
+                    to={link.href}
                     className="text-muted-foreground hover:text-primary transition-colors text-sm"
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -62,12 +63,21 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2">
               {footerLinks.legal.map((link) => (
                 <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-muted-foreground hover:text-primary transition-colors text-sm"
-                  >
-                    {link.label}
-                  </a>
+                  {link.href.startsWith('/') ? (
+                    <Link
+                      to={link.href}
+                      className="text-muted-foreground hover:text-primary transition-colors text-sm"
+                    >
+                      {link.label}
+                    </Link>
+                  ) : (
+                    <a
+                      href={link.href}
+                      className="text-muted-foreground hover:text-primary transition-colors text-sm"
+                    >
+                      {link.label}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
