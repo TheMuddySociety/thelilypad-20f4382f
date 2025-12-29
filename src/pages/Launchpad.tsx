@@ -29,7 +29,7 @@ import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import lilypadLogo from "@/assets/lilypad-logo.png";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, addDays } from "date-fns";
 import { useSEO } from "@/hooks/useSEO";
 import { LaunchpadWalkthrough } from "@/components/walkthrough/LaunchpadWalkthrough";
 import { useLaunchpadWalkthrough } from "@/hooks/useLaunchpadWalkthrough";
@@ -142,22 +142,60 @@ export default function Launchpad() {
 
   const deleteCollection = async (collectionId: string) => {
     setIsDeleting(true);
+    const collectionToDelete = collections.find(c => c.id === collectionId);
+    const collectionName = collectionToDelete?.name || "Collection";
+    
     try {
+      const scheduledDeleteAt = addDays(new Date(), 7);
+      
       const { error } = await supabase
         .from("collections")
-        .delete()
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          scheduled_permanent_delete_at: scheduledDeleteAt.toISOString()
+        })
         .eq("id", collectionId);
       
       if (error) throw error;
       
-      toast.success("Collection deleted successfully");
       setDeleteCollectionId(null);
       await fetchCollections();
+      
+      toast.success(`"${collectionName}" moved to trash`, {
+        description: "Will be permanently deleted in 7 days",
+        action: {
+          label: "Undo",
+          onClick: () => handleUndoDelete(collectionId, collectionName),
+        },
+      });
     } catch (error: any) {
       console.error("Error deleting collection:", error);
       toast.error(error.message || "Failed to delete collection");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleUndoDelete = async (collectionId: string, collectionName: string) => {
+    try {
+      const { error } = await supabase
+        .from("collections")
+        .update({ 
+          deleted_at: null,
+          scheduled_permanent_delete_at: null
+        })
+        .eq("id", collectionId);
+
+      if (error) {
+        toast.error("Failed to restore collection");
+      } else {
+        toast.success("Collection restored", {
+          description: `"${collectionName}" has been restored`,
+        });
+        fetchCollections();
+      }
+    } catch (err) {
+      console.error("Error restoring collection:", err);
     }
   };
 
@@ -172,6 +210,7 @@ export default function Launchpad() {
       const { data, error } = await supabase
         .from("collections")
         .select("*")
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -817,7 +856,7 @@ export default function Launchpad() {
           })()}
 
           <AlertDialogDescription className="text-sm">
-            This action <strong>cannot be undone</strong>. This will permanently delete:
+            This collection will be moved to trash and <strong>permanently deleted in 7 days</strong>. You can undo this action immediately after deletion.
             <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
               <li>All collection metadata and settings</li>
               <li>All layers and trait configurations</li>
@@ -841,7 +880,7 @@ export default function Launchpad() {
               ) : (
                 <>
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Collection
+                  Move to Trash
                 </>
               )}
             </AlertDialogAction>
