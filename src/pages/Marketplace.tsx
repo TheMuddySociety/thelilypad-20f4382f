@@ -220,7 +220,7 @@ export default function Marketplace() {
               <Store className="w-8 h-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl sm:text-4xl font-bold">Marketplace</h1>
+              <h1 className="text-3xl sm:text-4xl font-bold">Lily Marketplace</h1>
               <p className="text-muted-foreground">
                 Browse collections and sticker packs on {currentChain.name}
               </p>
