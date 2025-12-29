@@ -9,10 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { useSEO } from "@/hooks/useSEO";
-import { useWalletNFTs } from "@/hooks/useWalletNFTs";
+import { useWalletNFTs, NFT } from "@/hooks/useWalletNFTs";
 import { toast } from "sonner";
 import { WalletAvatar } from "@/components/wallet/WalletAvatar";
 import { NFTNetworkSelector, NFT_NETWORKS } from "@/components/wallet/NFTNetworkSelector";
+import { WalletNFTDetailModal } from "@/components/wallet/WalletNFTDetailModal";
 import { 
   Wallet, 
   ArrowUpRight, 
@@ -47,6 +48,8 @@ export default function WalletProfile() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempWalletName, setTempWalletName] = useState("");
   const [selectedNetwork, setSelectedNetwork] = useState("eth-mainnet");
+  const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
+  const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
   
   // Fetch real NFTs from Alchemy based on selected network
   const { 
@@ -60,6 +63,11 @@ export default function WalletProfile() {
 
   const handleNetworkChange = (network: string) => {
     setSelectedNetwork(network);
+  };
+
+  const handleNFTClick = (nft: NFT) => {
+    setSelectedNFT(nft);
+    setIsNFTModalOpen(true);
   };
 
   const selectedNetworkInfo = NFT_NETWORKS.find(n => n.id === selectedNetwork);
@@ -382,6 +390,7 @@ export default function WalletProfile() {
                         <div
                           key={`${nft.contractAddress}-${nft.tokenId}`}
                           className="rounded-lg sm:rounded-xl overflow-hidden bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
+                          onClick={() => handleNFTClick(nft)}
                         >
                           {nft.image ? (
                             <div className="aspect-square overflow-hidden">
@@ -528,6 +537,14 @@ export default function WalletProfile() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* NFT Detail Modal */}
+      <WalletNFTDetailModal
+        isOpen={isNFTModalOpen}
+        onClose={() => setIsNFTModalOpen(false)}
+        nft={selectedNFT}
+        network={selectedNetwork}
+      />
     </div>
   );
 }
