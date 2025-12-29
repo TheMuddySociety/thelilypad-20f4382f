@@ -54,6 +54,7 @@ interface CollectionStats {
   name: string;
   image_url: string | null;
   count: number;
+  floorPrice: number | null;
 }
 
 export default function MyNFTs() {
@@ -128,7 +129,7 @@ export default function MyNFTs() {
       }));
       setNfts(nftData);
 
-      // Calculate collection stats
+      // Calculate collection stats (initial without floor prices)
       const stats: Record<string, CollectionStats> = {};
       nftData.forEach(nft => {
         if (nft.collection) {
@@ -137,13 +138,13 @@ export default function MyNFTs() {
               id: nft.collection.id,
               name: nft.collection.name,
               image_url: nft.collection.image_url,
-              count: 0
+              count: 0,
+              floorPrice: null
             };
           }
           stats[nft.collection.id].count++;
         }
       });
-      setCollectionStats(Object.values(stats));
 
       // Fetch active listings for user's NFTs
       const nftIds = nftData.map(nft => nft.id);
@@ -163,6 +164,52 @@ export default function MyNFTs() {
           setListingsMap(newListingsMap);
         }
       }
+
+      // Fetch floor prices for each collection the user owns NFTs from
+      const collectionIds = Object.keys(stats);
+      if (collectionIds.length > 0) {
+        // Get all NFTs in these collections to find floor prices
+        const { data: collectionNfts } = await supabase
+          .from("minted_nfts")
+          .select("id, collection_id")
+          .in("collection_id", collectionIds);
+
+        if (collectionNfts && collectionNfts.length > 0) {
+          const allCollectionNftIds = collectionNfts.map(n => n.id);
+          
+          // Get all active listings for these NFTs
+          const { data: allListings } = await supabase
+            .from("nft_listings")
+            .select("nft_id, price")
+            .in("nft_id", allCollectionNftIds)
+            .eq("status", "active")
+            .order("price", { ascending: true });
+
+          if (allListings) {
+            // Map NFT ID to collection ID
+            const nftToCollection = new Map<string, string>();
+            collectionNfts.forEach(n => {
+              if (n.collection_id) nftToCollection.set(n.id, n.collection_id);
+            });
+
+            // Find floor price per collection (lowest listing)
+            const floorPrices: Record<string, number> = {};
+            allListings.forEach(listing => {
+              const collId = nftToCollection.get(listing.nft_id);
+              if (collId && floorPrices[collId] === undefined) {
+                floorPrices[collId] = Number(listing.price);
+              }
+            });
+
+            // Update stats with floor prices
+            Object.keys(stats).forEach(collId => {
+              stats[collId].floorPrice = floorPrices[collId] ?? null;
+            });
+          }
+        }
+      }
+
+      setCollectionStats(Object.values(stats));
     } else {
       console.error("Error fetching NFTs:", error);
     }
@@ -172,6 +219,37 @@ export default function MyNFTs() {
   // Re-fetch when wallet address or user ID changes
   useEffect(() => {
     fetchNFTs();
+  }, [address, currentUserId]);
+
+  // Calculate portfolio value based on floor prices
+  const portfolioValue = collectionStats.reduce((total, collection) => {
+    if (collection.floorPrice !== null) {
+      return total + (collection.floorPrice * collection.count);
+    }
+    return total;
+  }, 0);
+
+  // Real-time subscription for listing updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('portfolio-listings')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'nft_listings'
+        },
+        () => {
+          // Refetch when listings change to update floor prices
+          fetchNFTs();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [address, currentUserId]);
 
   const handleRefresh = async () => {
@@ -340,10 +418,15 @@ export default function MyNFTs() {
                     <Tag className="w-5 h-5 text-accent-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Est. Floor Value</p>
+                    <p className="text-sm text-muted-foreground">Est. Portfolio Value</p>
                     <p className="text-2xl font-bold">
-                      {Array.from(listingsMap.values()).reduce((sum, l) => sum + l.price, 0).toFixed(2)} MON
+                      {portfolioValue > 0 ? `${portfolioValue.toFixed(2)} MON` : "—"}
                     </p>
+                    {portfolioValue > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Based on floor prices
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
