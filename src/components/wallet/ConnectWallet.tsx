@@ -11,6 +11,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -82,45 +87,63 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant={variant} size={size} className={className}>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span className="font-mono">{formatAddress(address!)}</span>
+      <div className="flex items-center gap-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant={variant} size={size} className={className}>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="font-mono">{formatAddress(address!)}</span>
+              </div>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="px-3 py-2">
+              <p className="text-sm font-medium">Connected</p>
+              <p className="text-xs text-muted-foreground font-mono">{formatAddress(address!)}</p>
             </div>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <div className="px-3 py-2">
-            <p className="text-sm font-medium">Connected</p>
-            <p className="text-xs text-muted-foreground font-mono">{formatAddress(address!)}</p>
-          </div>
-          <DropdownMenuSeparator />
-          <div className="px-3 py-2">
-            <p className="text-xs text-muted-foreground">Balance</p>
-            <p className="text-sm font-semibold">{formatBalance(balance)} MON</p>
-          </div>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate("/wallet")}>
-            <User className="w-4 h-4 mr-2" />
-            View Profile
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => window.open(`${currentChain.blockExplorers?.default?.url}/address/${address}`, "_blank")}
-          >
-            <ExternalLink className="w-4 h-4 mr-2" />
-            View on Explorer
-          </DropdownMenuItem>
-          <DropdownMenuItem 
-            onClick={() => setShowDisconnectConfirm(true)} 
-            className="text-destructive"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Disconnect
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <DropdownMenuSeparator />
+            <div className="px-3 py-2">
+              <p className="text-xs text-muted-foreground">Balance</p>
+              <p className="text-sm font-semibold">{formatBalance(balance)} MON</p>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate("/wallet")}>
+              <User className="w-4 h-4 mr-2" />
+              View Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => window.open(`${currentChain.blockExplorers?.default?.url}/address/${address}`, "_blank")}
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              View on Explorer
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => setShowDisconnectConfirm(true)} 
+              className="text-destructive"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Disconnect
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setShowDisconnectConfirm(true)}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Disconnect wallet</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
 
       <AlertDialog open={showDisconnectConfirm} onOpenChange={setShowDisconnectConfirm}>
         <AlertDialogContent>
