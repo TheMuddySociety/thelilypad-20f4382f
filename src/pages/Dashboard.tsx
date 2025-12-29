@@ -28,7 +28,9 @@ import {
   FileEdit,
   Trash2,
   Sticker,
-  Plus
+  Plus,
+  Loader2,
+  Lock
 } from "lucide-react";
 import { ShopItemsList } from "@/components/shop/ShopItemsList";
 import { ClaimFunds } from "@/components/ClaimFunds";
@@ -47,6 +49,16 @@ import {
   BarChart,
   Bar
 } from "recharts";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface DraftCollection {
   id: string;
@@ -58,6 +70,7 @@ interface DraftCollection {
   status: string;
   created_at: string;
   updated_at: string;
+  contract_address: string | null;
 }
 
 // Mock data for charts - in production this would come from the database
@@ -107,6 +120,8 @@ export default function Dashboard() {
   const [isLoadingCollections, setIsLoadingCollections] = useState(true);
   const [showCreateShopItem, setShowCreateShopItem] = useState(false);
   const [shopItemRefreshTrigger, setShopItemRefreshTrigger] = useState(0);
+  const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useSEO({
     title: "Creator Dashboard | The Lily Pad",
@@ -161,6 +176,7 @@ export default function Dashboard() {
   };
 
   const handleDeleteDraft = async (collectionId: string) => {
+    setIsDeleting(true);
     try {
       const { error } = await supabase
         .from("collections")
@@ -177,12 +193,15 @@ export default function Dashboard() {
       } else {
         toast({
           title: "Deleted",
-          description: "Collection draft removed",
+          description: "Collection removed successfully",
         });
+        setDeleteCollectionId(null);
         fetchDraftCollections();
       }
     } catch (err) {
       console.error("Error:", err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -514,6 +533,15 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {collection.contract_address && (
+                        <Badge 
+                          variant="outline" 
+                          className="bg-green-500/20 text-green-400 border-green-500/30 text-xs"
+                        >
+                          <Lock className="w-3 h-3 mr-1" />
+                          Deployed
+                        </Badge>
+                      )}
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -522,12 +550,12 @@ export default function Dashboard() {
                         <FileEdit className="w-4 h-4 sm:mr-2" />
                         <span className="hidden sm:inline">View</span>
                       </Button>
-                      {collection.status === "draft" && (
+                      {!collection.contract_address && (
                         <Button 
                           variant="ghost" 
                           size="sm"
                           className="text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteDraft(collection.id)}
+                          onClick={() => setDeleteCollectionId(collection.id)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -661,6 +689,38 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Delete Collection Confirmation */}
+      <AlertDialog open={!!deleteCollectionId} onOpenChange={(open) => !open && setDeleteCollectionId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Collection?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your collection and all its associated data including layers, traits, and artwork.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteCollectionId && handleDeleteDraft(deleteCollectionId)}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
