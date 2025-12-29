@@ -298,6 +298,7 @@ export type Database = {
       }
       collections: {
         Row: {
+          artworks_metadata: Json | null
           banner_url: string | null
           collection_type: string
           contract_address: string | null
@@ -323,6 +324,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          artworks_metadata?: Json | null
           banner_url?: string | null
           collection_type?: string
           contract_address?: string | null
@@ -348,6 +350,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          artworks_metadata?: Json | null
           banner_url?: string | null
           collection_type?: string
           contract_address?: string | null
