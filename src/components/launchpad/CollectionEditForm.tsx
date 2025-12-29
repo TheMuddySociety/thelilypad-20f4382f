@@ -37,6 +37,7 @@ import { z } from "zod";
 import { LayerManager, Layer } from "./LayerManager";
 import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
 import { GenerationPreview } from "./GenerationPreview";
+import { ArtworkUploader, ArtworkItem } from "./ArtworkUploader";
 
 interface Phase {
   id: string;
@@ -76,6 +77,7 @@ interface Collection {
   collection_type?: string;
   layers_metadata?: unknown;
   trait_rules?: unknown;
+  artworks_metadata?: unknown;
 }
 
 interface CollectionEditFormProps {
@@ -150,12 +152,16 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [traitRules, setTraitRules] = useState<TraitRule[]>(initialTraitRules);
   
   // Artwork for 1-of-1 and editions
-  const [artworkFiles, setArtworkFiles] = useState<Array<{
-    id: string;
-    name: string;
-    imageUrl: string;
-    description?: string;
-  }>>([]);
+  const initialArtworks = (() => {
+    try {
+      const artworks = collection.artworks_metadata as unknown as ArtworkItem[];
+      return Array.isArray(artworks) ? artworks : [];
+    } catch {
+      return [];
+    }
+  })();
+  
+  const [artworks, setArtworks] = useState<ArtworkItem[]>(initialArtworks);
   
   // Parse phases from collection
   const initialPhases = (() => {
@@ -438,6 +444,12 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           phases: phasesJson as unknown as undefined,
           layers_metadata: collectionType === "generative" ? (layers as unknown as undefined) : null,
           trait_rules: collectionType === "generative" ? (traitRules as unknown as undefined) : null,
+          artworks_metadata: (collectionType === "one_of_one" || collectionType === "editions") ? (artworks.map(a => ({
+            id: a.id,
+            name: a.name,
+            imageUrl: a.imageUrl,
+            description: a.description || ""
+          })) as unknown as undefined) : null,
           social_twitter: socialTwitter.trim() || null,
           social_discord: socialDiscord.trim() || null,
           social_website: socialWebsite.trim() || null,
@@ -976,16 +988,18 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                 </CardTitle>
                 <CardDescription>
                   {collectionType === "one_of_one" 
-                    ? "Upload unique artwork for each NFT in your collection."
-                    : "Upload artwork for your editions collection."}
+                    ? "Upload unique artwork for each NFT in your collection. Each image becomes a unique NFT."
+                    : "Upload artwork for your editions collection. You can have multiple editions of the same artwork."}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Upload className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Artwork upload for {collectionType === "one_of_one" ? "1 of 1" : "editions"} collections coming soon.</p>
-                  <p className="text-sm mt-2">For now, you can configure your collection details and mint phases.</p>
-                </div>
+                <ArtworkUploader
+                  artworks={artworks}
+                  onArtworksChange={setArtworks}
+                  collectionType={collectionType as "one_of_one" | "editions"}
+                  creatorId={collection.creator_id}
+                  maxItems={collectionType === "one_of_one" ? totalSupply : 100}
+                />
               </CardContent>
             </Card>
           )}
