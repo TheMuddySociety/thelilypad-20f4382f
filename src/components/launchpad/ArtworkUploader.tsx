@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +39,10 @@ import {
   LayoutGrid,
   ShoppingCart,
   Tag,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  BarChart3,
+  Gem
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -102,6 +107,60 @@ export function ArtworkUploader({
   
   // Preview mode
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  
+  // Stats panel
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
+  
+  // Compute trait statistics
+  const traitStats = useMemo(() => {
+    const allTraits = artworks.flatMap(a => a.attributes || []);
+    const totalTraits = allTraits.length;
+    const artworksWithTraits = artworks.filter(a => a.attributes && a.attributes.length > 0).length;
+    
+    // Rarity distribution
+    const rarityCount: Record<string, number> = {
+      legendary: 0,
+      epic: 0,
+      rare: 0,
+      uncommon: 0,
+      common: 0
+    };
+    
+    // Trait type distribution
+    const traitTypeCount: Record<string, { count: number; values: Record<string, number> }> = {};
+    
+    allTraits.forEach(trait => {
+      // Count rarity
+      const rarity = trait.rarity || "common";
+      rarityCount[rarity] = (rarityCount[rarity] || 0) + 1;
+      
+      // Count trait types and values
+      const type = trait.trait_type.toLowerCase().trim();
+      if (type) {
+        if (!traitTypeCount[type]) {
+          traitTypeCount[type] = { count: 0, values: {} };
+        }
+        traitTypeCount[type].count++;
+        const value = trait.value.toLowerCase().trim();
+        if (value) {
+          traitTypeCount[type].values[value] = (traitTypeCount[type].values[value] || 0) + 1;
+        }
+      }
+    });
+    
+    // Sort trait types by count
+    const sortedTraitTypes = Object.entries(traitTypeCount)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 10);
+    
+    return {
+      totalTraits,
+      artworksWithTraits,
+      rarityCount,
+      traitTypes: sortedTraitTypes,
+      uniqueTraitTypes: Object.keys(traitTypeCount).length
+    };
+  }, [artworks]);
 
   const handleDrag = useCallback((e: React.DragEvent, isDragging: boolean) => {
     e.preventDefault();
@@ -536,6 +595,132 @@ export function ArtworkUploader({
             )}
           </div>
         </div>
+      )}
+
+      {/* Trait Statistics */}
+      {artworks.length > 0 && traitStats.totalTraits > 0 && (
+        <Collapsible open={isStatsOpen} onOpenChange={setIsStatsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full justify-between">
+              <span className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
+                Trait Statistics
+                <Badge variant="secondary" className="ml-2">
+                  {traitStats.totalTraits} traits
+                </Badge>
+              </span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${isStatsOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Overview Stats */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Artworks with traits</span>
+                    <span className="font-medium">{traitStats.artworksWithTraits} / {artworks.length}</span>
+                  </div>
+                  <Progress value={(traitStats.artworksWithTraits / artworks.length) * 100} className="h-2" />
+                  <div className="flex justify-between text-sm pt-2">
+                    <span className="text-muted-foreground">Unique trait types</span>
+                    <span className="font-medium">{traitStats.uniqueTraitTypes}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total traits</span>
+                    <span className="font-medium">{traitStats.totalTraits}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Avg traits per artwork</span>
+                    <span className="font-medium">
+                      {traitStats.artworksWithTraits > 0 
+                        ? (traitStats.totalTraits / traitStats.artworksWithTraits).toFixed(1)
+                        : 0}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Rarity Distribution */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Gem className="w-4 h-4" />
+                    Rarity Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {[
+                    { key: "legendary", label: "Legendary", color: "bg-yellow-500" },
+                    { key: "epic", label: "Epic", color: "bg-purple-500" },
+                    { key: "rare", label: "Rare", color: "bg-blue-500" },
+                    { key: "uncommon", label: "Uncommon", color: "bg-green-500" },
+                    { key: "common", label: "Common", color: "bg-muted-foreground" }
+                  ].map(({ key, label, color }) => {
+                    const count = traitStats.rarityCount[key] || 0;
+                    const percentage = traitStats.totalTraits > 0 
+                      ? (count / traitStats.totalTraits) * 100 
+                      : 0;
+                    return (
+                      <div key={key} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className={`${
+                            key === "legendary" ? "text-yellow-600" :
+                            key === "epic" ? "text-purple-600" :
+                            key === "rare" ? "text-blue-600" :
+                            key === "uncommon" ? "text-green-600" :
+                            "text-muted-foreground"
+                          }`}>{label}</span>
+                          <span className="text-muted-foreground">{count} ({percentage.toFixed(1)}%)</span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${color} transition-all`}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+              
+              {/* Top Trait Types */}
+              {traitStats.traitTypes.length > 0 && (
+                <Card className="md:col-span-2">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Tag className="w-4 h-4" />
+                      Top Trait Types
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                      {traitStats.traitTypes.map(([type, data]) => (
+                        <div 
+                          key={type} 
+                          className="p-2 rounded-lg border border-border bg-muted/30"
+                        >
+                          <p className="text-xs font-medium capitalize truncate">{type}</p>
+                          <p className="text-lg font-bold">{data.count}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {Object.keys(data.values).length} unique values
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {/* Artwork Grid */}
