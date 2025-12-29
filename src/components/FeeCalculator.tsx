@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Calculator, Fuel, Percent, Info, Sparkles, ArrowRight, Minus, Plus } from "lucide-react";
+import { Calculator, Fuel, Percent, Info, Sparkles, ArrowRight, Minus, Plus, TrendingDown, TrendingUp, Gauge } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
   TooltipContent,
@@ -22,9 +23,31 @@ interface FeeCalculatorProps {
   compact?: boolean;
 }
 
+type GasScenario = "low" | "average" | "high";
+
 const PLATFORM_FEE_PERCENT = 2.5;
 const BASE_GAS_LIMIT = 150000;
 const PER_NFT_GAS = 50000;
+
+// Gas price multipliers for different scenarios (in MON)
+const GAS_PRICES = {
+  testnet: {
+    low: 0.0000000005,
+    average: 0.000000001,
+    high: 0.000000003,
+  },
+  mainnet: {
+    low: 0.00000001,
+    average: 0.000000025,
+    high: 0.00000008,
+  },
+};
+
+const SCENARIO_INFO = {
+  low: { label: "Low", icon: TrendingDown, description: "Off-peak hours, minimal congestion" },
+  average: { label: "Avg", icon: Gauge, description: "Typical network conditions" },
+  high: { label: "High", icon: TrendingUp, description: "Peak hours, high demand" },
+};
 
 export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
   defaultPrice = 0.5,
@@ -36,15 +59,23 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
   const [price, setPrice] = useState(defaultPrice);
   const [quantity, setQuantity] = useState(defaultQuantity);
   const [isTestnet, setIsTestnet] = useState(true);
+  const [gasScenario, setGasScenario] = useState<GasScenario>("average");
 
   const calculations = useMemo(() => {
     const mintCost = price * quantity;
     const platformFee = (mintCost * PLATFORM_FEE_PERCENT) / 100;
     
-    // Gas calculation
+    // Gas calculation based on scenario
     const gasLimit = BASE_GAS_LIMIT + (PER_NFT_GAS * quantity);
-    const gasPrice = isTestnet ? 0.000000001 : 0.000000025; // Approximate MON
+    const network = isTestnet ? "testnet" : "mainnet";
+    const gasPrice = GAS_PRICES[network][gasScenario];
     const gasFee = gasLimit * gasPrice;
+    
+    // Calculate range for all scenarios
+    const gasFeeRange = {
+      low: gasLimit * GAS_PRICES[network].low,
+      high: gasLimit * GAS_PRICES[network].high,
+    };
     
     const totalCost = mintCost + platformFee + gasFee;
     
@@ -59,12 +90,13 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
       mintCost,
       platformFee,
       gasFee,
+      gasFeeRange,
       totalCost,
       costPerNft,
       gasSavings,
       gasLimit,
     };
-  }, [price, quantity, isTestnet]);
+  }, [price, quantity, isTestnet, gasScenario]);
 
   const handleQuantityChange = (delta: number) => {
     setQuantity(prev => Math.min(maxQuantity, Math.max(1, prev + delta)));
@@ -176,6 +208,49 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
           </div>
         )}
 
+        {/* Gas Price Scenario */}
+        <div className="space-y-2">
+          <Label className="text-sm flex items-center gap-1">
+            Gas Price Scenario
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs max-w-48">
+                  Gas prices vary based on network congestion. Select a scenario to estimate costs.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </Label>
+          <ToggleGroup
+            type="single"
+            value={gasScenario}
+            onValueChange={(value) => value && setGasScenario(value as GasScenario)}
+            className="w-full grid grid-cols-3 gap-1"
+          >
+            {(Object.keys(SCENARIO_INFO) as GasScenario[]).map((scenario) => {
+              const { label, icon: Icon, description } = SCENARIO_INFO[scenario];
+              return (
+                <Tooltip key={scenario}>
+                  <TooltipTrigger asChild>
+                    <ToggleGroupItem
+                      value={scenario}
+                      className="flex-1 flex items-center justify-center gap-1.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span className="text-xs">{label}</span>
+                    </ToggleGroupItem>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">{description}</p>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </ToggleGroup>
+        </div>
+
         <Separator />
 
         {/* Fee Breakdown */}
@@ -204,15 +279,18 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground flex items-center gap-1">
               <Fuel className="w-3 h-3" />
-              Gas Fee (est.)
+              Gas Fee ({SCENARIO_INFO[gasScenario].label})
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="w-3 h-3 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="text-xs max-w-48">
-                    Network fee paid to validators. Varies with network congestion.
-                    Gas limit: ~{calculations.gasLimit.toLocaleString()}
+                    Network fee paid to validators. Gas limit: ~{calculations.gasLimit.toLocaleString()}
+                    <br />
+                    <span className="text-muted-foreground">
+                      Range: {formatMON(calculations.gasFeeRange.low)} - {formatMON(calculations.gasFeeRange.high)} MON
+                    </span>
                   </p>
                 </TooltipContent>
               </Tooltip>
