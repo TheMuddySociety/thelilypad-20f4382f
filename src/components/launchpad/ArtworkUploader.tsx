@@ -35,16 +35,25 @@ import {
   GripVertical,
   Eye,
   LayoutGrid,
-  ShoppingCart
+  ShoppingCart,
+  Tag,
+  Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+
+export interface TraitAttribute {
+  trait_type: string;
+  value: string;
+  rarity?: "common" | "uncommon" | "rare" | "epic" | "legendary";
+}
 
 export interface ArtworkItem {
   id: string;
   name: string;
   imageUrl: string;
   description?: string;
+  attributes?: TraitAttribute[];
   file?: File;
   isUploading?: boolean;
 }
@@ -596,6 +605,100 @@ export function ArtworkUploader({
                         rows={2}
                         onClick={(e) => e.stopPropagation()}
                       />
+                      
+                      {/* Trait Attributes */}
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs flex items-center gap-1">
+                            <Tag className="w-3 h-3" />
+                            Traits
+                          </Label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const newAttribute: TraitAttribute = { trait_type: "", value: "" };
+                              updateArtwork(artwork.id, {
+                                attributes: [...(artwork.attributes || []), newAttribute]
+                              });
+                            }}
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add
+                          </Button>
+                        </div>
+                        
+                        {(artwork.attributes || []).map((attr, attrIndex) => (
+                          <div key={attrIndex} className="flex gap-1 items-start">
+                            <div className="flex-1 space-y-1">
+                              <Input
+                                value={attr.trait_type}
+                                onChange={(e) => {
+                                  const newAttrs = [...(artwork.attributes || [])];
+                                  newAttrs[attrIndex] = { ...attr, trait_type: e.target.value };
+                                  updateArtwork(artwork.id, { attributes: newAttrs });
+                                }}
+                                placeholder="Trait type"
+                                className="h-7 text-xs"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <Input
+                                value={attr.value}
+                                onChange={(e) => {
+                                  const newAttrs = [...(artwork.attributes || [])];
+                                  newAttrs[attrIndex] = { ...attr, value: e.target.value };
+                                  updateArtwork(artwork.id, { attributes: newAttrs });
+                                }}
+                                placeholder="Value"
+                                className="h-7 text-xs"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Select
+                                value={attr.rarity || "common"}
+                                onValueChange={(v) => {
+                                  const newAttrs = [...(artwork.attributes || [])];
+                                  newAttrs[attrIndex] = { ...attr, rarity: v as TraitAttribute["rarity"] };
+                                  updateArtwork(artwork.id, { attributes: newAttrs });
+                                }}
+                              >
+                                <SelectTrigger className="h-7 w-20 text-xs" onClick={(e) => e.stopPropagation()}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="common">Common</SelectItem>
+                                  <SelectItem value="uncommon">Uncommon</SelectItem>
+                                  <SelectItem value="rare">Rare</SelectItem>
+                                  <SelectItem value="epic">Epic</SelectItem>
+                                  <SelectItem value="legendary">Legendary</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const newAttrs = (artwork.attributes || []).filter((_, i) => i !== attrIndex);
+                                  updateArtwork(artwork.id, { attributes: newAttrs });
+                                }}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {(!artwork.attributes || artwork.attributes.length === 0) && (
+                          <p className="text-xs text-muted-foreground text-center py-1">
+                            No traits added yet
+                          </p>
+                        )}
+                      </div>
+                      
                       <Button 
                         size="sm" 
                         className="w-full"
@@ -615,6 +718,30 @@ export function ArtworkUploader({
                         <p className="text-xs text-muted-foreground line-clamp-2">
                           {artwork.description}
                         </p>
+                      )}
+                      {artwork.attributes && artwork.attributes.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {artwork.attributes.slice(0, 3).map((attr, i) => (
+                            <Badge 
+                              key={i} 
+                              variant="outline" 
+                              className={`text-[10px] px-1.5 py-0 ${
+                                attr.rarity === "legendary" ? "border-yellow-500 text-yellow-600" :
+                                attr.rarity === "epic" ? "border-purple-500 text-purple-600" :
+                                attr.rarity === "rare" ? "border-blue-500 text-blue-600" :
+                                attr.rarity === "uncommon" ? "border-green-500 text-green-600" :
+                                ""
+                              }`}
+                            >
+                              {attr.trait_type}: {attr.value}
+                            </Badge>
+                          ))}
+                          {artwork.attributes.length > 3 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              +{artwork.attributes.length - 3}
+                            </Badge>
+                          )}
+                        </div>
                       )}
                     </>
                   )}
@@ -679,6 +806,48 @@ export function ArtworkUploader({
                       <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
                         {artwork.description}
                       </p>
+                    )}
+                    
+                    {/* Traits Display */}
+                    {artwork.attributes && artwork.attributes.length > 0 && (
+                      <div className="mb-3 space-y-1">
+                        <p className="text-xs font-medium flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          Traits
+                        </p>
+                        <div className="grid grid-cols-2 gap-1">
+                          {artwork.attributes.slice(0, 4).map((attr, i) => (
+                            <div 
+                              key={i} 
+                              className={`p-1.5 rounded text-center border ${
+                                attr.rarity === "legendary" ? "bg-yellow-500/10 border-yellow-500/30" :
+                                attr.rarity === "epic" ? "bg-purple-500/10 border-purple-500/30" :
+                                attr.rarity === "rare" ? "bg-blue-500/10 border-blue-500/30" :
+                                attr.rarity === "uncommon" ? "bg-green-500/10 border-green-500/30" :
+                                "bg-muted/50 border-border"
+                              }`}
+                            >
+                              <p className="text-[9px] text-muted-foreground uppercase tracking-wide truncate">
+                                {attr.trait_type}
+                              </p>
+                              <p className={`text-[10px] font-medium truncate ${
+                                attr.rarity === "legendary" ? "text-yellow-600" :
+                                attr.rarity === "epic" ? "text-purple-600" :
+                                attr.rarity === "rare" ? "text-blue-600" :
+                                attr.rarity === "uncommon" ? "text-green-600" :
+                                ""
+                              }`}>
+                                {attr.value}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                        {artwork.attributes.length > 4 && (
+                          <p className="text-[10px] text-muted-foreground text-center">
+                            +{artwork.attributes.length - 4} more traits
+                          </p>
+                        )}
+                      </div>
                     )}
                     
                     {/* Mock Price Display */}
