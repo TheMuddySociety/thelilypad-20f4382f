@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
 import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
 import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
+import { LaunchChecklist } from "@/components/launchpad/LaunchChecklist";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTGallery } from "@/components/NFTGallery";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
@@ -69,6 +70,9 @@ interface Collection {
   social_discord: string | null;
   social_website: string | null;
   social_telegram: string | null;
+  collection_type?: string;
+  layers_metadata?: unknown;
+  artworks_metadata?: unknown;
 }
 
 interface Phase {
@@ -717,13 +721,22 @@ export default function CollectionDetail() {
               </div>
             </div>
 
+            {/* Launch Checklist for creators with undeployed collections */}
+            {isCreator && !collection.contract_address && (
+              <LaunchChecklist
+                collection={collection}
+                onEditClick={() => setIsEditMode(true)}
+                onDeployClick={() => setIsDeployModalOpen(true)}
+                onAllowlistClick={() => setIsAllowlistModalOpen(true)}
+              />
+            )}
+
             {/* Collection Analytics */}
             <CollectionAnalytics 
               collectionId={collection.id}
               totalSupply={collection.total_supply}
               minted={collection.minted}
             />
-
             {/* Description */}
             <Card>
               <CardHeader>
