@@ -91,20 +91,34 @@ export default function MyNFTs() {
   }, []);
 
   const fetchNFTs = async () => {
-    if (!currentUserId) {
+    // Require either wallet connection OR user login
+    if (!address && !currentUserId) {
       setIsLoading(false);
+      setNfts([]);
       return;
     }
 
     setIsLoading(true);
-    const { data, error } = await supabase
+    
+    // Build query based on available identifiers
+    let query = supabase
       .from("minted_nfts")
       .select(`
         *,
         collection:collections(id, name, image_url, contract_address)
       `)
-      .eq("owner_id", currentUserId)
       .order("minted_at", { ascending: false });
+
+    // Prioritize wallet address for fetching NFTs
+    if (address) {
+      // Fetch by wallet address (case-insensitive)
+      query = query.ilike("owner_address", address);
+    } else if (currentUserId) {
+      // Fallback to user ID if no wallet connected
+      query = query.eq("owner_id", currentUserId);
+    }
+
+    const { data, error } = await query;
 
     if (!error && data) {
       const nftData = data.map(nft => ({
@@ -149,13 +163,16 @@ export default function MyNFTs() {
           setListingsMap(newListingsMap);
         }
       }
+    } else {
+      console.error("Error fetching NFTs:", error);
     }
     setIsLoading(false);
   };
 
+  // Re-fetch when wallet address or user ID changes
   useEffect(() => {
     fetchNFTs();
-  }, [currentUserId]);
+  }, [address, currentUserId]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -214,21 +231,23 @@ export default function MyNFTs() {
     ? nfts.filter(nft => nft.collection?.id === selectedCollection)
     : nfts;
 
-  // Not logged in state
-  if (!currentUserId) {
+  // Not connected state - require wallet OR login
+  if (!isConnected && !currentUserId) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
         <main className="container mx-auto px-4 pt-24 pb-12">
           <div className="max-w-md mx-auto text-center py-16">
             <Wallet className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-            <h1 className="text-2xl font-bold mb-2">Sign In Required</h1>
+            <h1 className="text-2xl font-bold mb-2">Connect Your Wallet</h1>
             <p className="text-muted-foreground mb-6">
-              Please sign in to view your NFT portfolio
+              Connect your wallet to view NFTs in your portfolio
             </p>
-            <Button onClick={() => navigate("/auth")}>
-              Sign In
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button onClick={() => navigate("/auth")} variant="outline">
+                Sign In
+              </Button>
+            </div>
           </div>
         </main>
       </div>
@@ -245,12 +264,14 @@ export default function MyNFTs() {
           <div>
             <h1 className="text-3xl font-bold mb-2">My NFTs</h1>
             <p className="text-muted-foreground">
-              {isConnected && address && (
+              {isConnected && address ? (
                 <span className="flex items-center gap-2">
                   <Wallet className="w-4 h-4" />
                   {formatAddress(address)}
                 </span>
-              )}
+              ) : currentUserId ? (
+                <span className="text-sm">Showing NFTs linked to your account</span>
+              ) : null}
             </p>
           </div>
           <div className="flex items-center gap-2">
