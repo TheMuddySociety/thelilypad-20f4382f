@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { WalletProvider } from "@/providers/WalletProvider";
 import { TestnetBanner } from "@/components/TestnetBanner";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import NetworkStatusIndicator from "@/components/NetworkStatusIndicator";
 import Index from "./pages/Index";
 import WalletProfile from "./pages/WalletProfile";
 import Streams from "./pages/Streams";
@@ -40,6 +41,7 @@ const App = () => (
       <WalletProvider>
         <TooltipProvider>
           <TestnetBanner />
+          <NetworkStatusIndicator />
           <Toaster />
           <Sonner />
           <BrowserRouter>
