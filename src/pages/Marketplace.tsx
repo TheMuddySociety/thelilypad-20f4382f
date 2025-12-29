@@ -16,6 +16,7 @@ import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
 import { Store, Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf } from "lucide-react";
+import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useSEO } from "@/hooks/useSEO";
@@ -260,6 +261,9 @@ export default function Marketplace() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Top Collections Highlights */}
+        <TopCollectionsHighlights />
 
         {/* Filter Controls */}
         <div className="flex flex-wrap items-center gap-4 mb-8">
