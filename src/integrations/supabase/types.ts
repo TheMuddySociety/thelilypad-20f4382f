@@ -427,11 +427,13 @@ export type Database = {
       earnings: {
         Row: {
           amount: number
+          claimed_at: string | null
           created_at: string
           currency: string
           from_user_id: string | null
           from_username: string | null
           id: string
+          is_claimed: boolean
           message: string | null
           stream_id: string | null
           type: string
@@ -439,11 +441,13 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          claimed_at?: string | null
           created_at?: string
           currency?: string
           from_user_id?: string | null
           from_username?: string | null
           id?: string
+          is_claimed?: boolean
           message?: string | null
           stream_id?: string | null
           type: string
@@ -451,11 +455,13 @@ export type Database = {
         }
         Update: {
           amount?: number
+          claimed_at?: string | null
           created_at?: string
           currency?: string
           from_user_id?: string | null
           from_username?: string | null
           id?: string
+          is_claimed?: boolean
           message?: string | null
           stream_id?: string | null
           type?: string
@@ -663,6 +669,8 @@ export type Database = {
           nft_id: string
           price: number
           seller_address: string
+          seller_claimed: boolean
+          seller_claimed_at: string | null
           seller_id: string
           sold_at: string | null
           status: string
@@ -678,6 +686,8 @@ export type Database = {
           nft_id: string
           price: number
           seller_address: string
+          seller_claimed?: boolean
+          seller_claimed_at?: string | null
           seller_id: string
           sold_at?: string | null
           status?: string
@@ -693,6 +703,8 @@ export type Database = {
           nft_id?: string
           price?: number
           seller_address?: string
+          seller_claimed?: boolean
+          seller_claimed_at?: string | null
           seller_id?: string
           sold_at?: string | null
           status?: string
@@ -947,6 +959,8 @@ export type Database = {
       }
       shop_purchases: {
         Row: {
+          creator_claimed: boolean
+          creator_claimed_at: string | null
           id: string
           item_id: string
           price_paid: number
@@ -955,6 +969,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          creator_claimed?: boolean
+          creator_claimed_at?: string | null
           id?: string
           item_id: string
           price_paid: number
@@ -963,6 +979,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          creator_claimed?: boolean
+          creator_claimed_at?: string | null
           id?: string
           item_id?: string
           price_paid?: number
