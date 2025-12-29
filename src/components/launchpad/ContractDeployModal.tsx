@@ -22,11 +22,14 @@ import {
   FileCode2,
   Wallet,
   Link2,
-  Info
+  Info,
+  Shield,
+  Leaf
 } from "lucide-react";
 import { useWallet } from "@/providers/WalletProvider";
 import { useContractDeploy, DeployParams } from "@/hooks/useContractDeploy";
 import { toast } from "sonner";
+import { LILYPAD_PLATFORM_NAME, LILYPAD_PLATFORM_VERSION } from "@/config/nftFactory";
 
 interface ContractDeployModalProps {
   open: boolean;
@@ -57,7 +60,10 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
     error, 
     deployContract,
     resetState,
-    isFactoryAvailable 
+    isFactoryAvailable,
+    isVerified,
+    platformName,
+    platformVersion
   } = useContractDeploy();
   const [copied, setCopied] = React.useState(false);
   const [manualAddress, setManualAddress] = React.useState("");
@@ -141,6 +147,15 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* LilyPad Platform Badge */}
+          <div className="flex items-center justify-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+            <Leaf className="w-5 h-5 text-primary" />
+            <span className="text-sm font-medium text-primary">{LILYPAD_PLATFORM_NAME} Verified Collection</span>
+            <Badge variant="secondary" className="text-xs">
+              v{LILYPAD_PLATFORM_VERSION}
+            </Badge>
+          </div>
+
           {/* Collection Info */}
           <div className="p-4 bg-muted/50 rounded-lg space-y-2">
             <div className="flex justify-between text-sm">
@@ -163,6 +178,13 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
               <span className="text-muted-foreground">Network</span>
               <Badge variant="outline" className="text-xs">
                 {currentChain.name}
+              </Badge>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Platform</span>
+              <Badge className="text-xs bg-primary/20 text-primary hover:bg-primary/30">
+                <Leaf className="w-3 h-3 mr-1" />
+                {platformName}
               </Badge>
             </div>
           </div>
@@ -345,7 +367,29 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
               <div className="flex items-center gap-2 text-green-500 mb-3">
                 <CheckCircle2 className="w-5 h-5" />
                 <span className="font-medium">Contract Deployed!</span>
+                {isVerified && (
+                  <Badge className="text-xs bg-primary/20 text-primary">
+                    <Shield className="w-3 h-3 mr-1" />
+                    Verified
+                  </Badge>
+                )}
               </div>
+              
+              {/* LilyPad Verification Info */}
+              {isVerified && (
+                <div className="mb-3 p-2 bg-primary/5 rounded-md border border-primary/20">
+                  <div className="flex items-center gap-2 text-xs text-primary">
+                    <Leaf className="w-3 h-3" />
+                    <span>This collection includes LilyPad platform identification</span>
+                  </div>
+                  <ul className="mt-1 text-xs text-muted-foreground space-y-0.5 ml-5">
+                    <li>• Platform constant embedded</li>
+                    <li>• Factory reference stored</li>
+                    <li>• Contract-level metadata included</li>
+                  </ul>
+                </div>
+              )}
+              
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Contract Address</span>
