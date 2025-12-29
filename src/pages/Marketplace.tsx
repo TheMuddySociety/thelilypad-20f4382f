@@ -4,6 +4,8 @@ import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,10 +15,11 @@ import {
 import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
-import { Store, Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3 } from "lucide-react";
+import { Store, Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf } from "lucide-react";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useSEO } from "@/hooks/useSEO";
+import { isFactoryConfigured } from "@/config/nftFactory";
 
 interface Collection {
   id: string;
@@ -85,11 +88,15 @@ export default function Marketplace() {
   const navigate = useNavigate();
   const { network, currentChain } = useWallet();
   const [activeFilter, setActiveFilter] = useState("all");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [stickerPacks, setStickerPacks] = useState<ShopItem[]>([]);
   const [nftListings, setNftListings] = useState<NFTListing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
+
+  // Check if factory is configured (for showing verified filter)
+  const factoryAvailable = isFactoryConfigured();
 
   useSEO({
     title: "Marketplace | The Lily Pad",
@@ -191,6 +198,15 @@ export default function Marketplace() {
   const showCollections = activeFilter === "all" || activeFilter === "collections";
   const showStickers = activeFilter === "all" || activeFilter === "stickers";
 
+  // Filter collections and listings by verified status
+  const filteredCollections = verifiedOnly 
+    ? collections.filter(c => c.contract_address) // Only show deployed contracts when filter is on
+    : collections;
+  
+  const filteredListings = verifiedOnly
+    ? nftListings.filter(l => l.nft.collection?.contract_address)
+    : nftListings;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -245,8 +261,9 @@ export default function Marketplace() {
           </Card>
         </div>
 
-        {/* Filter Dropdown */}
-        <div className="mb-8">
+        {/* Filter Controls */}
+        <div className="flex flex-wrap items-center gap-4 mb-8">
+          {/* Category Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="gap-2 min-w-[180px] justify-between">
@@ -277,6 +294,34 @@ export default function Marketplace() {
               })}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Verified Only Toggle */}
+          <div className="flex items-center gap-3 px-4 py-2 rounded-lg border bg-card">
+            <div className="flex items-center gap-2">
+              <Leaf className="w-4 h-4 text-primary" />
+              <Shield className="w-4 h-4 text-primary" />
+            </div>
+            <Label 
+              htmlFor="verified-filter" 
+              className="text-sm font-medium cursor-pointer whitespace-nowrap"
+            >
+              LilyPad Verified Only
+            </Label>
+            <Switch
+              id="verified-filter"
+              checked={verifiedOnly}
+              onCheckedChange={setVerifiedOnly}
+              className="data-[state=checked]:bg-primary"
+            />
+          </div>
+
+          {/* Verified count badge */}
+          {verifiedOnly && (
+            <Badge variant="secondary" className="gap-1">
+              <Shield className="w-3 h-3" />
+              {filteredCollections.length} verified
+            </Badge>
+          )}
         </div>
 
         {isLoading ? (
@@ -293,15 +338,21 @@ export default function Marketplace() {
             )}
 
             {/* NFT Listings Section */}
-            {showListings && nftListings.length > 0 && (
+            {showListings && filteredListings.length > 0 && (
               <section>
                 <div className="flex items-center gap-2 mb-4">
                   <Tag className="w-5 h-5 text-primary" />
                   <h2 className="text-xl font-semibold">NFT Listings</h2>
-                  <Badge variant="secondary">{nftListings.length}</Badge>
+                  <Badge variant="secondary">{filteredListings.length}</Badge>
+                  {verifiedOnly && (
+                    <Badge variant="outline" className="gap-1 bg-primary/10 text-primary border-primary/30">
+                      <Shield className="w-3 h-3" />
+                      Verified
+                    </Badge>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {nftListings.map((listing) => (
+                  {filteredListings.map((listing) => (
                     <Card 
                       key={listing.id} 
                       className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group"
@@ -366,15 +417,21 @@ export default function Marketplace() {
 
 
             {/* Collections Section */}
-            {showCollections && collections.length > 0 && (
+            {showCollections && filteredCollections.length > 0 && (
               <section>
                 <div className="flex items-center gap-2 mb-4">
                   <Rocket className="w-5 h-5 text-primary" />
                   <h2 className="text-xl font-semibold">Collections</h2>
-                  <Badge variant="secondary">{collections.length}</Badge>
+                  <Badge variant="secondary">{filteredCollections.length}</Badge>
+                  {verifiedOnly && (
+                    <Badge variant="outline" className="gap-1 bg-primary/10 text-primary border-primary/30">
+                      <Shield className="w-3 h-3" />
+                      Verified
+                    </Badge>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {collections.map((collection) => {
+                  {filteredCollections.map((collection) => {
                     const StatusIcon = statusIcons[collection.status as keyof typeof statusIcons] || Sparkles;
                     return (
                       <Card 
