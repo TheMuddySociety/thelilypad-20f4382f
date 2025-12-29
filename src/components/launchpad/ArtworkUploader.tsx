@@ -31,7 +31,8 @@ import {
   Pencil,
   Hash,
   Type,
-  FileText
+  FileText,
+  GripVertical
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,6 +78,10 @@ export function ArtworkUploader({
   const [batchDescription, setBatchDescription] = useState("");
   const [applyDescription, setApplyDescription] = useState(false);
   const [startNumber, setStartNumber] = useState(1);
+  
+  // Drag-and-drop reordering
+  const [reorderDragIndex, setReorderDragIndex] = useState<number | null>(null);
+  const [reorderDropIndex, setReorderDropIndex] = useState<number | null>(null);
 
   const handleDrag = useCallback((e: React.DragEvent, isDragging: boolean) => {
     e.preventDefault();
@@ -294,6 +299,50 @@ export function ArtworkUploader({
     setSelectedIds(new Set());
   };
 
+  // Drag-and-drop reordering handlers
+  const handleReorderDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
+    setReorderDragIndex(index);
+  };
+
+  const handleReorderDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (reorderDragIndex !== null && index !== reorderDragIndex) {
+      setReorderDropIndex(index);
+    }
+  };
+
+  const handleReorderDragLeave = () => {
+    setReorderDropIndex(null);
+  };
+
+  const handleReorderDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (reorderDragIndex === null || reorderDragIndex === dropIndex) {
+      setReorderDragIndex(null);
+      setReorderDropIndex(null);
+      return;
+    }
+
+    const newArtworks = [...artworks];
+    const [draggedItem] = newArtworks.splice(reorderDragIndex, 1);
+    newArtworks.splice(dropIndex, 0, draggedItem);
+    
+    onArtworksChange(newArtworks);
+    setReorderDragIndex(null);
+    setReorderDropIndex(null);
+    toast.success("Artwork reordered");
+  };
+
+  const handleReorderDragEnd = () => {
+    setReorderDragIndex(null);
+    setReorderDropIndex(null);
+  };
+
   return (
     <div className="space-y-4">
       {/* Upload Area */}
@@ -418,11 +467,27 @@ export function ArtworkUploader({
             {artworks.map((artwork, index) => (
               <Card 
                 key={artwork.id}
-                className={`group relative overflow-hidden transition-all cursor-pointer ${
+                draggable={!isSelectionMode && editingId !== artwork.id}
+                onDragStart={(e) => handleReorderDragStart(e, index)}
+                onDragOver={(e) => handleReorderDragOver(e, index)}
+                onDragLeave={handleReorderDragLeave}
+                onDrop={(e) => handleReorderDrop(e, index)}
+                onDragEnd={handleReorderDragEnd}
+                className={`group relative overflow-hidden transition-all ${
                   editingId === artwork.id ? 'ring-2 ring-primary' : ''
-                } ${selectedIds.has(artwork.id) ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+                } ${selectedIds.has(artwork.id) ? 'ring-2 ring-primary bg-primary/5' : ''}
+                ${reorderDragIndex === index ? 'opacity-50 scale-95' : ''}
+                ${reorderDropIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''}
+                ${!isSelectionMode && editingId !== artwork.id ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
                 onClick={() => isSelectionMode && toggleSelection(artwork.id)}
               >
+                {/* Drag Handle */}
+                {!isSelectionMode && (
+                  <div className="absolute top-2 left-2 z-20 p-1 rounded bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
+                    <GripVertical className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                )}
+                
                 <div className="aspect-square relative">
                   {artwork.imageUrl ? (
                     <img 
@@ -480,7 +545,7 @@ export function ArtworkUploader({
                   {/* Index Badge */}
                   <Badge 
                     variant="secondary" 
-                    className="absolute top-2 left-2 text-xs"
+                    className="absolute bottom-2 left-2 text-xs"
                   >
                     #{index + 1}
                   </Badge>
