@@ -8,7 +8,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Loader2, CheckCircle, AlertCircle, ExternalLink, Tag } from "lucide-react";
+import { ShoppingCart, Loader2, CheckCircle, AlertCircle, ExternalLink, Tag, Info } from "lucide-react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { parseEther, encodeFunctionData } from "viem";
@@ -222,6 +223,17 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Price</span>
               <span className="text-2xl font-bold">{listing.price} {listing.currency}</span>
+            </div>
+            
+            {/* Fee Disclaimer */}
+            <div className="flex items-start gap-2 mt-3 pt-3 border-t border-border/50">
+              <Info className="w-3 h-3 mt-0.5 shrink-0 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">
+                2.5% marketplace fee + gas fees apply.{' '}
+                <Link to="/fees" className="text-primary hover:underline">
+                  View pricing
+                </Link>
+              </p>
             </div>
           </div>
 

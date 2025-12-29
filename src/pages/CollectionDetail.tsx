@@ -50,8 +50,10 @@ import {
   MessageCircle,
   Send,
   Eye,
-  EyeOff
+  EyeOff,
+  Info
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -1273,6 +1275,17 @@ export default function CollectionDetail() {
                         `~${totalWithGas.toFixed(4)} MON`
                       )}
                     </span>
+                  </div>
+                  
+                  {/* Fee Disclaimer */}
+                  <div className="flex items-start gap-2 mt-3 pt-3 border-t border-border/50">
+                    <Info className="w-3 h-3 mt-0.5 shrink-0 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground">
+                      2.5% platform fee applies to sellers.{' '}
+                      <Link to="/fees" className="text-primary hover:underline">
+                        View all fees
+                      </Link>
+                    </p>
                   </div>
                 </div>
 
