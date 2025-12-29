@@ -7,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { useSEO } from "@/hooks/useSEO";
+import { toast } from "sonner";
 import { 
   Wallet, 
   ArrowUpRight, 
@@ -17,7 +19,9 @@ import {
   Image as ImageIcon,
   History,
   Settings,
-  CheckCircle
+  CheckCircle,
+  Pencil,
+  X
 } from "lucide-react";
 import { monadMainnet } from "@/config/alchemy";
 
@@ -41,6 +45,36 @@ export default function WalletProfile() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [walletName, setWalletName] = useState<string>("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempWalletName, setTempWalletName] = useState("");
+
+  // Load wallet name from localStorage
+  useEffect(() => {
+    if (address) {
+      const savedName = localStorage.getItem(`walletName_${address}`);
+      setWalletName(savedName || "My Wallet");
+    }
+  }, [address]);
+
+  const saveWalletName = () => {
+    if (address && tempWalletName.trim()) {
+      localStorage.setItem(`walletName_${address}`, tempWalletName.trim());
+      setWalletName(tempWalletName.trim());
+      setIsEditingName(false);
+      toast.success("Wallet name updated");
+    }
+  };
+
+  const startEditingName = () => {
+    setTempWalletName(walletName);
+    setIsEditingName(true);
+  };
+
+  const cancelEditingName = () => {
+    setTempWalletName("");
+    setIsEditingName(false);
+  };
 
   useSEO({
     title: "Wallet Profile | The Lily Pad",
@@ -104,10 +138,13 @@ export default function WalletProfile() {
                   <Wallet className="w-6 h-6 sm:w-8 sm:h-8 text-primary-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
+                  <div className="text-lg sm:text-xl md:text-2xl font-bold mb-0.5">
+                    {walletName}
+                  </div>
                   <div className="flex items-center gap-1.5 sm:gap-2">
-                    <h1 className="text-base sm:text-xl md:text-2xl font-bold font-mono truncate">
+                    <span className="text-xs sm:text-sm font-mono text-muted-foreground truncate">
                       {formatAddress(address || "")}
-                    </h1>
+                    </span>
                     <button
                       onClick={copyAddress}
                       className="p-1 sm:p-1.5 rounded-lg hover:bg-muted transition-colors shrink-0"
@@ -330,6 +367,42 @@ export default function WalletProfile() {
                 <CardTitle className="text-base sm:text-lg">Account Settings</CardTitle>
               </CardHeader>
               <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 space-y-4 sm:space-y-6">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <h3 className="font-medium text-sm sm:text-base">Wallet Name</h3>
+                  {isEditingName ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={tempWalletName}
+                        onChange={(e) => setTempWalletName(e.target.value)}
+                        placeholder="Enter wallet name"
+                        className="flex-1"
+                        maxLength={30}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveWalletName();
+                          if (e.key === "Escape") cancelEditingName();
+                        }}
+                      />
+                      <Button size="sm" onClick={saveWalletName} disabled={!tempWalletName.trim()}>
+                        Save
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={cancelEditingName}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-muted">
+                      <span className="text-sm sm:text-base flex-1">{walletName}</span>
+                      <button
+                        onClick={startEditingName}
+                        className="p-1.5 sm:p-2 rounded-lg hover:bg-background transition-colors shrink-0"
+                      >
+                        <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-1.5 sm:space-y-2">
                   <h3 className="font-medium text-sm sm:text-base">Wallet Address</h3>
                   <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-lg bg-muted">
