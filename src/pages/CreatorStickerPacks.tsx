@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { 
-  Sticker, 
+  Sticker,
   Plus, 
   Loader2, 
   Lock, 
@@ -19,6 +19,7 @@ import {
   Eye,
   EyeOff
 } from "lucide-react";
+import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSEO } from "@/hooks/useSEO";
@@ -209,9 +210,7 @@ export default function CreatorStickerPacks() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Sticker className="w-8 h-8 text-primary" />
-            </div>
+            <LilyPadLogo size={56} />
             <div>
               <h1 className="text-3xl sm:text-4xl font-bold">My Sticker Packs</h1>
               <p className="text-muted-foreground">
