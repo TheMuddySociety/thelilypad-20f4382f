@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { useWallet } from "@/providers/WalletProvider";
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { WalletAvatar } from "@/components/wallet/WalletAvatar";
 import { NFTNetworkSelector, NFT_NETWORKS } from "@/components/wallet/NFTNetworkSelector";
 import { WalletNFTDetailModal } from "@/components/wallet/WalletNFTDetailModal";
+import { NFTFilters, filterAndSortNFTs, SortOption } from "@/components/wallet/NFTFilters";
 import { 
   Wallet, 
   ArrowUpRight, 
@@ -27,7 +28,8 @@ import {
   Pencil,
   X,
   RefreshCw,
-  Loader2
+  Loader2,
+  Search
 } from "lucide-react";
 import { monadMainnet } from "@/config/alchemy";
 
@@ -51,6 +53,11 @@ export default function WalletProfile() {
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
   
+  // NFT Filter states
+  const [nftSearchQuery, setNftSearchQuery] = useState("");
+  const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+  const [nftSortBy, setNftSortBy] = useState<SortOption>("name-asc");
+  
   // Fetch real NFTs from Alchemy based on selected network
   const { 
     nfts, 
@@ -63,12 +70,20 @@ export default function WalletProfile() {
 
   const handleNetworkChange = (network: string) => {
     setSelectedNetwork(network);
+    // Reset filters when network changes
+    setNftSearchQuery("");
+    setSelectedCollections([]);
   };
 
   const handleNFTClick = (nft: NFT) => {
     setSelectedNFT(nft);
     setIsNFTModalOpen(true);
   };
+
+  // Filter and sort NFTs
+  const filteredNFTs = useMemo(() => {
+    return filterAndSortNFTs(nfts, nftSearchQuery, selectedCollections, nftSortBy);
+  }, [nfts, nftSearchQuery, selectedCollections, nftSortBy]);
 
   const selectedNetworkInfo = NFT_NETWORKS.find(n => n.id === selectedNetwork);
 
@@ -371,6 +386,22 @@ export default function WalletProfile() {
                 )}
               </CardHeader>
               <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                {/* Filters - only show when we have NFTs */}
+                {nfts.length > 0 && (
+                  <div className="mb-4">
+                    <NFTFilters
+                      nfts={nfts}
+                      searchQuery={nftSearchQuery}
+                      onSearchChange={setNftSearchQuery}
+                      selectedCollections={selectedCollections}
+                      onCollectionsChange={setSelectedCollections}
+                      sortBy={nftSortBy}
+                      onSortChange={setNftSortBy}
+                      disabled={nftsLoading}
+                    />
+                  </div>
+                )}
+
                 {nftsLoading && nfts.length === 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
                     {[1, 2, 3].map((i) => (
@@ -385,40 +416,50 @@ export default function WalletProfile() {
                   </div>
                 ) : nfts.length > 0 ? (
                   <>
-                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
-                      {nfts.map((nft) => (
-                        <div
-                          key={`${nft.contractAddress}-${nft.tokenId}`}
-                          className="rounded-lg sm:rounded-xl overflow-hidden bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
-                          onClick={() => handleNFTClick(nft)}
-                        >
-                          {nft.image ? (
-                            <div className="aspect-square overflow-hidden">
-                              <img
-                                src={nft.image}
-                                alt={nft.name}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                                }}
-                              />
-                              <div className="hidden aspect-square bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                                <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground/50" />
+                    {filteredNFTs.length > 0 ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
+                        {filteredNFTs.map((nft) => (
+                          <div
+                            key={`${nft.contractAddress}-${nft.tokenId}`}
+                            className="rounded-lg sm:rounded-xl overflow-hidden bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
+                            onClick={() => handleNFTClick(nft)}
+                          >
+                            {nft.image ? (
+                              <div className="aspect-square overflow-hidden">
+                                <img
+                                  src={nft.image}
+                                  alt={nft.name}
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                  }}
+                                />
+                                <div className="hidden aspect-square bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                                  <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground/50" />
+                                </div>
                               </div>
+                            ) : (
+                              <div className="aspect-square bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                                <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground/50 group-hover:scale-110 transition-transform" />
+                              </div>
+                            )}
+                            <div className="p-2.5 sm:p-4">
+                              <h3 className="font-semibold text-xs sm:text-base truncate">{nft.name}</h3>
+                              <p className="text-[10px] sm:text-sm text-muted-foreground truncate">{nft.collection}</p>
                             </div>
-                          ) : (
-                            <div className="aspect-square bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                              <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground/50 group-hover:scale-110 transition-transform" />
-                            </div>
-                          )}
-                          <div className="p-2.5 sm:p-4">
-                            <h3 className="font-semibold text-xs sm:text-base truncate">{nft.name}</h3>
-                            <p className="text-[10px] sm:text-sm text-muted-foreground truncate">{nft.collection}</p>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                        <Search className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                        <p className="text-sm sm:text-base">No NFTs match your filters</p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Try adjusting your search or filters
+                        </p>
+                      </div>
+                    )}
                     {hasMore && (
                       <div className="mt-4 text-center">
                         <Button
@@ -443,7 +484,7 @@ export default function WalletProfile() {
                     <ImageIcon className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
                     <p className="text-sm sm:text-base">No NFTs in your wallet</p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      NFTs on Ethereum mainnet will appear here
+                      NFTs on {selectedNetworkInfo?.name || "this network"} will appear here
                     </p>
                   </div>
                 )}
