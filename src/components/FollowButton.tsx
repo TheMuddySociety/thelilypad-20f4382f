@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Heart, HeartOff, Loader2 } from "lucide-react";
+import { Heart, HeartOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useOptimisticToggle } from "@/hooks/useOptimisticUpdate";
+import { toast } from "@/hooks/use-toast";
 
 interface FollowButtonProps {
   streamerId: string;
@@ -11,10 +12,12 @@ interface FollowButtonProps {
 }
 
 export const FollowButton = ({ streamerId, onFollowChange, variant = "default" }: FollowButtonProps) => {
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const { toast } = useToast();
+  
+  const { isActive: isFollowing, isOptimistic, toggle, reset } = useOptimisticToggle(false, {
+    successMessage: undefined, // We handle messages ourselves for follow/unfollow distinction
+  });
 
   useEffect(() => {
     checkFollowStatus();
@@ -25,15 +28,14 @@ export const FollowButton = ({ streamerId, onFollowChange, variant = "default" }
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
-        setLoading(false);
+        setInitialLoading(false);
         return;
       }
 
       setUserId(session.user.id);
 
-      // Don't show follow button for own profile
       if (session.user.id === streamerId) {
-        setLoading(false);
+        setInitialLoading(false);
         return;
       }
 
@@ -45,15 +47,15 @@ export const FollowButton = ({ streamerId, onFollowChange, variant = "default" }
         .maybeSingle();
 
       if (error) throw error;
-      setIsFollowing(!!data);
+      reset(!!data);
     } catch (error) {
       console.error("Error checking follow status:", error);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
   };
 
-  const handleFollow = async (e: React.MouseEvent) => {
+  const handleFollow = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -70,11 +72,10 @@ export const FollowButton = ({ streamerId, onFollowChange, variant = "default" }
       return;
     }
 
-    setLoading(true);
+    const willFollow = !isFollowing;
 
-    try {
+    const success = await toggle(async () => {
       if (isFollowing) {
-        // Unfollow
         const { error } = await supabase
           .from("followers")
           .delete()
@@ -82,15 +83,8 @@ export const FollowButton = ({ streamerId, onFollowChange, variant = "default" }
           .eq("streamer_id", streamerId);
 
         if (error) throw error;
-        
-        setIsFollowing(false);
-        onFollowChange?.(false);
-        toast({
-          title: "Unfollowed",
-          description: "You are no longer following this streamer.",
-        });
+        return false;
       } else {
-        // Follow
         const { error } = await supabase
           .from("followers")
           .insert({
@@ -99,27 +93,22 @@ export const FollowButton = ({ streamerId, onFollowChange, variant = "default" }
           });
 
         if (error) throw error;
-        
-        setIsFollowing(true);
-        onFollowChange?.(true);
-        toast({
-          title: "Following!",
-          description: "You are now following this streamer.",
-        });
+        return true;
       }
-    } catch (error: any) {
-      console.error("Error updating follow status:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update follow status.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
 
-  // Don't render for own profile or if not logged in
+    if (success) {
+      onFollowChange?.(willFollow);
+      toast({
+        title: willFollow ? "Following!" : "Unfollowed",
+        description: willFollow 
+          ? "You are now following this streamer." 
+          : "You are no longer following this streamer.",
+      });
+    }
+  }, [userId, streamerId, isFollowing, toggle, onFollowChange]);
+
+  // Don't render for own profile
   if (userId === streamerId) {
     return null;
   }
@@ -130,12 +119,12 @@ export const FollowButton = ({ streamerId, onFollowChange, variant = "default" }
         size="icon"
         variant={isFollowing ? "secondary" : "default"}
         onClick={handleFollow}
-        disabled={loading}
-        className={`h-8 w-8 ${isFollowing ? "bg-red-500/20 hover:bg-red-500/30 text-red-500" : ""}`}
+        disabled={initialLoading}
+        className={`h-8 w-8 transition-all ${isOptimistic ? "scale-110" : ""} ${
+          isFollowing ? "bg-red-500/20 hover:bg-red-500/30 text-red-500" : ""
+        }`}
       >
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : isFollowing ? (
+        {isFollowing ? (
           <HeartOff className="h-4 w-4" />
         ) : (
           <Heart className="h-4 w-4" />
@@ -148,12 +137,12 @@ export const FollowButton = ({ streamerId, onFollowChange, variant = "default" }
     <Button
       variant={isFollowing ? "secondary" : "default"}
       onClick={handleFollow}
-      disabled={loading}
-      className={`gap-2 ${isFollowing ? "bg-red-500/20 hover:bg-red-500/30 text-red-500 border-red-500/30" : ""}`}
+      disabled={initialLoading}
+      className={`gap-2 transition-all ${isOptimistic ? "scale-105" : ""} ${
+        isFollowing ? "bg-red-500/20 hover:bg-red-500/30 text-red-500 border-red-500/30" : ""
+      }`}
     >
-      {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : isFollowing ? (
+      {isFollowing ? (
         <>
           <HeartOff className="h-4 w-4" />
           Unfollow
