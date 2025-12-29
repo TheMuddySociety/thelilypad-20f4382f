@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, PartyPopper, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Sparkles, PartyPopper, ChevronLeft, ChevronRight, X, Volume2, VolumeX } from "lucide-react";
 import confetti from "canvas-confetti";
+import { useRevealSounds } from "@/hooks/useRevealSounds";
 
 interface RevealedNFT {
   id: string;
@@ -31,14 +32,30 @@ export function NFTRevealAnimation({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [hasTriggeredConfetti, setHasTriggeredConfetti] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const hasPlayedFlipSound = useRef(false);
+  
+  const { 
+    playFlipStart, 
+    playReveal, 
+    playCelebration, 
+    playNavigate, 
+    playSkip,
+    setEnabled 
+  } = useRevealSounds();
 
   const currentNft = nfts[currentIndex];
+
+  useEffect(() => {
+    setEnabled(soundEnabled);
+  }, [soundEnabled, setEnabled]);
 
   useEffect(() => {
     if (open) {
       setCurrentIndex(0);
       setIsFlipped(false);
       setHasTriggeredConfetti(false);
+      hasPlayedFlipSound.current = false;
     }
   }, [open]);
 
@@ -46,18 +63,31 @@ export function NFTRevealAnimation({
     if (open && !isFlipped) {
       // Auto-flip after a short delay
       const timer = setTimeout(() => {
+        if (!hasPlayedFlipSound.current) {
+          playFlipStart();
+          hasPlayedFlipSound.current = true;
+        }
         setIsFlipped(true);
       }, 800);
       return () => clearTimeout(timer);
     }
-  }, [open, currentIndex]);
+  }, [open, currentIndex, playFlipStart]);
 
   useEffect(() => {
     if (isFlipped && !hasTriggeredConfetti) {
-      triggerConfetti();
+      // Play reveal sound slightly before confetti for better timing
+      setTimeout(() => {
+        playReveal();
+      }, 200);
+      
+      setTimeout(() => {
+        triggerConfetti();
+        playCelebration();
+      }, 400);
+      
       setHasTriggeredConfetti(true);
     }
-  }, [isFlipped, hasTriggeredConfetti]);
+  }, [isFlipped, hasTriggeredConfetti, playReveal, playCelebration]);
 
   const triggerConfetti = () => {
     const count = 200;
@@ -105,8 +135,10 @@ export function NFTRevealAnimation({
 
   const handleNext = () => {
     if (currentIndex < nfts.length - 1) {
+      playNavigate();
       setIsFlipped(false);
       setHasTriggeredConfetti(false);
+      hasPlayedFlipSound.current = false;
       setTimeout(() => {
         setCurrentIndex(currentIndex + 1);
       }, 100);
@@ -115,8 +147,10 @@ export function NFTRevealAnimation({
 
   const handlePrev = () => {
     if (currentIndex > 0) {
+      playNavigate();
       setIsFlipped(false);
       setHasTriggeredConfetti(false);
+      hasPlayedFlipSound.current = false;
       setTimeout(() => {
         setCurrentIndex(currentIndex - 1);
       }, 100);
@@ -124,9 +158,14 @@ export function NFTRevealAnimation({
   };
 
   const handleSkipAll = () => {
+    playSkip();
     setCurrentIndex(nfts.length - 1);
     setIsFlipped(true);
     setHasTriggeredConfetti(true);
+  };
+
+  const toggleSound = () => {
+    setSoundEnabled(!soundEnabled);
   };
 
   if (!currentNft) return null;
@@ -136,14 +175,23 @@ export function NFTRevealAnimation({
       <DialogContent className="sm:max-w-lg p-0 overflow-hidden bg-gradient-to-b from-background to-background/95 border-primary/20">
         {/* Header */}
         <div className="relative p-6 pb-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-4 top-4 z-10"
-            onClick={() => onOpenChange(false)}
-          >
-            <X className="w-4 h-4" />
-          </Button>
+          <div className="absolute right-4 top-4 z-10 flex gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSound}
+              title={soundEnabled ? "Mute sounds" : "Enable sounds"}
+            >
+              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenChange(false)}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
           
           <div className="text-center mb-6">
             <motion.div
