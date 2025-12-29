@@ -67,6 +67,39 @@ export const TopCollectionsHighlights: React.FC = () => {
 
   useEffect(() => {
     fetchTopCollections();
+
+    // Subscribe to real-time updates on nft_listings
+    const channel = supabase
+      .channel('top-collections-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'nft_listings'
+        },
+        () => {
+          // Refetch when any listing changes (new sale, etc.)
+          fetchTopCollections();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'collections'
+        },
+        () => {
+          // Refetch when collections change
+          fetchTopCollections();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchTopCollections = async () => {
