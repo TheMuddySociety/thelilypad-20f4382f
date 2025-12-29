@@ -1,7 +1,12 @@
 import { useState, useCallback } from "react";
 import { useWallet } from "@/providers/WalletProvider";
-import { NFT_CONTRACT_ABI, NFT_CONTRACT_BYTECODE, DeployParams, toRoyaltyBps } from "@/config/nftContract";
-import { parseEther, encodeAbiParameters, parseAbiParameters } from "viem";
+import { 
+  NFT_FACTORY_ADDRESS, 
+  NFT_FACTORY_ABI, 
+  FactoryDeployParams,
+  isFactoryConfigured 
+} from "@/config/nftFactory";
+import { encodeFunctionData, decodeEventLog } from "viem";
 
 interface DeploymentState {
   isDeploying: boolean;
@@ -9,6 +14,15 @@ interface DeploymentState {
   txHash: string | null;
   contractAddress: string | null;
   error: string | null;
+}
+
+// Legacy interface for backwards compatibility
+export interface DeployParams {
+  name: string;
+  symbol: string;
+  maxSupply: number;
+  royaltyBps: number;
+  royaltyReceiver: string;
 }
 
 export function useContractDeploy() {
@@ -37,6 +51,15 @@ export function useContractDeploy() {
       return null;
     }
 
+    // Check if factory is configured
+    if (!isFactoryConfigured()) {
+      setState(prev => ({ 
+        ...prev, 
+        error: "NFT Factory not yet deployed on Monad Testnet. Please check back soon or deploy manually via Remix/Hardhat." 
+      }));
+      return null;
+    }
+
     setState({
       isDeploying: true,
       deploymentStep: "preparing",
@@ -46,30 +69,28 @@ export function useContractDeploy() {
     });
 
     try {
-      // Encode constructor arguments
-      const encodedArgs = encodeAbiParameters(
-        parseAbiParameters("string, string, uint256, uint256, address"),
-        [
+      // Encode the createCollection function call
+      const callData = encodeFunctionData({
+        abi: NFT_FACTORY_ABI,
+        functionName: 'createCollection',
+        args: [
           params.name,
           params.symbol,
           BigInt(params.maxSupply),
-          BigInt(toRoyaltyBps(params.royaltyBps)),
+          BigInt(Math.round(params.royaltyBps * 100)), // Convert percentage to basis points
           params.royaltyReceiver as `0x${string}`
         ]
-      );
-
-      // Combine bytecode with encoded constructor args
-      const deployData = NFT_CONTRACT_BYTECODE + encodedArgs.slice(2);
+      });
 
       setState(prev => ({ ...prev, deploymentStep: "confirming" }));
 
-      // Send deployment transaction
+      // Send transaction to factory contract
       const txHash = await window.ethereum.request({
         method: "eth_sendTransaction",
         params: [{
           from: address,
-          data: deployData,
-          // Let the wallet estimate gas
+          to: NFT_FACTORY_ADDRESS,
+          data: callData,
         }],
       });
 
@@ -79,10 +100,10 @@ export function useContractDeploy() {
         txHash 
       }));
 
-      // Wait for transaction receipt to get contract address
+      // Wait for transaction receipt
       let receipt = null;
       let attempts = 0;
-      const maxAttempts = 60; // 60 attempts * 2 seconds = 2 minutes max wait
+      const maxAttempts = 60;
 
       while (!receipt && attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -103,10 +124,50 @@ export function useContractDeploy() {
       }
 
       if (receipt.status === "0x0") {
-        throw new Error("Contract deployment failed");
+        throw new Error("Transaction failed - the factory may have rejected the parameters");
       }
 
-      const contractAddress = receipt.contractAddress;
+      // Parse logs to find the CollectionCreated event
+      let contractAddress: string | null = null;
+      
+      if (receipt.logs && receipt.logs.length > 0) {
+        for (const log of receipt.logs) {
+          try {
+            // Try to decode the CollectionCreated event
+            const decoded = decodeEventLog({
+              abi: NFT_FACTORY_ABI,
+              data: log.data,
+              topics: log.topics,
+            }) as { eventName: string; args: Record<string, unknown> };
+            
+            if (decoded.eventName === 'CollectionCreated' && decoded.args) {
+              contractAddress = decoded.args.collection as string;
+              break;
+            }
+          } catch {
+            // Not the event we're looking for, continue
+          }
+        }
+      }
+
+      // Fallback: If we couldn't parse the event, check if there's a created contract
+      // Some factories return the address in the first log topic
+      if (!contractAddress && receipt.logs && receipt.logs.length > 0) {
+        const firstLog = receipt.logs[0];
+        if (firstLog.topics && firstLog.topics.length > 1) {
+          // The collection address might be in the first indexed topic
+          const potentialAddress = "0x" + firstLog.topics[1].slice(26);
+          if (potentialAddress.length === 42) {
+            contractAddress = potentialAddress;
+          }
+        }
+      }
+
+      if (!contractAddress) {
+        // Last resort: return a placeholder indicating success but address needs manual lookup
+        console.warn("Could not parse collection address from logs, transaction succeeded");
+        contractAddress = "pending-verification";
+      }
 
       setState({
         isDeploying: false,
@@ -127,15 +188,14 @@ export function useContractDeploy() {
       } else if (error.code === -32000) {
         errorMessage = "Insufficient funds for gas";
       } else if (error.code === -32603) {
-        errorMessage = "Internal error - the contract bytecode may be invalid";
+        errorMessage = "Internal error - the factory contract may not be available";
       } else if (error.message?.includes("gas")) {
         errorMessage = "Gas estimation failed - ensure you have enough testnet MON";
       } else if (error.message?.includes("nonce")) {
         errorMessage = "Nonce error - please try again";
-      } else if (error.message?.includes("intrinsic gas too low")) {
-        errorMessage = "Gas too low - transaction cannot be processed";
+      } else if (error.message?.includes("execution reverted")) {
+        errorMessage = "Factory rejected the request - check parameters";
       } else if (error.message) {
-        // Truncate long error messages
         errorMessage = error.message.length > 100 
           ? error.message.substring(0, 100) + "..." 
           : error.message;
@@ -157,5 +217,6 @@ export function useContractDeploy() {
     ...state,
     deployContract,
     resetState,
+    isFactoryAvailable: isFactoryConfigured(),
   };
 }

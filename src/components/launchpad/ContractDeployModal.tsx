@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import { 
   Rocket, 
   CheckCircle2, 
@@ -19,11 +20,12 @@ import {
   Check,
   AlertTriangle,
   FileCode2,
-  Wallet
+  Wallet,
+  Link2,
+  Info
 } from "lucide-react";
 import { useWallet } from "@/providers/WalletProvider";
-import { useContractDeploy } from "@/hooks/useContractDeploy";
-import { DeployParams } from "@/config/nftContract";
+import { useContractDeploy, DeployParams } from "@/hooks/useContractDeploy";
 import { toast } from "sonner";
 
 interface ContractDeployModalProps {
@@ -54,9 +56,12 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
     contractAddress, 
     error, 
     deployContract,
-    resetState 
+    resetState,
+    isFactoryAvailable 
   } = useContractDeploy();
   const [copied, setCopied] = React.useState(false);
+  const [manualAddress, setManualAddress] = React.useState("");
+  const [showManualInput, setShowManualInput] = React.useState(false);
 
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
 
@@ -73,9 +78,21 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
 
     const deployedAddress = await deployContract(params);
     
-    if (deployedAddress) {
+    if (deployedAddress && deployedAddress !== "pending-verification") {
       onDeploySuccess(deployedAddress);
       toast.success("Contract deployed successfully!");
+    } else if (deployedAddress === "pending-verification") {
+      toast.info("Transaction succeeded! Check explorer for contract address.");
+    }
+  };
+
+  const handleManualSubmit = () => {
+    if (manualAddress && manualAddress.startsWith("0x") && manualAddress.length === 42) {
+      onDeploySuccess(manualAddress);
+      toast.success("Contract address linked successfully!");
+      onOpenChange(false);
+    } else {
+      toast.error("Please enter a valid contract address (0x...)");
     }
   };
 
@@ -90,6 +107,8 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
   const handleClose = () => {
     if (!isDeploying) {
       resetState();
+      setShowManualInput(false);
+      setManualAddress("");
       onOpenChange(false);
     }
   };
@@ -182,6 +201,69 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
             </div>
           )}
 
+          {/* Factory Not Available - Show Manual Option */}
+          {isConnected && !isWrongNetwork && !isFactoryAvailable && deploymentStep === "idle" && !showManualInput && (
+            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+              <div className="flex items-center gap-2 text-amber-500 mb-2">
+                <Info className="w-4 h-4" />
+                <span className="text-sm font-medium">Factory Coming Soon</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                The NFT Factory contract is not yet deployed on Monad Testnet. 
+                You can deploy your contract manually using Remix or Hardhat, then link it here.
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full gap-2"
+                onClick={() => setShowManualInput(true)}
+              >
+                <Link2 className="w-3 h-3" />
+                Link Existing Contract
+              </Button>
+            </div>
+          )}
+
+          {/* Manual Contract Address Input */}
+          {showManualInput && deploymentStep === "idle" && (
+            <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+              <div className="flex items-center gap-2 text-foreground">
+                <Link2 className="w-4 h-4" />
+                <span className="text-sm font-medium">Link Existing Contract</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter the address of your deployed NFT contract on {currentChain.name}
+              </p>
+              <Input
+                placeholder="0x..."
+                value={manualAddress}
+                onChange={(e) => setManualAddress(e.target.value)}
+                className="font-mono text-sm"
+              />
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => {
+                    setShowManualInput(false);
+                    setManualAddress("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={handleManualSubmit}
+                  disabled={!manualAddress || manualAddress.length !== 42}
+                >
+                  Link Contract
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Deployment Progress */}
           {isConnected && !isWrongNetwork && deploymentStep !== "idle" && (
             <div className="space-y-4">
@@ -200,7 +282,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                   ) : (
                     <FileCode2 className="w-4 h-4" />
                   )}
-                  <span className="text-sm">Preparing contract bytecode</span>
+                  <span className="text-sm">Calling factory contract</span>
                 </div>
 
                 {/* Step 2: Confirming */}
@@ -230,7 +312,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                   ) : (
                     <Rocket className="w-4 h-4" />
                   )}
-                  <span className="text-sm">Deploying to blockchain</span>
+                  <span className="text-sm">Creating collection</span>
                 </div>
               </div>
 
@@ -307,15 +389,25 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
 
         {/* Actions */}
         <div className="flex gap-3">
-          {deploymentStep === "idle" && isConnected && !isWrongNetwork && (
+          {deploymentStep === "idle" && isConnected && !isWrongNetwork && !showManualInput && (
             <>
               <Button variant="outline" className="flex-1" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button className="flex-1 gap-2" onClick={handleDeploy}>
-                <Rocket className="w-4 h-4" />
-                Deploy Contract
-              </Button>
+              {isFactoryAvailable ? (
+                <Button className="flex-1 gap-2" onClick={handleDeploy}>
+                  <Rocket className="w-4 h-4" />
+                  Deploy Contract
+                </Button>
+              ) : (
+                <Button 
+                  className="flex-1 gap-2" 
+                  onClick={() => setShowManualInput(true)}
+                >
+                  <Link2 className="w-4 h-4" />
+                  Link Contract
+                </Button>
+              )}
             </>
           )}
           
