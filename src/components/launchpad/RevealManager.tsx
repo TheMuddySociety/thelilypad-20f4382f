@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { NFTRevealAnimation } from "./NFTRevealAnimation";
 
 interface MintedNFT {
   id: string;
@@ -55,6 +56,8 @@ export function RevealManager({
   const [isRevealing, setIsRevealing] = useState(false);
   const [selectedNfts, setSelectedNfts] = useState<Set<string>>(new Set());
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showRevealAnimation, setShowRevealAnimation] = useState(false);
+  const [revealedNftsForAnimation, setRevealedNftsForAnimation] = useState<MintedNFT[]>([]);
   const [revealMode, setRevealMode] = useState<"all" | "selected">("all");
 
   useEffect(() => {
@@ -120,8 +123,12 @@ export function RevealManager({
 
     try {
       const now = new Date().toISOString();
+      let nftsToAnimate: MintedNFT[] = [];
       
       if (revealMode === "all") {
+        // Get the NFTs that will be revealed for animation
+        nftsToAnimate = nfts.filter(nft => !nft.is_revealed);
+        
         // Reveal all unrevealed NFTs
         const { error: nftError } = await supabase
           .from("minted_nfts")
@@ -138,9 +145,10 @@ export function RevealManager({
           .eq("id", collectionId);
 
         if (collectionError) throw collectionError;
-
-        toast.success(`All ${unrevealedCount} NFTs have been revealed!`);
       } else {
+        // Get the NFTs that will be revealed for animation
+        nftsToAnimate = nfts.filter(nft => selectedNfts.has(nft.id));
+        
         // Reveal only selected NFTs
         const { error } = await supabase
           .from("minted_nfts")
@@ -161,8 +169,13 @@ export function RevealManager({
             .eq("id", collectionId);
         }
 
-        toast.success(`${selectedNfts.size} NFT(s) have been revealed!`);
         setSelectedNfts(new Set());
+      }
+
+      // Show reveal animation
+      if (nftsToAnimate.length > 0) {
+        setRevealedNftsForAnimation(nftsToAnimate);
+        setShowRevealAnimation(true);
       }
 
       await fetchNFTs();
@@ -421,6 +434,15 @@ export function RevealManager({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reveal Animation */}
+      <NFTRevealAnimation
+        open={showRevealAnimation}
+        onOpenChange={setShowRevealAnimation}
+        nfts={revealedNftsForAnimation}
+        unrevealedImage={unrevealedImageUrl}
+        collectionName={collectionName}
+      />
     </>
   );
 }
