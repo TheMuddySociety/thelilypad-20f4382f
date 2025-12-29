@@ -333,9 +333,10 @@ export default function MyNFTs() {
     return `https://testnet.monadexplorer.com/token/${contractAddress}?a=${tokenId}`;
   };
 
-  // Calculate rarity scores for NFTs based on trait occurrence
-  const rarityScores = useMemo(() => {
+  // Calculate rarity scores and trait data for NFTs based on trait occurrence
+  const { rarityScores, traitRarityData } = useMemo(() => {
     const scores = new Map<string, number>();
+    const traitData = new Map<string, Map<string, { count: number; total: number; percent: number }>>();
     
     // Group NFTs by collection
     const collectionNfts = new Map<string, NFT[]>();
@@ -360,10 +361,13 @@ export default function MyNFTs() {
         });
       });
 
-      // Calculate rarity score for each NFT (average rarity of traits)
+      // Store trait rarity data for each NFT
       collNfts.forEach(nft => {
+        const nftTraitData = new Map<string, { count: number; total: number; percent: number }>();
+        
         if (nft.attributes.length === 0) {
-          scores.set(nft.id, 50); // Default score for NFTs without traits
+          scores.set(nft.id, 50);
+          traitData.set(nft.id, nftTraitData);
           return;
         }
 
@@ -371,18 +375,30 @@ export default function MyNFTs() {
         nft.attributes.forEach(attr => {
           const key = `${attr.trait_type}:${attr.value}`;
           const count = traitCounts.get(key) || 1;
-          // Rarity = (1 - occurrence%) * 100
+          const percent = (count / totalNfts) * 100;
           const traitRarity = (1 - count / totalNfts) * 100;
           totalRarity += traitRarity;
+          
+          nftTraitData.set(key, { count, total: totalNfts, percent });
         });
 
         const avgRarity = totalRarity / nft.attributes.length;
         scores.set(nft.id, avgRarity);
+        traitData.set(nft.id, nftTraitData);
       });
     });
 
-    return scores;
+    return { rarityScores: scores, traitRarityData: traitData };
   }, [nfts]);
+
+  // Get trait rarity tier based on percentage
+  const getTraitRarityTier = (percent: number): RarityTier => {
+    if (percent <= 5) return 'legendary';
+    if (percent <= 15) return 'epic';
+    if (percent <= 30) return 'rare';
+    if (percent <= 50) return 'uncommon';
+    return 'common';
+  };
 
   // Filter NFTs by collection and search query
   const filteredNfts = nfts.filter(nft => {
@@ -828,21 +844,68 @@ export default function MyNFTs() {
 
                   {selectedNft.attributes.length > 0 && (
                     <div>
-                      <h4 className="font-medium mb-2">Attributes</h4>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">Attributes</h4>
+                        {(() => {
+                          const score = rarityScores.get(selectedNft.id) ?? 50;
+                          const tier = getRarityTier(score);
+                          const rarity = RARITY_CONFIG[tier];
+                          const RarityIcon = rarity.icon;
+                          return (
+                            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${rarity.bgColor}`}>
+                              <RarityIcon className={`w-3.5 h-3.5 ${rarity.color}`} />
+                              <span className={`text-xs font-medium ${rarity.color}`}>{rarity.label}</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
-                        {selectedNft.attributes.map((attr, i) => (
-                          <div 
-                            key={i}
-                            className="bg-muted/50 rounded-lg p-2 text-center"
-                          >
-                            <p className="text-xs text-muted-foreground uppercase">
-                              {attr.trait_type}
-                            </p>
-                            <p className="font-medium text-sm truncate">
-                              {attr.value}
-                            </p>
-                          </div>
-                        ))}
+                        {selectedNft.attributes.map((attr, i) => {
+                          const key = `${attr.trait_type}:${attr.value}`;
+                          const traitInfo = traitRarityData.get(selectedNft.id)?.get(key);
+                          const percent = traitInfo?.percent ?? 50;
+                          const traitTier = getTraitRarityTier(percent);
+                          const traitRarity = RARITY_CONFIG[traitTier];
+                          
+                          return (
+                            <div 
+                              key={i}
+                              className={`relative overflow-hidden rounded-lg p-2 border ${
+                                traitTier !== 'common' 
+                                  ? `${traitRarity.bgColor} border-${traitTier === 'legendary' ? 'amber' : traitTier === 'epic' ? 'purple' : traitTier === 'rare' ? 'blue' : 'green'}-500/30`
+                                  : 'bg-muted/50 border-transparent'
+                              }`}
+                            >
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                                {attr.trait_type}
+                              </p>
+                              <p className="font-medium text-sm truncate">
+                                {attr.value}
+                              </p>
+                              <div className="flex items-center justify-between mt-1">
+                                <span className={`text-[10px] font-medium ${traitRarity.color}`}>
+                                  {traitInfo ? `${traitInfo.count}/${traitInfo.total}` : '—'}
+                                </span>
+                                <span className={`text-[10px] font-semibold ${traitRarity.color}`}>
+                                  {percent.toFixed(1)}%
+                                </span>
+                              </div>
+                              {/* Rarity bar */}
+                              <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all ${
+                                    traitTier === 'legendary' ? 'bg-amber-400' :
+                                    traitTier === 'epic' ? 'bg-purple-400' :
+                                    traitTier === 'rare' ? 'bg-blue-400' :
+                                    traitTier === 'uncommon' ? 'bg-green-400' :
+                                    'bg-muted-foreground'
+                                  }`}
+                                  style={{ width: `${Math.max(5, 100 - percent)}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
