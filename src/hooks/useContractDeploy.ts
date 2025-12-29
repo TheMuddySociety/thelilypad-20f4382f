@@ -4,7 +4,9 @@ import {
   NFT_FACTORY_ADDRESS, 
   NFT_FACTORY_ABI, 
   FactoryDeployParams,
-  isFactoryConfigured 
+  isFactoryConfigured,
+  LILYPAD_PLATFORM_NAME,
+  LILYPAD_PLATFORM_VERSION
 } from "@/config/nftFactory";
 import { encodeFunctionData, decodeEventLog } from "viem";
 
@@ -14,6 +16,7 @@ interface DeploymentState {
   txHash: string | null;
   contractAddress: string | null;
   error: string | null;
+  isVerified: boolean;
 }
 
 // Legacy interface for backwards compatibility
@@ -25,6 +28,15 @@ export interface DeployParams {
   royaltyReceiver: string;
 }
 
+// Extended deployment result with LilyPad info
+export interface DeploymentResult {
+  contractAddress: string;
+  txHash: string;
+  isLilyPadVerified: boolean;
+  platform: string;
+  version: string;
+}
+
 export function useContractDeploy() {
   const { address, isConnected, currentChain } = useWallet();
   const [state, setState] = useState<DeploymentState>({
@@ -33,6 +45,7 @@ export function useContractDeploy() {
     txHash: null,
     contractAddress: null,
     error: null,
+    isVerified: false,
   });
 
   const resetState = useCallback(() => {
@@ -42,6 +55,7 @@ export function useContractDeploy() {
       txHash: null,
       contractAddress: null,
       error: null,
+      isVerified: false,
     });
   }, []);
 
@@ -55,7 +69,7 @@ export function useContractDeploy() {
     if (!isFactoryConfigured()) {
       setState(prev => ({ 
         ...prev, 
-        error: "NFT Factory not yet deployed on Monad Testnet. Please check back soon or deploy manually via Remix/Hardhat." 
+        error: "LilyPad NFT Factory not yet deployed on Monad Testnet. Please check back soon or deploy manually via Remix/Hardhat." 
       }));
       return null;
     }
@@ -66,6 +80,7 @@ export function useContractDeploy() {
       txHash: null,
       contractAddress: null,
       error: null,
+      isVerified: false,
     });
 
     try {
@@ -127,21 +142,31 @@ export function useContractDeploy() {
         throw new Error("Transaction failed - the factory may have rejected the parameters");
       }
 
-      // Parse logs to find the CollectionCreated event
+      // Parse logs to find the LilyPadCollectionDeployed or CollectionCreated event
       let contractAddress: string | null = null;
+      let isVerified = false;
       
       if (receipt.logs && receipt.logs.length > 0) {
         for (const log of receipt.logs) {
           try {
-            // Try to decode the CollectionCreated event
+            // Try to decode the LilyPadCollectionDeployed event first
             const decoded = decodeEventLog({
               abi: NFT_FACTORY_ABI,
               data: log.data,
               topics: log.topics,
             }) as { eventName: string; args: Record<string, unknown> };
             
+            if (decoded.eventName === 'LilyPadCollectionDeployed' && decoded.args) {
+              contractAddress = decoded.args.collection as string;
+              isVerified = true; // LilyPad verified collection
+              console.log(`LilyPad Collection Deployed: ${contractAddress}`);
+              break;
+            }
+            
+            // Fallback to CollectionCreated for backwards compatibility
             if (decoded.eventName === 'CollectionCreated' && decoded.args) {
               contractAddress = decoded.args.collection as string;
+              isVerified = true;
               break;
             }
           } catch {
@@ -175,6 +200,7 @@ export function useContractDeploy() {
         txHash,
         contractAddress,
         error: null,
+        isVerified,
       });
 
       return contractAddress;
@@ -188,7 +214,7 @@ export function useContractDeploy() {
       } else if (error.code === -32000) {
         errorMessage = "Insufficient funds for gas";
       } else if (error.code === -32603) {
-        errorMessage = "Internal error - the factory contract may not be available";
+        errorMessage = "Internal error - the LilyPad factory contract may not be available";
       } else if (error.message?.includes("gas")) {
         errorMessage = "Gas estimation failed - ensure you have enough testnet MON";
       } else if (error.message?.includes("nonce")) {
@@ -207,6 +233,7 @@ export function useContractDeploy() {
         txHash: null,
         contractAddress: null,
         error: errorMessage,
+        isVerified: false,
       });
 
       return null;
@@ -218,5 +245,7 @@ export function useContractDeploy() {
     deployContract,
     resetState,
     isFactoryAvailable: isFactoryConfigured(),
+    platformName: LILYPAD_PLATFORM_NAME,
+    platformVersion: LILYPAD_PLATFORM_VERSION,
   };
 }
