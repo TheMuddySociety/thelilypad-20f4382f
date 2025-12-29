@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.process-scheduled-reveals]
 verify_jwt = false
+
+[functions.cleanup-deleted-collections]
+verify_jwt = false
