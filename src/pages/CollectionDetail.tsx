@@ -17,6 +17,7 @@ import { NFTGallery } from "@/components/NFTGallery";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
 import { NFTRevealModal } from "@/components/NFTRevealModal";
 import { MintCountdown } from "@/components/MintCountdown";
+import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
 import { useSEO } from "@/hooks/useSEO";
 import { useContractMint } from "@/hooks/useContractMint";
 import { 
@@ -684,6 +685,12 @@ export default function CollectionDetail() {
                     )}
                     {currentChain.name}
                   </Badge>
+                  {/* LilyPad Verification Badge */}
+                  <LilyPadVerificationBadge 
+                    contractAddress={collection.contract_address} 
+                    showDetails={true}
+                    size="md"
+                  />
                 </div>
                 <p className="text-muted-foreground mb-3">{collection.symbol}</p>
                 {collection.contract_address && (
