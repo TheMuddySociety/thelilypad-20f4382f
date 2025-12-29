@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,11 +28,34 @@ import {
   XCircle,
   Loader2,
   Search,
-  X
+  X,
+  Sparkles,
+  Diamond,
+  Star,
+  Gem
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+
+// Rarity tier configuration
+type RarityTier = 'legendary' | 'epic' | 'rare' | 'uncommon' | 'common';
+
+const RARITY_CONFIG: Record<RarityTier, { label: string; color: string; bgColor: string; icon: typeof Sparkles }> = {
+  legendary: { label: 'Legendary', color: 'text-amber-400', bgColor: 'bg-amber-500/20', icon: Diamond },
+  epic: { label: 'Epic', color: 'text-purple-400', bgColor: 'bg-purple-500/20', icon: Gem },
+  rare: { label: 'Rare', color: 'text-blue-400', bgColor: 'bg-blue-500/20', icon: Sparkles },
+  uncommon: { label: 'Uncommon', color: 'text-green-400', bgColor: 'bg-green-500/20', icon: Star },
+  common: { label: 'Common', color: 'text-muted-foreground', bgColor: 'bg-muted', icon: Star },
+};
+
+const getRarityTier = (score: number): RarityTier => {
+  if (score >= 90) return 'legendary';
+  if (score >= 75) return 'epic';
+  if (score >= 50) return 'rare';
+  if (score >= 25) return 'uncommon';
+  return 'common';
+};
 
 interface NFT {
   id: string;
@@ -310,6 +333,57 @@ export default function MyNFTs() {
     return `https://testnet.monadexplorer.com/token/${contractAddress}?a=${tokenId}`;
   };
 
+  // Calculate rarity scores for NFTs based on trait occurrence
+  const rarityScores = useMemo(() => {
+    const scores = new Map<string, number>();
+    
+    // Group NFTs by collection
+    const collectionNfts = new Map<string, NFT[]>();
+    nfts.forEach(nft => {
+      if (nft.collection_id) {
+        const existing = collectionNfts.get(nft.collection_id) || [];
+        existing.push(nft);
+        collectionNfts.set(nft.collection_id, existing);
+      }
+    });
+
+    // Calculate trait frequency per collection
+    collectionNfts.forEach((collNfts, collectionId) => {
+      const traitCounts = new Map<string, number>();
+      const totalNfts = collNfts.length;
+
+      // Count trait occurrences
+      collNfts.forEach(nft => {
+        nft.attributes.forEach(attr => {
+          const key = `${attr.trait_type}:${attr.value}`;
+          traitCounts.set(key, (traitCounts.get(key) || 0) + 1);
+        });
+      });
+
+      // Calculate rarity score for each NFT (average rarity of traits)
+      collNfts.forEach(nft => {
+        if (nft.attributes.length === 0) {
+          scores.set(nft.id, 50); // Default score for NFTs without traits
+          return;
+        }
+
+        let totalRarity = 0;
+        nft.attributes.forEach(attr => {
+          const key = `${attr.trait_type}:${attr.value}`;
+          const count = traitCounts.get(key) || 1;
+          // Rarity = (1 - occurrence%) * 100
+          const traitRarity = (1 - count / totalNfts) * 100;
+          totalRarity += traitRarity;
+        });
+
+        const avgRarity = totalRarity / nft.attributes.length;
+        scores.set(nft.id, avgRarity);
+      });
+    });
+
+    return scores;
+  }, [nfts]);
+
   // Filter NFTs by collection and search query
   const filteredNfts = nfts.filter(nft => {
     // Collection filter
@@ -564,91 +638,120 @@ export default function MyNFTs() {
               </div>
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {filteredNfts.map((nft) => (
-                  <div
-                    key={nft.id}
-                    className="group relative aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-                    onClick={() => setSelectedNft(nft)}
-                  >
-                    {nft.image_url ? (
-                      <img
-                        src={nft.image_url}
-                        alt={nft.name || `#${nft.token_id}`}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : nft.collection?.image_url ? (
-                      <img
-                        src={nft.collection.image_url}
-                        alt={nft.name || `#${nft.token_id}`}
-                        className="w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                      <p className="text-white font-medium text-sm truncate">
-                        {nft.name || `${nft.collection?.name} #${nft.token_id}`}
-                      </p>
-                      <p className="text-white/70 text-xs">
-                        {nft.collection?.name}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredNfts.map((nft) => (
-                  <div
-                    key={nft.id}
-                    className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
-                    onClick={() => setSelectedNft(nft)}
-                  >
-                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                {filteredNfts.map((nft) => {
+                  const score = rarityScores.get(nft.id) ?? 50;
+                  const tier = getRarityTier(score);
+                  const rarity = RARITY_CONFIG[tier];
+                  const RarityIcon = rarity.icon;
+                  
+                  return (
+                    <div
+                      key={nft.id}
+                      className="group relative aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                      onClick={() => setSelectedNft(nft)}
+                    >
                       {nft.image_url ? (
                         <img
                           src={nft.image_url}
                           alt={nft.name || `#${nft.token_id}`}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : nft.collection?.image_url ? (
                         <img
                           src={nft.collection.image_url}
                           alt={nft.name || `#${nft.token_id}`}
-                          className="w-full h-full object-cover opacity-50"
+                          className="w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                          <ImageIcon className="w-8 h-8 text-muted-foreground" />
                         </div>
                       )}
+                      {/* Rarity Badge */}
+                      {nft.attributes.length > 0 && tier !== 'common' && (
+                        <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full ${rarity.bgColor} backdrop-blur-sm`}>
+                          <RarityIcon className={`w-3 h-3 ${rarity.color}`} />
+                          <span className={`text-[10px] font-medium ${rarity.color}`}>{rarity.label}</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                        <p className="text-white font-medium text-sm truncate">
+                          {nft.name || `${nft.collection?.name} #${nft.token_id}`}
+                        </p>
+                        <p className="text-white/70 text-xs">
+                          {nft.collection?.name}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        {nft.name || `${nft.collection?.name} #${nft.token_id}`}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {nft.collection?.name} · Token #{nft.token_id}
-                      </p>
-                    </div>
-                    <div className="text-right text-sm text-muted-foreground">
-                      {formatDistanceToNow(new Date(nft.minted_at), { addSuffix: true })}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="flex-shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/launchpad/${nft.collection_id}`);
-                      }}
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredNfts.map((nft) => {
+                  const score = rarityScores.get(nft.id) ?? 50;
+                  const tier = getRarityTier(score);
+                  const rarity = RARITY_CONFIG[tier];
+                  const RarityIcon = rarity.icon;
+                  
+                  return (
+                    <div
+                      key={nft.id}
+                      className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+                      onClick={() => setSelectedNft(nft)}
                     >
-                      <ArrowUpRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
+                      <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                        {nft.image_url ? (
+                          <img
+                            src={nft.image_url}
+                            alt={nft.name || `#${nft.token_id}`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : nft.collection?.image_url ? (
+                          <img
+                            src={nft.collection.image_url}
+                            alt={nft.name || `#${nft.token_id}`}
+                            className="w-full h-full object-cover opacity-50"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">
+                            {nft.name || `${nft.collection?.name} #${nft.token_id}`}
+                          </p>
+                          {nft.attributes.length > 0 && tier !== 'common' && (
+                            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full ${rarity.bgColor}`}>
+                              <RarityIcon className={`w-3 h-3 ${rarity.color}`} />
+                              <span className={`text-[10px] font-medium ${rarity.color}`}>{rarity.label}</span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {nft.collection?.name} · Token #{nft.token_id}
+                        </p>
+                      </div>
+                      <div className="text-right text-sm text-muted-foreground">
+                        {formatDistanceToNow(new Date(nft.minted_at), { addSuffix: true })}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="flex-shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/launchpad/${nft.collection_id}`);
+                        }}
+                      >
+                        <ArrowUpRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
