@@ -3,21 +3,85 @@ import { defineChain } from "viem";
 // Network type
 export type NetworkType = "mainnet" | "testnet";
 
-// RPC URLs with fallbacks
+// RPC endpoints with rate limits (ordered by reliability)
 export const MONAD_TESTNET_RPCS = [
-  "https://rpc.ankr.com/monad_testnet",
   "https://testnet-rpc.monad.xyz",
+  "https://rpc.ankr.com/monad_testnet",
 ];
 
 export const MONAD_MAINNET_RPCS = [
+  "https://rpc1.monad.xyz",       // Alchemy - generally more reliable
   "https://rpc.monad.xyz",        // QuickNode - 25 rps
-  "https://rpc1.monad.xyz",       // Alchemy - 15 rps
   "https://rpc3.monad.xyz",       // Ankr - 300 per 10s
+  "https://monad.drpc.org",       // dRPC fallback
 ];
 
 // Primary RPC URLs (for backwards compatibility)
 export const MONAD_TESTNET_RPC = MONAD_TESTNET_RPCS[0];
 export const MONAD_MAINNET_RPC = MONAD_MAINNET_RPCS[0];
+
+// RPC Health check utility
+export interface RpcHealthStatus {
+  url: string;
+  healthy: boolean;
+  latency: number | null;
+  error?: string;
+}
+
+export const checkRpcHealth = async (rpcUrl: string, timeout = 5000): Promise<RpcHealthStatus> => {
+  const startTime = Date.now();
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_blockNumber',
+        params: [],
+      }),
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    const latency = Date.now() - startTime;
+    
+    if (!response.ok) {
+      return { url: rpcUrl, healthy: false, latency, error: `HTTP ${response.status}` };
+    }
+    
+    const data = await response.json();
+    if (data.error) {
+      return { url: rpcUrl, healthy: false, latency, error: data.error.message };
+    }
+    
+    return { url: rpcUrl, healthy: true, latency };
+  } catch (error: any) {
+    return { 
+      url: rpcUrl, 
+      healthy: false, 
+      latency: null, 
+      error: error.name === 'AbortError' ? 'Timeout' : error.message 
+    };
+  }
+};
+
+export const checkAllRpcsHealth = async (network: NetworkType): Promise<RpcHealthStatus[]> => {
+  const rpcs = network === 'mainnet' ? MONAD_MAINNET_RPCS : MONAD_TESTNET_RPCS;
+  return Promise.all(rpcs.map(url => checkRpcHealth(url)));
+};
+
+export const getBestRpc = async (network: NetworkType): Promise<string | null> => {
+  const healthResults = await checkAllRpcsHealth(network);
+  const healthyRpcs = healthResults
+    .filter(r => r.healthy && r.latency !== null)
+    .sort((a, b) => (a.latency || Infinity) - (b.latency || Infinity));
+  
+  return healthyRpcs.length > 0 ? healthyRpcs[0].url : null;
+};
 
 // Monad Mainnet chain configuration
 export const monadMainnet = defineChain({
