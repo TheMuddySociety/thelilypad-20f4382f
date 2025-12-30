@@ -21,7 +21,7 @@ import { useSEO } from "@/hooks/useSEO";
 import { BrowserStreamPreview } from "@/components/streaming/BrowserStreamPreview";
 import { PipOverlay } from "@/components/streaming/PipOverlay";
 import { StreamControls } from "@/components/streaming/StreamControls";
-import { useWebRTCStream, StreamSource } from "@/hooks/useWebRTCStream";
+import { useWebRTCStream, StreamSource, StreamQuality } from "@/hooks/useWebRTCStream";
 import { useStreamPresence } from "@/hooks/useStreamPresence";
 import { 
   Key, 
@@ -90,6 +90,7 @@ export default function GoLive() {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const [streamSource, setStreamSource] = useState<StreamSource>('camera');
+  const [streamQuality, setStreamQuality] = useState<StreamQuality>('720p');
   const thumbnailInputRef = React.useRef<HTMLInputElement>(null);
 
   // WebRTC Browser Streaming
@@ -396,6 +397,7 @@ export default function GoLive() {
     
     const result = await startStream({
       source: streamSource,
+      quality: streamQuality,
       metadata: {
         title: browserStreamTitle.trim(),
         category: browserStreamCategory || undefined,
@@ -413,6 +415,7 @@ export default function GoLive() {
     setBrowserStreamTitle("");
     setBrowserStreamCategory("");
     setStreamSource('camera');
+    setStreamQuality('720p');
     removeThumbnail();
   };
 
@@ -494,6 +497,37 @@ export default function GoLive() {
                               <Monitor className="h-6 w-6" />
                               <span className="text-sm font-medium">Screen</span>
                               <span className="text-xs text-muted-foreground">Screen Share + Mic</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Stream Quality Selection */}
+                        <div className="space-y-2">
+                          <Label>Stream Quality</Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setStreamQuality('720p')}
+                              className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                                streamQuality === '720p'
+                                  ? 'border-primary bg-primary/10'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              <span className="text-sm font-medium">720p HD</span>
+                              <span className="text-xs text-muted-foreground">1280×720 • 30fps</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setStreamQuality('1080p')}
+                              className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                                streamQuality === '1080p'
+                                  ? 'border-primary bg-primary/10'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              <span className="text-sm font-medium">1080p Full HD</span>
+                              <span className="text-xs text-muted-foreground">1920×1080 • 30fps</span>
                             </button>
                           </div>
                         </div>
