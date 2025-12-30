@@ -1,3 +1,4 @@
+// Legacy provider interfaces for backwards compatibility
 interface EthereumProvider {
   isMetaMask?: boolean;
   isPhantom?: boolean;
