@@ -26,6 +26,7 @@ import { NFTRevealModal } from "@/components/NFTRevealModal";
 import { MintCountdown } from "@/components/MintCountdown";
 import { RevealCountdown } from "@/components/RevealCountdown";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
+import { BackToTop } from "@/components/BackToTop";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -1670,6 +1671,8 @@ export default function CollectionDetail() {
         txHash={revealTxHash}
         explorerUrl={currentChain.blockExplorers?.default?.url}
       />
+      
+      <BackToTop />
     </div>
   );
 }
