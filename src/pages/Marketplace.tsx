@@ -91,6 +91,8 @@ export default function Marketplace() {
   const { network, currentChain } = useWallet();
   const [activeFilter, setActiveFilter] = useState("all");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [showHotOnly, setShowHotOnly] = useState(false);
+  const [showNewOnly, setShowNewOnly] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [stickerPacks, setStickerPacks] = useState<ShopItem[]>([]);
   const [nftListings, setNftListings] = useState<NFTListing[]>([]);
@@ -233,10 +235,21 @@ export default function Marketplace() {
   const showCollections = activeFilter === "all" || activeFilter === "collections";
   const showStickers = activeFilter === "all" || activeFilter === "stickers";
 
-  // Filter collections and listings by verified status
-  const filteredCollections = verifiedOnly 
-    ? collections.filter(c => c.contract_address) // Only show deployed contracts when filter is on
-    : collections;
+  // Helper to check if collection is "new"
+  const isCollectionNew = (collection: Collection) => 
+    collection.status === 'live' && 
+    new Date(collection.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+  // Filter collections by verified, hot, and new status
+  const filteredCollections = collections.filter(c => {
+    // Verified filter
+    if (verifiedOnly && !c.contract_address) return false;
+    // Hot filter
+    if (showHotOnly && !hotCollectionMints.has(c.id)) return false;
+    // New filter
+    if (showNewOnly && !isCollectionNew(c)) return false;
+    return true;
+  });
   
   const filteredListings = verifiedOnly
     ? nftListings.filter(l => l.nft.collection?.contract_address)
@@ -350,6 +363,44 @@ export default function Marketplace() {
               className="data-[state=checked]:bg-primary"
             />
           </div>
+
+          {/* Hot Only Toggle */}
+          <Button
+            variant={showHotOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setShowHotOnly(!showHotOnly);
+              if (!showHotOnly) setShowNewOnly(false); // Deselect New when selecting Hot
+            }}
+            className={`gap-2 ${showHotOnly ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 border-0' : ''}`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            Hot 🔥
+            {showHotOnly && (
+              <Badge variant="secondary" className="ml-1 bg-white/20 text-white">
+                {hotCollectionMints.size}
+              </Badge>
+            )}
+          </Button>
+
+          {/* New Only Toggle */}
+          <Button
+            variant={showNewOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setShowNewOnly(!showNewOnly);
+              if (!showNewOnly) setShowHotOnly(false); // Deselect Hot when selecting New
+            }}
+            className={`gap-2 ${showNewOnly ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 border-0' : ''}`}
+          >
+            <Flame className="w-4 h-4" />
+            New
+            {showNewOnly && (
+              <Badge variant="secondary" className="ml-1 bg-white/20 text-white">
+                {collections.filter(c => isCollectionNew(c)).length}
+              </Badge>
+            )}
+          </Button>
 
           {/* Verified count badge */}
           {verifiedOnly && (
