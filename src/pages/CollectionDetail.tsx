@@ -337,10 +337,12 @@ export default function CollectionDetail() {
         console.error("Gas estimation failed:", error);
         
         // Fallback to estimated values if eth_estimateGas fails
+        // Monad minimum base_price_per_gas = 100 MON-gwei (100 × 10^-9 MON)
+        const MONAD_MIN_GAS_PRICE_MON = 100e-9; // 100 gwei in MON
         const baseGasLimit = 200000;
         const perNftGas = 80000;
         const fallbackGasLimit = baseGasLimit + (perNftGas * mintAmount);
-        const fallbackGasPrice = isTestnet ? 0.000000001 : 0.000000025;
+        const fallbackGasPrice = MONAD_MIN_GAS_PRICE_MON;
         const fallbackTotalGas = fallbackGasLimit * fallbackGasPrice;
         
         setGasEstimate({ 
