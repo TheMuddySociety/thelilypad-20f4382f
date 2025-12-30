@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
+import { CommunityChatCard } from "./CommunityChatCard";
 
 interface CollectionStat {
   id: string;
@@ -224,14 +225,16 @@ export const TopCollectionsHighlights: React.FC = () => {
           </p>
         </motion.div>
 
-        {/* Categories Grid */}
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-        >
+        {/* Categories Grid + Community Chat */}
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+          {/* Stats Cards */}
+          <motion.div 
+            className="xl:col-span-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+          >
           {categories.map((category) => {
             const Icon = category.icon;
             const collections = topCollections[category.key];
@@ -320,7 +323,13 @@ export const TopCollectionsHighlights: React.FC = () => {
               </motion.div>
             );
           })}
-        </motion.div>
+          </motion.div>
+
+          {/* Community Chat Card */}
+          <div className="xl:col-span-1">
+            <CommunityChatCard />
+          </div>
+        </div>
       </div>
     </section>
   );
