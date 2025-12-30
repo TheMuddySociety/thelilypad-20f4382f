@@ -67,6 +67,10 @@ export default function GoLive() {
   const [newStreamName, setNewStreamName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  
+  // Browser stream metadata
+  const [browserStreamTitle, setBrowserStreamTitle] = useState("");
+  const [browserStreamCategory, setBrowserStreamCategory] = useState("");
 
   // WebRTC Browser Streaming
   const {
@@ -222,7 +226,19 @@ export default function GoLive() {
   };
 
   const handleBrowserStreamStart = async () => {
-    const result = await startStream();
+    if (!browserStreamTitle.trim()) {
+      toast({
+        title: "Stream title required",
+        description: "Please enter a title for your stream",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const result = await startStream({
+      title: browserStreamTitle.trim(),
+      category: browserStreamCategory || undefined,
+    });
     if (result) {
       setMediaStream(result.stream);
     }
@@ -231,6 +247,8 @@ export default function GoLive() {
   const handleBrowserStreamStop = async () => {
     await stopStream();
     setMediaStream(null);
+    setBrowserStreamTitle("");
+    setBrowserStreamCategory("");
   };
 
   if (!user) {
@@ -269,16 +287,63 @@ export default function GoLive() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Preview and Controls */}
                 <div className="lg:col-span-2 space-y-6">
+                  {/* Stream Details Form */}
+                  {!isStreaming && (
+                    <Card className="glass-card border-border/50">
+                      <CardHeader className="p-4 sm:p-6">
+                        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                          <Settings className="w-5 h-5" />
+                          Stream Details
+                        </CardTitle>
+                        <CardDescription>
+                          Set your stream title and category before going live
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="stream-title">Stream Title *</Label>
+                          <Input
+                            id="stream-title"
+                            placeholder="Enter a title for your stream..."
+                            value={browserStreamTitle}
+                            onChange={(e) => setBrowserStreamTitle(e.target.value)}
+                            maxLength={100}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="stream-category">Category</Label>
+                          <select
+                            id="stream-category"
+                            value={browserStreamCategory}
+                            onChange={(e) => setBrowserStreamCategory(e.target.value)}
+                            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          >
+                            <option value="">Select a category</option>
+                            <option value="Gaming">Gaming</option>
+                            <option value="Art">Art</option>
+                            <option value="Music">Music</option>
+                            <option value="Just Chatting">Just Chatting</option>
+                            <option value="NFTs">NFTs</option>
+                            <option value="DeFi">DeFi</option>
+                            <option value="Crypto News">Crypto News</option>
+                            <option value="Education">Education</option>
+                            <option value="IRL">IRL</option>
+                          </select>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   {/* Stream Preview */}
                   <Card className="glass-card border-border/50">
                     <CardHeader className="p-4 sm:p-6">
                       <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                         <Video className="w-5 h-5" />
-                        Camera Preview
+                        {isStreaming ? browserStreamTitle || 'Live Stream' : 'Camera Preview'}
                       </CardTitle>
                       <CardDescription>
                         {isStreaming 
-                          ? "You're live! This is what viewers see."
+                          ? `You're live! ${browserStreamCategory ? `Category: ${browserStreamCategory}` : ''}`
                           : "Click 'Go Live' to start streaming from your camera."}
                       </CardDescription>
                     </CardHeader>
