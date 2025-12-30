@@ -14,6 +14,7 @@ import { useSEO } from "@/hooks/useSEO";
 import { BrowserStreamPreview } from "@/components/streaming/BrowserStreamPreview";
 import { StreamControls } from "@/components/streaming/StreamControls";
 import { useWebRTCStream } from "@/hooks/useWebRTCStream";
+import { useStreamPresence } from "@/hooks/useStreamPresence";
 import { 
   Key, 
   Copy, 
@@ -33,7 +34,8 @@ import {
   ImagePlus,
   X,
   Upload,
-  Camera
+  Camera,
+  Users
 } from "lucide-react";
 import {
   AlertDialog,
@@ -90,6 +92,9 @@ export default function GoLive() {
     stopStream,
     getMediaStream,
   } = useWebRTCStream();
+
+  // Track viewer count for active stream
+  const { viewerCount, isConnected: presenceConnected } = useStreamPresence(isStreaming ? roomId : undefined);
 
   useSEO({
     title: "Go Live | The Lily Pad",
@@ -471,10 +476,24 @@ export default function GoLive() {
                   {/* Stream Preview */}
                   <Card className="glass-card border-border/50">
                     <CardHeader className="p-4 sm:p-6">
-                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                        <Video className="w-5 h-5" />
-                        {isStreaming ? browserStreamTitle || 'Live Stream' : 'Camera Preview'}
-                      </CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                          <Video className="w-5 h-5" />
+                          {isStreaming ? browserStreamTitle || 'Live Stream' : 'Camera Preview'}
+                        </CardTitle>
+                        {isStreaming && (
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-red-500 text-white">
+                              <Radio className="w-3 h-3 mr-1 animate-pulse" />
+                              LIVE
+                            </Badge>
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {presenceConnected ? viewerCount : '...'}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
                       <CardDescription>
                         {isStreaming 
                           ? `You're live! ${browserStreamCategory ? `Category: ${browserStreamCategory}` : ''}`
