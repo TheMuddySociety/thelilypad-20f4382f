@@ -4,17 +4,20 @@ import { useToast } from '@/hooks/use-toast';
 
 export type StreamSource = 'camera' | 'screen';
 export type StreamQuality = '480p' | '720p' | '1080p';
+export type CameraFacing = 'user' | 'environment';
 
 interface StreamState {
   isStreaming: boolean;
   isConnecting: boolean;
   isSwitchingSource: boolean;
+  isSwitchingCamera: boolean;
   roomId: string | null;
   joinUrl: string | null;
   error: string | null;
   streamDbId: string | null;
   source: StreamSource | null;
   isPipEnabled: boolean;
+  cameraFacing: CameraFacing;
 }
 
 interface StreamMetadata {
@@ -41,12 +44,14 @@ export const useWebRTCStream = () => {
     isStreaming: false,
     isConnecting: false,
     isSwitchingSource: false,
+    isSwitchingCamera: false,
     roomId: null,
     joinUrl: null,
     error: null,
     streamDbId: null,
     source: null,
     isPipEnabled: false,
+    cameraFacing: 'user',
   });
   
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -57,7 +62,11 @@ export const useWebRTCStream = () => {
     return typeof navigator.mediaDevices?.getDisplayMedia === 'function';
   }, []);
 
-  const getMediaStream = useCallback(async (source: StreamSource, quality: StreamQuality = '720p'): Promise<MediaStream> => {
+  const getMediaStream = useCallback(async (
+    source: StreamSource, 
+    quality: StreamQuality = '720p',
+    facing: CameraFacing = 'user'
+  ): Promise<MediaStream> => {
     const settings = qualitySettings[quality];
     
     if (source === 'screen') {
@@ -96,13 +105,13 @@ export const useWebRTCStream = () => {
         return screenStream;
       }
     } else {
-      // Camera stream
+      // Camera stream with specified facing mode
       return await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: settings.width },
           height: { ideal: settings.height },
           frameRate: { ideal: settings.frameRate },
-          facingMode: 'user',
+          facingMode: facing,
         },
         audio: {
           echoCancellation: true,
@@ -176,17 +185,19 @@ export const useWebRTCStream = () => {
         // Don't throw - stream can still work without DB record
       }
 
-      setState({
+      setState(prev => ({
         isStreaming: true,
         isConnecting: false,
         isSwitchingSource: false,
+        isSwitchingCamera: false,
         roomId,
         joinUrl: joinData.user.joinUrl,
         error: null,
         streamDbId: streamRecord?.id || null,
         source,
         isPipEnabled: false,
-      });
+        cameraFacing: prev.cameraFacing,
+      }));
 
       toast({
         title: 'Stream started!',
@@ -204,17 +215,19 @@ export const useWebRTCStream = () => {
         mediaStreamRef.current = null;
       }
 
-      setState({
+      setState(prev => ({
         isStreaming: false,
         isConnecting: false,
         isSwitchingSource: false,
+        isSwitchingCamera: false,
         roomId: null,
         joinUrl: null,
         error: errorMessage,
         streamDbId: null,
         source: null,
         isPipEnabled: false,
-      });
+        cameraFacing: prev.cameraFacing,
+      }));
 
       toast({
         variant: 'destructive',
@@ -269,12 +282,14 @@ export const useWebRTCStream = () => {
       isStreaming: false,
       isConnecting: false,
       isSwitchingSource: false,
+      isSwitchingCamera: false,
       roomId: null,
       joinUrl: null,
       error: null,
       streamDbId: null,
       source: null,
       isPipEnabled: false,
+      cameraFacing: 'user',
     });
 
     toast({
@@ -393,12 +408,89 @@ export const useWebRTCStream = () => {
     return pipStreamRef.current;
   }, []);
 
+  // Flip camera between front and back (mobile only)
+  const flipCamera = useCallback(async (): Promise<MediaStream | null> => {
+    if (!state.isStreaming || state.source !== 'camera') {
+      toast({
+        variant: 'destructive',
+        title: 'Cannot flip camera',
+        description: 'Camera flip is only available when streaming from camera.',
+      });
+      return null;
+    }
+
+    setState(prev => ({ ...prev, isSwitchingCamera: true }));
+
+    try {
+      const newFacing: CameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
+      
+      // Stop current video tracks
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getVideoTracks().forEach(track => track.stop());
+      }
+
+      // Get new camera stream with opposite facing mode
+      const newStream = await getMediaStream('camera', '720p', newFacing);
+      
+      // Keep existing audio tracks if any
+      if (mediaStreamRef.current) {
+        const existingAudioTracks = mediaStreamRef.current.getAudioTracks();
+        const newVideoTracks = newStream.getVideoTracks();
+        mediaStreamRef.current = new MediaStream([...newVideoTracks, ...existingAudioTracks]);
+        
+        // Stop the audio from the new stream since we're keeping the old one
+        newStream.getAudioTracks().forEach(track => track.stop());
+      } else {
+        mediaStreamRef.current = newStream;
+      }
+
+      setState(prev => ({ 
+        ...prev, 
+        isSwitchingCamera: false,
+        cameraFacing: newFacing,
+      }));
+
+      toast({
+        title: 'Camera flipped',
+        description: `Now using ${newFacing === 'user' ? 'front' : 'back'} camera.`,
+      });
+
+      return mediaStreamRef.current;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to flip camera';
+      console.error('Flip camera error:', error);
+
+      setState(prev => ({ ...prev, isSwitchingCamera: false }));
+
+      toast({
+        variant: 'destructive',
+        title: 'Failed to flip camera',
+        description: errorMessage,
+      });
+
+      return null;
+    }
+  }, [state.isStreaming, state.source, state.cameraFacing, getMediaStream, toast]);
+
+  // Check if device has multiple cameras (for flip button visibility)
+  const hasMultipleCameras = useCallback(async (): Promise<boolean> => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      return videoDevices.length > 1;
+    } catch {
+      return false;
+    }
+  }, []);
+
   return {
     ...state,
     startStream,
     stopStream,
     switchSource,
     togglePip,
+    flipCamera,
+    hasMultipleCameras,
     getMediaStream: getCurrentMediaStream,
     getPipStream,
     isScreenShareSupported: isScreenShareSupported(),
