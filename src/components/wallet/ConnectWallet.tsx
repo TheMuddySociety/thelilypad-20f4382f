@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/providers/WalletProvider";
-import { Wallet, LogOut, ExternalLink, User, AlertTriangle } from "lucide-react";
+import { Wallet, LogOut, ExternalLink, User, AlertTriangle, ArrowRightLeft } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +25,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { WalletSelectorModal, WalletType } from "./WalletSelectorModal";
+import { WalletSelectorModal, WalletType, ChainType } from "./WalletSelectorModal";
+import { Badge } from "@/components/ui/badge";
 
 interface ConnectWalletProps {
   variant?: "default" | "ghost" | "outline";
@@ -38,12 +39,26 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
   size = "sm",
   className,
 }) => {
-  const { address, isConnected, isConnecting, balance, chainId, connect, disconnect, currentChain, switchToMonad, walletType } = useWallet();
+  const { 
+    address, 
+    isConnected, 
+    isConnecting, 
+    balance, 
+    chainId, 
+    connect, 
+    disconnect, 
+    currentChain, 
+    switchToMonad, 
+    walletType,
+    chainType,
+    switchChain,
+    network
+  } = useWallet();
   const navigate = useNavigate();
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [showWalletSelector, setShowWalletSelector] = useState(false);
 
-  const isWrongNetwork = isConnected && chainId !== currentChain.id;
+  const isWrongNetwork = isConnected && chainType === "evm" && chainId !== currentChain.id;
 
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -59,15 +74,40 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
     setShowDisconnectConfirm(false);
   };
 
-  const handleWalletSelect = async (selectedWalletType: WalletType) => {
+  const handleWalletSelect = async (selectedWalletType: WalletType, selectedChainType: ChainType) => {
     setShowWalletSelector(false);
-    await connect(selectedWalletType);
+    await connect(selectedWalletType, selectedChainType);
   };
 
   const getWalletIcon = () => {
     if (walletType === "phantom") return "👻";
     if (walletType === "metamask") return "🦊";
     return null;
+  };
+
+  const getChainIcon = () => {
+    if (chainType === "solana") return "◎";
+    return "⟠";
+  };
+
+  const getChainName = () => {
+    if (chainType === "solana") {
+      return network === "mainnet" ? "Solana" : "Solana Devnet";
+    }
+    return currentChain.name;
+  };
+
+  const getBalanceSymbol = () => {
+    if (chainType === "solana") return "SOL";
+    return "MON";
+  };
+
+  const getExplorerUrl = () => {
+    if (chainType === "solana") {
+      const cluster = network === "mainnet" ? "" : "?cluster=devnet";
+      return `https://explorer.solana.com/address/${address}${cluster}`;
+    }
+    return `${currentChain.blockExplorers?.default?.url}/address/${address}`;
   };
 
   if (!isConnected) {
@@ -114,34 +154,55 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
           <DropdownMenuTrigger asChild>
             <Button variant={variant} size={size} className={className}>
               <div className="flex items-center gap-2">
-                {getWalletIcon() && (
-                  <span className="text-sm">{getWalletIcon()}</span>
-                )}
+                <span className="text-sm">{getChainIcon()}</span>
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="font-mono">{formatAddress(address!)}</span>
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-64">
             <div className="px-3 py-2">
-              <p className="text-sm font-medium flex items-center gap-2">
-                Connected via {walletType === "phantom" ? "Phantom" : "MetaMask"}
-                {getWalletIcon() && <span>{getWalletIcon()}</span>}
-              </p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">{getWalletIcon()}</span>
+                <span className="text-sm font-medium">
+                  {walletType === "phantom" ? "Phantom" : "MetaMask"}
+                </span>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {chainType === "solana" ? "Solana" : "EVM"}
+                </Badge>
+              </div>
               <p className="text-xs text-muted-foreground font-mono">{formatAddress(address!)}</p>
             </div>
             <DropdownMenuSeparator />
             <div className="px-3 py-2">
+              <p className="text-xs text-muted-foreground">Network</p>
+              <p className="text-sm font-medium flex items-center gap-1">
+                <span>{getChainIcon()}</span>
+                {getChainName()}
+              </p>
+            </div>
+            <div className="px-3 py-2">
               <p className="text-xs text-muted-foreground">Balance</p>
-              <p className="text-sm font-semibold">{formatBalance(balance)} MON</p>
+              <p className="text-sm font-semibold">{formatBalance(balance)} {getBalanceSymbol()}</p>
             </div>
             <DropdownMenuSeparator />
+            
+            {/* Switch Chain Option (only for Phantom) */}
+            {walletType === "phantom" && (
+              <DropdownMenuItem 
+                onClick={() => switchChain(chainType === "solana" ? "evm" : "solana")}
+              >
+                <ArrowRightLeft className="w-4 h-4 mr-2" />
+                Switch to {chainType === "solana" ? "Monad (EVM)" : "Solana"}
+              </DropdownMenuItem>
+            )}
+            
             <DropdownMenuItem onClick={() => navigate("/wallet")}>
               <User className="w-4 h-4 mr-2" />
               View Profile
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => window.open(`${currentChain.blockExplorers?.default?.url}/address/${address}`, "_blank")}
+              onClick={() => window.open(getExplorerUrl(), "_blank")}
             >
               <ExternalLink className="w-4 h-4 mr-2" />
               View on Explorer
@@ -181,7 +242,8 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
               Disconnect Wallet?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to disconnect your wallet <span className="font-mono font-medium">{formatAddress(address!)}</span>. 
+              You are about to disconnect your {chainType === "solana" ? "Solana" : "EVM"} wallet{" "}
+              <span className="font-mono font-medium">{formatAddress(address!)}</span>. 
               You will need to reconnect to access wallet features and make transactions.
             </AlertDialogDescription>
           </AlertDialogHeader>
