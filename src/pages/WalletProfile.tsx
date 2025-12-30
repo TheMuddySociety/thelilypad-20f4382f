@@ -33,15 +33,22 @@ import {
   Loader2,
   Search
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { monadMainnet } from "@/config/alchemy";
 
-// Mock transaction data - in production this would come from an API
-const mockTransactions = [
-  { id: "1", type: "send", amount: "1.5", to: "0x1234...5678", timestamp: "2024-01-15T10:30:00Z", hash: "0xabc...123" },
-  { id: "2", type: "receive", amount: "5.0", from: "0x9876...4321", timestamp: "2024-01-14T15:45:00Z", hash: "0xdef...456" },
-  { id: "3", type: "send", amount: "0.25", to: "0x5555...6666", timestamp: "2024-01-13T08:20:00Z", hash: "0xghi...789" },
-  { id: "4", type: "receive", amount: "10.0", from: "0x7777...8888", timestamp: "2024-01-12T20:00:00Z", hash: "0xjkl...012" },
-];
+interface Transaction {
+  id: string;
+  tx_hash: string;
+  tx_type: string;
+  quantity: number;
+  price_paid: number;
+  status: string;
+  created_at: string;
+  collection?: {
+    name: string;
+  } | null;
+}
 
 export default function WalletProfile() {
   const { address, isConnected, balance, chainId, disconnect } = useWallet();
@@ -69,6 +76,38 @@ export default function WalletProfile() {
     loadMore, 
     refresh: refreshNFTs 
   } = useWalletNFTs(address, selectedNetwork);
+
+  // Fetch real transactions from database
+  const { data: transactions = [], isLoading: txLoading, refetch: refetchTx } = useQuery({
+    queryKey: ['wallet-transactions', address],
+    queryFn: async () => {
+      if (!address) return [];
+      
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('nft_transactions')
+        .select(`
+          id,
+          tx_hash,
+          tx_type,
+          quantity,
+          price_paid,
+          status,
+          created_at,
+          collection:collections(name)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      return (data || []) as Transaction[];
+    },
+    enabled: !!address,
+  });
 
   // Fetch floor prices for portfolio value estimation
   const {
@@ -242,10 +281,10 @@ export default function WalletProfile() {
           <Card className="glass-card border-border/50">
             <CardContent className="p-3 sm:p-4 md:p-6">
               <div className="text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground mb-1">Transactions</div>
-              {isLoading ? (
+              {txLoading ? (
                 <Skeleton className="h-6 sm:h-8 w-8 sm:w-16" />
               ) : (
-                <div className="text-lg sm:text-xl md:text-2xl font-bold">{mockTransactions.length}</div>
+                <div className="text-lg sm:text-xl md:text-2xl font-bold">{transactions.length}</div>
               )}
             </CardContent>
           </Card>
@@ -289,11 +328,23 @@ export default function WalletProfile() {
           {/* Transactions Tab */}
           <TabsContent value="transactions">
             <Card className="glass-card border-border/50">
-              <CardHeader className="p-4 sm:p-6">
+              <CardHeader className="p-4 sm:p-6 flex flex-row items-center justify-between">
                 <CardTitle className="text-base sm:text-lg">Transaction History</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => refetchTx()}
+                  disabled={txLoading}
+                >
+                  {txLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                </Button>
               </CardHeader>
               <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                {isLoading ? (
+                {txLoading ? (
                   <div className="space-y-3">
                     {[1, 2, 3].map((i) => (
                       <div key={i} className="flex items-center gap-3">
@@ -306,47 +357,48 @@ export default function WalletProfile() {
                       </div>
                     ))}
                   </div>
-                ) : mockTransactions.length > 0 ? (
+                ) : transactions.length > 0 ? (
                   <div className="space-y-2 sm:space-y-3">
-                    {mockTransactions.map((tx) => (
+                    {transactions.map((tx) => (
                       <div
                         key={tx.id}
                         className="flex items-center gap-2.5 sm:gap-4 p-2.5 sm:p-4 rounded-lg sm:rounded-xl bg-muted/50 hover:bg-muted transition-colors"
                       >
                         <div
                           className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${
-                            tx.type === "send"
-                              ? "bg-destructive/10 text-destructive"
-                              : "bg-primary/10 text-primary"
+                            tx.tx_type === "mint"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-secondary/10 text-secondary-foreground"
                           }`}
                         >
-                          {tx.type === "send" ? (
-                            <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5" />
-                          ) : (
+                          {tx.tx_type === "mint" ? (
                             <ArrowDownLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                          ) : (
+                            <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                            <span className="font-medium text-sm sm:text-base capitalize">{tx.type}</span>
-                            <span className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[100px] sm:max-w-none">
-                              {tx.type === "send" ? `→ ${tx.to}` : `← ${tx.from}`}
-                            </span>
+                            <span className="font-medium text-sm sm:text-base capitalize">{tx.tx_type}</span>
+                            {tx.collection?.name && (
+                              <span className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[100px] sm:max-w-none">
+                                {tx.collection.name}
+                              </span>
+                            )}
+                            <Badge variant={tx.status === 'confirmed' ? 'default' : 'secondary'} className="text-[10px]">
+                              {tx.status}
+                            </Badge>
                           </div>
                           <div className="text-[10px] sm:text-sm text-muted-foreground">
-                            {formatDate(tx.timestamp)}
+                            {formatDate(tx.created_at)} · {tx.quantity} NFT{tx.quantity > 1 ? 's' : ''}
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <div
-                            className={`font-semibold text-sm sm:text-base ${
-                              tx.type === "send" ? "text-destructive" : "text-primary"
-                            }`}
-                          >
-                            {tx.type === "send" ? "-" : "+"}{tx.amount}
+                          <div className="font-semibold text-sm sm:text-base text-primary">
+                            {tx.price_paid} MON
                           </div>
                           <a
-                            href={`${monadMainnet.blockExplorers.default.url}/tx/${tx.hash}`}
+                            href={`${monadMainnet.blockExplorers.default.url}/tx/${tx.tx_hash}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[10px] sm:text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 justify-end"
@@ -362,6 +414,7 @@ export default function WalletProfile() {
                   <div className="text-center py-8 sm:py-12 text-muted-foreground">
                     <History className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
                     <p className="text-sm sm:text-base">No transactions yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">Your NFT mint and transfer history will appear here</p>
                   </div>
                 )}
               </CardContent>
