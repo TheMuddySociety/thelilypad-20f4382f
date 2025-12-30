@@ -11,12 +11,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ClipShareMenu } from "@/components/ClipShareMenu";
 import { ClipReactions } from "@/components/ClipReactions";
 import { CommentThread, CommentData } from "@/components/CommentThread";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { useSEO } from "@/hooks/useSEO";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import {
-  ArrowLeft, User, Eye, Calendar, Film, Play,
-  MessageSquare, Send
+  User, Eye, Calendar, Film, Play,
+  MessageSquare, Send, ArrowLeft
 } from "lucide-react";
 
 interface ClipData {
@@ -403,20 +411,31 @@ const ClipViewer = () => {
       <Navbar />
       <main className="container mx-auto px-4 pt-24 pb-12">
         <div className="max-w-6xl mx-auto">
-          {/* Back Button */}
+          {/* Breadcrumb Navigation */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className="mb-6"
           >
-            <Button
-              variant="ghost"
-              onClick={() => navigate(-1)}
-              className="gap-2 hover:bg-muted/50"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to="/" className="hover:text-primary transition-colors">Home</Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to="/streams" className="hover:text-primary transition-colors">Streams</Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage className="truncate max-w-[200px]">{clip.title}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
           </motion.div>
 
           <div className="grid lg:grid-cols-3 gap-6">
