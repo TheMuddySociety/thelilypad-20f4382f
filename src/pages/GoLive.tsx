@@ -87,10 +87,13 @@ export default function GoLive() {
   const {
     isStreaming,
     isConnecting,
+    isSwitchingSource,
     roomId,
+    source: currentSource,
     error: webrtcError,
     startStream,
     stopStream,
+    switchSource,
     getMediaStream,
   } = useWebRTCStream();
 
@@ -534,16 +537,56 @@ export default function GoLive() {
                       </div>
                       <CardDescription>
                         {isStreaming 
-                          ? `You're live! ${browserStreamCategory ? `Category: ${browserStreamCategory}` : ''}`
+                          ? `You're live${currentSource === 'screen' ? ' (Screen Share)' : ' (Camera)'}! ${browserStreamCategory ? `Category: ${browserStreamCategory}` : ''}`
                           : "Click 'Go Live' to start streaming from your camera."}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-4 sm:p-6 pt-0">
+                    <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
                       <BrowserStreamPreview 
                         stream={mediaStream}
                         isLive={isStreaming}
                         className="aspect-video"
                       />
+                      
+                      {/* Source Switcher - Only visible while streaming */}
+                      {isStreaming && (
+                        <div className="flex items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg">
+                          <span className="text-sm text-muted-foreground mr-2">Switch to:</span>
+                          <Button
+                            variant={currentSource === 'camera' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={async () => {
+                              if (currentSource !== 'camera') {
+                                const newStream = await switchSource('camera');
+                                if (newStream) setMediaStream(newStream);
+                              }
+                            }}
+                            disabled={isSwitchingSource || currentSource === 'camera'}
+                            className="gap-2"
+                          >
+                            <Camera className="h-4 w-4" />
+                            Camera
+                          </Button>
+                          <Button
+                            variant={currentSource === 'screen' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={async () => {
+                              if (currentSource !== 'screen') {
+                                const newStream = await switchSource('screen');
+                                if (newStream) setMediaStream(newStream);
+                              }
+                            }}
+                            disabled={isSwitchingSource || currentSource === 'screen'}
+                            className="gap-2"
+                          >
+                            <Monitor className="h-4 w-4" />
+                            Screen
+                          </Button>
+                          {isSwitchingSource && (
+                            <span className="text-xs text-muted-foreground animate-pulse">Switching...</span>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
