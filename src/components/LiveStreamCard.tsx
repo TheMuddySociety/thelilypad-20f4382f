@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Eye, Users, Play } from 'lucide-react';
+import { Eye, Users, Play, Radio } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface LiveStreamCardProps {
@@ -14,6 +14,8 @@ interface LiveStreamCardProps {
   creatorAvatar?: string;
   viewerCount?: number;
   thumbnailUrl?: string;
+  category?: string;
+  streamType?: 'webrtc' | 'hls';
 }
 
 export const LiveStreamCard = ({
@@ -25,13 +27,22 @@ export const LiveStreamCard = ({
   creatorAvatar,
   viewerCount = 0,
   thumbnailUrl,
+  category,
+  streamType = 'hls',
 }: LiveStreamCardProps) => {
   const navigate = useNavigate();
+
+  const handleClick = () => {
+    const url = streamType === 'webrtc' 
+      ? `/watch/${playbackId}?type=webrtc`
+      : `/watch/${playbackId}`;
+    navigate(url);
+  };
 
   return (
     <Card 
       className="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all group"
-      onClick={() => navigate(`/watch/${playbackId}`)}
+      onClick={handleClick}
     >
       <div className="relative aspect-video bg-muted">
         {thumbnailUrl ? (
@@ -50,7 +61,7 @@ export const LiveStreamCard = ({
         {isActive && (
           <div className="absolute top-2 left-2">
             <Badge variant="destructive" className="gap-1">
-              <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              <Radio className="w-2 h-2 animate-pulse" />
               LIVE
             </Badge>
           </div>
@@ -62,6 +73,15 @@ export const LiveStreamCard = ({
             <Badge variant="secondary" className="gap-1">
               <Eye className="h-3 w-3" />
               {viewerCount}
+            </Badge>
+          </div>
+        )}
+
+        {/* Stream type badge */}
+        {streamType === 'webrtc' && (
+          <div className="absolute bottom-2 right-2">
+            <Badge variant="outline" className="bg-black/50 text-white text-xs">
+              Browser
             </Badge>
           </div>
         )}
@@ -81,6 +101,11 @@ export const LiveStreamCard = ({
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-sm truncate">{name}</h3>
             <p className="text-muted-foreground text-xs truncate">{creatorName}</p>
+            {category && (
+              <Badge variant="secondary" className="text-xs mt-1">
+                {category}
+              </Badge>
+            )}
           </div>
         </div>
       </CardContent>
