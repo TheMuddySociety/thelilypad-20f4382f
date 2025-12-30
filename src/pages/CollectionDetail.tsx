@@ -124,6 +124,10 @@ export default function CollectionDetail() {
     attributes: Array<{ trait_type: string; value: string; rarity?: number }>;
   }>>([]);
   const [revealTxHash, setRevealTxHash] = useState<string>("");
+  
+  // Advanced gas override settings
+  const [showAdvancedGas, setShowAdvancedGas] = useState(false);
+  const [customGasLimit, setCustomGasLimit] = useState<string>("");
 
   // Contract minting hook
   const { 
@@ -461,9 +465,9 @@ export default function CollectionDetail() {
         });
         return;
       }
-      txHash = await mintWithAllowlist(mintAmount, activePhase.price, allowlistAddresses, collection.id, collection.name, collection.image_url);
+      txHash = await mintWithAllowlist(mintAmount, activePhase.price, allowlistAddresses, collection.id, collection.name, collection.image_url, customGasLimit ? parseInt(customGasLimit) : undefined);
     } else {
-      txHash = await mintPublic(mintAmount, activePhase.price, collection.id, collection.name, collection.image_url);
+      txHash = await mintPublic(mintAmount, activePhase.price, collection.id, collection.name, collection.image_url, customGasLimit ? parseInt(customGasLimit) : undefined);
     }
 
     if (txHash) {
@@ -1238,7 +1242,59 @@ export default function CollectionDetail() {
                     </div>
                     {gasEstimate && !isEstimatingGas && (
                       <div className="text-xs text-muted-foreground">
-                        Gas Limit: {gasEstimate.gasLimit.toLocaleString()} • Gas Price: {(gasEstimate.gasPrice * 1e9).toFixed(2)} Gwei
+                        Gas Limit: {customGasLimit ? parseInt(customGasLimit).toLocaleString() : gasEstimate.gasLimit.toLocaleString()} • Gas Price: {(gasEstimate.gasPrice * 1e9).toFixed(2)} Gwei
+                      </div>
+                    )}
+                    
+                    {/* Advanced Gas Override Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedGas(!showAdvancedGas)}
+                      className="flex items-center gap-1 text-xs text-primary hover:underline mt-2"
+                    >
+                      <Fuel className="w-3 h-3" />
+                      {showAdvancedGas ? "Hide advanced" : "Advanced gas settings"}
+                    </button>
+                    
+                    {/* Advanced Gas Override Input */}
+                    {showAdvancedGas && (
+                      <div className="mt-3 p-3 bg-background/50 rounded-lg border border-border space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-medium">Custom Gas Limit</label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs px-2"
+                            onClick={() => setCustomGasLimit("")}
+                            disabled={!customGasLimit}
+                          >
+                            Reset
+                          </Button>
+                        </div>
+                        <Input
+                          type="number"
+                          placeholder={gasEstimate ? gasEstimate.gasLimit.toString() : "e.g. 300000"}
+                          value={customGasLimit}
+                          onChange={(e) => setCustomGasLimit(e.target.value)}
+                          className="h-8 text-sm"
+                          min={100000}
+                          max={10000000}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Override the automatic gas limit. Leave empty to use auto-retry logic with increasing limits.
+                        </p>
+                        {customGasLimit && parseInt(customGasLimit) < 200000 && (
+                          <p className="text-xs text-amber-500 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Low gas limit may cause transaction to fail
+                          </p>
+                        )}
+                        {customGasLimit && parseInt(customGasLimit) > 1000000 && (
+                          <p className="text-xs text-amber-500 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            High gas limit - you may pay more than needed
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

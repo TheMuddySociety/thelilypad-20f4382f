@@ -165,7 +165,8 @@ export function useContractMint(contractAddress: string | null) {
     allowlistAddresses: string[],
     collectionId?: string,
     collectionName?: string,
-    collectionImage?: string | null
+    collectionImage?: string | null,
+    customGasLimit?: number
   ): Promise<string | null> => {
     if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
@@ -208,10 +209,10 @@ export function useContractMint(contractAddress: string | null) {
       });
 
       // Gas limit multipliers for retry attempts (1x, 1.5x, 2x)
-      const gasMultipliers = [1, 1.5, 2];
+      const gasMultipliers = customGasLimit ? [1] : [1, 1.5, 2]; // Skip retries if custom gas limit is set
       const baseGasLimit = 200000;
       const perNftGas = 80000;
-      const initialGasLimit = baseGasLimit + (perNftGas * quantity);
+      const initialGasLimit = customGasLimit || (baseGasLimit + (perNftGas * quantity));
 
       let txHash: string | null = null;
       let lastError: any = null;
@@ -345,7 +346,8 @@ export function useContractMint(contractAddress: string | null) {
     pricePerNft: string,
     collectionId?: string,
     collectionName?: string,
-    collectionImage?: string | null
+    collectionImage?: string | null,
+    customGasLimit?: number
   ): Promise<string | null> => {
     if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
@@ -379,10 +381,10 @@ export function useContractMint(contractAddress: string | null) {
       });
 
       // Gas limit multipliers for retry attempts (1x, 1.5x, 2x)
-      const gasMultipliers = [1, 1.5, 2];
+      const gasMultipliers = customGasLimit ? [1] : [1, 1.5, 2]; // Skip retries if custom gas limit is set
       const baseGasLimit = 200000;
       const perNftGas = 80000;
-      const initialGasLimit = baseGasLimit + (perNftGas * quantity);
+      const initialGasLimit = customGasLimit || (baseGasLimit + (perNftGas * quantity));
 
       let txHash: string | null = null;
       let lastError: any = null;
