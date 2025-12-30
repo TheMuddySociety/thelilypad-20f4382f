@@ -10,10 +10,10 @@ export const MONAD_TESTNET_RPCS = [
 ];
 
 export const MONAD_MAINNET_RPCS = [
-  "https://rpc1.monad.xyz",       // Alchemy - generally more reliable
-  "https://rpc.monad.xyz",        // QuickNode - 25 rps
+  "https://rpc.monad.xyz",        // QuickNode - 25 rps (most reliable)
+  "https://rpc1.monad.xyz",       // Alchemy - 15 rps
   "https://rpc3.monad.xyz",       // Ankr - 300 per 10s
-  "https://monad.drpc.org",       // dRPC fallback
+  "https://rpc-mainnet.monadinfra.com", // MF - historical state support
 ];
 
 // Primary RPC URLs (for backwards compatibility)
