@@ -1355,9 +1355,79 @@ export default function CollectionDetail() {
                       </div>
                     )}
                     {gasEstimate && !isEstimatingGas && (
-                      <div className="text-xs text-muted-foreground">
-                        Gas Limit: {customGasLimit ? parseInt(customGasLimit).toLocaleString() : gasEstimate.gasLimit.toLocaleString()} • Gas Price: {(gasEstimate.gasPrice * 1e9).toFixed(2)} Gwei
-                      </div>
+                      <>
+                        <div className="text-xs text-muted-foreground">
+                          Gas Limit: {customGasLimit ? parseInt(customGasLimit).toLocaleString() : gasEstimate.gasLimit.toLocaleString()} • Gas Price: {(gasEstimate.gasPrice * 1e9).toFixed(2)} Gwei
+                        </div>
+                        
+                        {/* Network Congestion Indicator */}
+                        {(() => {
+                          const MONAD_MIN_GWEI = 100; // Monad minimum base_price_per_gas
+                          const currentGwei = gasEstimate.gasPrice * 1e9;
+                          const congestionRatio = currentGwei / MONAD_MIN_GWEI;
+                          
+                          let congestionLevel: 'low' | 'moderate' | 'high' | 'very-high';
+                          let congestionLabel: string;
+                          let congestionColor: string;
+                          let barWidth: number;
+                          
+                          if (congestionRatio <= 1.2) {
+                            congestionLevel = 'low';
+                            congestionLabel = 'Low';
+                            congestionColor = 'bg-green-500';
+                            barWidth = 25;
+                          } else if (congestionRatio <= 2) {
+                            congestionLevel = 'moderate';
+                            congestionLabel = 'Moderate';
+                            congestionColor = 'bg-yellow-500';
+                            barWidth = 50;
+                          } else if (congestionRatio <= 5) {
+                            congestionLevel = 'high';
+                            congestionLabel = 'High';
+                            congestionColor = 'bg-orange-500';
+                            barWidth = 75;
+                          } else {
+                            congestionLevel = 'very-high';
+                            congestionLabel = 'Very High';
+                            congestionColor = 'bg-red-500';
+                            barWidth = 100;
+                          }
+                          
+                          return (
+                            <div className="mt-2 space-y-1.5">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground flex items-center gap-1.5">
+                                  <span className="relative flex h-2 w-2">
+                                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${congestionColor} opacity-75`}></span>
+                                    <span className={`relative inline-flex rounded-full h-2 w-2 ${congestionColor}`}></span>
+                                  </span>
+                                  Network Congestion
+                                </span>
+                                <span className={`font-medium ${
+                                  congestionLevel === 'low' ? 'text-green-500' :
+                                  congestionLevel === 'moderate' ? 'text-yellow-500' :
+                                  congestionLevel === 'high' ? 'text-orange-500' :
+                                  'text-red-500'
+                                }`}>
+                                  {congestionLabel} ({congestionRatio.toFixed(1)}x min)
+                                </span>
+                              </div>
+                              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full ${congestionColor} transition-all duration-500`}
+                                  style={{ width: `${barWidth}%` }}
+                                />
+                              </div>
+                              <p className="text-[10px] text-muted-foreground">
+                                {congestionLevel === 'low' && 'Network is running smoothly. Optimal time to mint.'}
+                                {congestionLevel === 'moderate' && 'Slightly elevated gas prices. Transactions should confirm normally.'}
+                                {congestionLevel === 'high' && 'Network is busy. Consider waiting for lower gas prices.'}
+                                {congestionLevel === 'very-high' && 'Network is congested. Expect higher fees and slower confirmations.'}
+                              </p>
+                            </div>
+                          );
+                        })()}
+                      </>
                     )}
                     
                     {/* Advanced Gas Override Toggle */}
