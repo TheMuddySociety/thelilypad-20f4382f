@@ -171,7 +171,7 @@ const Streams: React.FC = () => {
                     
                     {/* Live Badge */}
                     <div className="absolute top-4 left-4 flex items-center gap-2">
-                      <Badge className="bg-red-500 text-white animate-pulse flex items-center gap-1">
+                      <Badge className="bg-red-500 text-white animate-live-pulse flex items-center gap-1">
                         <Radio className="w-3 h-3" />
                         LIVE
                       </Badge>
