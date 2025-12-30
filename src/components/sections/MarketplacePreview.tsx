@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Radio, TrendingUp, Sparkles, Loader2, Image as ImageIcon } from "lucide-react";
+import { Radio, Sparkles, Loader2, Image as ImageIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Collection {
@@ -18,6 +18,7 @@ interface Collection {
 
 export const MarketplacePreview: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Fetch real collections from database
   const { data: collections, isLoading } = useQuery({
@@ -34,6 +35,29 @@ export const MarketplacePreview: React.FC = () => {
       return data as Collection[];
     },
   });
+
+  // Real-time subscription for collections changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('marketplace-preview-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'collections'
+        },
+        () => {
+          // Invalidate and refetch when any collection changes
+          queryClient.invalidateQueries({ queryKey: ['marketplace-preview-collections'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const getPrice = (collection: Collection) => {
     const phases = collection.phases as any[];
