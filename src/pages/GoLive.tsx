@@ -5,6 +5,13 @@ import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -459,23 +466,25 @@ export default function GoLive() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="stream-category">Category</Label>
-                          <select
-                            id="stream-category"
-                            value={browserStreamCategory}
-                            onChange={(e) => setBrowserStreamCategory(e.target.value)}
-                            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          <Select 
+                            value={browserStreamCategory} 
+                            onValueChange={setBrowserStreamCategory}
                           >
-                            <option value="">Select a category</option>
-                            <option value="Gaming">Gaming</option>
-                            <option value="Art">Art</option>
-                            <option value="Music">Music</option>
-                            <option value="Just Chatting">Just Chatting</option>
-                            <option value="NFTs">NFTs</option>
-                            <option value="DeFi">DeFi</option>
-                            <option value="Crypto News">Crypto News</option>
-                            <option value="Education">Education</option>
-                            <option value="IRL">IRL</option>
-                          </select>
+                            <SelectTrigger id="stream-category">
+                              <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Gaming">Gaming</SelectItem>
+                              <SelectItem value="Art">Art</SelectItem>
+                              <SelectItem value="Music">Music</SelectItem>
+                              <SelectItem value="Just Chatting">Just Chatting</SelectItem>
+                              <SelectItem value="NFTs">NFTs</SelectItem>
+                              <SelectItem value="DeFi">DeFi</SelectItem>
+                              <SelectItem value="Crypto News">Crypto News</SelectItem>
+                              <SelectItem value="Education">Education</SelectItem>
+                              <SelectItem value="IRL">IRL</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         
                         {/* Thumbnail Upload */}
