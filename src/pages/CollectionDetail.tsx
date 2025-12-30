@@ -64,7 +64,8 @@ import {
   Send,
   Eye,
   EyeOff,
-  Info
+  Info,
+  Zap
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -556,6 +557,48 @@ export default function CollectionDetail() {
       }
     } catch (err) {
       console.error("Test mint failed:", err);
+    }
+  };
+
+  // FORCE MINT - bypasses ALL phase checks for urgent debugging
+  const handleForceMint = async () => {
+    if (!isConnected) {
+      toast.error("Wallet not connected");
+      return;
+    }
+
+    if (!collection?.contract_address) {
+      toast.error("Contract not deployed");
+      return;
+    }
+
+    // Get price from any phase, default to "0" (free mint) if none
+    const phases = getPhases();
+    const price = phases[0]?.price || "0";
+
+    toast.info("🚀 Force Mint Started", {
+      description: `Minting 1 NFT at ${price} MON - bypassing phase checks...`,
+    });
+
+    try {
+      // Always use public mint for force mint - simplest path
+      const txHash = await mintPublic(1, price, collection.id, collection.name, collection.image_url, undefined);
+
+      if (txHash) {
+        toast.success("Force Mint Submitted!", {
+          description: `TX: ${txHash.slice(0, 10)}...`,
+        });
+        const mockAttributes = generateRandomAttributes(1, collection.minted);
+        setRevealedNfts(mockAttributes);
+        setRevealTxHash(txHash);
+        setShowRevealModal(true);
+        fetchCollection();
+      }
+    } catch (err: any) {
+      console.error("Force mint failed:", err);
+      toast.error("Force Mint Failed", {
+        description: err?.message || "Check console for details",
+      });
     }
   };
 
@@ -1678,6 +1721,20 @@ export default function CollectionDetail() {
                   >
                     <FlaskConical className="w-4 h-4" />
                     Test Mint (1) — No Gas Overrides
+                  </Button>
+                )}
+
+                {/* FORCE MINT - Always visible when contract deployed, bypasses ALL phase checks */}
+                {isConnected && collection?.contract_address && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={handleForceMint}
+                    disabled={isMinting || isSwitchingNetwork}
+                  >
+                    <Zap className="w-4 h-4" />
+                    {isMinting ? "Minting..." : "⚡ FORCE MINT (1) — Bypass Checks"}
                   </Button>
                 )}
 
