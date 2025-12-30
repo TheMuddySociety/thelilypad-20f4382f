@@ -1,0 +1,16 @@
+{
+  "appId": "app.lovable.4fd2ea79092f460bbf12127f87e184bc",
+  "appName": "thelilypad",
+  "webDir": "dist",
+  "server": {
+    "url": "https://4fd2ea79-092f-460b-bf12-127f87e184bc.lovableproject.com?forceHideBadge=true",
+    "cleartext": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#0A0A0A",
+      "showSpinner": false
+    }
+  }
+}

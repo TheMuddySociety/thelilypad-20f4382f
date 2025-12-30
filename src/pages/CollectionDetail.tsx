@@ -405,7 +405,7 @@ export default function CollectionDetail() {
         description: "Please connect your wallet to mint",
         action: {
           label: "Connect",
-          onClick: connect,
+          onClick: () => connect(),
         },
       });
       return;
@@ -1486,7 +1486,7 @@ export default function CollectionDetail() {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={connect}
+                      onClick={() => connect()}
                     >
                       Connect Wallet
                     </Button>

@@ -196,7 +196,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
               <p className="text-sm text-muted-foreground mb-3">
                 Connect your wallet to deploy
               </p>
-              <Button onClick={connect} size="sm">
+              <Button onClick={() => connect()} size="sm">
                 Connect Wallet
               </Button>
             </div>

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
 import { createPublicClient, http, formatEther, parseEther, Chain, fallback } from "viem";
 import { monadMainnet, monadTestnet, getRpcUrls, getMonadChain, NetworkType } from "@/config/alchemy";
+import { WalletType } from "@/components/wallet/WalletSelectorModal";
 
 interface WalletState {
   address: string | null;
@@ -9,15 +10,17 @@ interface WalletState {
   balance: string | null;
   chainId: number | null;
   network: NetworkType;
+  walletType: WalletType | null;
 }
 
 interface WalletContextType extends WalletState {
-  connect: () => Promise<void>;
+  connect: (walletType?: WalletType) => Promise<void>;
   disconnect: () => void;
   switchToMonad: () => Promise<void>;
   switchNetwork: (network: NetworkType) => void;
   sendTransaction: (to: string, amount: string) => Promise<string | null>;
   currentChain: Chain;
+  getProvider: () => EthereumProvider | null;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -34,9 +37,48 @@ interface WalletProviderProps {
   children: React.ReactNode;
 }
 
+// Helper to get the appropriate provider based on wallet type
+const getProviderForWallet = (walletType: WalletType | null): EthereumProvider | null => {
+  if (walletType === "phantom") {
+    // Phantom injects into window.phantom.ethereum for EVM chains
+    if (window.phantom?.ethereum) {
+      return window.phantom.ethereum;
+    }
+    // Fallback: Phantom may also inject directly into window.ethereum with isPhantom flag
+    if (window.ethereum?.isPhantom) {
+      return window.ethereum;
+    }
+    return null;
+  }
+  
+  if (walletType === "metamask") {
+    // MetaMask injects into window.ethereum
+    if (window.ethereum?.isMetaMask) {
+      return window.ethereum;
+    }
+    return null;
+  }
+  
+  // Default: try to get any available provider
+  return window.ethereum || window.phantom?.ethereum || null;
+};
+
+// Detect which wallets are installed
+export const detectInstalledWallets = (): { metamask: boolean; phantom: boolean } => {
+  const isMetaMaskInstalled = typeof window.ethereum !== "undefined" && !!window.ethereum.isMetaMask;
+  const isPhantomInstalled = typeof window.phantom?.ethereum !== "undefined" || 
+    (typeof window.ethereum !== "undefined" && !!window.ethereum.isPhantom);
+  
+  return {
+    metamask: isMetaMaskInstalled,
+    phantom: isPhantomInstalled,
+  };
+};
+
 export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const [walletState, setWalletState] = useState<WalletState>(() => {
     const savedNetwork = localStorage.getItem("monadNetwork") as NetworkType | null;
+    const savedWalletType = localStorage.getItem("walletType") as WalletType | null;
     return {
       address: null,
       isConnected: false,
@@ -44,6 +86,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       balance: null,
       chainId: null,
       network: savedNetwork || "testnet",
+      walletType: savedWalletType,
     };
   });
 
@@ -57,6 +100,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     });
   }, [walletState.network, currentChain]);
 
+  const getProvider = useCallback((): EthereumProvider | null => {
+    return getProviderForWallet(walletState.walletType);
+  }, [walletState.walletType]);
+
   const fetchBalance = useCallback(async (address: string) => {
     try {
       const balance = await publicClient.getBalance({ address: address as `0x${string}` });
@@ -67,20 +114,24 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     }
   }, [publicClient]);
 
-  const connect = useCallback(async () => {
-    if (typeof window.ethereum === "undefined") {
-      alert("Please install MetaMask or another Web3 wallet to connect.");
+  const connect = useCallback(async (walletType?: WalletType) => {
+    const targetWalletType = walletType || walletState.walletType || "metamask";
+    const provider = getProviderForWallet(targetWalletType);
+    
+    if (!provider) {
+      const walletName = targetWalletType === "phantom" ? "Phantom" : "MetaMask";
+      alert(`Please install ${walletName} wallet to connect.`);
       return;
     }
 
-    setWalletState(prev => ({ ...prev, isConnecting: true }));
+    setWalletState(prev => ({ ...prev, isConnecting: true, walletType: targetWalletType }));
 
     try {
-      const accounts = await window.ethereum.request({
+      const accounts = await provider.request({
         method: "eth_requestAccounts",
       });
 
-      const chainId = await window.ethereum.request({
+      const chainId = await provider.request({
         method: "eth_chainId",
       });
 
@@ -94,15 +145,17 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         isConnecting: false,
         balance,
         chainId: parseInt(chainId, 16),
+        walletType: targetWalletType,
       }));
 
       // Store connection state
       localStorage.setItem("walletConnected", "true");
+      localStorage.setItem("walletType", targetWalletType);
     } catch (error) {
       console.error("Error connecting wallet:", error);
       setWalletState(prev => ({ ...prev, isConnecting: false }));
     }
-  }, [fetchBalance]);
+  }, [fetchBalance, walletState.walletType]);
 
   const disconnect = useCallback(() => {
     setWalletState(prev => ({
@@ -112,8 +165,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       isConnecting: false,
       balance: null,
       chainId: null,
+      walletType: null,
     }));
     localStorage.removeItem("walletConnected");
+    localStorage.removeItem("walletType");
   }, []);
 
   const switchNetwork = useCallback(async (network: NetworkType) => {
@@ -124,10 +179,11 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     localStorage.setItem("monadNetwork", network);
     
     // If connected, prompt wallet to switch to the new network
-    if (walletState.isConnected && typeof window.ethereum !== "undefined") {
+    const provider = getProviderForWallet(walletState.walletType);
+    if (walletState.isConnected && provider) {
       const targetChain = getMonadChain(network);
       try {
-        await window.ethereum.request({
+        await provider.request({
           method: "wallet_switchEthereumChain",
           params: [{ chainId: `0x${targetChain.id.toString(16)}` }],
         });
@@ -135,7 +191,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         // Chain not added, try to add it
         if (switchError.code === 4902) {
           try {
-            await window.ethereum.request({
+            await provider.request({
               method: "wallet_addEthereumChain",
               params: [
                 {
@@ -153,13 +209,14 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         }
       }
     }
-  }, [walletState.isConnected]);
+  }, [walletState.isConnected, walletState.walletType]);
 
   const switchToMonad = useCallback(async () => {
-    if (typeof window.ethereum === "undefined") return;
+    const provider = getProviderForWallet(walletState.walletType);
+    if (!provider) return;
 
     try {
-      await window.ethereum.request({
+      await provider.request({
         method: "wallet_switchEthereumChain",
         params: [{ chainId: `0x${currentChain.id.toString(16)}` }],
       });
@@ -167,7 +224,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       // Chain not added, try to add it
       if (switchError.code === 4902) {
         try {
-          await window.ethereum.request({
+          await provider.request({
             method: "wallet_addEthereumChain",
             params: [
               {
@@ -184,17 +241,18 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         }
       }
     }
-  }, [currentChain]);
+  }, [currentChain, walletState.walletType]);
 
   const sendTransaction = useCallback(async (to: string, amount: string): Promise<string | null> => {
-    if (typeof window.ethereum === "undefined" || !walletState.address) {
+    const provider = getProviderForWallet(walletState.walletType);
+    if (!provider || !walletState.address) {
       return null;
     }
 
     try {
       const valueInWei = parseEther(amount);
       
-      const txHash = await window.ethereum.request({
+      const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [
           {
@@ -214,11 +272,12 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       console.error("Error sending transaction:", error);
       throw error;
     }
-  }, [walletState.address, fetchBalance]);
+  }, [walletState.address, walletState.walletType, fetchBalance]);
 
   // Listen for account changes
   useEffect(() => {
-    if (typeof window.ethereum === "undefined") return;
+    const provider = getProviderForWallet(walletState.walletType);
+    if (!provider) return;
 
     const handleAccountsChanged = async (accounts: string[]) => {
       if (accounts.length === 0) {
@@ -240,20 +299,24 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       }));
     };
 
-    window.ethereum.on("accountsChanged", handleAccountsChanged);
-    window.ethereum.on("chainChanged", handleChainChanged);
+    provider.on("accountsChanged", handleAccountsChanged);
+    provider.on("chainChanged", handleChainChanged);
 
     return () => {
-      window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
-      window.ethereum.removeListener("chainChanged", handleChainChanged);
+      provider.removeListener("accountsChanged", handleAccountsChanged);
+      provider.removeListener("chainChanged", handleChainChanged);
     };
-  }, [walletState.address, disconnect, fetchBalance]);
+  }, [walletState.address, walletState.walletType, disconnect, fetchBalance]);
 
   // Auto-connect if previously connected
   useEffect(() => {
     const wasConnected = localStorage.getItem("walletConnected");
-    if (wasConnected === "true" && typeof window.ethereum !== "undefined") {
-      connect();
+    const savedWalletType = localStorage.getItem("walletType") as WalletType | null;
+    if (wasConnected === "true" && savedWalletType) {
+      const provider = getProviderForWallet(savedWalletType);
+      if (provider) {
+        connect(savedWalletType);
+      }
     }
   }, [connect]);
 
@@ -267,6 +330,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         switchNetwork,
         sendTransaction,
         currentChain,
+        getProvider,
       }}
     >
       {children}
