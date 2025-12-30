@@ -67,6 +67,7 @@ const App = () => (
               <Route path="/channel-emotes" element={<ChannelEmotes />} />
               <Route path="/launchpad" element={<Launchpad />} />
               <Route path="/launchpad/:collectionId" element={<CollectionDetail />} />
+              <Route path="/collection/:collectionId" element={<CollectionDetail />} />
               <Route path="/my-nfts" element={<MyNFTs />} />
               <Route path="/watch/:playbackId" element={<Watch />} />
               <Route path="/admin" element={<AdminDashboard />} />
