@@ -8,6 +8,12 @@ interface StreamState {
   roomId: string | null;
   joinUrl: string | null;
   error: string | null;
+  streamDbId: string | null;
+}
+
+interface StreamMetadata {
+  title: string;
+  category?: string;
 }
 
 export const useWebRTCStream = () => {
@@ -18,14 +24,21 @@ export const useWebRTCStream = () => {
     roomId: null,
     joinUrl: null,
     error: null,
+    streamDbId: null,
   });
   
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  const startStream = useCallback(async () => {
+  const startStream = useCallback(async (metadata?: StreamMetadata) => {
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('You must be logged in to stream');
+      }
+
       // Request camera and microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -62,12 +75,35 @@ export const useWebRTCStream = () => {
         throw new Error(joinData?.error || joinError?.message || 'Failed to join room');
       }
 
+      // Create stream record in database
+      const streamTitle = metadata?.title?.trim() || 'Live Stream';
+      const streamCategory = metadata?.category || null;
+
+      const { data: streamRecord, error: dbError } = await supabase
+        .from('streams')
+        .insert({
+          user_id: user.id,
+          title: streamTitle,
+          category: streamCategory,
+          is_live: true,
+          stream_key_id: roomId,
+          started_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        console.error('Failed to create stream record:', dbError);
+        // Don't throw - stream can still work without DB record
+      }
+
       setState({
         isStreaming: true,
         isConnecting: false,
         roomId,
         joinUrl: joinData.user.joinUrl,
         error: null,
+        streamDbId: streamRecord?.id || null,
       });
 
       toast({
@@ -92,6 +128,7 @@ export const useWebRTCStream = () => {
         roomId: null,
         joinUrl: null,
         error: errorMessage,
+        streamDbId: null,
       });
 
       toast({
@@ -111,6 +148,21 @@ export const useWebRTCStream = () => {
       mediaStreamRef.current = null;
     }
 
+    // Update stream record to mark as ended
+    if (state.streamDbId) {
+      try {
+        await supabase
+          .from('streams')
+          .update({
+            is_live: false,
+            ended_at: new Date().toISOString(),
+          })
+          .eq('id', state.streamDbId);
+      } catch (error) {
+        console.error('Failed to update stream record:', error);
+      }
+    }
+
     // Delete the room if we have one
     if (state.roomId) {
       try {
@@ -128,13 +180,14 @@ export const useWebRTCStream = () => {
       roomId: null,
       joinUrl: null,
       error: null,
+      streamDbId: null,
     });
 
     toast({
       title: 'Stream ended',
       description: 'Your live stream has ended.',
     });
-  }, [state.roomId, toast]);
+  }, [state.roomId, state.streamDbId, toast]);
 
   const getMediaStream = useCallback(() => {
     return mediaStreamRef.current;
