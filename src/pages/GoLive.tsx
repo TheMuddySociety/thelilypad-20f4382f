@@ -49,7 +49,8 @@ import {
   Clock,
   Wifi,
   Loader2 as SpeedLoader,
-  Activity
+  Activity,
+  SwitchCamera
 } from "lucide-react";
 import {
   AlertDialog,
@@ -107,14 +108,18 @@ export default function GoLive() {
     isStreaming,
     isConnecting,
     isSwitchingSource,
+    isSwitchingCamera,
     isPipEnabled,
     roomId,
     source: currentSource,
+    cameraFacing,
     error: webrtcError,
     startStream,
     stopStream,
     switchSource,
     togglePip,
+    flipCamera,
+    hasMultipleCameras,
     getMediaStream,
     getPipStream,
     isScreenShareSupported,
@@ -133,6 +138,7 @@ export default function GoLive() {
   });
 
   const [pipStream, setPipStream] = useState<MediaStream | null>(null);
+  const [showFlipButton, setShowFlipButton] = useState(false);
   
   // Stream duration timer
   const [streamDuration, setStreamDuration] = useState(0);
@@ -140,6 +146,11 @@ export default function GoLive() {
 
   // Track viewer count for active stream
   const { viewerCount, isConnected: presenceConnected } = useStreamPresence(isStreaming ? roomId : undefined);
+  
+  // Check for multiple cameras on mount
+  useEffect(() => {
+    hasMultipleCameras().then(setShowFlipButton);
+  }, [hasMultipleCameras]);
   
   // Stream duration timer effect
   useEffect(() => {
@@ -959,7 +970,24 @@ export default function GoLive() {
                               </Button>
                             )}
                             
-                            {isSwitchingSource && (
+                            {/* Flip Camera - Only on camera mode with multiple cameras */}
+                            {currentSource === 'camera' && showFlipButton && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  const newStream = await flipCamera();
+                                  if (newStream) setMediaStream(newStream);
+                                }}
+                                disabled={isSwitchingCamera}
+                                className="gap-2 ml-2"
+                              >
+                                <SwitchCamera className="h-4 w-4" />
+                                {isSwitchingCamera ? 'Flipping...' : (cameraFacing === 'user' ? 'Back' : 'Front')}
+                              </Button>
+                            )}
+                            
+                            {(isSwitchingSource || isSwitchingCamera) && (
                               <span className="text-xs text-muted-foreground animate-pulse">Switching...</span>
                             )}
                           </div>
