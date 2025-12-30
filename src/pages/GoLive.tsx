@@ -29,7 +29,11 @@ import {
   ExternalLink,
   Video,
   Monitor,
-  Smartphone
+  Smartphone,
+  ImagePlus,
+  X,
+  Upload,
+  Camera
 } from "lucide-react";
 import {
   AlertDialog,
@@ -71,6 +75,10 @@ export default function GoLive() {
   // Browser stream metadata
   const [browserStreamTitle, setBrowserStreamTitle] = useState("");
   const [browserStreamCategory, setBrowserStreamCategory] = useState("");
+  const [browserStreamThumbnail, setBrowserStreamThumbnail] = useState<string | null>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+  const thumbnailInputRef = React.useRef<HTMLInputElement>(null);
 
   // WebRTC Browser Streaming
   const {
@@ -225,6 +233,82 @@ export default function GoLive() {
     return key.slice(0, 4) + "••••••••" + key.slice(-4);
   };
 
+  const handleThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Thumbnail must be less than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setThumbnailFile(file);
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setBrowserStreamThumbnail(previewUrl);
+  };
+
+  const uploadThumbnail = async (): Promise<string | null> => {
+    if (!thumbnailFile || !user) return null;
+
+    setIsUploadingThumbnail(true);
+    try {
+      const fileExt = thumbnailFile.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('stream-thumbnails')
+        .upload(fileName, thumbnailFile, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('stream-thumbnails')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Thumbnail upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload thumbnail",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsUploadingThumbnail(false);
+    }
+  };
+
+  const removeThumbnail = () => {
+    if (browserStreamThumbnail) {
+      URL.revokeObjectURL(browserStreamThumbnail);
+    }
+    setBrowserStreamThumbnail(null);
+    setThumbnailFile(null);
+    if (thumbnailInputRef.current) {
+      thumbnailInputRef.current.value = '';
+    }
+  };
+
   const handleBrowserStreamStart = async () => {
     if (!browserStreamTitle.trim()) {
       toast({
@@ -234,10 +318,20 @@ export default function GoLive() {
       });
       return;
     }
+
+    // Upload thumbnail if selected
+    let thumbnailUrl: string | undefined;
+    if (thumbnailFile) {
+      const uploadedUrl = await uploadThumbnail();
+      if (uploadedUrl) {
+        thumbnailUrl = uploadedUrl;
+      }
+    }
     
     const result = await startStream({
       title: browserStreamTitle.trim(),
       category: browserStreamCategory || undefined,
+      thumbnailUrl,
     });
     if (result) {
       setMediaStream(result.stream);
@@ -249,6 +343,7 @@ export default function GoLive() {
     setMediaStream(null);
     setBrowserStreamTitle("");
     setBrowserStreamCategory("");
+    removeThumbnail();
   };
 
   if (!user) {
@@ -329,6 +424,45 @@ export default function GoLive() {
                             <option value="Education">Education</option>
                             <option value="IRL">IRL</option>
                           </select>
+                        </div>
+                        
+                        {/* Thumbnail Upload */}
+                        <div className="space-y-2">
+                          <Label>Stream Thumbnail</Label>
+                          <input
+                            ref={thumbnailInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleThumbnailSelect}
+                            className="hidden"
+                          />
+                          
+                          {browserStreamThumbnail ? (
+                            <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border">
+                              <img
+                                src={browserStreamThumbnail}
+                                alt="Stream thumbnail preview"
+                                className="w-full h-full object-cover"
+                              />
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-2 right-2 h-8 w-8"
+                                onClick={removeThumbnail}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => thumbnailInputRef.current?.click()}
+                              className="w-full aspect-video rounded-lg border-2 border-dashed border-border hover:border-primary/50 cursor-pointer flex flex-col items-center justify-center gap-2 bg-muted/50 transition-colors"
+                            >
+                              <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                              <p className="text-sm text-muted-foreground">Click to upload thumbnail</p>
+                              <p className="text-xs text-muted-foreground">Recommended: 1280x720 (16:9)</p>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
