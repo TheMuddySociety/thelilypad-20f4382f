@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export type StreamSource = 'camera' | 'screen';
+export type StreamQuality = '720p' | '1080p';
 
 interface StreamState {
   isStreaming: boolean;
@@ -25,7 +26,13 @@ interface StreamMetadata {
 interface StartStreamOptions {
   metadata?: StreamMetadata;
   source?: StreamSource;
+  quality?: StreamQuality;
 }
+
+const qualitySettings: Record<StreamQuality, { width: number; height: number; frameRate: number }> = {
+  '720p': { width: 1280, height: 720, frameRate: 30 },
+  '1080p': { width: 1920, height: 1080, frameRate: 30 },
+};
 
 export const useWebRTCStream = () => {
   const { toast } = useToast();
@@ -44,14 +51,16 @@ export const useWebRTCStream = () => {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const pipStreamRef = useRef<MediaStream | null>(null);
 
-  const getMediaStream = useCallback(async (source: StreamSource): Promise<MediaStream> => {
+  const getMediaStream = useCallback(async (source: StreamSource, quality: StreamQuality = '720p'): Promise<MediaStream> => {
+    const settings = qualitySettings[quality];
+    
     if (source === 'screen') {
       // Get screen share with system audio if available
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          frameRate: { ideal: 30 },
+          width: { ideal: settings.width },
+          height: { ideal: settings.height },
+          frameRate: { ideal: settings.frameRate },
         },
         audio: true, // Capture system audio if available
       });
@@ -79,8 +88,9 @@ export const useWebRTCStream = () => {
       // Camera stream
       return await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: settings.width },
+          height: { ideal: settings.height },
+          frameRate: { ideal: settings.frameRate },
           facingMode: 'user',
         },
         audio: {
@@ -94,6 +104,7 @@ export const useWebRTCStream = () => {
 
   const startStream = useCallback(async (options?: StartStreamOptions) => {
     const source = options?.source || 'camera';
+    const quality = options?.quality || '720p';
     const metadata = options?.metadata;
     
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
@@ -105,8 +116,8 @@ export const useWebRTCStream = () => {
         throw new Error('You must be logged in to stream');
       }
 
-      // Get media based on source
-      const stream = await getMediaStream(source);
+      // Get media based on source and quality
+      const stream = await getMediaStream(source, quality);
 
       mediaStreamRef.current = stream;
 
