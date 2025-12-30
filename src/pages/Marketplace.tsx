@@ -485,10 +485,11 @@ export default function Marketplace() {
                   )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {filteredListings.map((listing) => (
+                  {filteredListings.map((listing, index) => (
                     <Card 
                       key={listing.id} 
-                      className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group"
+                      className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group animate-fade-in"
+                      style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'backwards' }}
                       onClick={() => setSelectedListing(listing)}
                     >
                       <div className="aspect-square relative overflow-hidden bg-muted">
@@ -564,7 +565,7 @@ export default function Marketplace() {
                   )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {filteredCollections.map((collection) => {
+                  {filteredCollections.map((collection, index) => {
                     const StatusIcon = statusIcons[collection.status as keyof typeof statusIcons] || Sparkles;
                     // Check if collection is "new" (live and created within last 7 days)
                     const isNew = collection.status === 'live' && 
@@ -582,7 +583,8 @@ export default function Marketplace() {
                     return (
                       <Card 
                         key={collection.id} 
-                        className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group ${showSoldOutBadge ? 'ring-2 ring-gray-500/50' : showHotBadge ? 'ring-2 ring-pink-500/50' : isNew ? 'ring-2 ring-orange-500/50' : ''}`}
+                        className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group animate-fade-in ${showSoldOutBadge ? 'ring-2 ring-gray-500/50' : showHotBadge ? 'ring-2 ring-pink-500/50' : isNew ? 'ring-2 ring-orange-500/50' : ''}`}
+                        style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'backwards' }}
                         onClick={() => navigate(`/launchpad/${collection.id}`)}
                       >
                         <div className="aspect-square relative overflow-hidden bg-muted">
@@ -678,10 +680,11 @@ export default function Marketplace() {
                   <Badge variant="secondary">{stickerPacks.length}</Badge>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {stickerPacks.map((pack) => (
+                  {stickerPacks.map((pack, index) => (
                     <Card 
                       key={pack.id} 
-                      className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group"
+                      className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group animate-fade-in"
+                      style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'backwards' }}
                       onClick={() => navigate(`/marketplace/sticker/${pack.id}`)}
                     >
                       <div className="aspect-square relative overflow-hidden bg-muted">
