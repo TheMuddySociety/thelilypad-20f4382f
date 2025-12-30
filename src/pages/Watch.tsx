@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSEO } from '@/hooks/useSEO';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useStreamPresence } from '@/hooks/useStreamPresence';
 
 const Watch = () => {
   const { playbackId } = useParams<{ playbackId: string }>();
@@ -21,6 +22,9 @@ const Watch = () => {
   // Check if this is a WebRTC room (via query param or ID format)
   const isWebRTC = searchParams.get('type') === 'webrtc' || 
     (playbackId && playbackId.length === 36 && playbackId.includes('-')); // UUID format indicates room ID
+
+  // Track viewer presence for real-time viewer count
+  const { viewerCount, isConnected } = useStreamPresence(playbackId);
 
   useSEO({
     title: "Watch Live | The Lily Pad",
@@ -131,7 +135,9 @@ const Watch = () => {
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Users className="h-4 w-4" />
-                  <span className="text-sm">Watching</span>
+                  <span className="text-sm">
+                    {isConnected ? `${viewerCount} watching` : 'Connecting...'}
+                  </span>
                 </div>
               </div>
             </div>
