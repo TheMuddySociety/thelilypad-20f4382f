@@ -21,7 +21,7 @@ const getRedirectUrl = () => {
 export const createPhantomSDK = () => {
   return new BrowserSDK({
     providers: ["google", "apple", "injected"], // OAuth providers + browser extension
-    addressTypes: [AddressType.ethereum, AddressType.solana],
+    addressTypes: [AddressType.ethereum, AddressType.solana, AddressType.bitcoinSegwit, AddressType.sui],
     appId: PHANTOM_APP_ID,
     authOptions: {
       authUrl: "https://connect.phantom.app/login",
@@ -34,7 +34,7 @@ export const createPhantomSDK = () => {
 export const createInjectedOnlySDK = () => {
   return new BrowserSDK({
     providers: ["injected"],
-    addressTypes: [AddressType.ethereum, AddressType.solana],
+    addressTypes: [AddressType.ethereum, AddressType.solana, AddressType.bitcoinSegwit, AddressType.sui],
     appId: PHANTOM_APP_ID,
   });
 };
