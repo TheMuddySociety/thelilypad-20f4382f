@@ -7,10 +7,9 @@ export type NetworkType = "mainnet" | "testnet";
 export const MONAD_TESTNET_RPC = "https://rpc.ankr.com/monad_testnet";
 export const MONAD_MAINNET_RPC = "https://rpc.ankr.com/monad"; // Placeholder for mainnet
 
-// Monad Mainnet chain configuration (placeholder - update when mainnet launches)
-// Using a distinct chain ID that won't conflict with Ethereum mainnet
+// Monad Mainnet chain configuration
 export const monadMainnet = defineChain({
-  id: 41454, // Monad Mainnet chain ID (placeholder - update when official ID is announced)
+  id: 143, // Official Monad Mainnet chain ID
   name: "Monad Mainnet",
   nativeCurrency: {
     decimals: 18,
