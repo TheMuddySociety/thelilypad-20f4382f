@@ -207,7 +207,12 @@ export function useContractMint(contractAddress: string | null) {
         args: [BigInt(quantity), proof as `0x${string}`[]],
       });
 
-      // Send transaction
+      // Calculate gas limit (base + per NFT)
+      const baseGasLimit = 200000;
+      const perNftGas = 80000;
+      const gasLimit = baseGasLimit + (perNftGas * quantity);
+
+      // Send transaction with explicit gas limit
       const txHash = await window.ethereum.request({
         method: "eth_sendTransaction",
         params: [{
@@ -215,6 +220,7 @@ export function useContractMint(contractAddress: string | null) {
           to: contractAddress,
           data,
           value: `0x${totalValue.toString(16)}`,
+          gas: `0x${gasLimit.toString(16)}`,
         }],
       });
 
@@ -320,7 +326,12 @@ export function useContractMint(contractAddress: string | null) {
         args: [BigInt(quantity)],
       });
 
-      // Send transaction
+      // Calculate gas limit (base + per NFT)
+      const baseGasLimit = 200000;
+      const perNftGas = 80000;
+      const gasLimit = baseGasLimit + (perNftGas * quantity);
+
+      // Send transaction with explicit gas limit
       const txHash = await window.ethereum.request({
         method: "eth_sendTransaction",
         params: [{
@@ -328,6 +339,7 @@ export function useContractMint(contractAddress: string | null) {
           to: contractAddress,
           data,
           value: `0x${totalValue.toString(16)}`,
+          gas: `0x${gasLimit.toString(16)}`,
         }],
       });
 
