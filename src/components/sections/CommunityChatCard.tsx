@@ -7,7 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Send, MessageCircle, Users, Loader2, LogIn, SmilePlus } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Send, MessageCircle, Users, Loader2, LogIn, SmilePlus, MoreVertical, Trash2, Ban, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -48,23 +49,49 @@ export const CommunityChatCard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
   const [viewerCount, setViewerCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Check auth state
+  // Check auth state and admin/banned status
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setUser(session?.user ?? null);
+        if (session?.user) {
+          checkUserStatus(session.user.id);
+        } else {
+          setIsAdmin(false);
+          setIsBanned(false);
+        }
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        checkUserStatus(session.user.id);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const checkUserStatus = async (userId: string) => {
+    // Check if user is admin
+    const { data: adminData } = await supabase.rpc('has_role', { 
+      _user_id: userId, 
+      _role: 'admin' 
+    });
+    setIsAdmin(!!adminData);
+
+    // Check if user is banned
+    const { data: bannedData } = await supabase.rpc('is_user_banned', { 
+      _user_id: userId 
+    });
+    setIsBanned(!!bannedData);
+  };
 
   // Fetch initial messages
   useEffect(() => {
@@ -218,6 +245,11 @@ export const CommunityChatCard: React.FC = () => {
       return;
     }
 
+    if (isBanned) {
+      toast.error('You are banned from chatting');
+      return;
+    }
+
     if (newMessage.length > 500) {
       toast.error('Message too long (max 500 characters)');
       return;
@@ -248,6 +280,11 @@ export const CommunityChatCard: React.FC = () => {
   const handleReaction = async (messageId: string, emoji: string) => {
     if (!user) {
       toast.error('Please sign in to react');
+      return;
+    }
+
+    if (isBanned) {
+      toast.error('You are banned from chatting');
       return;
     }
 
@@ -295,6 +332,45 @@ export const CommunityChatCard: React.FC = () => {
     });
 
     return Object.values(counts).sort((a, b) => b.count - a.count);
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!isAdmin) return;
+    
+    const { error } = await supabase
+      .from('stream_chat_messages')
+      .delete()
+      .eq('id', messageId);
+
+    if (error) {
+      console.error('Error deleting message:', error);
+      toast.error('Failed to delete message');
+    } else {
+      toast.success('Message deleted');
+    }
+  };
+
+  const handleBanUser = async (userId: string, username: string) => {
+    if (!isAdmin || !user) return;
+    
+    const { error } = await supabase
+      .from('banned_users')
+      .insert({
+        user_id: userId,
+        banned_by: user.id,
+        reason: 'Banned from community chat by admin'
+      });
+
+    if (error) {
+      if (error.code === '23505') {
+        toast.error('User is already banned');
+      } else {
+        console.error('Error banning user:', error);
+        toast.error('Failed to ban user');
+      }
+    } else {
+      toast.success(`${username} has been banned`);
+    }
   };
 
   const getAvatarColor = (username: string) => {
@@ -383,33 +459,79 @@ export const CommunityChatCard: React.FC = () => {
                             )}
                           </div>
                           
-                          {/* Add reaction button */}
-                          {user && (
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <SmilePlus className="h-3.5 w-3.5" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-2" side="top">
-                                <div className="flex gap-1">
-                                  {REACTION_EMOJIS.map(emoji => (
-                                    <button
-                                      key={emoji}
-                                      onClick={() => handleReaction(msg.id, emoji)}
-                                      className="text-lg hover:scale-125 transition-transform p-1"
-                                    >
-                                      {emoji}
-                                    </button>
-                                  ))}
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          )}
+                          {/* Moderation & reaction buttons */}
+                          <div className="flex items-start gap-1">
+                            {/* Add reaction button */}
+                            {user && !isBanned && (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <SmilePlus className="h-3.5 w-3.5" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-2" side="top">
+                                  <div className="flex gap-1">
+                                    {REACTION_EMOJIS.map(emoji => (
+                                      <button
+                                        key={emoji}
+                                        onClick={() => handleReaction(msg.id, emoji)}
+                                        className="text-lg hover:scale-125 transition-transform p-1"
+                                      >
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                            
+                            {/* Admin moderation menu */}
+                            {isAdmin && msg.user_id !== user?.id && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive/70 hover:text-destructive"
+                                  >
+                                    <MoreVertical className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40">
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteMessage(msg.id)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete message
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleBanUser(msg.user_id, msg.username)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Ban className="h-4 w-4 mr-2" />
+                                    Ban user
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                            
+                            {/* Delete own message */}
+                            {user?.id === msg.user_id && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDeleteMessage(msg.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         
                         {/* Reactions display */}
@@ -455,6 +577,11 @@ export const CommunityChatCard: React.FC = () => {
                   Sign in to join the conversation
                 </Button>
               </Link>
+            ) : isBanned ? (
+              <div className="flex items-center justify-center gap-2 text-destructive text-sm py-2">
+                <ShieldAlert className="h-4 w-4" />
+                You are banned from chatting
+              </div>
             ) : (
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <Input
