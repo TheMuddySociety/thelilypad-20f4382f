@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
-import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X } from "lucide-react";
+import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
+import { RpcSettings } from "@/components/wallet/RpcSettings";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useWallet } from "@/providers/WalletProvider";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -172,6 +173,7 @@ export const Navbar: React.FC = () => {
               <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 border-t border-border/50 bg-background">
                 <div className="flex items-center justify-center gap-2">
                   <NetworkSwitch />
+                  <RpcSettings variant="icon" />
                 </div>
                 <ConnectWallet className="w-full justify-center" />
               </div>

@@ -6,9 +6,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, Clock } from "lucide-react";
-import { checkAllRpcsHealth, RpcHealthStatus, NetworkType } from "@/config/alchemy";
+import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, Clock, Settings } from "lucide-react";
+import { checkAllRpcsHealth, RpcHealthStatus, getPreferredRpcUrl } from "@/config/alchemy";
 import { useWallet } from "@/providers/WalletProvider";
+import { RpcSettings } from "@/components/wallet/RpcSettings";
 
 export const RpcHealthIndicator: React.FC = () => {
   const { network } = useWallet();
@@ -98,12 +99,17 @@ export const RpcHealthIndicator: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            {healthStatuses.map((status, index) => {
+            {healthStatuses.map((status) => {
               const hostname = new URL(status.url).hostname;
+              const preferredRpc = getPreferredRpcUrl(network);
+              const isPreferred = preferredRpc === status.url;
+              
               return (
                 <div
                   key={status.url}
-                  className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
+                  className={`flex items-center justify-between p-2 rounded-lg bg-muted/50 ${
+                    isPreferred ? 'ring-1 ring-primary/50' : ''
+                  }`}
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {status.healthy ? (
@@ -112,9 +118,9 @@ export const RpcHealthIndicator: React.FC = () => {
                       <XCircle className="w-4 h-4 text-destructive shrink-0" />
                     )}
                     <span className="text-sm truncate">{hostname}</span>
-                    {index === 0 && (
-                      <Badge variant="outline" className="text-[10px] px-1 py-0">
-                        Primary
+                    {isPreferred && (
+                      <Badge variant="default" className="text-[10px] px-1 py-0">
+                        Selected
                       </Badge>
                     )}
                   </div>
@@ -145,13 +151,11 @@ export const RpcHealthIndicator: React.FC = () => {
             </div>
           )}
 
-          <div className="text-xs text-muted-foreground">
-            <p>If all RPCs are down, check your network connection or try:</p>
-            <ol className="list-decimal list-inside mt-1 space-y-0.5">
-              <li>Refresh the page</li>
-              <li>Clear browser cache</li>
-              <li>Switch networks and back</li>
-            </ol>
+          <div className="flex items-center justify-between pt-2 border-t">
+            <div className="text-xs text-muted-foreground">
+              Select preferred RPC endpoint
+            </div>
+            <RpcSettings variant="icon" />
           </div>
         </div>
       </PopoverContent>
