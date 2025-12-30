@@ -1,5 +1,5 @@
 import React from "react";
-import { Shield, Store, Video, Lock } from "lucide-react";
+import { Shield, Store, Video } from "lucide-react";
 
 const valueProps = [
   {
@@ -20,12 +20,6 @@ const valueProps = [
     description: "Livestreams, chats, donations—built straight in.",
     gradient: "from-accent/20 to-accent/5",
   },
-  {
-    icon: Lock,
-    title: "Anti-Rug Protection",
-    description: "Creator token system that safeguards communities.",
-    gradient: "from-primary/20 to-secondary/5",
-  },
 ];
 
 export const ValuePropsSection: React.FC = () => {
@@ -43,7 +37,7 @@ export const ValuePropsSection: React.FC = () => {
         </div>
         
         {/* Cards grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {valueProps.map((prop, index) => (
             <div
               key={prop.title}

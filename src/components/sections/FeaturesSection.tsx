@@ -7,7 +7,6 @@ import {
   Trophy, 
   Gavel, 
   Gift, 
-  Coins, 
   Music,
   ArrowRight
 } from "lucide-react";
@@ -67,18 +66,6 @@ const features = [
     href: "/launchpad",
     imagePosition: "left",
     accent: "secondary",
-  },
-  {
-    id: "token",
-    icon: Coins,
-    title: "Creator Token System",
-    description: "Revolutionary tokenomics that protect and reward your community.",
-    bullets: ["10% supply locked to platform", "Rewards Lily Pad NFT holders", "Anti-rug treasury mechanism", "Community governance", "Sustainable growth"],
-    cta: "Learn Token System",
-    href: "/fees",
-    imagePosition: "right",
-    accent: "accent",
-    premium: true,
   },
   {
     id: "media",
@@ -149,7 +136,7 @@ export const FeaturesSection: React.FC = () => {
                   ))}
                 </ul>
                 
-                <Button variant={feature.premium ? "premium" : "default"} className="group mt-4" asChild>
+                <Button variant="default" className="group mt-4" asChild>
                   <Link to={feature.href}>
                     {feature.cta}
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -159,7 +146,7 @@ export const FeaturesSection: React.FC = () => {
               
               {/* Visual side */}
               <div className="flex-1 w-full">
-                <div className={`glass-card p-8 aspect-video flex items-center justify-center ${feature.premium ? "border-2 border-accent/50 shadow-xl shadow-accent/10" : ""}`}>
+                <div className="glass-card p-8 aspect-video flex items-center justify-center">
                   <div className={`w-32 h-32 rounded-2xl bg-gradient-to-br ${getAccentColors(feature.accent)} flex items-center justify-center`}>
                     <feature.icon className="w-16 h-16 text-foreground/50" />
                   </div>
