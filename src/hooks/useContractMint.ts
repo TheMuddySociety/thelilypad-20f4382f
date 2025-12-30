@@ -4,6 +4,7 @@ import { NFT_CONTRACT_ABI } from "@/config/nftContract";
 import { encodeFunctionData, parseEther, keccak256, encodePacked } from "viem";
 import { MerkleTree } from "merkletreejs";
 import { supabase } from "@/integrations/supabase/client";
+import { getMonadChain, NetworkType } from "@/config/alchemy";
 
 interface MintState {
   isMinting: boolean;
@@ -18,7 +19,7 @@ const generateLeaf = (address: string): string => {
 };
 
 export function useContractMint(contractAddress: string | null) {
-  const { address, isConnected, balance } = useWallet();
+  const { address, isConnected, balance, network, switchToMonad, chainId } = useWallet();
   const [state, setState] = useState<MintState>({
     isMinting: false,
     txHash: null,
@@ -65,6 +66,27 @@ export function useContractMint(contractAddress: string | null) {
 
     return tree.verify(proof, leaf, root);
   }, []);
+
+  // Ensure wallet is on the correct Monad network
+  const ensureCorrectNetwork = useCallback(async (): Promise<boolean> => {
+    if (typeof window.ethereum === "undefined") return false;
+    
+    const targetChain = getMonadChain(network);
+    const currentChainId = chainId;
+    
+    if (currentChainId !== targetChain.id) {
+      try {
+        await switchToMonad();
+        // Wait a moment for the network switch to complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return true;
+      } catch (error) {
+        console.error("Failed to switch network:", error);
+        return false;
+      }
+    }
+    return true;
+  }, [network, chainId, switchToMonad]);
 
   // Record transaction to database
   const recordTransaction = useCallback(async (
@@ -147,6 +169,13 @@ export function useContractMint(contractAddress: string | null) {
   ): Promise<string | null> => {
     if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
+      return null;
+    }
+
+    // Ensure we're on the correct Monad network
+    const networkOk = await ensureCorrectNetwork();
+    if (!networkOk) {
+      setState(prev => ({ ...prev, error: "Please switch to Monad network" }));
       return null;
     }
 
@@ -250,7 +279,7 @@ export function useContractMint(contractAddress: string | null) {
 
       return null;
     }
-  }, [address, isConnected, contractAddress, generateMerkleProof, verifyAllowlist, recordTransaction, recordMintedNFTs]);
+  }, [address, isConnected, contractAddress, generateMerkleProof, verifyAllowlist, recordTransaction, recordMintedNFTs, ensureCorrectNetwork]);
 
   // Mint public (no proof required)
   const mintPublic = useCallback(async (
@@ -262,6 +291,13 @@ export function useContractMint(contractAddress: string | null) {
   ): Promise<string | null> => {
     if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
+      return null;
+    }
+
+    // Ensure we're on the correct Monad network
+    const networkOk = await ensureCorrectNetwork();
+    if (!networkOk) {
+      setState(prev => ({ ...prev, error: "Please switch to Monad network" }));
       return null;
     }
 
@@ -358,7 +394,7 @@ export function useContractMint(contractAddress: string | null) {
 
       return null;
     }
-  }, [address, isConnected, contractAddress, recordTransaction, recordMintedNFTs]);
+  }, [address, isConnected, contractAddress, recordTransaction, recordMintedNFTs, ensureCorrectNetwork]);
 
   // Check user's balance to ensure they can afford mint
   const canAffordMint = useCallback((quantity: number, pricePerNft: string): boolean => {
