@@ -1,22 +1,41 @@
-import React from "react";
+import React, { useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useWallet } from "@/providers/WalletProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FlaskConical, Globe, Droplets } from "lucide-react";
+import { FlaskConical, Globe, Droplets, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const TESTNET_FAUCET_URL = "https://faucet.monad.xyz";
 
 export const NetworkSwitch: React.FC = () => {
   const { network, switchNetwork, isConnected } = useWallet();
+  const [isSwitching, setIsSwitching] = useState(false);
 
   const isTestnet = network === "testnet";
+
+  const handleNetworkSwitch = async (checked: boolean) => {
+    const newNetwork = checked ? "testnet" : "mainnet";
+    
+    setIsSwitching(true);
+    try {
+      await switchNetwork(newNetwork);
+      toast.success(`Switched to ${newNetwork === "testnet" ? "Testnet" : "Mainnet"}`);
+    } catch (error: any) {
+      console.error("Network switch error:", error);
+      toast.error(`Failed to switch network: ${error?.message || "Unknown error"}`);
+    } finally {
+      setIsSwitching(false);
+    }
+  };
 
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-1.5">
-        {isTestnet ? (
+        {isSwitching ? (
+          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        ) : isTestnet ? (
           <FlaskConical className="w-4 h-4 text-amber-500" />
         ) : (
           <Globe className="w-4 h-4 text-primary" />
@@ -30,10 +49,8 @@ export const NetworkSwitch: React.FC = () => {
       </div>
       <Switch
         checked={isTestnet}
-        onCheckedChange={async (checked) => {
-          const newNetwork = checked ? "testnet" : "mainnet";
-          switchNetwork(newNetwork);
-        }}
+        onCheckedChange={handleNetworkSwitch}
+        disabled={isSwitching}
         aria-label="Toggle network"
       />
       {isTestnet && (
