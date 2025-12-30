@@ -117,6 +117,7 @@ export default function GoLive() {
     togglePip,
     getMediaStream,
     getPipStream,
+    isScreenShareSupported,
   } = useWebRTCStream();
 
   // Handle quality change from adaptive quality hook
@@ -597,18 +598,28 @@ export default function GoLive() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setStreamSource('screen')}
+                              onClick={() => isScreenShareSupported && setStreamSource('screen')}
+                              disabled={!isScreenShareSupported}
                               className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
-                                streamSource === 'screen'
-                                  ? 'border-primary bg-primary/10'
-                                  : 'border-border hover:border-primary/50'
+                                !isScreenShareSupported 
+                                  ? 'opacity-50 cursor-not-allowed border-border'
+                                  : streamSource === 'screen'
+                                    ? 'border-primary bg-primary/10'
+                                    : 'border-border hover:border-primary/50'
                               }`}
                             >
                               <Monitor className="h-6 w-6" />
                               <span className="text-sm font-medium">Screen</span>
-                              <span className="text-xs text-muted-foreground">Screen Share + Mic</span>
+                              <span className="text-xs text-muted-foreground">
+                                {isScreenShareSupported ? 'Screen Share + Mic' : 'Desktop only'}
+                              </span>
                             </button>
                           </div>
+                          {!isScreenShareSupported && (
+                            <p className="text-xs text-muted-foreground">
+                              Screen sharing is only available on desktop browsers.
+                            </p>
+                          )}
                         </div>
 
                         {/* Stream Quality Selection */}
@@ -914,21 +925,23 @@ export default function GoLive() {
                               <Camera className="h-4 w-4" />
                               Camera
                             </Button>
-                            <Button
-                              variant={currentSource === 'screen' ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={async () => {
-                                if (currentSource !== 'screen') {
-                                  const newStream = await switchSource('screen');
-                                  if (newStream) setMediaStream(newStream);
-                                }
-                              }}
-                              disabled={isSwitchingSource || currentSource === 'screen'}
-                              className="gap-2"
-                            >
-                              <Monitor className="h-4 w-4" />
-                              Screen
-                            </Button>
+                            {isScreenShareSupported && (
+                              <Button
+                                variant={currentSource === 'screen' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={async () => {
+                                  if (currentSource !== 'screen') {
+                                    const newStream = await switchSource('screen');
+                                    if (newStream) setMediaStream(newStream);
+                                  }
+                                }}
+                                disabled={isSwitchingSource || currentSource === 'screen'}
+                                className="gap-2"
+                              >
+                                <Monitor className="h-4 w-4" />
+                                Screen
+                              </Button>
+                            )}
                             
                             {/* PiP Toggle - Only when screen sharing */}
                             {currentSource === 'screen' && (
