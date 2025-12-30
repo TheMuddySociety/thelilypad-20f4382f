@@ -15,7 +15,7 @@ import {
 import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
-import { Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf, Flame } from "lucide-react";
+import { Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf, Flame, TrendingUp } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
 import { useWallet } from "@/providers/WalletProvider";
@@ -94,6 +94,7 @@ export default function Marketplace() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [stickerPacks, setStickerPacks] = useState<ShopItem[]>([]);
   const [nftListings, setNftListings] = useState<NFTListing[]>([]);
+  const [hotCollectionIds, setHotCollectionIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
 
@@ -126,6 +127,31 @@ export default function Marketplace() {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         });
         setCollections(sorted);
+      }
+
+      // Fetch recent mints (last 24 hours) to determine "hot" collections
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: recentMints, error: mintsError } = await supabase
+        .from("minted_nfts")
+        .select("collection_id")
+        .gte("minted_at", twentyFourHoursAgo);
+
+      if (!mintsError && recentMints) {
+        // Count mints per collection
+        const mintCounts = recentMints.reduce((acc, mint) => {
+          if (mint.collection_id) {
+            acc[mint.collection_id] = (acc[mint.collection_id] || 0) + 1;
+          }
+          return acc;
+        }, {} as Record<string, number>);
+
+        // Collections with 3+ mints in 24h are "hot"
+        const hotIds = new Set(
+          Object.entries(mintCounts)
+            .filter(([_, count]) => count >= 3)
+            .map(([id]) => id)
+        );
+        setHotCollectionIds(hotIds);
       }
 
       // Fetch sticker packs
@@ -447,10 +473,16 @@ export default function Marketplace() {
                     // Check if collection is "new" (live and created within last 7 days)
                     const isNew = collection.status === 'live' && 
                       new Date(collection.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
+                    // Check if collection is "hot" (3+ mints in last 24 hours)
+                    const isHot = hotCollectionIds.has(collection.id);
+                    // Determine which special badge to show (priority: Hot > New)
+                    const showHotBadge = isHot;
+                    const showNewBadge = isNew && !isHot;
+                    const hasSpecialBadge = showHotBadge || showNewBadge;
                     return (
                       <Card 
                         key={collection.id} 
-                        className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group ${isNew ? 'ring-2 ring-orange-500/50' : ''}`}
+                        className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group ${showHotBadge ? 'ring-2 ring-pink-500/50' : isNew ? 'ring-2 ring-orange-500/50' : ''}`}
                         onClick={() => navigate(`/launchpad/${collection.id}`)}
                       >
                         <div className="aspect-square relative overflow-hidden bg-muted">
@@ -465,8 +497,17 @@ export default function Marketplace() {
                               <Rocket className="w-12 h-12 text-muted-foreground" />
                             </div>
                           )}
+                          {/* Hot badge for high mint activity */}
+                          {showHotBadge && (
+                            <Badge 
+                              className="absolute top-3 left-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0 animate-pulse shadow-lg"
+                            >
+                              <TrendingUp className="w-3 h-3 mr-1" />
+                              Hot
+                            </Badge>
+                          )}
                           {/* New badge for recently launched live collections */}
-                          {isNew && (
+                          {showNewBadge && (
                             <Badge 
                               className="absolute top-3 left-3 bg-gradient-to-r from-orange-500 to-red-500 text-white border-0 animate-pulse shadow-lg"
                             >
@@ -474,9 +515,9 @@ export default function Marketplace() {
                               New
                             </Badge>
                           )}
-                          {/* LilyPad Verification - show below new badge or in top-left if no new badge */}
+                          {/* LilyPad Verification - show below special badge or in top-left if no special badge */}
                           {collection.contract_address && (
-                            <div className={`absolute ${isNew ? 'bottom-3 left-3' : 'top-3 left-3'}`}>
+                            <div className={`absolute ${hasSpecialBadge ? 'bottom-3 left-3' : 'top-3 left-3'}`}>
                               <LilyPadVerificationBadge 
                                 contractAddress={collection.contract_address} 
                                 size="sm"
