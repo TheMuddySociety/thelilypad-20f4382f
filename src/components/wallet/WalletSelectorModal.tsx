@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Wallet, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getPhantomSDK, waitForPhantomExtension } from "@/config/phantom";
+import type { InjectedWalletInfo } from "@phantom/browser-sdk";
 
 export type WalletType = "metamask" | "phantom";
 export type ChainType = "evm" | "solana";
@@ -37,33 +39,18 @@ interface WalletSelectorModalProps {
   isConnecting: boolean;
 }
 
-const getWalletOptions = (): WalletOption[] => {
+// Legacy detection (fallback)
+const detectWalletsLegacy = (): { metamask: boolean; phantom: boolean } => {
   const isMetaMaskInstalled = typeof window.ethereum !== "undefined" && window.ethereum.isMetaMask;
   const isPhantomEVMInstalled = typeof window.phantom?.ethereum !== "undefined" || 
     (typeof window.ethereum !== "undefined" && window.ethereum.isPhantom);
   const isPhantomSolanaInstalled = typeof window.phantom?.solana !== "undefined" ||
     typeof window.solana !== "undefined";
 
-  return [
-    {
-      id: "metamask",
-      name: "MetaMask",
-      icon: "🦊",
-      description: "Connect using MetaMask browser extension",
-      isInstalled: !!isMetaMaskInstalled,
-      installUrl: "https://metamask.io/download/",
-      supportedChains: ["evm"],
-    },
-    {
-      id: "phantom",
-      name: "Phantom",
-      icon: "👻",
-      description: "Connect using Phantom wallet (EVM & Solana)",
-      isInstalled: !!isPhantomEVMInstalled || !!isPhantomSolanaInstalled,
-      installUrl: "https://phantom.app/download",
-      supportedChains: ["evm", "solana"],
-    },
-  ];
+  return {
+    metamask: !!isMetaMaskInstalled,
+    phantom: !!isPhantomEVMInstalled || !!isPhantomSolanaInstalled,
+  };
 };
 
 const chainOptions: ChainOption[] = [
@@ -88,7 +75,69 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
   isConnecting,
 }) => {
   const [selectedWallet, setSelectedWallet] = React.useState<WalletType | null>(null);
-  const walletOptions = getWalletOptions();
+  const [walletOptions, setWalletOptions] = useState<WalletOption[]>([]);
+  const [discoveredWallets, setDiscoveredWallets] = useState<InjectedWalletInfo[]>([]);
+  const [isPhantomAvailable, setIsPhantomAvailable] = useState(false);
+
+  // Initialize wallet detection using SDK
+  useEffect(() => {
+    const detectWallets = async () => {
+      // Check Phantom SDK availability
+      const phantomAvailable = await waitForPhantomExtension(2000);
+      setIsPhantomAvailable(phantomAvailable);
+
+      let discovered: InjectedWalletInfo[] = [];
+      
+      if (phantomAvailable) {
+        try {
+          const sdk = getPhantomSDK();
+          await sdk.discoverWallets();
+          discovered = sdk.getDiscoveredWallets();
+          setDiscoveredWallets(discovered);
+        } catch (error) {
+          console.warn("SDK wallet discovery failed:", error);
+        }
+      }
+
+      // Build wallet options
+      const legacyDetection = detectWalletsLegacy();
+      
+      // Check if MetaMask is in discovered wallets or via legacy
+      const hasMetaMask = discovered.some(w => 
+        w.id.toLowerCase().includes("metamask") || w.name.toLowerCase().includes("metamask")
+      ) || legacyDetection.metamask;
+
+      // Check if Phantom is in discovered wallets or via legacy
+      const hasPhantom = discovered.some(w => 
+        w.id.toLowerCase().includes("phantom") || w.name.toLowerCase().includes("phantom")
+      ) || legacyDetection.phantom || phantomAvailable;
+
+      setWalletOptions([
+        {
+          id: "metamask",
+          name: "MetaMask",
+          icon: "🦊",
+          description: "Connect using MetaMask browser extension",
+          isInstalled: hasMetaMask,
+          installUrl: "https://metamask.io/download/",
+          supportedChains: ["evm"],
+        },
+        {
+          id: "phantom",
+          name: "Phantom",
+          icon: "👻",
+          description: "Connect using Phantom wallet (EVM & Solana)",
+          isInstalled: hasPhantom,
+          installUrl: "https://phantom.app/download",
+          supportedChains: ["evm", "solana"],
+        },
+      ]);
+    };
+
+    if (open) {
+      detectWallets();
+    }
+  }, [open]);
 
   const handleWalletClick = (wallet: WalletOption) => {
     if (!wallet.isInstalled) {
@@ -179,6 +228,30 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
                 )}
               </Button>
             ))}
+            
+            {/* Show other discovered wallets */}
+            {discoveredWallets
+              .filter(w => !w.id.toLowerCase().includes("metamask") && !w.id.toLowerCase().includes("phantom"))
+              .map((wallet) => (
+                <Button
+                  key={wallet.id}
+                  variant="outline"
+                  className="w-full h-auto py-4 px-4 justify-start gap-4 hover:bg-accent/50 opacity-60"
+                  disabled
+                >
+                  {wallet.icon ? (
+                    <img src={wallet.icon} alt={wallet.name} className="w-6 h-6" />
+                  ) : (
+                    <span className="text-2xl">💳</span>
+                  )}
+                  <div className="flex flex-col items-start text-left flex-1">
+                    <span className="font-semibold">{wallet.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      Detected wallet (not yet supported)
+                    </span>
+                  </div>
+                </Button>
+              ))}
           </div>
         ) : (
           // Chain Selection
