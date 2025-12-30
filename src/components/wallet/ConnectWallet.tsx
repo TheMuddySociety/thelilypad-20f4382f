@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/providers/WalletProvider";
-import { Wallet, LogOut, ExternalLink, User, AlertTriangle, ArrowRightLeft } from "lucide-react";
+import { Wallet, LogOut, ExternalLink, User, AlertTriangle, ArrowRightLeft, Coins, ChevronDown, ChevronUp } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { SPLTokenList } from "./SPLTokenList";
+import { useSPLTokens } from "@/hooks/useSPLTokens";
 import { WalletSelectorModal, WalletType, ChainType } from "./WalletSelectorModal";
 import { Badge } from "@/components/ui/badge";
 
@@ -57,6 +59,8 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
   const navigate = useNavigate();
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [showWalletSelector, setShowWalletSelector] = useState(false);
+  const [showTokens, setShowTokens] = useState(false);
+  const { totalTokens } = useSPLTokens();
 
   const isWrongNetwork = isConnected && chainType === "evm" && chainId !== currentChain.id;
 
@@ -185,9 +189,44 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
               <p className="text-xs text-muted-foreground">Balance</p>
               <p className="text-sm font-semibold">{formatBalance(balance)} {getBalanceSymbol()}</p>
             </div>
-            <DropdownMenuSeparator />
             
-            {/* Switch Chain Option (only for Phantom) */}
+            {/* SPL Token List for Solana */}
+            {chainType === "solana" && (
+              <>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1">
+                  <button
+                    className="w-full flex items-center justify-between px-1 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowTokens(!showTokens);
+                    }}
+                  >
+                    <div className="flex items-center gap-1">
+                      <Coins className="w-3 h-3" />
+                      <span>SPL Tokens</span>
+                      {totalTokens > 0 && (
+                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+                          {totalTokens}
+                        </span>
+                      )}
+                    </div>
+                    {showTokens ? (
+                      <ChevronUp className="w-3 h-3" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3" />
+                    )}
+                  </button>
+                  {showTokens && (
+                    <div className="mt-1">
+                      <SPLTokenList compact maxHeight="150px" />
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+            <DropdownMenuSeparator />
             {walletType === "phantom" && (
               <DropdownMenuItem 
                 onClick={() => switchChain(chainType === "solana" ? "evm" : "solana")}
