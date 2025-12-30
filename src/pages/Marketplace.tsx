@@ -15,7 +15,7 @@ import {
 import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
-import { Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf, Flame, TrendingUp } from "lucide-react";
+import { Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf, Flame, TrendingUp, Ban } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
 import { useWallet } from "@/providers/WalletProvider";
@@ -526,14 +526,17 @@ export default function Marketplace() {
                     // Check if collection is "hot" (3+ mints in last 24 hours)
                     const hotMintCount = hotCollectionMints.get(collection.id);
                     const isHot = !!hotMintCount;
-                    // Determine which special badge to show (priority: Hot > New)
-                    const showHotBadge = isHot;
-                    const showNewBadge = isNew && !isHot;
-                    const hasSpecialBadge = showHotBadge || showNewBadge;
+                    // Check if collection is sold out
+                    const isSoldOut = collection.total_supply > 0 && collection.minted >= collection.total_supply;
+                    // Determine which special badge to show (priority: Sold Out > Hot > New)
+                    const showSoldOutBadge = isSoldOut;
+                    const showHotBadge = isHot && !isSoldOut;
+                    const showNewBadge = isNew && !isHot && !isSoldOut;
+                    const hasSpecialBadge = showSoldOutBadge || showHotBadge || showNewBadge;
                     return (
                       <Card 
                         key={collection.id} 
-                        className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group ${showHotBadge ? 'ring-2 ring-pink-500/50' : isNew ? 'ring-2 ring-orange-500/50' : ''}`}
+                        className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group ${showSoldOutBadge ? 'ring-2 ring-gray-500/50' : showHotBadge ? 'ring-2 ring-pink-500/50' : isNew ? 'ring-2 ring-orange-500/50' : ''}`}
                         onClick={() => navigate(`/launchpad/${collection.id}`)}
                       >
                         <div className="aspect-square relative overflow-hidden bg-muted">
@@ -547,6 +550,15 @@ export default function Marketplace() {
                             <div className="w-full h-full flex items-center justify-center">
                               <Rocket className="w-12 h-12 text-muted-foreground" />
                             </div>
+                          )}
+                          {/* Sold Out badge */}
+                          {showSoldOutBadge && (
+                            <Badge 
+                              className="absolute top-3 left-3 bg-gradient-to-r from-gray-600 to-gray-800 text-white border-0 shadow-lg"
+                            >
+                              <Ban className="w-3 h-3 mr-1" />
+                              Sold Out
+                            </Badge>
                           )}
                           {/* Hot badge for high mint activity */}
                           {showHotBadge && (
