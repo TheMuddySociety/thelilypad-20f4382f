@@ -108,16 +108,24 @@ export default function Marketplace() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Fetch collections
+      // Fetch collections - filter out deleted ones and show live/upcoming first
       const { data: collectionsData, error: collectionsError } = await supabase
         .from("collections")
         .select("*")
+        .is("deleted_at", null)
+        .order("status", { ascending: true }) // live comes before upcoming
         .order("created_at", { ascending: false });
 
       if (collectionsError) {
         console.error("Error fetching collections:", collectionsError);
       } else {
-        setCollections(collectionsData || []);
+        // Sort to prioritize live status
+        const sorted = (collectionsData || []).sort((a, b) => {
+          if (a.status === 'live' && b.status !== 'live') return -1;
+          if (a.status !== 'live' && b.status === 'live') return 1;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+        setCollections(sorted);
       }
 
       // Fetch sticker packs
