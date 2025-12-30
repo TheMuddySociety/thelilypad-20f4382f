@@ -87,11 +87,12 @@ export const Navbar: React.FC = () => {
               <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-180px)]">
                 {/* Primary Links */}
                 <div className="space-y-1">
-                  {primaryLinks.map((link) => (
+                  {primaryLinks.map((link, index) => (
                     <SheetClose asChild key={link.label}>
                       <a
                         href={link.href}
-                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                        style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
                       >
                         <link.icon className="w-5 h-5 text-muted-foreground" />
                         {link.label}
@@ -102,12 +103,18 @@ export const Navbar: React.FC = () => {
 
                 {/* Explore Section */}
                 <div className="space-y-1">
-                  <p className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Explore</p>
-                  {exploreLinks.map((link) => (
+                  <p 
+                    className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider animate-fade-in"
+                    style={{ animationDelay: `${primaryLinks.length * 50 + 50}ms`, animationFillMode: 'both' }}
+                  >
+                    Explore
+                  </p>
+                  {exploreLinks.map((link, index) => (
                     <SheetClose asChild key={link.label}>
                       <a
                         href={link.href}
-                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                        style={{ animationDelay: `${(primaryLinks.length + index + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
                       >
                         <link.icon className="w-5 h-5 text-muted-foreground" />
                         {link.label}
@@ -118,12 +125,18 @@ export const Navbar: React.FC = () => {
 
                 {/* Account Section */}
                 <div className="space-y-1">
-                  <p className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
-                  {accountLinks.map((link) => (
+                  <p 
+                    className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider animate-fade-in"
+                    style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
+                  >
+                    Account
+                  </p>
+                  {accountLinks.map((link, index) => (
                     <SheetClose asChild key={link.label}>
                       <a
                         href={link.href}
-                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                        style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + index + 2) * 50 + 50}ms`, animationFillMode: 'both' }}
                       >
                         <link.icon className="w-5 h-5 text-muted-foreground" />
                         {link.label}
@@ -135,12 +148,18 @@ export const Navbar: React.FC = () => {
                 {/* Admin Section */}
                 {isAdmin && (
                   <div className="space-y-1">
-                    <p className="px-4 text-xs font-semibold text-primary uppercase tracking-wider">Admin</p>
-                    {adminLinks.map((link) => (
+                    <p 
+                      className="px-4 text-xs font-semibold text-primary uppercase tracking-wider animate-fade-in"
+                      style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + accountLinks.length + 2) * 50 + 50}ms`, animationFillMode: 'both' }}
+                    >
+                      Admin
+                    </p>
+                    {adminLinks.map((link, index) => (
                       <SheetClose asChild key={link.label}>
                         <a
                           href={link.href}
-                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-primary hover:bg-primary/10 transition-colors font-medium"
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-primary hover:bg-primary/10 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                          style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + accountLinks.length + index + 3) * 50 + 50}ms`, animationFillMode: 'both' }}
                         >
                           <link.icon className="w-5 h-5" />
                           {link.label}
