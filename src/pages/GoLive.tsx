@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
@@ -43,7 +43,8 @@ import {
   X,
   Upload,
   Camera,
-  Users
+  Users,
+  Clock
 } from "lucide-react";
 import {
   AlertDialog,
@@ -109,9 +110,52 @@ export default function GoLive() {
   } = useWebRTCStream();
 
   const [pipStream, setPipStream] = useState<MediaStream | null>(null);
+  
+  // Stream duration timer
+  const [streamDuration, setStreamDuration] = useState(0);
+  const streamStartTimeRef = useRef<number | null>(null);
 
   // Track viewer count for active stream
   const { viewerCount, isConnected: presenceConnected } = useStreamPresence(isStreaming ? roomId : undefined);
+  
+  // Stream duration timer effect
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+    
+    if (isStreaming) {
+      if (!streamStartTimeRef.current) {
+        streamStartTimeRef.current = Date.now();
+      }
+      
+      intervalId = setInterval(() => {
+        if (streamStartTimeRef.current) {
+          const elapsed = Math.floor((Date.now() - streamStartTimeRef.current) / 1000);
+          setStreamDuration(elapsed);
+        }
+      }, 1000);
+    } else {
+      streamStartTimeRef.current = null;
+      setStreamDuration(0);
+    }
+    
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isStreaming]);
+  
+  // Format duration as HH:MM:SS
+  const formatDuration = (seconds: number): string => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   useSEO({
     title: "Go Live | The Lily Pad",
@@ -542,6 +586,10 @@ export default function GoLive() {
                             <Badge className="bg-red-500 text-white">
                               <Radio className="w-3 h-3 mr-1 animate-pulse" />
                               LIVE
+                            </Badge>
+                            <Badge variant="outline" className="flex items-center gap-1 font-mono">
+                              <Clock className="w-3 h-3" />
+                              {formatDuration(streamDuration)}
                             </Badge>
                             <Badge variant="secondary" className="flex items-center gap-1">
                               <Users className="w-3 h-3" />
