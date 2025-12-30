@@ -506,6 +506,59 @@ export default function CollectionDetail() {
     }
   };
 
+  // Test mint with simplified settings - forces 1 NFT, no custom gas overrides
+  const handleTestMint = async () => {
+    if (!isConnected) {
+      toast.error("Wallet not connected");
+      return;
+    }
+
+    if (!collection?.contract_address) {
+      toast.error("Contract not deployed");
+      return;
+    }
+
+    if (!activePhase) {
+      toast.error("No mint phase available");
+      return;
+    }
+
+    if (!activePhase.isActive) {
+      toast.error("Mint phase not active");
+      return;
+    }
+
+    toast.info("Test Mint Started", {
+      description: "Minting 1 NFT with default gas settings...",
+    });
+
+    let txHash: string | null = null;
+
+    try {
+      if (activePhase.requiresAllowlist) {
+        if (address && !verifyAllowlist(address, allowlistAddresses)) {
+          toast.error("Not on allowlist");
+          return;
+        }
+        // Force mintAmount=1, no custom gas override
+        txHash = await mintWithAllowlist(1, activePhase.price, allowlistAddresses, collection.id, collection.name, collection.image_url, undefined);
+      } else {
+        // Force mintAmount=1, no custom gas override
+        txHash = await mintPublic(1, activePhase.price, collection.id, collection.name, collection.image_url, undefined);
+      }
+
+      if (txHash) {
+        const mockAttributes = generateRandomAttributes(1, collection.minted);
+        setRevealedNfts(mockAttributes);
+        setRevealTxHash(txHash);
+        setShowRevealModal(true);
+        fetchCollection();
+      }
+    } catch (err) {
+      console.error("Test mint failed:", err);
+    }
+  };
+
   // Generate random attributes for reveal animation (simulated - in production these would come from blockchain)
   const generateRandomAttributes = (quantity: number, currentMinted: number) => {
     const traitTypes = [
@@ -1612,6 +1665,20 @@ export default function CollectionDetail() {
                   <p className="text-xs text-center text-muted-foreground">
                     This phase requires allowlist verification
                   </p>
+                )}
+
+                {/* Test Mint Quick Action - for debugging */}
+                {isConnected && collection?.contract_address && activePhase?.isActive && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2 border-dashed border-muted-foreground/50 text-muted-foreground hover:text-foreground hover:border-primary"
+                    onClick={handleTestMint}
+                    disabled={isMinting || isSwitchingNetwork}
+                  >
+                    <FlaskConical className="w-4 h-4" />
+                    Test Mint (1) — No Gas Overrides
+                  </Button>
                 )}
 
                 {isTestnet && (
