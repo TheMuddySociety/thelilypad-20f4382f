@@ -7,6 +7,7 @@ export type StreamSource = 'camera' | 'screen';
 interface StreamState {
   isStreaming: boolean;
   isConnecting: boolean;
+  isSwitchingSource: boolean;
   roomId: string | null;
   joinUrl: string | null;
   error: string | null;
@@ -30,6 +31,7 @@ export const useWebRTCStream = () => {
   const [state, setState] = useState<StreamState>({
     isStreaming: false,
     isConnecting: false,
+    isSwitchingSource: false,
     roomId: null,
     joinUrl: null,
     error: null,
@@ -152,6 +154,7 @@ export const useWebRTCStream = () => {
       setState({
         isStreaming: true,
         isConnecting: false,
+        isSwitchingSource: false,
         roomId,
         joinUrl: joinData.user.joinUrl,
         error: null,
@@ -178,6 +181,7 @@ export const useWebRTCStream = () => {
       setState({
         isStreaming: false,
         isConnecting: false,
+        isSwitchingSource: false,
         roomId: null,
         joinUrl: null,
         error: errorMessage,
@@ -231,6 +235,7 @@ export const useWebRTCStream = () => {
     setState({
       isStreaming: false,
       isConnecting: false,
+      isSwitchingSource: false,
       roomId: null,
       joinUrl: null,
       error: null,
@@ -248,10 +253,58 @@ export const useWebRTCStream = () => {
     return mediaStreamRef.current;
   }, []);
 
+  const switchSource = useCallback(async (newSource: StreamSource): Promise<MediaStream | null> => {
+    if (!state.isStreaming || state.source === newSource) {
+      return mediaStreamRef.current;
+    }
+
+    setState(prev => ({ ...prev, isSwitchingSource: true }));
+
+    try {
+      // Stop current video tracks (keep audio if switching to screen)
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getVideoTracks().forEach(track => track.stop());
+      }
+
+      // Get new media stream
+      const newStream = await getMediaStream(newSource);
+
+      // Update the media stream reference
+      mediaStreamRef.current = newStream;
+
+      setState(prev => ({ 
+        ...prev, 
+        isSwitchingSource: false,
+        source: newSource,
+      }));
+
+      toast({
+        title: 'Source switched',
+        description: `Now streaming from ${newSource === 'screen' ? 'screen share' : 'camera'}.`,
+      });
+
+      return newStream;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to switch source';
+      console.error('Switch source error:', error);
+
+      setState(prev => ({ ...prev, isSwitchingSource: false }));
+
+      toast({
+        variant: 'destructive',
+        title: 'Failed to switch source',
+        description: errorMessage,
+      });
+
+      return null;
+    }
+  }, [state.isStreaming, state.source, getMediaStream, toast]);
+
   return {
     ...state,
     startStream,
     stopStream,
+    switchSource,
     getMediaStream: getCurrentMediaStream,
   };
 };
