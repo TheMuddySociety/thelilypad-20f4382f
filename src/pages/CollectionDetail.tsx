@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { encodeFunctionData, parseEther, keccak256, encodePacked } from "viem";
 import { MerkleTree } from "merkletreejs";
 import { NFT_CONTRACT_ABI } from "@/config/nftContract";
+import { RpcHealthIndicator } from "@/components/RpcHealthIndicator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
 import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
@@ -1320,6 +1321,10 @@ export default function CollectionDetail() {
                 {/* Gas Estimation */}
                 {isConnected && !isWrongNetwork && (
                   <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-muted-foreground">RPC Status</span>
+                      <RpcHealthIndicator />
+                    </div>
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Fuel className="w-4 h-4" />
