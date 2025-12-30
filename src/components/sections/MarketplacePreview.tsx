@@ -93,11 +93,12 @@ export const MarketplacePreview: React.FC = () => {
           </div>
         ) : collections && collections.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {collections.map((collection) => (
+            {collections.map((collection, index) => (
               <div
                 key={collection.id}
                 onClick={() => navigate(`/collection/${collection.id}`)}
-                className="group glass-card overflow-hidden hover:border-primary/50 transition-all duration-500 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/10 cursor-pointer"
+                className="group glass-card overflow-hidden hover:border-primary/50 transition-all duration-500 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/10 cursor-pointer animate-fade-in"
+                style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'backwards' }}
               >
                 {/* Image area */}
                 <div className="aspect-square bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center relative overflow-hidden">
