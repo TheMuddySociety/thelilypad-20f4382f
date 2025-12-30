@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { encodeFunctionData, parseEther, keccak256, encodePacked } from "viem";
+import { keccak256, encodePacked } from "viem";
 import { MerkleTree } from "merkletreejs";
-import { NFT_CONTRACT_ABI } from "@/config/nftContract";
 import { RpcHealthIndicator } from "@/components/RpcHealthIndicator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
@@ -29,6 +28,7 @@ import { RevealCountdown } from "@/components/RevealCountdown";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
 import { useSEO } from "@/hooks/useSEO";
 import { useContractMint } from "@/hooks/useContractMint";
+import { useGasEstimation } from "@/hooks/useGasEstimation";
 import { 
   ArrowLeft, 
   ExternalLink, 
@@ -243,11 +243,6 @@ export default function CollectionDetail() {
   const totalCost = activePhase ? parseFloat(activePhase.price) * mintAmount : 0;
   const userBalance = balance ? parseFloat(balance) : 0;
   
-  // Gas estimation using eth_estimateGas
-  const [gasEstimate, setGasEstimate] = useState<{ gasLimit: number; gasPrice: number; totalGas: number } | null>(null);
-  const [isEstimatingGas, setIsEstimatingGas] = useState(false);
-  const [gasEstimateError, setGasEstimateError] = useState<string | null>(null);
-
   // Generate leaf for Merkle tree (address only)
   const generateLeaf = useCallback((addr: string): string => {
     return keccak256(encodePacked(['address'], [addr.toLowerCase() as `0x${string}`]));
@@ -265,165 +260,20 @@ export default function CollectionDetail() {
     return tree.getHexProof(leaf);
   }, [generateLeaf]);
 
-  // RPC provider gas limit (Monad default: 30M for eth_estimateGas)
-  const RPC_GAS_LIMIT = 30_000_000;
-
-  // Real gas estimation using eth_estimateGas
-  useEffect(() => {
-    if (!isConnected || isWrongNetwork || !activePhase || !collection?.contract_address || !address) {
-      setGasEstimate(null);
-      setGasEstimateError(null);
-      return;
-    }
-
-    const estimateGas = async () => {
-      setIsEstimatingGas(true);
-      setGasEstimateError(null);
-      
-      try {
-        if (typeof window.ethereum === "undefined") {
-          throw new Error("Wallet not available");
-        }
-
-        // Calculate total price in wei
-        const priceInWei = parseEther(activePhase.price);
-        const totalValue = priceInWei * BigInt(mintAmount);
-
-        // Encode the appropriate function call
-        let data: `0x${string}`;
-        if (activePhase.requiresAllowlist && allowlistAddresses.length > 0) {
-          const proof = generateMerkleProof(address, allowlistAddresses);
-          data = encodeFunctionData({
-            abi: NFT_CONTRACT_ABI,
-            functionName: "mint",
-            args: [BigInt(mintAmount), proof as `0x${string}`[]],
-          });
-        } else {
-          data = encodeFunctionData({
-            abi: NFT_CONTRACT_ABI,
-            functionName: "mintPublic",
-            args: [BigInt(mintAmount)],
-          });
-        }
-
-        // Call eth_estimateGas
-        const estimatedGasHex = await window.ethereum.request({
-          method: "eth_estimateGas",
-          params: [{
-            from: address,
-            to: collection.contract_address,
-            data,
-            value: `0x${totalValue.toString(16)}`,
-          }],
-        });
-
-        const estimatedGas = parseInt(estimatedGasHex, 16);
-        
-        // Check if gas exceeds RPC provider limit
-        if (estimatedGas >= RPC_GAS_LIMIT) {
-          throw new Error(`GAS_EXCEEDS_RPC_LIMIT:${estimatedGas}`);
-        }
-
-        // Add 20% buffer for safety
-        const gasLimitWithBuffer = Math.floor(estimatedGas * 1.2);
-        
-        // Check if buffered gas would exceed RPC limit
-        if (gasLimitWithBuffer >= RPC_GAS_LIMIT) {
-          // Use exact estimate without buffer to stay within limits
-          const gasPriceHex = await window.ethereum.request({
-            method: "eth_gasPrice",
-            params: [],
-          });
-          const gasPriceWei = BigInt(gasPriceHex);
-          const gasPriceMon = Number(gasPriceWei) / 1e18;
-          const totalGas = estimatedGas * gasPriceMon;
-          
-          setGasEstimate({ 
-            gasLimit: estimatedGas, 
-            gasPrice: gasPriceMon, 
-            totalGas 
-          });
-          setGasEstimateError("Gas near RPC limit - no safety buffer applied");
-          return;
-        }
-
-        // Get current gas price
-        const gasPriceHex = await window.ethereum.request({
-          method: "eth_gasPrice",
-          params: [],
-        });
-        
-        const gasPriceWei = BigInt(gasPriceHex);
-        // Convert to MON (1 MON = 1e18 wei)
-        const gasPriceMon = Number(gasPriceWei) / 1e18;
-        const totalGas = gasLimitWithBuffer * gasPriceMon;
-
-        setGasEstimate({ 
-          gasLimit: gasLimitWithBuffer, 
-          gasPrice: gasPriceMon, 
-          totalGas 
-        });
-      } catch (error: any) {
-        console.error("Gas estimation failed:", error);
-        
-        // Handle RPC gas limit exceeded error
-        if (error.message?.startsWith("GAS_EXCEEDS_RPC_LIMIT:")) {
-          const actualGas = parseInt(error.message.split(":")[1]);
-          setGasEstimate(null);
-          setGasEstimateError(`Transaction requires ${(actualGas / 1_000_000).toFixed(1)}M gas, exceeding RPC limit (30M). Try minting fewer NFTs at once.`);
-          return;
-        }
-        
-        // Check for RPC-specific gas limit errors
-        const errorMsg = error.message?.toLowerCase() || "";
-        if (
-          errorMsg.includes("gas limit") ||
-          errorMsg.includes("exceeds allowance") ||
-          errorMsg.includes("out of gas") ||
-          errorMsg.includes("gas required exceeds")
-        ) {
-          setGasEstimate(null);
-          setGasEstimateError("Transaction exceeds RPC gas limit (30M). Try minting fewer NFTs at once.");
-          return;
-        }
-        
-        // Fallback to estimated values if eth_estimateGas fails
-        // Monad minimum base_price_per_gas = 100 MON-gwei (100 × 10^-9 MON)
-        const MONAD_MIN_GAS_PRICE_MON = 100e-9; // 100 gwei in MON
-        const baseGasLimit = 200000;
-        const perNftGas = 80000;
-        const fallbackGasLimit = baseGasLimit + (perNftGas * mintAmount);
-        const fallbackGasPrice = MONAD_MIN_GAS_PRICE_MON;
-        const fallbackTotalGas = fallbackGasLimit * fallbackGasPrice;
-        
-        // Check if fallback would exceed RPC limit
-        if (fallbackGasLimit >= RPC_GAS_LIMIT) {
-          setGasEstimate(null);
-          setGasEstimateError(`Estimated gas (~${(fallbackGasLimit / 1_000_000).toFixed(1)}M) exceeds RPC limit (30M). Try minting fewer NFTs.`);
-          return;
-        }
-        
-        setGasEstimate({ 
-          gasLimit: fallbackGasLimit, 
-          gasPrice: fallbackGasPrice, 
-          totalGas: fallbackTotalGas 
-        });
-        
-        // Set warning if estimation failed
-        if (error.message?.includes("execution reverted") || error.code === 3) {
-          setGasEstimateError("Transaction may fail - check eligibility");
-        } else {
-          setGasEstimateError("Using estimated gas (live estimate unavailable)");
-        }
-      } finally {
-        setIsEstimatingGas(false);
-      }
-    };
-
-    // Debounce the gas estimation
-    const timeoutId = setTimeout(estimateGas, 300);
-    return () => clearTimeout(timeoutId);
-  }, [mintAmount, isConnected, isWrongNetwork, isTestnet, activePhase, collection?.contract_address, address, allowlistAddresses, generateMerkleProof]);
+  // Gas estimation with RPC failover
+  const {
+    gasEstimate,
+    isEstimating: isEstimatingGas,
+    error: gasEstimateError,
+    refetch: refetchGasEstimate,
+  } = useGasEstimation({
+    contractAddress: collection?.contract_address || null,
+    mintAmount,
+    pricePerNft: activePhase?.price || "0",
+    requiresAllowlist: activePhase?.requiresAllowlist,
+    allowlistAddresses,
+    generateMerkleProof,
+  });
 
   const totalWithGas = totalCost + (gasEstimate?.totalGas || 0);
   const hasInsufficientBalance = isConnected && !isWrongNetwork && totalWithGas > userBalance;

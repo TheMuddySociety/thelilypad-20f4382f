@@ -4,7 +4,8 @@ import { NFT_CONTRACT_ABI } from "@/config/nftContract";
 import { encodeFunctionData, parseEther, keccak256, encodePacked } from "viem";
 import { MerkleTree } from "merkletreejs";
 import { supabase } from "@/integrations/supabase/client";
-import { getMonadChain, NetworkType } from "@/config/alchemy";
+import { getMonadChain, NetworkType, getRpcUrls, checkRpcHealth } from "@/config/alchemy";
+import { toast } from "sonner";
 
 interface MintState {
   isMinting: boolean;
@@ -16,6 +17,69 @@ interface MintState {
 // Generate leaf for Merkle tree (address only)
 const generateLeaf = (address: string): string => {
   return keccak256(encodePacked(['address'], [address.toLowerCase() as `0x${string}`]));
+};
+
+// Fetch transaction receipt with RPC failover
+const fetchReceiptWithFailover = async (
+  txHash: string,
+  network: NetworkType,
+  maxAttempts = 60
+): Promise<any> => {
+  const rpcs = getRpcUrls(network);
+  let currentRpcIndex = 0;
+  let attempts = 0;
+  let consecutiveFailures = 0;
+
+  while (attempts < maxAttempts) {
+    const rpcUrl = rpcs[currentRpcIndex];
+    
+    try {
+      const response = await fetch(rpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: Date.now(),
+          method: "eth_getTransactionReceipt",
+          params: [txHash],
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message);
+      }
+
+      if (data.result) {
+        consecutiveFailures = 0;
+        return data.result;
+      }
+
+      // Receipt not ready yet, continue polling
+      consecutiveFailures = 0;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      attempts++;
+    } catch (error) {
+      console.error(`RPC ${rpcUrl} failed for receipt:`, error);
+      consecutiveFailures++;
+
+      // Try next RPC after 2 consecutive failures
+      if (consecutiveFailures >= 2 && rpcs.length > 1) {
+        currentRpcIndex = (currentRpcIndex + 1) % rpcs.length;
+        consecutiveFailures = 0;
+        toast.info("Switching RPC", {
+          description: `Trying ${new URL(rpcs[currentRpcIndex]).hostname}`,
+          duration: 2000,
+        });
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      attempts++;
+    }
+  }
+
+  return null;
 };
 
 export function useContractMint(contractAddress: string | null) {
@@ -287,23 +351,8 @@ export function useContractMint(contractAddress: string | null) {
       // Clear retry message
       setState(prev => ({ ...prev, error: null }));
 
-      // Wait for receipt
-      let receipt = null;
-      let attempts = 0;
-      const maxAttempts = 60;
-
-      while (!receipt && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        try {
-          receipt = await window.ethereum.request({
-            method: "eth_getTransactionReceipt",
-            params: [txHash],
-          });
-        } catch (e) {
-          // Continue waiting
-        }
-        attempts++;
-      }
+      // Wait for receipt with RPC failover
+      const receipt = await fetchReceiptWithFailover(txHash, network);
 
       if (receipt && receipt.status === "0x0") {
         throw new Error("Mint transaction failed");
@@ -475,23 +524,8 @@ export function useContractMint(contractAddress: string | null) {
       // Clear retry message
       setState(prev => ({ ...prev, error: null }));
 
-      // Wait for receipt
-      let receipt = null;
-      let attempts = 0;
-      const maxAttempts = 60;
-
-      while (!receipt && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        try {
-          receipt = await window.ethereum.request({
-            method: "eth_getTransactionReceipt",
-            params: [txHash],
-          });
-        } catch (e) {
-          // Continue waiting
-        }
-        attempts++;
-      }
+      // Wait for receipt with RPC failover
+      const receipt = await fetchReceiptWithFailover(txHash, network);
 
       if (receipt && receipt.status === "0x0") {
         throw new Error("Mint transaction failed");
