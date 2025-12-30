@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.cleanup-deleted-collections]
 verify_jwt = false
+
+[functions.webrtc-stream]
+verify_jwt = false

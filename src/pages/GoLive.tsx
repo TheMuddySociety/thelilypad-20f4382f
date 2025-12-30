@@ -8,8 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useSEO } from "@/hooks/useSEO";
+import { BrowserStreamPreview } from "@/components/streaming/BrowserStreamPreview";
+import { StreamControls } from "@/components/streaming/StreamControls";
+import { useWebRTCStream } from "@/hooks/useWebRTCStream";
 import { 
   Key, 
   Copy, 
@@ -22,7 +26,10 @@ import {
   Radio,
   Settings,
   Play,
-  ExternalLink
+  ExternalLink,
+  Video,
+  Monitor,
+  Smartphone
 } from "lucide-react";
 import {
   AlertDialog,
@@ -35,6 +42,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { LiveChat } from "@/components/LiveChat";
 
 interface LivepeerStream {
   id: string;
@@ -58,10 +66,22 @@ export default function GoLive() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [newStreamName, setNewStreamName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+
+  // WebRTC Browser Streaming
+  const {
+    isStreaming,
+    isConnecting,
+    roomId,
+    error: webrtcError,
+    startStream,
+    stopStream,
+    getMediaStream,
+  } = useWebRTCStream();
 
   useSEO({
     title: "Go Live | The Lily Pad",
-    description: "Start streaming on The Lily Pad. Get your RTMP credentials, set up OBS, and broadcast to your community in minutes."
+    description: "Start streaming on The Lily Pad. Stream directly from your browser or use OBS for professional broadcasts."
   });
 
   useEffect(() => {
@@ -87,6 +107,15 @@ export default function GoLive() {
       fetchStreams();
     }
   }, [user]);
+
+  // Update media stream reference when streaming
+  useEffect(() => {
+    if (isStreaming) {
+      setMediaStream(getMediaStream());
+    } else {
+      setMediaStream(null);
+    }
+  }, [isStreaming, getMediaStream]);
 
   const fetchStreams = async () => {
     setIsLoading(true);
@@ -192,6 +221,18 @@ export default function GoLive() {
     return key.slice(0, 4) + "••••••••" + key.slice(-4);
   };
 
+  const handleBrowserStreamStart = async () => {
+    const result = await startStream();
+    if (result) {
+      setMediaStream(result.stream);
+    }
+  };
+
+  const handleBrowserStreamStop = async () => {
+    await stopStream();
+    setMediaStream(null);
+  };
+
   if (!user) {
     return null;
   }
@@ -201,245 +242,336 @@ export default function GoLive() {
       <Navbar />
       
       <main className="container mx-auto px-3 sm:px-4 pt-20 sm:pt-24 pb-8 sm:pb-12">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Go Live</h1>
-            <p className="text-muted-foreground">Create streams and broadcast using OBS or any RTMP software</p>
+            <div className="flex items-center gap-3 mb-2">
+              <Video className="h-8 w-8 text-primary" />
+              <h1 className="text-2xl sm:text-3xl font-bold">Go Live</h1>
+            </div>
+            <p className="text-muted-foreground">Stream from your browser or use OBS for professional broadcasts</p>
           </div>
 
-          {/* OBS Setup Guide */}
-          <Card className="glass-card border-border/50 mb-6 bg-primary/5">
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <Settings className="w-5 h-5" />
-                OBS Setup Guide
-              </CardTitle>
-              <CardDescription>Follow these steps to stream with OBS</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-0 space-y-3 text-sm">
-              <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-                <li>Create a stream below to get your RTMP URL and Stream Key</li>
-                <li>Open OBS → Settings → Stream</li>
-                <li>Set Service to <strong className="text-foreground">Custom</strong></li>
-                <li>Paste the <strong className="text-foreground">RTMP URL</strong> as the Server</li>
-                <li>Paste your <strong className="text-foreground">Stream Key</strong></li>
-                <li>Click "Start Streaming" in OBS</li>
-              </ol>
-            </CardContent>
-          </Card>
+          <Tabs defaultValue="browser" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2 max-w-md">
+              <TabsTrigger value="browser" className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4" />
+                Browser Stream
+              </TabsTrigger>
+              <TabsTrigger value="obs" className="flex items-center gap-2">
+                <Monitor className="w-4 h-4" />
+                OBS / RTMP
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Create New Stream */}
-          <Card className="glass-card border-border/50 mb-6">
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <Plus className="w-5 h-5" />
-                Create New Stream
-              </CardTitle>
-              <CardDescription>Create a Livepeer stream to get your RTMP credentials</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-0">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Input
-                  placeholder="Stream name (e.g., Gaming Stream, Art Stream)"
-                  value={newStreamName}
-                  onChange={(e) => setNewStreamName(e.target.value)}
-                  className="flex-1"
-                  onKeyDown={(e) => e.key === 'Enter' && createStream()}
-                />
-                <Button onClick={createStream} disabled={isCreating}>
-                  {isCreating ? "Creating..." : "Create Stream"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Browser Streaming Tab */}
+            <TabsContent value="browser" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Preview and Controls */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Stream Preview */}
+                  <Card className="glass-card border-border/50">
+                    <CardHeader className="p-4 sm:p-6">
+                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                        <Video className="w-5 h-5" />
+                        Camera Preview
+                      </CardTitle>
+                      <CardDescription>
+                        {isStreaming 
+                          ? "You're live! This is what viewers see."
+                          : "Click 'Go Live' to start streaming from your camera."}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 sm:p-6 pt-0">
+                      <BrowserStreamPreview 
+                        stream={mediaStream}
+                        isLive={isStreaming}
+                        className="aspect-video"
+                      />
+                    </CardContent>
+                  </Card>
 
-          {/* Streams List */}
-          <Card className="glass-card border-border/50">
-            <CardHeader className="p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                    <Key className="w-5 h-5" />
-                    Your Streams
-                  </CardTitle>
-                  <CardDescription>Manage your Livepeer streams</CardDescription>
+                  {/* Stream Controls */}
+                  <StreamControls
+                    isStreaming={isStreaming}
+                    isConnecting={isConnecting}
+                    roomId={roomId}
+                    onStart={handleBrowserStreamStart}
+                    onStop={handleBrowserStreamStop}
+                  />
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchStreams}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Refresh
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-0">
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="p-4 rounded-lg bg-muted/50">
-                      <Skeleton className="h-5 w-32 mb-3" />
-                      <Skeleton className="h-10 w-full mb-3" />
-                      <Skeleton className="h-8 w-48" />
-                    </div>
-                  ))}
-                </div>
-              ) : streams.length > 0 ? (
+
+                {/* Sidebar */}
                 <div className="space-y-6">
-                  {streams.map((stream) => (
-                    <div key={stream.id} className="p-4 rounded-lg bg-muted/50 space-y-4">
-                      {/* Stream Header */}
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium">{stream.name}</h3>
-                          <Badge variant={stream.isActive ? "default" : "secondary"} className={stream.isActive ? "bg-green-500" : ""}>
-                            {stream.isActive ? (
-                              <>
-                                <Radio className="w-3 h-3 mr-1 animate-pulse" />
-                                LIVE
-                              </>
-                            ) : (
-                              "Offline"
-                            )}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {stream.isActive && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(`https://lvpr.tv/?v=${stream.playbackId}`, '_blank')}
-                            >
-                              <Play className="w-4 h-4 mr-1" />
-                              Watch
-                            </Button>
-                          )}
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Stream?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently delete this stream and its stream key.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteStream(stream.id)} className="bg-destructive hover:bg-destructive/90">
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
+                  {/* Info Card */}
+                  <Card className="glass-card border-border/50 bg-primary/5">
+                    <CardHeader className="p-4 sm:p-6">
+                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                        <Smartphone className="w-5 h-5" />
+                        Browser Streaming
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 sm:p-6 pt-0 space-y-3 text-sm">
+                      <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+                        <li>Works on <strong className="text-foreground">desktop and mobile</strong></li>
+                        <li>No software required</li>
+                        <li>Uses your device's camera & mic</li>
+                        <li>Share link with viewers instantly</li>
+                      </ul>
+                    </CardContent>
+                  </Card>
 
-                      {/* RTMP URL */}
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">RTMP Server URL (paste in OBS)</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={stream.rtmpIngestUrl}
-                            readOnly
-                            className="font-mono text-sm flex-1"
-                          />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => copyToClipboard(stream.rtmpIngestUrl, `rtmp-${stream.id}`)}
-                          >
-                            {copiedKey === `rtmp-${stream.id}` ? (
-                              <CheckCircle className="w-4 h-4 text-primary" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {/* Stream Key */}
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Stream Key (keep private!)</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={showKeys[stream.id] ? stream.streamKey : maskKey(stream.streamKey)}
-                            readOnly
-                            className="font-mono text-sm flex-1"
-                          />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => toggleKeyVisibility(stream.id)}
-                          >
-                            {showKeys[stream.id] ? (
-                              <EyeOff className="w-4 h-4" />
-                            ) : (
-                              <Eye className="w-4 h-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => copyToClipboard(stream.streamKey, stream.id)}
-                          >
-                            {copiedKey === stream.id ? (
-                              <CheckCircle className="w-4 h-4 text-primary" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
+                  {/* Live Chat (when streaming) */}
+                  {isStreaming && roomId && (
+                    <Card className="h-[400px] flex flex-col glass-card border-border/50">
+                      <CardHeader className="pb-2 p-4">
+                        <CardTitle className="text-base">Live Chat</CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex-1 p-0 overflow-hidden">
+                        <LiveChat playbackId={roomId} className="h-full" />
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
 
-                      {/* Playback URL */}
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Playback URL (for viewers)</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={stream.playbackUrl}
-                            readOnly
-                            className="font-mono text-xs flex-1"
-                          />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => copyToClipboard(stream.playbackUrl, `playback-${stream.id}`)}
-                          >
-                            {copiedKey === `playback-${stream.id}` ? (
-                              <CheckCircle className="w-4 h-4 text-primary" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => window.open(`https://lvpr.tv/?v=${stream.playbackId}`, '_blank')}
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
+            {/* OBS / RTMP Tab */}
+            <TabsContent value="obs" className="space-y-6">
+              {/* OBS Setup Guide */}
+              <Card className="glass-card border-border/50 bg-primary/5">
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Settings className="w-5 h-5" />
+                    OBS Setup Guide
+                  </CardTitle>
+                  <CardDescription>Follow these steps to stream with OBS</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6 pt-0 space-y-3 text-sm">
+                  <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                    <li>Create a stream below to get your RTMP URL and Stream Key</li>
+                    <li>Open OBS → Settings → Stream</li>
+                    <li>Set Service to <strong className="text-foreground">Custom</strong></li>
+                    <li>Paste the <strong className="text-foreground">RTMP URL</strong> as the Server</li>
+                    <li>Paste your <strong className="text-foreground">Stream Key</strong></li>
+                    <li>Click "Start Streaming" in OBS</li>
+                  </ol>
+                </CardContent>
+              </Card>
 
-                      {stream.createdAt && (
-                        <p className="text-xs text-muted-foreground">
-                          Created {new Date(stream.createdAt).toLocaleDateString()}
-                        </p>
-                      )}
+              {/* Create New Stream */}
+              <Card className="glass-card border-border/50">
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Plus className="w-5 h-5" />
+                    Create New Stream
+                  </CardTitle>
+                  <CardDescription>Create a Livepeer stream to get your RTMP credentials</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6 pt-0">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Input
+                      placeholder="Stream name (e.g., Gaming Stream, Art Stream)"
+                      value={newStreamName}
+                      onChange={(e) => setNewStreamName(e.target.value)}
+                      className="flex-1"
+                      onKeyDown={(e) => e.key === 'Enter' && createStream()}
+                    />
+                    <Button onClick={createStream} disabled={isCreating}>
+                      {isCreating ? "Creating..." : "Create Stream"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Streams List */}
+              <Card className="glass-card border-border/50">
+                <CardHeader className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                        <Key className="w-5 h-5" />
+                        Your Streams
+                      </CardTitle>
+                      <CardDescription>Manage your Livepeer streams</CardDescription>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Key className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No streams yet</p>
-                  <p className="text-sm">Create your first stream to start broadcasting</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    <Button variant="outline" size="sm" onClick={fetchStreams}>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6 pt-0">
+                  {isLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="p-4 rounded-lg bg-muted/50">
+                          <Skeleton className="h-5 w-32 mb-3" />
+                          <Skeleton className="h-10 w-full mb-3" />
+                          <Skeleton className="h-8 w-48" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : streams.length > 0 ? (
+                    <div className="space-y-6">
+                      {streams.map((stream) => (
+                        <div key={stream.id} className="p-4 rounded-lg bg-muted/50 space-y-4">
+                          {/* Stream Header */}
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium">{stream.name}</h3>
+                              <Badge variant={stream.isActive ? "default" : "secondary"} className={stream.isActive ? "bg-green-500" : ""}>
+                                {stream.isActive ? (
+                                  <>
+                                    <Radio className="w-3 h-3 mr-1 animate-pulse" />
+                                    LIVE
+                                  </>
+                                ) : (
+                                  "Offline"
+                                )}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {stream.isActive && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => navigate(`/watch/${stream.playbackId}`)}
+                                >
+                                  <Play className="w-4 h-4 mr-1" />
+                                  Watch
+                                </Button>
+                              )}
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Stream?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will permanently delete this stream and its stream key.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteStream(stream.id)} className="bg-destructive hover:bg-destructive/90">
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </div>
+
+                          {/* RTMP URL */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">RTMP Server URL (paste in OBS)</Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={stream.rtmpIngestUrl}
+                                readOnly
+                                className="font-mono text-sm flex-1"
+                              />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => copyToClipboard(stream.rtmpIngestUrl, `rtmp-${stream.id}`)}
+                              >
+                                {copiedKey === `rtmp-${stream.id}` ? (
+                                  <CheckCircle className="w-4 h-4 text-primary" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {/* Stream Key */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Stream Key (keep private!)</Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={showKeys[stream.id] ? stream.streamKey : maskKey(stream.streamKey)}
+                                readOnly
+                                className="font-mono text-sm flex-1"
+                              />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => toggleKeyVisibility(stream.id)}
+                              >
+                                {showKeys[stream.id] ? (
+                                  <EyeOff className="w-4 h-4" />
+                                ) : (
+                                  <Eye className="w-4 h-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => copyToClipboard(stream.streamKey, stream.id)}
+                              >
+                                {copiedKey === stream.id ? (
+                                  <CheckCircle className="w-4 h-4 text-primary" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Playback URL */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Playback URL (for viewers)</Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={stream.playbackUrl}
+                                readOnly
+                                className="font-mono text-xs flex-1"
+                              />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => copyToClipboard(stream.playbackUrl, `playback-${stream.id}`)}
+                              >
+                                {copiedKey === `playback-${stream.id}` ? (
+                                  <CheckCircle className="w-4 h-4 text-primary" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => navigate(`/watch/${stream.playbackId}`)}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {stream.createdAt && (
+                            <p className="text-xs text-muted-foreground">
+                              Created {new Date(stream.createdAt).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Key className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No streams yet</p>
+                      <p className="text-sm">Create your first stream to start broadcasting</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>
