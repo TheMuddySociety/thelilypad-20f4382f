@@ -3,6 +3,7 @@ import { useWallet } from "@/providers/WalletProvider";
 import { NFT_CONTRACT_ABI } from "@/config/nftContract";
 import { encodeFunctionData } from "viem";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface TransferState {
   isTransferring: boolean;
@@ -43,7 +44,9 @@ export function useNFTTransfer() {
     }
     
     if (chainType !== "evm") {
-      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet to transfer NFTs" }));
+      const errorMsg = "Please switch to an EVM wallet to transfer NFTs. Open the wallet menu and click 'Switch to EVM' or connect with MetaMask.";
+      setState(prev => ({ ...prev, error: errorMsg }));
+      toast.error("EVM Wallet Required", { description: errorMsg });
       return null;
     }
 

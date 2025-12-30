@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useWallet } from "@/providers/WalletProvider";
 import { NFT_CONTRACT_ABI } from "@/config/nftContract";
 import { encodeFunctionData } from "viem";
+import { toast } from "sonner";
 
 interface AllowlistState {
   isUpdating: boolean;
@@ -37,7 +38,9 @@ export function useContractAllowlist(contractAddress: string | null) {
     }
     
     if (chainType !== "evm") {
-      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet for contract operations" }));
+      const errorMsg = "Please switch to an EVM wallet for contract operations. Open the wallet menu and click 'Switch to EVM'.";
+      setState(prev => ({ ...prev, error: errorMsg }));
+      toast.error("EVM Wallet Required", { description: errorMsg });
       return null;
     }
 
@@ -113,7 +116,9 @@ export function useContractAllowlist(contractAddress: string | null) {
     }
     
     if (chainType !== "evm") {
-      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet for contract operations" }));
+      const errorMsg = "Please switch to an EVM wallet for contract operations. Open the wallet menu and click 'Switch to EVM'.";
+      setState(prev => ({ ...prev, error: errorMsg }));
+      toast.error("EVM Wallet Required", { description: errorMsg });
       return null;
     }
 
@@ -187,7 +192,9 @@ export function useContractAllowlist(contractAddress: string | null) {
     }
     
     if (chainType !== "evm") {
-      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet for contract operations" }));
+      const errorMsg = "Please switch to an EVM wallet for contract operations. Open the wallet menu and click 'Switch to EVM'.";
+      setState(prev => ({ ...prev, error: errorMsg }));
+      toast.error("EVM Wallet Required", { description: errorMsg });
       return null;
     }
 
