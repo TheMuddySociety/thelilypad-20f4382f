@@ -211,6 +211,52 @@ export default function Marketplace() {
     fetchData();
   }, []);
 
+  // Real-time subscriptions for automatic updates
+  useEffect(() => {
+    const collectionsChannel = supabase
+      .channel('marketplace-collections-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'collections' },
+        () => fetchData()
+      )
+      .subscribe();
+
+    const listingsChannel = supabase
+      .channel('marketplace-listings-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'nft_listings' },
+        () => fetchData()
+      )
+      .subscribe();
+
+    const shopItemsChannel = supabase
+      .channel('marketplace-shop-items-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'shop_items' },
+        () => fetchData()
+      )
+      .subscribe();
+
+    const mintedNftsChannel = supabase
+      .channel('marketplace-minted-nfts-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'minted_nfts' },
+        () => fetchData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(collectionsChannel);
+      supabase.removeChannel(listingsChannel);
+      supabase.removeChannel(shopItemsChannel);
+      supabase.removeChannel(mintedNftsChannel);
+    };
+  }, []);
+
   // Get price from phases
   const getPrice = (collection: Collection) => {
     const phases = collection.phases as any[];
