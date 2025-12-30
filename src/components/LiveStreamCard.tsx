@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Eye, Users, Play, Radio } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useStreamPresence } from '@/hooks/useStreamPresence';
 
 interface LiveStreamCardProps {
   id: string;
@@ -25,12 +26,18 @@ export const LiveStreamCard = ({
   isActive,
   creatorName = 'Anonymous',
   creatorAvatar,
-  viewerCount = 0,
+  viewerCount: propViewerCount = 0,
   thumbnailUrl,
   category,
   streamType = 'hls',
 }: LiveStreamCardProps) => {
   const navigate = useNavigate();
+  
+  // Use real-time presence for active streams
+  const { viewerCount: liveViewerCount, isConnected } = useStreamPresence(isActive ? playbackId : undefined);
+  
+  // Use live count if available, otherwise fall back to prop
+  const viewerCount = isActive && isConnected ? liveViewerCount : propViewerCount;
 
   const handleClick = () => {
     const url = streamType === 'webrtc' 
@@ -68,7 +75,7 @@ export const LiveStreamCard = ({
         )}
 
         {/* Viewer count */}
-        {isActive && viewerCount > 0 && (
+        {isActive && (
           <div className="absolute top-2 right-2">
             <Badge variant="secondary" className="gap-1">
               <Eye className="h-3 w-3" />
