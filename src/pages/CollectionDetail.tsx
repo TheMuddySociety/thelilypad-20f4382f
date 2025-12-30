@@ -196,11 +196,12 @@ export default function CollectionDetail() {
         toast.error("Failed to load collection");
       } else if (data) {
         setCollection(data);
-        // Set active phase from phases data
+        // Set active phase from phases data (prefer the one marked active)
         const phases = data.phases as unknown as Phase[] | null;
         if (phases && Array.isArray(phases) && phases.length > 0) {
-          const publicPhase = phases.find(p => p.id === "public") || phases[0];
-          setActivePhase(publicPhase);
+          const active = phases.find((p) => p.isActive);
+          const publicPhase = phases.find((p) => p.id === "public");
+          setActivePhase(active || publicPhase || phases[0]);
         }
       } else {
         toast.error("Collection not found");
@@ -465,7 +466,15 @@ export default function CollectionDetail() {
     }
 
     if (!activePhase) {
-      toast.error("No active mint phase");
+      toast.error("No mint phase available");
+      return;
+    }
+
+    // Prevent sending transactions when the phase is not active (common cause of "mint failed")
+    if (!activePhase.isActive) {
+      toast.error("Mint is not active", {
+        description: "This phase is currently inactive. Wait for it to start, or ask the creator to activate the mint phase.",
+      });
       return;
     }
 
@@ -1536,6 +1545,7 @@ export default function CollectionDetail() {
                     isMinting || 
                     isSwitchingNetwork || 
                     !activePhase || 
+                    !activePhase.isActive ||
                     isSoldOut ||
                     exceedsSupply ||
                     (activePhase.minted || 0) >= (activePhase.supply || 0) || 
@@ -1558,6 +1568,11 @@ export default function CollectionDetail() {
                     </>
                   ) : !activePhase ? (
                     "No Phase Available"
+                  ) : !activePhase.isActive ? (
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      Mint Not Active
+                    </>
                   ) : isSoldOut || (activePhase.minted || 0) >= (activePhase.supply || 0) ? (
                     "Sold Out"
                   ) : exceedsSupply ? (
