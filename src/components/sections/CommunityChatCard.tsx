@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { Send, MessageCircle, Users, Loader2, LogIn } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Send, MessageCircle, Users, Loader2, LogIn, SmilePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 const COMMUNITY_CHAT_ID = 'community-lounge';
+
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '🔥', '🎉'];
 
 interface ChatMessage {
   id: string;
@@ -25,8 +28,22 @@ interface ChatMessage {
   created_at: string;
 }
 
+interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+}
+
+interface ReactionCount {
+  emoji: string;
+  count: number;
+  userReacted: boolean;
+}
+
 export const CommunityChatCard: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [reactions, setReactions] = useState<Record<string, MessageReaction[]>>({});
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -64,6 +81,24 @@ export const CommunityChatCard: React.FC = () => {
         console.error('Error fetching messages:', error);
       } else {
         setMessages((data as ChatMessage[]) || []);
+        
+        // Fetch reactions for these messages
+        if (data && data.length > 0) {
+          const messageIds = data.map(m => m.id);
+          const { data: reactionsData } = await supabase
+            .from('chat_message_reactions')
+            .select('*')
+            .in('message_id', messageIds);
+          
+          if (reactionsData) {
+            const grouped: Record<string, MessageReaction[]> = {};
+            reactionsData.forEach((r: MessageReaction) => {
+              if (!grouped[r.message_id]) grouped[r.message_id] = [];
+              grouped[r.message_id].push(r);
+            });
+            setReactions(grouped);
+          }
+        }
       }
       setIsLoading(false);
     };
@@ -71,7 +106,7 @@ export const CommunityChatCard: React.FC = () => {
     fetchMessages();
   }, []);
 
-  // Subscribe to new messages
+  // Subscribe to new messages and reactions
   useEffect(() => {
     const channel = supabase
       .channel(`chat-${COMMUNITY_CHAT_ID}`)
@@ -99,6 +134,36 @@ export const CommunityChatCard: React.FC = () => {
         (payload) => {
           const deletedId = payload.old.id;
           setMessages(prev => prev.filter(m => m.id !== deletedId));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_message_reactions'
+        },
+        (payload) => {
+          const newReaction = payload.new as MessageReaction;
+          setReactions(prev => ({
+            ...prev,
+            [newReaction.message_id]: [...(prev[newReaction.message_id] || []), newReaction]
+          }));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'chat_message_reactions'
+        },
+        (payload) => {
+          const deletedReaction = payload.old as MessageReaction;
+          setReactions(prev => ({
+            ...prev,
+            [deletedReaction.message_id]: (prev[deletedReaction.message_id] || []).filter(r => r.id !== deletedReaction.id)
+          }));
         }
       )
       .subscribe();
@@ -180,6 +245,58 @@ export const CommunityChatCard: React.FC = () => {
     setIsSending(false);
   };
 
+  const handleReaction = async (messageId: string, emoji: string) => {
+    if (!user) {
+      toast.error('Please sign in to react');
+      return;
+    }
+
+    const messageReactions = reactions[messageId] || [];
+    const existingReaction = messageReactions.find(r => r.user_id === user.id && r.emoji === emoji);
+
+    if (existingReaction) {
+      // Remove reaction
+      const { error } = await supabase
+        .from('chat_message_reactions')
+        .delete()
+        .eq('id', existingReaction.id);
+
+      if (error) {
+        console.error('Error removing reaction:', error);
+      }
+    } else {
+      // Add reaction
+      const { error } = await supabase
+        .from('chat_message_reactions')
+        .insert({
+          message_id: messageId,
+          user_id: user.id,
+          emoji
+        });
+
+      if (error) {
+        console.error('Error adding reaction:', error);
+      }
+    }
+  };
+
+  const getReactionCounts = (messageId: string): ReactionCount[] => {
+    const messageReactions = reactions[messageId] || [];
+    const counts: Record<string, ReactionCount> = {};
+    
+    messageReactions.forEach(r => {
+      if (!counts[r.emoji]) {
+        counts[r.emoji] = { emoji: r.emoji, count: 0, userReacted: false };
+      }
+      counts[r.emoji].count++;
+      if (user && r.user_id === user.id) {
+        counts[r.emoji].userReacted = true;
+      }
+    });
+
+    return Object.values(counts).sort((a, b) => b.count - a.count);
+  };
+
   const getAvatarColor = (username: string) => {
     const colors = [
       'bg-red-500', 'bg-blue-500', 'bg-green-500', 
@@ -233,36 +350,97 @@ export const CommunityChatCard: React.FC = () => {
                     No messages yet. Be the first to chat!
                   </p>
                 ) : (
-                  messages.map((msg) => (
-                    <div key={msg.id} className="flex gap-2 group">
-                      <Avatar className={`h-6 w-6 flex-shrink-0 ${getAvatarColor(msg.username)}`}>
-                        <AvatarFallback className="text-xs text-white">
-                          {msg.username.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2">
-                          <span className="font-medium text-sm truncate text-foreground">
-                            {msg.username}
-                          </span>
-                          <span className="text-xs text-muted-foreground flex-shrink-0">
-                            {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                          </span>
+                  messages.map((msg) => {
+                    const reactionCounts = getReactionCounts(msg.id);
+                    
+                    return (
+                      <div key={msg.id} className="group">
+                        <div className="flex gap-2">
+                          <Avatar className={`h-6 w-6 flex-shrink-0 ${getAvatarColor(msg.username)}`}>
+                            <AvatarFallback className="text-xs text-white">
+                              {msg.username.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-medium text-sm truncate text-foreground">
+                                {msg.username}
+                              </span>
+                              <span className="text-xs text-muted-foreground flex-shrink-0">
+                                {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                              </span>
+                            </div>
+                            {msg.message_type === 'sticker' || msg.message_type === 'emoji' ? (
+                              <img 
+                                src={msg.sticker_url || ''} 
+                                alt={msg.sticker_name || 'Sticker'} 
+                                className="max-w-24 max-h-24 rounded object-contain"
+                              />
+                            ) : (
+                              <p className="text-sm text-foreground/90 break-words">
+                                {msg.message}
+                              </p>
+                            )}
+                          </div>
+                          
+                          {/* Add reaction button */}
+                          {user && (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <SmilePlus className="h-3.5 w-3.5" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-2" side="top">
+                                <div className="flex gap-1">
+                                  {REACTION_EMOJIS.map(emoji => (
+                                    <button
+                                      key={emoji}
+                                      onClick={() => handleReaction(msg.id, emoji)}
+                                      className="text-lg hover:scale-125 transition-transform p-1"
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          )}
                         </div>
-                        {msg.message_type === 'sticker' || msg.message_type === 'emoji' ? (
-                          <img 
-                            src={msg.sticker_url || ''} 
-                            alt={msg.sticker_name || 'Sticker'} 
-                            className="max-w-24 max-h-24 rounded object-contain"
-                          />
-                        ) : (
-                          <p className="text-sm text-foreground/90 break-words">
-                            {msg.message}
-                          </p>
-                        )}
+                        
+                        {/* Reactions display */}
+                        <AnimatePresence>
+                          {reactionCounts.length > 0 && (
+                            <motion.div 
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="flex flex-wrap gap-1 mt-1 ml-8"
+                            >
+                              {reactionCounts.map(({ emoji, count, userReacted }) => (
+                                <button
+                                  key={emoji}
+                                  onClick={() => user && handleReaction(msg.id, emoji)}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs transition-colors ${
+                                    userReacted 
+                                      ? 'bg-primary/20 border border-primary/40' 
+                                      : 'bg-muted/50 hover:bg-muted border border-transparent'
+                                  }`}
+                                >
+                                  <span>{emoji}</span>
+                                  <span className="text-muted-foreground">{count}</span>
+                                </button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </ScrollArea>
