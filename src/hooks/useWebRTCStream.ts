@@ -2,6 +2,8 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+export type StreamSource = 'camera' | 'screen';
+
 interface StreamState {
   isStreaming: boolean;
   isConnecting: boolean;
@@ -9,12 +11,18 @@ interface StreamState {
   joinUrl: string | null;
   error: string | null;
   streamDbId: string | null;
+  source: StreamSource | null;
 }
 
 interface StreamMetadata {
   title: string;
   category?: string;
   thumbnailUrl?: string;
+}
+
+interface StartStreamOptions {
+  metadata?: StreamMetadata;
+  source?: StreamSource;
 }
 
 export const useWebRTCStream = () => {
@@ -26,22 +34,45 @@ export const useWebRTCStream = () => {
     joinUrl: null,
     error: null,
     streamDbId: null,
+    source: null,
   });
   
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  const startStream = useCallback(async (metadata?: StreamMetadata) => {
-    setState(prev => ({ ...prev, isConnecting: true, error: null }));
+  const getMediaStream = useCallback(async (source: StreamSource): Promise<MediaStream> => {
+    if (source === 'screen') {
+      // Get screen share with system audio if available
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30 },
+        },
+        audio: true, // Capture system audio if available
+      });
 
-    try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('You must be logged in to stream');
+      // Try to get microphone audio as well
+      try {
+        const micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        
+        // Combine screen video with microphone audio
+        const audioTracks = [...screenStream.getAudioTracks(), ...micStream.getAudioTracks()];
+        const videoTracks = screenStream.getVideoTracks();
+        
+        return new MediaStream([...videoTracks, ...audioTracks]);
+      } catch {
+        // If mic access fails, just use screen stream
+        return screenStream;
       }
-
-      // Request camera and microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({
+    } else {
+      // Camera stream
+      return await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
@@ -53,6 +84,24 @@ export const useWebRTCStream = () => {
           autoGainControl: true,
         },
       });
+    }
+  }, []);
+
+  const startStream = useCallback(async (options?: StartStreamOptions) => {
+    const source = options?.source || 'camera';
+    const metadata = options?.metadata;
+    
+    setState(prev => ({ ...prev, isConnecting: true, error: null }));
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('You must be logged in to stream');
+      }
+
+      // Get media based on source
+      const stream = await getMediaStream(source);
 
       mediaStreamRef.current = stream;
 
@@ -107,11 +156,12 @@ export const useWebRTCStream = () => {
         joinUrl: joinData.user.joinUrl,
         error: null,
         streamDbId: streamRecord?.id || null,
+        source,
       });
 
       toast({
         title: 'Stream started!',
-        description: 'You are now live. Share your stream link with viewers.',
+        description: `You are now live${source === 'screen' ? ' (Screen Share)' : ''}. Share your stream link with viewers.`,
       });
 
       return { stream, roomId, joinUrl: joinData.user.joinUrl };
@@ -132,6 +182,7 @@ export const useWebRTCStream = () => {
         joinUrl: null,
         error: errorMessage,
         streamDbId: null,
+        source: null,
       });
 
       toast({
@@ -142,7 +193,7 @@ export const useWebRTCStream = () => {
 
       return null;
     }
-  }, [toast]);
+  }, [toast, getMediaStream]);
 
   const stopStream = useCallback(async () => {
     // Stop media tracks
@@ -184,6 +235,7 @@ export const useWebRTCStream = () => {
       joinUrl: null,
       error: null,
       streamDbId: null,
+      source: null,
     });
 
     toast({
@@ -192,7 +244,7 @@ export const useWebRTCStream = () => {
     });
   }, [state.roomId, state.streamDbId, toast]);
 
-  const getMediaStream = useCallback(() => {
+  const getCurrentMediaStream = useCallback(() => {
     return mediaStreamRef.current;
   }, []);
 
@@ -200,6 +252,6 @@ export const useWebRTCStream = () => {
     ...state,
     startStream,
     stopStream,
-    getMediaStream,
+    getMediaStream: getCurrentMediaStream,
   };
 };
