@@ -38,7 +38,8 @@ import {
 import { useSEO } from "@/hooks/useSEO";
 import { useContractMint } from "@/hooks/useContractMint";
 import { useGasEstimation } from "@/hooks/useGasEstimation";
-import { 
+import { useOnChainPhaseSync } from "@/hooks/useOnChainPhaseSync";
+import {
   ArrowLeft, 
   ExternalLink, 
   Minus, 
@@ -153,6 +154,12 @@ export default function CollectionDetail() {
     verifyAllowlist,
     resetState: resetMintState 
   } = useContractMint(collection?.contract_address || null);
+
+  // On-chain phase sync hook
+  const {
+    syncPhases,
+    isSyncing,
+  } = useOnChainPhaseSync(collection?.contract_address || null, collectionId || null);
 
   const isTestnet = network === "testnet";
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
@@ -1735,6 +1742,26 @@ export default function CollectionDetail() {
                   >
                     <Zap className="w-4 h-4" />
                     {isMinting ? "Minting..." : "⚡ FORCE MINT (1) — Bypass Checks"}
+                  </Button>
+                )}
+
+                {/* SYNC PHASES - Read on-chain phase status and update DB */}
+                {isConnected && collection?.contract_address && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={async () => {
+                      const result = await syncPhases();
+                      if (result) {
+                        // Refresh collection data after sync
+                        fetchCollection();
+                      }
+                    }}
+                    disabled={isSyncing}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
+                    {isSyncing ? "Syncing..." : "🔄 Sync Phases from Contract"}
                   </Button>
                 )}
 
