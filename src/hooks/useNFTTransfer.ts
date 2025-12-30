@@ -11,7 +11,7 @@ interface TransferState {
 }
 
 export function useNFTTransfer() {
-  const { address, isConnected } = useWallet();
+  const { address, isConnected, chainType, getProvider } = useWallet();
   const [state, setState] = useState<TransferState>({
     isTransferring: false,
     txHash: null,
@@ -36,8 +36,14 @@ export function useNFTTransfer() {
     toAddress: string,
     nftId: string
   ): Promise<string | null> => {
-    if (!isConnected || !address || typeof window.ethereum === "undefined") {
+    const provider = getProvider();
+    if (!isConnected || !address || !provider) {
       setState(prev => ({ ...prev, error: "Wallet not connected" }));
+      return null;
+    }
+    
+    if (chainType !== "evm") {
+      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet to transfer NFTs" }));
       return null;
     }
 
@@ -66,7 +72,7 @@ export function useNFTTransfer() {
       });
 
       // Send transaction
-      const txHash = await window.ethereum.request({
+      const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [{
           from: address,
@@ -83,7 +89,7 @@ export function useNFTTransfer() {
       while (!receipt && attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 2000));
         try {
-          receipt = await window.ethereum.request({
+          receipt = await provider.request({
             method: "eth_getTransactionReceipt",
             params: [txHash],
           });

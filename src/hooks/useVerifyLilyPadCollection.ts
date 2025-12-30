@@ -21,6 +21,14 @@ export interface VerificationResult {
   refetch: () => void;
 }
 
+// Helper to get any available EVM provider
+const getAnyEVMProvider = (): EthereumProvider | null => {
+  if (typeof window === 'undefined') return null;
+  if (window.phantom?.ethereum) return window.phantom.ethereum;
+  if (window.ethereum) return window.ethereum;
+  return null;
+};
+
 /**
  * Hook to verify if an NFT collection was deployed via LilyPad factory.
  * Checks both the factory's verification mapping and the collection's own identifiers.
@@ -32,7 +40,8 @@ export function useVerifyLilyPadCollection(contractAddress: string | null | unde
   const [platformInfo, setPlatformInfo] = useState<LilyPadPlatformInfo | null>(null);
 
   const verify = useCallback(async () => {
-    if (!contractAddress || typeof window === 'undefined' || !window.ethereum) {
+    const provider = getAnyEVMProvider();
+    if (!contractAddress || !provider) {
       setIsVerified(false);
       setIsLoading(false);
       setError(contractAddress ? "No Ethereum provider" : "No contract address");
@@ -97,6 +106,9 @@ export function useVerifyLilyPadCollection(contractAddress: string | null | unde
  * Call factory.verifyCollection(address) to check if collection is registered
  */
 async function callFactoryVerify(address: string): Promise<boolean> {
+  const provider = getAnyEVMProvider();
+  if (!provider) return false;
+  
   try {
     // Function selector for verifyCollection(address)
     // bytes4(keccak256("verifyCollection(address)")) = 0x56c02f7e
@@ -104,7 +116,7 @@ async function callFactoryVerify(address: string): Promise<boolean> {
     const paddedAddress = address.slice(2).toLowerCase().padStart(64, '0');
     const data = `0x${selector}${paddedAddress}`;
 
-    const result = await window.ethereum.request({
+    const result = await provider.request({
       method: 'eth_call',
       params: [{
         to: NFT_FACTORY_ADDRESS,
@@ -126,12 +138,15 @@ async function callFactoryVerify(address: string): Promise<boolean> {
  * Tries isLilyPadCollection() first, then falls back to PLATFORM_NAME()
  */
 async function checkCollectionIdentifiers(address: string): Promise<boolean> {
+  const provider = getAnyEVMProvider();
+  if (!provider) return false;
+  
   // Try isLilyPadCollection() - pure function that returns true
   try {
     // bytes4(keccak256("isLilyPadCollection()")) 
     const isLilyPadSelector = "5d4c6c09";
     
-    const result = await window.ethereum.request({
+    const result = await provider.request({
       method: 'eth_call',
       params: [{
         to: address,
@@ -153,7 +168,7 @@ async function checkCollectionIdentifiers(address: string): Promise<boolean> {
     // bytes4(keccak256("PLATFORM_NAME()"))
     const platformNameSelector = "e8ab0bf7";
     
-    const result = await window.ethereum.request({
+    const result = await provider.request({
       method: 'eth_call',
       params: [{
         to: address,
@@ -176,15 +191,18 @@ async function checkCollectionIdentifiers(address: string): Promise<boolean> {
  * Get platform info from the collection contract
  */
 async function getPlatformInfoFromCollection(address: string): Promise<LilyPadPlatformInfo> {
+  const provider = getAnyEVMProvider();
   let platform = LILYPAD_PLATFORM_NAME;
   let version = LILYPAD_PLATFORM_VERSION;
   let factory = NFT_FACTORY_ADDRESS;
   let chainId = 10143; // Default to Monad Testnet
 
+  if (!provider) return { platform, version, factory, chainId };
+
   // Try to get PLATFORM_NAME
   try {
     const platformNameSelector = "e8ab0bf7";
-    const result = await window.ethereum.request({
+    const result = await provider.request({
       method: 'eth_call',
       params: [{ to: address, data: `0x${platformNameSelector}` }, 'latest']
     });
@@ -197,7 +215,7 @@ async function getPlatformInfoFromCollection(address: string): Promise<LilyPadPl
   // Try to get PLATFORM_VERSION
   try {
     const versionSelector = "c4e41b22"; // bytes4(keccak256("PLATFORM_VERSION()"))
-    const result = await window.ethereum.request({
+    const result = await provider.request({
       method: 'eth_call',
       params: [{ to: address, data: `0x${versionSelector}` }, 'latest']
     });
@@ -210,7 +228,7 @@ async function getPlatformInfoFromCollection(address: string): Promise<LilyPadPl
   // Try to get factory address
   try {
     const factorySelector = "c45a0155"; // bytes4(keccak256("factory()"))
-    const result = await window.ethereum.request({
+    const result = await provider.request({
       method: 'eth_call',
       params: [{ to: address, data: `0x${factorySelector}` }, 'latest']
     });
@@ -222,7 +240,7 @@ async function getPlatformInfoFromCollection(address: string): Promise<LilyPadPl
   // Try to get deployed chain ID
   try {
     const chainIdSelector = "aaf10f42"; // bytes4(keccak256("deployedOnChainId()"))
-    const result = await window.ethereum.request({
+    const result = await provider.request({
       method: 'eth_call',
       params: [{ to: address, data: `0x${chainIdSelector}` }, 'latest']
     });
@@ -275,7 +293,8 @@ export async function verifyLilyPadCollection(contractAddress: string): Promise<
   isVerified: boolean;
   platformInfo: LilyPadPlatformInfo | null;
 }> {
-  if (!contractAddress || typeof window === 'undefined' || !window.ethereum) {
+  const provider = getAnyEVMProvider();
+  if (!contractAddress || !provider) {
     return { isVerified: false, platformInfo: null };
   }
 

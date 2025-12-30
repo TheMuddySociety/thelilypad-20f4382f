@@ -10,7 +10,7 @@ interface AllowlistState {
 }
 
 export function useContractAllowlist(contractAddress: string | null) {
-  const { address, isConnected } = useWallet();
+  const { address, isConnected, chainType, getProvider } = useWallet();
   const [state, setState] = useState<AllowlistState>({
     isUpdating: false,
     txHash: null,
@@ -30,8 +30,14 @@ export function useContractAllowlist(contractAddress: string | null) {
     addresses: string[],
     phaseId: number
   ): Promise<string | null> => {
-    if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
+    const provider = getProvider();
+    if (!isConnected || !address || !contractAddress || !provider) {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
+      return null;
+    }
+    
+    if (chainType !== "evm") {
+      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet for contract operations" }));
       return null;
     }
 
@@ -55,7 +61,7 @@ export function useContractAllowlist(contractAddress: string | null) {
       });
 
       // Send transaction
-      const txHash = await window.ethereum.request({
+      const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [{
           from: address,
@@ -100,8 +106,14 @@ export function useContractAllowlist(contractAddress: string | null) {
     supply: number,
     requiresAllowlist: boolean
   ): Promise<string | null> => {
-    if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
+    const provider = getProvider();
+    if (!isConnected || !address || !contractAddress || !provider) {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
+      return null;
+    }
+    
+    if (chainType !== "evm") {
+      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet for contract operations" }));
       return null;
     }
 
@@ -129,7 +141,7 @@ export function useContractAllowlist(contractAddress: string | null) {
       });
 
       // Send transaction
-      const txHash = await window.ethereum.request({
+      const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [{
           from: address,
@@ -168,8 +180,14 @@ export function useContractAllowlist(contractAddress: string | null) {
 
   // Set active phase on the contract
   const setActivePhase = useCallback(async (phaseId: number): Promise<string | null> => {
-    if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
+    const provider = getProvider();
+    if (!isConnected || !address || !contractAddress || !provider) {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
+      return null;
+    }
+    
+    if (chainType !== "evm") {
+      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet for contract operations" }));
       return null;
     }
 
@@ -186,7 +204,7 @@ export function useContractAllowlist(contractAddress: string | null) {
         args: [BigInt(phaseId)],
       });
 
-      const txHash = await window.ethereum.request({
+      const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [{
           from: address,
