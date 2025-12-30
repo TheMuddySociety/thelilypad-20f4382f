@@ -18,6 +18,7 @@ import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge"
 import { Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf, Flame, TrendingUp, Ban } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
+import { BackToTop } from "@/components/BackToTop";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useSEO } from "@/hooks/useSEO";
@@ -792,6 +793,8 @@ export default function Marketplace() {
           fetchData();
         }}
       />
+      
+      <BackToTop />
     </div>
   );
 }
