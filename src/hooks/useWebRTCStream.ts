@@ -52,10 +52,20 @@ export const useWebRTCStream = () => {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const pipStreamRef = useRef<MediaStream | null>(null);
 
+  // Check if screen sharing is supported
+  const isScreenShareSupported = useCallback(() => {
+    return typeof navigator.mediaDevices?.getDisplayMedia === 'function';
+  }, []);
+
   const getMediaStream = useCallback(async (source: StreamSource, quality: StreamQuality = '720p'): Promise<MediaStream> => {
     const settings = qualitySettings[quality];
     
     if (source === 'screen') {
+      // Check if screen sharing is supported (not available on mobile)
+      if (!isScreenShareSupported()) {
+        throw new Error('Screen sharing is not supported on this device. Please use a desktop browser for screen sharing.');
+      }
+      
       // Get screen share with system audio if available
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
@@ -101,7 +111,7 @@ export const useWebRTCStream = () => {
         },
       });
     }
-  }, []);
+  }, [isScreenShareSupported]);
 
   const startStream = useCallback(async (options?: StartStreamOptions) => {
     const source = options?.source || 'camera';
@@ -391,5 +401,6 @@ export const useWebRTCStream = () => {
     togglePip,
     getMediaStream: getCurrentMediaStream,
     getPipStream,
+    isScreenShareSupported: isScreenShareSupported(),
   };
 };
