@@ -137,10 +137,30 @@ export const monadTestnet = defineChain({
 export const getMonadChain = (network: NetworkType) => 
   network === "mainnet" ? monadMainnet : monadTestnet;
 
-// Get RPC URL based on network type
-export const getRpcUrl = (network: NetworkType = "testnet") => 
-  network === "mainnet" ? MONAD_MAINNET_RPC : MONAD_TESTNET_RPC;
+// Get preferred RPC from localStorage
+export const getPreferredRpcUrl = (network: NetworkType = "testnet"): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem(`preferredRpc_${network}`);
+  }
+  return null;
+};
 
-// Get all RPC URLs for fallback
-export const getRpcUrls = (network: NetworkType = "testnet") => 
-  network === "mainnet" ? MONAD_MAINNET_RPCS : MONAD_TESTNET_RPCS;
+// Get RPC URL based on network type (respects user preference)
+export const getRpcUrl = (network: NetworkType = "testnet"): string => {
+  const preferred = getPreferredRpcUrl(network);
+  if (preferred) return preferred;
+  return network === "mainnet" ? MONAD_MAINNET_RPC : MONAD_TESTNET_RPC;
+};
+
+// Get all RPC URLs for fallback (preferred first if set)
+export const getRpcUrls = (network: NetworkType = "testnet"): string[] => {
+  const rpcs = network === "mainnet" ? MONAD_MAINNET_RPCS : MONAD_TESTNET_RPCS;
+  const preferred = getPreferredRpcUrl(network);
+  
+  if (preferred && rpcs.includes(preferred)) {
+    // Move preferred to front of the list
+    return [preferred, ...rpcs.filter(r => r !== preferred)];
+  }
+  
+  return rpcs;
+};
