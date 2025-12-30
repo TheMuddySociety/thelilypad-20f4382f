@@ -94,7 +94,7 @@ export default function Marketplace() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [stickerPacks, setStickerPacks] = useState<ShopItem[]>([]);
   const [nftListings, setNftListings] = useState<NFTListing[]>([]);
-  const [hotCollectionIds, setHotCollectionIds] = useState<Set<string>>(new Set());
+  const [hotCollectionMints, setHotCollectionMints] = useState<Map<string, number>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
 
@@ -145,13 +145,12 @@ export default function Marketplace() {
           return acc;
         }, {} as Record<string, number>);
 
-        // Collections with 3+ mints in 24h are "hot"
-        const hotIds = new Set(
+        // Collections with 3+ mints in 24h are "hot" - store the counts
+        const hotMints = new Map(
           Object.entries(mintCounts)
             .filter(([_, count]) => count >= 3)
-            .map(([id]) => id)
         );
-        setHotCollectionIds(hotIds);
+        setHotCollectionMints(hotMints);
       }
 
       // Fetch sticker packs
@@ -474,7 +473,8 @@ export default function Marketplace() {
                     const isNew = collection.status === 'live' && 
                       new Date(collection.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
                     // Check if collection is "hot" (3+ mints in last 24 hours)
-                    const isHot = hotCollectionIds.has(collection.id);
+                    const hotMintCount = hotCollectionMints.get(collection.id);
+                    const isHot = !!hotMintCount;
                     // Determine which special badge to show (priority: Hot > New)
                     const showHotBadge = isHot;
                     const showNewBadge = isNew && !isHot;
@@ -503,7 +503,7 @@ export default function Marketplace() {
                               className="absolute top-3 left-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0 animate-pulse shadow-lg"
                             >
                               <TrendingUp className="w-3 h-3 mr-1" />
-                              Hot
+                              Hot 🔥 {hotMintCount} mints
                             </Badge>
                           )}
                           {/* New badge for recently launched live collections */}
