@@ -38,7 +38,7 @@ export interface DeploymentResult {
 }
 
 export function useContractDeploy() {
-  const { address, isConnected, currentChain } = useWallet();
+  const { address, isConnected, currentChain, chainType, getProvider } = useWallet();
   const [state, setState] = useState<DeploymentState>({
     isDeploying: false,
     deploymentStep: "idle",
@@ -60,8 +60,14 @@ export function useContractDeploy() {
   }, []);
 
   const deployContract = useCallback(async (params: DeployParams): Promise<string | null> => {
-    if (!isConnected || !address || typeof window.ethereum === "undefined") {
+    const provider = getProvider();
+    if (!isConnected || !address || !provider) {
       setState(prev => ({ ...prev, error: "Wallet not connected" }));
+      return null;
+    }
+    
+    if (chainType !== "evm") {
+      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet to deploy contracts" }));
       return null;
     }
 
@@ -100,7 +106,7 @@ export function useContractDeploy() {
       setState(prev => ({ ...prev, deploymentStep: "confirming" }));
 
       // Send transaction to factory contract
-      const txHash = await window.ethereum.request({
+      const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [{
           from: address,
@@ -124,7 +130,7 @@ export function useContractDeploy() {
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         try {
-          receipt = await window.ethereum.request({
+          receipt = await provider.request({
             method: "eth_getTransactionReceipt",
             params: [txHash],
           });

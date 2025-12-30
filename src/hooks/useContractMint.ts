@@ -83,7 +83,7 @@ const fetchReceiptWithFailover = async (
 };
 
 export function useContractMint(contractAddress: string | null) {
-  const { address, isConnected, balance, network, switchToMonad, chainId } = useWallet();
+  const { address, isConnected, balance, network, switchToMonad, chainId, chainType, getProvider } = useWallet();
   const [state, setState] = useState<MintState>({
     isMinting: false,
     txHash: null,
@@ -133,7 +133,8 @@ export function useContractMint(contractAddress: string | null) {
 
   // Ensure wallet is on the correct Monad network
   const ensureCorrectNetwork = useCallback(async (): Promise<boolean> => {
-    if (typeof window.ethereum === "undefined") return false;
+    const provider = getProvider();
+    if (!provider || chainType !== "evm") return false;
     
     const targetChain = getMonadChain(network);
     const currentChainId = chainId;
@@ -232,8 +233,14 @@ export function useContractMint(contractAddress: string | null) {
     collectionImage?: string | null,
     customGasLimit?: number
   ): Promise<string | null> => {
-    if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
+    const provider = getProvider();
+    if (!isConnected || !address || !contractAddress || !provider) {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
+      return null;
+    }
+    
+    if (chainType !== "evm") {
+      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet to mint NFTs" }));
       return null;
     }
 
@@ -288,7 +295,7 @@ export function useContractMint(contractAddress: string | null) {
         console.log(`Mint attempt ${attempt + 1}/${gasMultipliers.length} with gas limit: ${gasLimit}`);
 
         try {
-          txHash = await window.ethereum.request({
+          txHash = await provider.request({
             method: "eth_sendTransaction",
             params: [{
               from: address,
@@ -414,8 +421,14 @@ export function useContractMint(contractAddress: string | null) {
     collectionImage?: string | null,
     customGasLimit?: number
   ): Promise<string | null> => {
-    if (!isConnected || !address || !contractAddress || typeof window.ethereum === "undefined") {
+    const provider = getProvider();
+    if (!isConnected || !address || !contractAddress || !provider) {
       setState(prev => ({ ...prev, error: "Wallet or contract not connected" }));
+      return null;
+    }
+    
+    if (chainType !== "evm") {
+      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet to mint NFTs" }));
       return null;
     }
 
@@ -461,7 +474,7 @@ export function useContractMint(contractAddress: string | null) {
         console.log(`Mint attempt ${attempt + 1}/${gasMultipliers.length} with gas limit: ${gasLimit}`);
 
         try {
-          txHash = await window.ethereum.request({
+          txHash = await provider.request({
             method: "eth_sendTransaction",
             params: [{
               from: address,
