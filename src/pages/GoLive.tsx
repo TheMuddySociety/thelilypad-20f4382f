@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useSEO } from "@/hooks/useSEO";
 import { BrowserStreamPreview } from "@/components/streaming/BrowserStreamPreview";
+import { PipOverlay } from "@/components/streaming/PipOverlay";
 import { StreamControls } from "@/components/streaming/StreamControls";
 import { useWebRTCStream, StreamSource } from "@/hooks/useWebRTCStream";
 import { useStreamPresence } from "@/hooks/useStreamPresence";
@@ -88,14 +89,19 @@ export default function GoLive() {
     isStreaming,
     isConnecting,
     isSwitchingSource,
+    isPipEnabled,
     roomId,
     source: currentSource,
     error: webrtcError,
     startStream,
     stopStream,
     switchSource,
+    togglePip,
     getMediaStream,
+    getPipStream,
   } = useWebRTCStream();
+
+  const [pipStream, setPipStream] = useState<MediaStream | null>(null);
 
   // Track viewer count for active stream
   const { viewerCount, isConnected: presenceConnected } = useStreamPresence(isStreaming ? roomId : undefined);
@@ -542,21 +548,37 @@ export default function GoLive() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
-                      <BrowserStreamPreview 
-                        stream={mediaStream}
-                        isLive={isStreaming}
-                        className="aspect-video"
-                      />
+                      <div className="relative">
+                        <BrowserStreamPreview 
+                          stream={mediaStream}
+                          isLive={isStreaming}
+                          className="aspect-video"
+                        />
+                        {/* PiP Camera Overlay */}
+                        <PipOverlay
+                          stream={pipStream}
+                          isVisible={isPipEnabled && currentSource === 'screen'}
+                          onClose={async () => {
+                            await togglePip();
+                            setPipStream(null);
+                          }}
+                        />
+                      </div>
                       
                       {/* Source Switcher - Only visible while streaming */}
                       {isStreaming && (
-                        <div className="flex items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg">
+                        <div className="flex flex-wrap items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg">
                           <span className="text-sm text-muted-foreground mr-2">Switch to:</span>
                           <Button
                             variant={currentSource === 'camera' ? 'default' : 'outline'}
                             size="sm"
                             onClick={async () => {
                               if (currentSource !== 'camera') {
+                                // Disable PiP when switching to camera
+                                if (isPipEnabled) {
+                                  await togglePip();
+                                  setPipStream(null);
+                                }
                                 const newStream = await switchSource('camera');
                                 if (newStream) setMediaStream(newStream);
                               }
@@ -582,6 +604,23 @@ export default function GoLive() {
                             <Monitor className="h-4 w-4" />
                             Screen
                           </Button>
+                          
+                          {/* PiP Toggle - Only when screen sharing */}
+                          {currentSource === 'screen' && (
+                            <Button
+                              variant={isPipEnabled ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={async () => {
+                                const stream = await togglePip();
+                                setPipStream(stream);
+                              }}
+                              className="gap-2 ml-2"
+                            >
+                              <Camera className="h-4 w-4" />
+                              {isPipEnabled ? 'Hide Cam' : 'Show Cam'}
+                            </Button>
+                          )}
+                          
                           {isSwitchingSource && (
                             <span className="text-xs text-muted-foreground animate-pulse">Switching...</span>
                           )}

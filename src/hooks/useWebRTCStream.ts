@@ -13,6 +13,7 @@ interface StreamState {
   error: string | null;
   streamDbId: string | null;
   source: StreamSource | null;
+  isPipEnabled: boolean;
 }
 
 interface StreamMetadata {
@@ -37,9 +38,11 @@ export const useWebRTCStream = () => {
     error: null,
     streamDbId: null,
     source: null,
+    isPipEnabled: false,
   });
   
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const pipStreamRef = useRef<MediaStream | null>(null);
 
   const getMediaStream = useCallback(async (source: StreamSource): Promise<MediaStream> => {
     if (source === 'screen') {
@@ -160,6 +163,7 @@ export const useWebRTCStream = () => {
         error: null,
         streamDbId: streamRecord?.id || null,
         source,
+        isPipEnabled: false,
       });
 
       toast({
@@ -187,6 +191,7 @@ export const useWebRTCStream = () => {
         error: errorMessage,
         streamDbId: null,
         source: null,
+        isPipEnabled: false,
       });
 
       toast({
@@ -232,6 +237,12 @@ export const useWebRTCStream = () => {
       }
     }
 
+    // Stop PiP stream if active
+    if (pipStreamRef.current) {
+      pipStreamRef.current.getTracks().forEach(track => track.stop());
+      pipStreamRef.current = null;
+    }
+
     setState({
       isStreaming: false,
       isConnecting: false,
@@ -241,6 +252,7 @@ export const useWebRTCStream = () => {
       error: null,
       streamDbId: null,
       source: null,
+      isPipEnabled: false,
     });
 
     toast({
@@ -300,11 +312,72 @@ export const useWebRTCStream = () => {
     }
   }, [state.isStreaming, state.source, getMediaStream, toast]);
 
+  const togglePip = useCallback(async (): Promise<MediaStream | null> => {
+    if (!state.isStreaming || state.source !== 'screen') {
+      toast({
+        variant: 'destructive',
+        title: 'PiP not available',
+        description: 'Picture-in-picture is only available during screen sharing.',
+      });
+      return null;
+    }
+
+    if (state.isPipEnabled) {
+      // Disable PiP - stop camera stream
+      if (pipStreamRef.current) {
+        pipStreamRef.current.getTracks().forEach(track => track.stop());
+        pipStreamRef.current = null;
+      }
+      setState(prev => ({ ...prev, isPipEnabled: false }));
+      toast({
+        title: 'Camera overlay disabled',
+        description: 'Picture-in-picture mode turned off.',
+      });
+      return null;
+    } else {
+      // Enable PiP - start camera stream
+      try {
+        const cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 320 },
+            height: { ideal: 240 },
+            facingMode: 'user',
+          },
+          audio: false, // Audio already from main stream
+        });
+        
+        pipStreamRef.current = cameraStream;
+        setState(prev => ({ ...prev, isPipEnabled: true }));
+        
+        toast({
+          title: 'Camera overlay enabled',
+          description: 'Your camera is now visible as an overlay.',
+        });
+        
+        return cameraStream;
+      } catch (error) {
+        console.error('Failed to enable PiP:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to enable camera overlay',
+          description: 'Could not access camera for picture-in-picture.',
+        });
+        return null;
+      }
+    }
+  }, [state.isStreaming, state.source, state.isPipEnabled, toast]);
+
+  const getPipStream = useCallback(() => {
+    return pipStreamRef.current;
+  }, []);
+
   return {
     ...state,
     startStream,
     stopStream,
     switchSource,
+    togglePip,
     getMediaStream: getCurrentMediaStream,
+    getPipStream,
   };
 };
