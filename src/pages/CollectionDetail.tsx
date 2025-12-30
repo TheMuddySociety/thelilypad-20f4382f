@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { encodeFunctionData, parseEther, keccak256, encodePacked } from "viem";
+import { MerkleTree } from "merkletreejs";
+import { NFT_CONTRACT_ABI } from "@/config/nftContract";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
 import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
@@ -239,35 +242,128 @@ export default function CollectionDetail() {
   const totalCost = activePhase ? parseFloat(activePhase.price) * mintAmount : 0;
   const userBalance = balance ? parseFloat(balance) : 0;
   
-  // Gas estimation (simulated - in production this would come from actual gas estimation)
+  // Gas estimation using eth_estimateGas
   const [gasEstimate, setGasEstimate] = useState<{ gasLimit: number; gasPrice: number; totalGas: number } | null>(null);
   const [isEstimatingGas, setIsEstimatingGas] = useState(false);
+  const [gasEstimateError, setGasEstimateError] = useState<string | null>(null);
 
-  // Simulate gas estimation when mint amount changes
+  // Generate leaf for Merkle tree (address only)
+  const generateLeaf = useCallback((addr: string): string => {
+    return keccak256(encodePacked(['address'], [addr.toLowerCase() as `0x${string}`]));
+  }, []);
+
+  // Generate Merkle proof for an address
+  const generateMerkleProof = useCallback((
+    userAddress: string,
+    allowlistAddrs: string[]
+  ): string[] => {
+    if (allowlistAddrs.length === 0) return [];
+    const leaves = allowlistAddrs.map(addr => generateLeaf(addr));
+    const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+    const leaf = generateLeaf(userAddress);
+    return tree.getHexProof(leaf);
+  }, [generateLeaf]);
+
+  // Real gas estimation using eth_estimateGas
   useEffect(() => {
-    if (!isConnected || isWrongNetwork || !activePhase) {
+    if (!isConnected || isWrongNetwork || !activePhase || !collection?.contract_address || !address) {
       setGasEstimate(null);
+      setGasEstimateError(null);
       return;
     }
 
     const estimateGas = async () => {
       setIsEstimatingGas(true);
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      setGasEstimateError(null);
       
-      // Simulated gas values (in a real app, this would come from eth_estimateGas)
-      const baseGasLimit = 150000; // Base gas for mint
-      const perNftGas = 50000; // Additional gas per NFT
-      const gasLimit = baseGasLimit + (perNftGas * mintAmount);
-      const gasPrice = isTestnet ? 0.000000001 : 0.000000025; // Gwei converted to MON
-      const totalGas = gasLimit * gasPrice;
-      
-      setGasEstimate({ gasLimit, gasPrice, totalGas });
-      setIsEstimatingGas(false);
+      try {
+        if (typeof window.ethereum === "undefined") {
+          throw new Error("Wallet not available");
+        }
+
+        // Calculate total price in wei
+        const priceInWei = parseEther(activePhase.price);
+        const totalValue = priceInWei * BigInt(mintAmount);
+
+        // Encode the appropriate function call
+        let data: `0x${string}`;
+        if (activePhase.requiresAllowlist && allowlistAddresses.length > 0) {
+          const proof = generateMerkleProof(address, allowlistAddresses);
+          data = encodeFunctionData({
+            abi: NFT_CONTRACT_ABI,
+            functionName: "mint",
+            args: [BigInt(mintAmount), proof as `0x${string}`[]],
+          });
+        } else {
+          data = encodeFunctionData({
+            abi: NFT_CONTRACT_ABI,
+            functionName: "mintPublic",
+            args: [BigInt(mintAmount)],
+          });
+        }
+
+        // Call eth_estimateGas
+        const estimatedGasHex = await window.ethereum.request({
+          method: "eth_estimateGas",
+          params: [{
+            from: address,
+            to: collection.contract_address,
+            data,
+            value: `0x${totalValue.toString(16)}`,
+          }],
+        });
+
+        const estimatedGas = parseInt(estimatedGasHex, 16);
+        // Add 20% buffer for safety
+        const gasLimitWithBuffer = Math.floor(estimatedGas * 1.2);
+
+        // Get current gas price
+        const gasPriceHex = await window.ethereum.request({
+          method: "eth_gasPrice",
+          params: [],
+        });
+        
+        const gasPriceWei = BigInt(gasPriceHex);
+        // Convert to MON (1 MON = 1e18 wei)
+        const gasPriceMon = Number(gasPriceWei) / 1e18;
+        const totalGas = gasLimitWithBuffer * gasPriceMon;
+
+        setGasEstimate({ 
+          gasLimit: gasLimitWithBuffer, 
+          gasPrice: gasPriceMon, 
+          totalGas 
+        });
+      } catch (error: any) {
+        console.error("Gas estimation failed:", error);
+        
+        // Fallback to estimated values if eth_estimateGas fails
+        const baseGasLimit = 200000;
+        const perNftGas = 80000;
+        const fallbackGasLimit = baseGasLimit + (perNftGas * mintAmount);
+        const fallbackGasPrice = isTestnet ? 0.000000001 : 0.000000025;
+        const fallbackTotalGas = fallbackGasLimit * fallbackGasPrice;
+        
+        setGasEstimate({ 
+          gasLimit: fallbackGasLimit, 
+          gasPrice: fallbackGasPrice, 
+          totalGas: fallbackTotalGas 
+        });
+        
+        // Set warning if estimation failed
+        if (error.message?.includes("execution reverted") || error.code === 3) {
+          setGasEstimateError("Transaction may fail - check eligibility");
+        } else {
+          setGasEstimateError("Using estimated gas (live estimate unavailable)");
+        }
+      } finally {
+        setIsEstimatingGas(false);
+      }
     };
 
-    estimateGas();
-  }, [mintAmount, isConnected, isWrongNetwork, isTestnet, activePhase]);
+    // Debounce the gas estimation
+    const timeoutId = setTimeout(estimateGas, 300);
+    return () => clearTimeout(timeoutId);
+  }, [mintAmount, isConnected, isWrongNetwork, isTestnet, activePhase, collection?.contract_address, address, allowlistAddresses, generateMerkleProof]);
 
   const totalWithGas = totalCost + (gasEstimate?.totalGas || 0);
   const hasInsufficientBalance = isConnected && !isWrongNetwork && totalWithGas > userBalance;
@@ -1226,11 +1322,21 @@ export default function CollectionDetail() {
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Fuel className="w-4 h-4" />
                         <span>Estimated Gas</span>
+                        {gasEstimate && !isEstimatingGas && !gasEstimateError && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-green-500 border-green-500/30 bg-green-500/10">
+                            Live
+                          </Badge>
+                        )}
+                        {gasEstimateError && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-500 border-amber-500/30 bg-amber-500/10">
+                            Est.
+                          </Badge>
+                        )}
                       </div>
                       {isEstimatingGas ? (
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <Loader2 className="w-3 h-3 animate-spin" />
-                          <span className="text-xs">Estimating...</span>
+                          <span className="text-xs">Fetching from network...</span>
                         </div>
                       ) : gasEstimate ? (
                         <span className="font-medium text-muted-foreground">
@@ -1240,6 +1346,12 @@ export default function CollectionDetail() {
                         <span className="text-xs text-muted-foreground">--</span>
                       )}
                     </div>
+                    {gasEstimateError && !isEstimatingGas && (
+                      <div className="flex items-center gap-1 text-xs text-amber-500">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>{gasEstimateError}</span>
+                      </div>
+                    )}
                     {gasEstimate && !isEstimatingGas && (
                       <div className="text-xs text-muted-foreground">
                         Gas Limit: {customGasLimit ? parseInt(customGasLimit).toLocaleString() : gasEstimate.gasLimit.toLocaleString()} • Gas Price: {(gasEstimate.gasPrice * 1e9).toFixed(2)} Gwei
