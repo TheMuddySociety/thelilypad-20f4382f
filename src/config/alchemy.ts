@@ -3,9 +3,21 @@ import { defineChain } from "viem";
 // Network type
 export type NetworkType = "mainnet" | "testnet";
 
-// RPC URLs
-export const MONAD_TESTNET_RPC = "https://rpc.ankr.com/monad_testnet";
-export const MONAD_MAINNET_RPC = "https://rpc.monad.xyz"; // Official Monad mainnet RPC
+// RPC URLs with fallbacks
+export const MONAD_TESTNET_RPCS = [
+  "https://rpc.ankr.com/monad_testnet",
+  "https://testnet-rpc.monad.xyz",
+];
+
+export const MONAD_MAINNET_RPCS = [
+  "https://rpc.monad.xyz",        // QuickNode - 25 rps
+  "https://rpc1.monad.xyz",       // Alchemy - 15 rps
+  "https://rpc3.monad.xyz",       // Ankr - 300 per 10s
+];
+
+// Primary RPC URLs (for backwards compatibility)
+export const MONAD_TESTNET_RPC = MONAD_TESTNET_RPCS[0];
+export const MONAD_MAINNET_RPC = MONAD_MAINNET_RPCS[0];
 
 // Monad Mainnet chain configuration
 export const monadMainnet = defineChain({
@@ -18,10 +30,10 @@ export const monadMainnet = defineChain({
   },
   rpcUrls: {
     default: {
-      http: [MONAD_MAINNET_RPC],
+      http: MONAD_MAINNET_RPCS,
     },
     public: {
-      http: [MONAD_MAINNET_RPC],
+      http: MONAD_MAINNET_RPCS,
     },
   },
   blockExplorers: {
@@ -43,10 +55,10 @@ export const monadTestnet = defineChain({
   },
   rpcUrls: {
     default: {
-      http: [MONAD_TESTNET_RPC],
+      http: MONAD_TESTNET_RPCS,
     },
     public: {
-      http: [MONAD_TESTNET_RPC],
+      http: MONAD_TESTNET_RPCS,
     },
   },
   blockExplorers: {
@@ -64,3 +76,7 @@ export const getMonadChain = (network: NetworkType) =>
 // Get RPC URL based on network type
 export const getRpcUrl = (network: NetworkType = "testnet") => 
   network === "mainnet" ? MONAD_MAINNET_RPC : MONAD_TESTNET_RPC;
+
+// Get all RPC URLs for fallback
+export const getRpcUrls = (network: NetworkType = "testnet") => 
+  network === "mainnet" ? MONAD_MAINNET_RPCS : MONAD_TESTNET_RPCS;
