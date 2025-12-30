@@ -67,8 +67,8 @@ export const LiveStreamCard = ({
         {/* Live badge */}
         {isActive && (
           <div className="absolute top-2 left-2">
-            <Badge variant="destructive" className="gap-1">
-              <Radio className="w-2 h-2 animate-pulse" />
+            <Badge variant="destructive" className="gap-1 animate-live-pulse">
+              <Radio className="w-2 h-2" />
               LIVE
             </Badge>
           </div>
