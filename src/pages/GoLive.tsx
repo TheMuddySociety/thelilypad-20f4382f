@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -23,6 +24,7 @@ import { PipOverlay } from "@/components/streaming/PipOverlay";
 import { StreamControls } from "@/components/streaming/StreamControls";
 import { useWebRTCStream, StreamSource, StreamQuality } from "@/hooks/useWebRTCStream";
 import { useStreamPresence } from "@/hooks/useStreamPresence";
+import { useAdaptiveStreamQuality } from "@/hooks/useAdaptiveStreamQuality";
 import { 
   Key, 
   Copy, 
@@ -46,7 +48,8 @@ import {
   Users,
   Clock,
   Wifi,
-  Loader2 as SpeedLoader
+  Loader2 as SpeedLoader,
+  Activity
 } from "lucide-react";
 import {
   AlertDialog,
@@ -96,6 +99,7 @@ export default function GoLive() {
   const [recommendedQuality, setRecommendedQuality] = useState<StreamQuality | null>(null);
   const [internetSpeed, setInternetSpeed] = useState<number | null>(null);
   const [isTestingSpeed, setIsTestingSpeed] = useState(false);
+  const [autoAdjustQuality, setAutoAdjustQuality] = useState(true);
   const thumbnailInputRef = React.useRef<HTMLInputElement>(null);
 
   // WebRTC Browser Streaming
@@ -114,6 +118,18 @@ export default function GoLive() {
     getMediaStream,
     getPipStream,
   } = useWebRTCStream();
+
+  // Handle quality change from adaptive quality hook
+  const handleAdaptiveQualityChange = useCallback((newQuality: StreamQuality) => {
+    setStreamQuality(newQuality);
+  }, []);
+
+  // Adaptive quality monitoring
+  const { connectionStats, isMonitoring } = useAdaptiveStreamQuality({
+    enabled: isStreaming && autoAdjustQuality,
+    currentQuality: streamQuality,
+    onQualityChange: handleAdaptiveQualityChange,
+  });
 
   const [pipStream, setPipStream] = useState<MediaStream | null>(null);
   
@@ -687,6 +703,23 @@ export default function GoLive() {
                               <span className="text-xs text-muted-foreground">1920×1080</span>
                             </button>
                           </div>
+                          
+                          {/* Auto-adjust quality toggle */}
+                          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30 border border-border/50">
+                            <div className="flex items-center gap-2">
+                              <Activity className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <span className="text-sm font-medium">Auto-adjust quality</span>
+                                <p className="text-xs text-muted-foreground">
+                                  Automatically adjust based on connection
+                                </p>
+                              </div>
+                            </div>
+                            <Switch
+                              checked={autoAdjustQuality}
+                              onCheckedChange={setAutoAdjustQuality}
+                            />
+                          </div>
                         </div>
 
                         <div className="space-y-2">
@@ -813,65 +846,110 @@ export default function GoLive() {
                         />
                       </div>
                       
-                      {/* Source Switcher - Only visible while streaming */}
+                      {/* Source Switcher and Quality Stats - Only visible while streaming */}
                       {isStreaming && (
-                        <div className="flex flex-wrap items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg">
-                          <span className="text-sm text-muted-foreground mr-2">Switch to:</span>
-                          <Button
-                            variant={currentSource === 'camera' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={async () => {
-                              if (currentSource !== 'camera') {
-                                // Disable PiP when switching to camera
-                                if (isPipEnabled) {
-                                  await togglePip();
-                                  setPipStream(null);
-                                }
-                                const newStream = await switchSource('camera');
-                                if (newStream) setMediaStream(newStream);
-                              }
-                            }}
-                            disabled={isSwitchingSource || currentSource === 'camera'}
-                            className="gap-2"
-                          >
-                            <Camera className="h-4 w-4" />
-                            Camera
-                          </Button>
-                          <Button
-                            variant={currentSource === 'screen' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={async () => {
-                              if (currentSource !== 'screen') {
-                                const newStream = await switchSource('screen');
-                                if (newStream) setMediaStream(newStream);
-                              }
-                            }}
-                            disabled={isSwitchingSource || currentSource === 'screen'}
-                            className="gap-2"
-                          >
-                            <Monitor className="h-4 w-4" />
-                            Screen
-                          </Button>
+                        <div className="space-y-3">
+                          {/* Connection Stats */}
+                          {isMonitoring && (
+                            <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-muted/30 rounded-lg border border-border/50">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1.5">
+                                  <Activity className="h-4 w-4 text-primary" />
+                                  <span className="text-xs font-medium">Quality:</span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {streamQuality}
+                                  </Badge>
+                                </div>
+                                {connectionStats.rtt !== null && (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs text-muted-foreground">Latency:</span>
+                                    <span className={`text-xs font-medium ${
+                                      connectionStats.rtt < 100 ? 'text-green-500' :
+                                      connectionStats.rtt < 300 ? 'text-yellow-500' : 'text-red-500'
+                                    }`}>
+                                      {Math.round(connectionStats.rtt)}ms
+                                    </span>
+                                  </div>
+                                )}
+                                {connectionStats.downlink !== null && (
+                                  <div className="flex items-center gap-1.5">
+                                    <Wifi className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-xs text-muted-foreground">
+                                      {connectionStats.downlink} Mbps
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">Auto-adjust:</span>
+                                <Switch
+                                  checked={autoAdjustQuality}
+                                  onCheckedChange={setAutoAdjustQuality}
+                                  className="scale-75"
+                                />
+                              </div>
+                            </div>
+                          )}
                           
-                          {/* PiP Toggle - Only when screen sharing */}
-                          {currentSource === 'screen' && (
+                          {/* Source Switcher */}
+                          <div className="flex flex-wrap items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg">
+                            <span className="text-sm text-muted-foreground mr-2">Switch to:</span>
                             <Button
-                              variant={isPipEnabled ? 'default' : 'outline'}
+                              variant={currentSource === 'camera' ? 'default' : 'outline'}
                               size="sm"
                               onClick={async () => {
-                                const stream = await togglePip();
-                                setPipStream(stream);
+                                if (currentSource !== 'camera') {
+                                  // Disable PiP when switching to camera
+                                  if (isPipEnabled) {
+                                    await togglePip();
+                                    setPipStream(null);
+                                  }
+                                  const newStream = await switchSource('camera');
+                                  if (newStream) setMediaStream(newStream);
+                                }
                               }}
-                              className="gap-2 ml-2"
+                              disabled={isSwitchingSource || currentSource === 'camera'}
+                              className="gap-2"
                             >
                               <Camera className="h-4 w-4" />
-                              {isPipEnabled ? 'Hide Cam' : 'Show Cam'}
+                              Camera
                             </Button>
-                          )}
-                          
-                          {isSwitchingSource && (
-                            <span className="text-xs text-muted-foreground animate-pulse">Switching...</span>
-                          )}
+                            <Button
+                              variant={currentSource === 'screen' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={async () => {
+                                if (currentSource !== 'screen') {
+                                  const newStream = await switchSource('screen');
+                                  if (newStream) setMediaStream(newStream);
+                                }
+                              }}
+                              disabled={isSwitchingSource || currentSource === 'screen'}
+                              className="gap-2"
+                            >
+                              <Monitor className="h-4 w-4" />
+                              Screen
+                            </Button>
+                            
+                            {/* PiP Toggle - Only when screen sharing */}
+                            {currentSource === 'screen' && (
+                              <Button
+                                variant={isPipEnabled ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={async () => {
+                                  const stream = await togglePip();
+                                  setPipStream(stream);
+                                }}
+                                className="gap-2 ml-2"
+                              >
+                                <Camera className="h-4 w-4" />
+                                {isPipEnabled ? 'Hide Cam' : 'Show Cam'}
+                              </Button>
+                            )}
+                            
+                            {isSwitchingSource && (
+                              <span className="text-xs text-muted-foreground animate-pulse">Switching...</span>
+                            )}
+                          </div>
                         </div>
                       )}
                     </CardContent>
