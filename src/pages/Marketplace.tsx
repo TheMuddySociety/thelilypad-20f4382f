@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,9 @@ import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useSEO } from "@/hooks/useSEO";
 import { isFactoryConfigured } from "@/config/nftFactory";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+
+const ITEMS_PER_PAGE = 12;
 
 interface Collection {
   id: string;
@@ -95,14 +98,26 @@ export default function Marketplace() {
   const [showHotOnly, setShowHotOnly] = useState(false);
   const [showNewOnly, setShowNewOnly] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [displayedCollections, setDisplayedCollections] = useState<Collection[]>([]);
+  const [collectionsPage, setCollectionsPage] = useState(1);
+  const [hasMoreCollections, setHasMoreCollections] = useState(true);
+  const [isLoadingMoreCollections, setIsLoadingMoreCollections] = useState(false);
   const [stickerPacks, setStickerPacks] = useState<ShopItem[]>([]);
   const [nftListings, setNftListings] = useState<NFTListing[]>([]);
   const [hotCollectionMints, setHotCollectionMints] = useState<Map<string, number>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
+  const [totalCollections, setTotalCollections] = useState(0);
 
   // Check if factory is configured (for showing verified filter)
   const factoryAvailable = isFactoryConfigured();
+
+  // Infinite scroll for collections
+  const { loadMoreRef } = useInfiniteScroll(
+    () => loadMoreCollections(),
+    hasMoreCollections,
+    isLoadingMoreCollections
+  );
 
   useSEO({
     title: "Lily Marketplace | The Lily Pad",
@@ -111,14 +126,27 @@ export default function Marketplace() {
 
   const fetchData = async () => {
     setIsLoading(true);
+    setCollectionsPage(1);
+    setDisplayedCollections([]);
+    setHasMoreCollections(true);
+    
     try {
-      // Fetch collections - filter out deleted ones and show live/upcoming first
+      // Fetch collections count first
+      const { count: collectionCount } = await supabase
+        .from("collections")
+        .select("*", { count: "exact", head: true })
+        .is("deleted_at", null);
+      
+      setTotalCollections(collectionCount || 0);
+      
+      // Fetch first page of collections
       const { data: collectionsData, error: collectionsError } = await supabase
         .from("collections")
         .select("*")
         .is("deleted_at", null)
-        .order("status", { ascending: true }) // live comes before upcoming
-        .order("created_at", { ascending: false });
+        .order("status", { ascending: true })
+        .order("created_at", { ascending: false })
+        .range(0, ITEMS_PER_PAGE - 1);
 
       if (collectionsError) {
         console.error("Error fetching collections:", collectionsError);
@@ -130,6 +158,9 @@ export default function Marketplace() {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         });
         setCollections(sorted);
+        setDisplayedCollections(sorted);
+        setHasMoreCollections(sorted.length === ITEMS_PER_PAGE && sorted.length < (collectionCount || 0));
+        setCollectionsPage(2);
       }
 
       // Fetch recent mints (last 24 hours) to determine "hot" collections
@@ -207,6 +238,44 @@ export default function Marketplace() {
       setIsLoading(false);
     }
   };
+
+  const loadMoreCollections = useCallback(async () => {
+    if (isLoadingMoreCollections || !hasMoreCollections) return;
+    
+    setIsLoadingMoreCollections(true);
+    try {
+      const startIndex = (collectionsPage - 1) * ITEMS_PER_PAGE;
+      const endIndex = startIndex + ITEMS_PER_PAGE - 1;
+      
+      const { data: moreCollections, error } = await supabase
+        .from("collections")
+        .select("*")
+        .is("deleted_at", null)
+        .order("status", { ascending: true })
+        .order("created_at", { ascending: false })
+        .range(startIndex, endIndex);
+
+      if (error) {
+        console.error("Error loading more collections:", error);
+      } else if (moreCollections) {
+        // Sort to prioritize live status
+        const sorted = moreCollections.sort((a, b) => {
+          if (a.status === 'live' && b.status !== 'live') return -1;
+          if (a.status !== 'live' && b.status === 'live') return 1;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+        
+        setDisplayedCollections(prev => [...prev, ...sorted]);
+        setCollections(prev => [...prev, ...sorted]);
+        setCollectionsPage(prev => prev + 1);
+        setHasMoreCollections(moreCollections.length === ITEMS_PER_PAGE);
+      }
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setIsLoadingMoreCollections(false);
+    }
+  }, [collectionsPage, isLoadingMoreCollections, hasMoreCollections]);
 
   useEffect(() => {
     fetchData();
@@ -288,7 +357,7 @@ export default function Marketplace() {
     new Date(collection.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
 
   // Filter collections by verified, hot, and new status
-  const filteredCollections = collections.filter(c => {
+  const filteredCollections = displayedCollections.filter(c => {
     // Verified filter
     if (verifiedOnly && !c.contract_address) return false;
     // Hot filter
@@ -297,6 +366,9 @@ export default function Marketplace() {
     if (showNewOnly && !isCollectionNew(c)) return false;
     return true;
   });
+  
+  // Check if there are more items to load (considering filters)
+  const canLoadMore = hasMoreCollections && !verifiedOnly && !showHotOnly && !showNewOnly;
   
   const filteredListings = verifiedOnly
     ? nftListings.filter(l => l.nft.collection?.contract_address)
@@ -330,7 +402,7 @@ export default function Marketplace() {
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{collections.length}</div>
+              <div className="text-2xl font-bold">{totalCollections || collections.length}</div>
               <p className="text-sm text-muted-foreground">Collections</p>
             </CardContent>
           </Card>
@@ -557,7 +629,9 @@ export default function Marketplace() {
                 <div className="flex items-center gap-2 mb-4">
                   <Rocket className="w-5 h-5 text-primary" />
                   <h2 className="text-xl font-semibold">Collections</h2>
-                  <Badge variant="secondary">{filteredCollections.length}</Badge>
+                  <Badge variant="secondary">
+                    {filteredCollections.length}{hasMoreCollections && !verifiedOnly && !showHotOnly && !showNewOnly ? '+' : ''}
+                  </Badge>
                   {verifiedOnly && (
                     <Badge variant="outline" className="gap-1 bg-primary/10 text-primary border-primary/30">
                       <Shield className="w-3 h-3" />
@@ -669,6 +743,34 @@ export default function Marketplace() {
                     );
                   })}
                 </div>
+                
+                {/* Load More Trigger for Infinite Scroll */}
+                {canLoadMore && (
+                  <div 
+                    ref={loadMoreRef}
+                    className="flex justify-center py-8"
+                  >
+                    {isLoadingMoreCollections ? (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Loading more collections...</span>
+                      </div>
+                    ) : (
+                      <div className="text-muted-foreground text-sm">
+                        Scroll for more...
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Show count of displayed vs total */}
+                {totalCollections > filteredCollections.length && !canLoadMore && (
+                  <div className="flex justify-center py-4">
+                    <span className="text-sm text-muted-foreground">
+                      Showing {filteredCollections.length} of {totalCollections} collections
+                    </span>
+                  </div>
+                )}
               </section>
             )}
 
