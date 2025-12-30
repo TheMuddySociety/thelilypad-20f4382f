@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSEO } from "@/hooks/useSEO";
 import { BrowserStreamPreview } from "@/components/streaming/BrowserStreamPreview";
 import { StreamControls } from "@/components/streaming/StreamControls";
-import { useWebRTCStream } from "@/hooks/useWebRTCStream";
+import { useWebRTCStream, StreamSource } from "@/hooks/useWebRTCStream";
 import { useStreamPresence } from "@/hooks/useStreamPresence";
 import { 
   Key, 
@@ -80,6 +80,7 @@ export default function GoLive() {
   const [browserStreamThumbnail, setBrowserStreamThumbnail] = useState<string | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+  const [streamSource, setStreamSource] = useState<StreamSource>('camera');
   const thumbnailInputRef = React.useRef<HTMLInputElement>(null);
 
   // WebRTC Browser Streaming
@@ -334,9 +335,12 @@ export default function GoLive() {
     }
     
     const result = await startStream({
-      title: browserStreamTitle.trim(),
-      category: browserStreamCategory || undefined,
-      thumbnailUrl,
+      source: streamSource,
+      metadata: {
+        title: browserStreamTitle.trim(),
+        category: browserStreamCategory || undefined,
+        thumbnailUrl,
+      },
     });
     if (result) {
       setMediaStream(result.stream);
@@ -348,6 +352,7 @@ export default function GoLive() {
     setMediaStream(null);
     setBrowserStreamTitle("");
     setBrowserStreamCategory("");
+    setStreamSource('camera');
     removeThumbnail();
   };
 
@@ -400,6 +405,39 @@ export default function GoLive() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
+                        {/* Stream Source Selection */}
+                        <div className="space-y-2">
+                          <Label>Stream Source</Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setStreamSource('camera')}
+                              className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                                streamSource === 'camera'
+                                  ? 'border-primary bg-primary/10'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              <Camera className="h-6 w-6" />
+                              <span className="text-sm font-medium">Camera</span>
+                              <span className="text-xs text-muted-foreground">Webcam + Mic</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setStreamSource('screen')}
+                              className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                                streamSource === 'screen'
+                                  ? 'border-primary bg-primary/10'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              <Monitor className="h-6 w-6" />
+                              <span className="text-sm font-medium">Screen</span>
+                              <span className="text-xs text-muted-foreground">Screen Share + Mic</span>
+                            </button>
+                          </div>
+                        </div>
+
                         <div className="space-y-2">
                           <Label htmlFor="stream-title">Stream Title *</Label>
                           <Input
