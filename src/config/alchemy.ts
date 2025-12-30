@@ -5,7 +5,7 @@ export type NetworkType = "mainnet" | "testnet";
 
 // RPC URLs
 export const MONAD_TESTNET_RPC = "https://rpc.ankr.com/monad_testnet";
-export const MONAD_MAINNET_RPC = "https://rpc.ankr.com/monad"; // Placeholder for mainnet
+export const MONAD_MAINNET_RPC = "https://rpc.monad.xyz"; // Official Monad mainnet RPC
 
 // Monad Mainnet chain configuration
 export const monadMainnet = defineChain({
