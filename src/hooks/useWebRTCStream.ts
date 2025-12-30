@@ -14,6 +14,7 @@ interface StreamState {
 interface StreamMetadata {
   title: string;
   category?: string;
+  thumbnailUrl?: string;
 }
 
 export const useWebRTCStream = () => {
@@ -78,6 +79,7 @@ export const useWebRTCStream = () => {
       // Create stream record in database
       const streamTitle = metadata?.title?.trim() || 'Live Stream';
       const streamCategory = metadata?.category || null;
+      const streamThumbnail = metadata?.thumbnailUrl || null;
 
       const { data: streamRecord, error: dbError } = await supabase
         .from('streams')
@@ -85,6 +87,7 @@ export const useWebRTCStream = () => {
           user_id: user.id,
           title: streamTitle,
           category: streamCategory,
+          thumbnail_url: streamThumbnail,
           is_live: true,
           stream_key_id: roomId,
           started_at: new Date().toISOString(),
