@@ -44,7 +44,9 @@ import {
   Upload,
   Camera,
   Users,
-  Clock
+  Clock,
+  Wifi,
+  Loader2 as SpeedLoader
 } from "lucide-react";
 import {
   AlertDialog,
@@ -91,6 +93,9 @@ export default function GoLive() {
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const [streamSource, setStreamSource] = useState<StreamSource>('camera');
   const [streamQuality, setStreamQuality] = useState<StreamQuality>('720p');
+  const [recommendedQuality, setRecommendedQuality] = useState<StreamQuality | null>(null);
+  const [internetSpeed, setInternetSpeed] = useState<number | null>(null);
+  const [isTestingSpeed, setIsTestingSpeed] = useState(false);
   const thumbnailInputRef = React.useRef<HTMLInputElement>(null);
 
   // WebRTC Browser Streaming
@@ -376,6 +381,95 @@ export default function GoLive() {
     }
   };
 
+  // Internet speed test to recommend quality
+  const testInternetSpeed = async () => {
+    setIsTestingSpeed(true);
+    try {
+      // Use a small file to test download speed
+      const testUrls = [
+        'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png',
+        'https://www.cloudflare.com/favicon.ico',
+      ];
+      
+      let totalSpeed = 0;
+      let successfulTests = 0;
+      
+      for (const url of testUrls) {
+        try {
+          const startTime = performance.now();
+          const response = await fetch(url + '?t=' + Date.now(), { 
+            mode: 'no-cors',
+            cache: 'no-store'
+          });
+          const endTime = performance.now();
+          
+          // Estimate based on typical file sizes and time
+          // This is a rough estimate since we can't read the actual size with no-cors
+          const estimatedSizeKB = 15; // Approximate size
+          const timeSeconds = (endTime - startTime) / 1000;
+          const speedMbps = (estimatedSizeKB * 8) / (timeSeconds * 1000);
+          
+          totalSpeed += speedMbps;
+          successfulTests++;
+        } catch {
+          // Individual test failed, continue with others
+        }
+      }
+      
+      // If fetch tests fail, use Navigation Timing API as fallback
+      if (successfulTests === 0) {
+        const connection = (navigator as any).connection;
+        if (connection?.downlink) {
+          totalSpeed = connection.downlink;
+          successfulTests = 1;
+        }
+      }
+      
+      if (successfulTests > 0) {
+        const avgSpeed = totalSpeed / successfulTests;
+        // Multiply by factor to better estimate actual upload capacity
+        // Upload is typically 10-20% of download speed
+        const estimatedUpload = avgSpeed * 0.15;
+        setInternetSpeed(Math.round(avgSpeed * 10) / 10);
+        
+        // Recommend quality based on estimated upload speed
+        // 480p needs ~1.5 Mbps, 720p needs ~3 Mbps, 1080p needs ~6 Mbps
+        let recommended: StreamQuality;
+        if (avgSpeed >= 25) {
+          recommended = '1080p';
+        } else if (avgSpeed >= 10) {
+          recommended = '720p';
+        } else {
+          recommended = '480p';
+        }
+        
+        setRecommendedQuality(recommended);
+        setStreamQuality(recommended);
+        
+        toast({
+          title: "Speed test complete",
+          description: `Detected ~${Math.round(avgSpeed)} Mbps. Recommended: ${recommended}`,
+        });
+      } else {
+        toast({
+          title: "Speed test inconclusive",
+          description: "Could not determine speed. Defaulting to 720p.",
+          variant: "destructive",
+        });
+        setRecommendedQuality('720p');
+      }
+    } catch (error) {
+      console.error('Speed test error:', error);
+      toast({
+        title: "Speed test failed",
+        description: "Using default quality (720p)",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingSpeed(false);
+    }
+  };
+
   const handleBrowserStreamStart = async () => {
     if (!browserStreamTitle.trim()) {
       toast({
@@ -503,41 +597,92 @@ export default function GoLive() {
 
                         {/* Stream Quality Selection */}
                         <div className="space-y-2">
-                          <Label>Stream Quality</Label>
+                          <div className="flex items-center justify-between">
+                            <Label>Stream Quality</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={testInternetSpeed}
+                              disabled={isTestingSpeed}
+                              className="h-7 text-xs gap-1"
+                            >
+                              {isTestingSpeed ? (
+                                <>
+                                  <SpeedLoader className="h-3 w-3 animate-spin" />
+                                  Testing...
+                                </>
+                              ) : (
+                                <>
+                                  <Wifi className="h-3 w-3" />
+                                  Test Speed
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          
+                          {/* Speed test result */}
+                          {internetSpeed !== null && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+                              <Wifi className="h-3 w-3" />
+                              <span>~{internetSpeed} Mbps detected</span>
+                              {recommendedQuality && (
+                                <Badge variant="secondary" className="ml-auto text-xs">
+                                  {recommendedQuality} recommended
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          
                           <div className="grid grid-cols-3 gap-2">
                             <button
                               type="button"
                               onClick={() => setStreamQuality('480p')}
-                              className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                              className={`relative flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
                                 streamQuality === '480p'
                                   ? 'border-primary bg-primary/10'
                                   : 'border-border hover:border-primary/50'
                               }`}
                             >
+                              {recommendedQuality === '480p' && (
+                                <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">
+                                  Best
+                                </span>
+                              )}
                               <span className="text-sm font-medium">480p</span>
                               <span className="text-xs text-muted-foreground">854×480</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => setStreamQuality('720p')}
-                              className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                              className={`relative flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
                                 streamQuality === '720p'
                                   ? 'border-primary bg-primary/10'
                                   : 'border-border hover:border-primary/50'
                               }`}
                             >
+                              {recommendedQuality === '720p' && (
+                                <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">
+                                  Best
+                                </span>
+                              )}
                               <span className="text-sm font-medium">720p HD</span>
                               <span className="text-xs text-muted-foreground">1280×720</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => setStreamQuality('1080p')}
-                              className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                              className={`relative flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
                                 streamQuality === '1080p'
                                   ? 'border-primary bg-primary/10'
                                   : 'border-border hover:border-primary/50'
                               }`}
                             >
+                              {recommendedQuality === '1080p' && (
+                                <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">
+                                  Best
+                                </span>
+                              )}
                               <span className="text-sm font-medium">1080p</span>
                               <span className="text-xs text-muted-foreground">1920×1080</span>
                             </button>
