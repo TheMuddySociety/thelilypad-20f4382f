@@ -265,6 +265,9 @@ export default function CollectionDetail() {
     return tree.getHexProof(leaf);
   }, [generateLeaf]);
 
+  // RPC provider gas limit (Monad default: 30M for eth_estimateGas)
+  const RPC_GAS_LIMIT = 30_000_000;
+
   // Real gas estimation using eth_estimateGas
   useEffect(() => {
     if (!isConnected || isWrongNetwork || !activePhase || !collection?.contract_address || !address) {
@@ -315,8 +318,34 @@ export default function CollectionDetail() {
         });
 
         const estimatedGas = parseInt(estimatedGasHex, 16);
+        
+        // Check if gas exceeds RPC provider limit
+        if (estimatedGas >= RPC_GAS_LIMIT) {
+          throw new Error(`GAS_EXCEEDS_RPC_LIMIT:${estimatedGas}`);
+        }
+
         // Add 20% buffer for safety
         const gasLimitWithBuffer = Math.floor(estimatedGas * 1.2);
+        
+        // Check if buffered gas would exceed RPC limit
+        if (gasLimitWithBuffer >= RPC_GAS_LIMIT) {
+          // Use exact estimate without buffer to stay within limits
+          const gasPriceHex = await window.ethereum.request({
+            method: "eth_gasPrice",
+            params: [],
+          });
+          const gasPriceWei = BigInt(gasPriceHex);
+          const gasPriceMon = Number(gasPriceWei) / 1e18;
+          const totalGas = estimatedGas * gasPriceMon;
+          
+          setGasEstimate({ 
+            gasLimit: estimatedGas, 
+            gasPrice: gasPriceMon, 
+            totalGas 
+          });
+          setGasEstimateError("Gas near RPC limit - no safety buffer applied");
+          return;
+        }
 
         // Get current gas price
         const gasPriceHex = await window.ethereum.request({
@@ -337,6 +366,27 @@ export default function CollectionDetail() {
       } catch (error: any) {
         console.error("Gas estimation failed:", error);
         
+        // Handle RPC gas limit exceeded error
+        if (error.message?.startsWith("GAS_EXCEEDS_RPC_LIMIT:")) {
+          const actualGas = parseInt(error.message.split(":")[1]);
+          setGasEstimate(null);
+          setGasEstimateError(`Transaction requires ${(actualGas / 1_000_000).toFixed(1)}M gas, exceeding RPC limit (30M). Try minting fewer NFTs at once.`);
+          return;
+        }
+        
+        // Check for RPC-specific gas limit errors
+        const errorMsg = error.message?.toLowerCase() || "";
+        if (
+          errorMsg.includes("gas limit") ||
+          errorMsg.includes("exceeds allowance") ||
+          errorMsg.includes("out of gas") ||
+          errorMsg.includes("gas required exceeds")
+        ) {
+          setGasEstimate(null);
+          setGasEstimateError("Transaction exceeds RPC gas limit (30M). Try minting fewer NFTs at once.");
+          return;
+        }
+        
         // Fallback to estimated values if eth_estimateGas fails
         // Monad minimum base_price_per_gas = 100 MON-gwei (100 × 10^-9 MON)
         const MONAD_MIN_GAS_PRICE_MON = 100e-9; // 100 gwei in MON
@@ -345,6 +395,13 @@ export default function CollectionDetail() {
         const fallbackGasLimit = baseGasLimit + (perNftGas * mintAmount);
         const fallbackGasPrice = MONAD_MIN_GAS_PRICE_MON;
         const fallbackTotalGas = fallbackGasLimit * fallbackGasPrice;
+        
+        // Check if fallback would exceed RPC limit
+        if (fallbackGasLimit >= RPC_GAS_LIMIT) {
+          setGasEstimate(null);
+          setGasEstimateError(`Estimated gas (~${(fallbackGasLimit / 1_000_000).toFixed(1)}M) exceeds RPC limit (30M). Try minting fewer NFTs.`);
+          return;
+        }
         
         setGasEstimate({ 
           gasLimit: fallbackGasLimit, 
