@@ -243,28 +243,40 @@ export function useContractMint(contractAddress: string | null) {
           lastError = error;
           console.error(`Attempt ${attempt + 1} failed:`, error.message);
 
-          // Don't retry if user rejected or non-gas related error
+          // Don't retry if user rejected
           if (error.code === 4001) {
             throw error; // User rejected, don't retry
           }
+          
+          // Check if it's an RPC/network error that might be transient
+          const isRpcError = error.code === -32080 || 
+                            error.message?.includes('RPC') ||
+                            error.message?.includes('HTTP') ||
+                            error.message?.includes('403') ||
+                            error.message?.includes('network') ||
+                            error.data?.httpStatus === 403;
           
           // Check if it's a gas-related error
           const isGasError = error.message?.toLowerCase().includes('gas') ||
                             error.message?.toLowerCase().includes('intrinsic') ||
                             error.message?.toLowerCase().includes('exceeds');
           
-          if (!isGasError || attempt === gasMultipliers.length - 1) {
-            throw error; // Not a gas error or last attempt, don't retry
+          const shouldRetry = isGasError || isRpcError;
+          
+          if (!shouldRetry || attempt === gasMultipliers.length - 1) {
+            throw error; // Not retryable or last attempt
           }
 
           // Update state to show retry attempt
+          const retryReason = isRpcError ? 'RPC issue' : 'Gas limit issue';
           setState(prev => ({ 
             ...prev, 
-            error: `Gas limit issue, retrying with higher limit (attempt ${attempt + 2}/${gasMultipliers.length})...` 
+            error: `${retryReason}, retrying (attempt ${attempt + 2}/${gasMultipliers.length})...` 
           }));
           
-          // Small delay before retry
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Longer delay for RPC errors
+          const delay = isRpcError ? 2000 : 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
 
@@ -319,12 +331,16 @@ export function useContractMint(contractAddress: string | null) {
       let errorMessage = "Minting failed";
       if (error.code === 4001) {
         errorMessage = "Transaction rejected by user";
+      } else if (error.code === -32080 || error.data?.httpStatus === 403) {
+        errorMessage = "RPC endpoint unavailable. Please check your wallet's network settings or try again in a moment.";
       } else if (error.message?.includes("insufficient funds")) {
         errorMessage = "Insufficient funds for gas + mint price";
       } else if (error.message?.includes("not on allowlist")) {
         errorMessage = "Address not on allowlist for this phase";
       } else if (error.message?.toLowerCase().includes("gas")) {
-        errorMessage = "Transaction failed due to gas issues. Please try again or contact support.";
+        errorMessage = "Transaction failed due to gas issues. Please try again or increase gas limit in advanced settings.";
+      } else if (error.message?.includes("RPC") || error.message?.includes("HTTP")) {
+        errorMessage = "Network connection issue. Please check your wallet's RPC settings or try again.";
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -415,28 +431,40 @@ export function useContractMint(contractAddress: string | null) {
           lastError = error;
           console.error(`Attempt ${attempt + 1} failed:`, error.message);
 
-          // Don't retry if user rejected or non-gas related error
+          // Don't retry if user rejected
           if (error.code === 4001) {
             throw error; // User rejected, don't retry
           }
+          
+          // Check if it's an RPC/network error that might be transient
+          const isRpcError = error.code === -32080 || 
+                            error.message?.includes('RPC') ||
+                            error.message?.includes('HTTP') ||
+                            error.message?.includes('403') ||
+                            error.message?.includes('network') ||
+                            error.data?.httpStatus === 403;
           
           // Check if it's a gas-related error
           const isGasError = error.message?.toLowerCase().includes('gas') ||
                             error.message?.toLowerCase().includes('intrinsic') ||
                             error.message?.toLowerCase().includes('exceeds');
           
-          if (!isGasError || attempt === gasMultipliers.length - 1) {
-            throw error; // Not a gas error or last attempt, don't retry
+          const shouldRetry = isGasError || isRpcError;
+          
+          if (!shouldRetry || attempt === gasMultipliers.length - 1) {
+            throw error; // Not retryable or last attempt
           }
 
           // Update state to show retry attempt
+          const retryReason = isRpcError ? 'RPC issue' : 'Gas limit issue';
           setState(prev => ({ 
             ...prev, 
-            error: `Gas limit issue, retrying with higher limit (attempt ${attempt + 2}/${gasMultipliers.length})...` 
+            error: `${retryReason}, retrying (attempt ${attempt + 2}/${gasMultipliers.length})...` 
           }));
           
-          // Small delay before retry
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Longer delay for RPC errors
+          const delay = isRpcError ? 2000 : 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
 
@@ -491,6 +519,8 @@ export function useContractMint(contractAddress: string | null) {
       let errorMessage = "Minting failed";
       if (error.code === 4001) {
         errorMessage = "Transaction rejected by user";
+      } else if (error.code === -32080 || error.data?.httpStatus === 403) {
+        errorMessage = "RPC endpoint unavailable. Please check your wallet's network settings or try again in a moment.";
       } else if (error.message?.includes("insufficient funds")) {
         errorMessage = "Insufficient funds for gas + mint price";
       } else if (error.message?.includes("max supply")) {
@@ -498,7 +528,9 @@ export function useContractMint(contractAddress: string | null) {
       } else if (error.message?.includes("max per wallet")) {
         errorMessage = "Max per wallet limit reached";
       } else if (error.message?.toLowerCase().includes("gas")) {
-        errorMessage = "Transaction failed due to gas issues. Please try again or contact support.";
+        errorMessage = "Transaction failed due to gas issues. Please try again or increase gas limit in advanced settings.";
+      } else if (error.message?.includes("RPC") || error.message?.includes("HTTP")) {
+        errorMessage = "Network connection issue. Please check your wallet's RPC settings or try again.";
       } else if (error.message) {
         errorMessage = error.message;
       }
