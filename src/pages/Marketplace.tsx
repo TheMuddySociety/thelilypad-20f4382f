@@ -15,7 +15,7 @@ import {
 import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
-import { Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf } from "lucide-react";
+import { Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf, Flame } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
 import { useWallet } from "@/providers/WalletProvider";
@@ -444,10 +444,13 @@ export default function Marketplace() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {filteredCollections.map((collection) => {
                     const StatusIcon = statusIcons[collection.status as keyof typeof statusIcons] || Sparkles;
+                    // Check if collection is "new" (live and created within last 7 days)
+                    const isNew = collection.status === 'live' && 
+                      new Date(collection.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
                     return (
                       <Card 
                         key={collection.id} 
-                        className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group"
+                        className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group ${isNew ? 'ring-2 ring-orange-500/50' : ''}`}
                         onClick={() => navigate(`/launchpad/${collection.id}`)}
                       >
                         <div className="aspect-square relative overflow-hidden bg-muted">
@@ -462,6 +465,24 @@ export default function Marketplace() {
                               <Rocket className="w-12 h-12 text-muted-foreground" />
                             </div>
                           )}
+                          {/* New badge for recently launched live collections */}
+                          {isNew && (
+                            <Badge 
+                              className="absolute top-3 left-3 bg-gradient-to-r from-orange-500 to-red-500 text-white border-0 animate-pulse shadow-lg"
+                            >
+                              <Flame className="w-3 h-3 mr-1" />
+                              New
+                            </Badge>
+                          )}
+                          {/* LilyPad Verification - show below new badge or in top-left if no new badge */}
+                          {collection.contract_address && (
+                            <div className={`absolute ${isNew ? 'bottom-3 left-3' : 'top-3 left-3'}`}>
+                              <LilyPadVerificationBadge 
+                                contractAddress={collection.contract_address} 
+                                size="sm"
+                              />
+                            </div>
+                          )}
                           <Badge 
                             variant="outline" 
                             className={`absolute top-3 right-3 ${statusColors[collection.status as keyof typeof statusColors] || statusColors.upcoming}`}
@@ -469,15 +490,6 @@ export default function Marketplace() {
                             <StatusIcon className="w-3 h-3 mr-1" />
                             {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
                           </Badge>
-                          {/* LilyPad Verification - only show for deployed contracts */}
-                          {collection.contract_address && (
-                            <div className="absolute top-3 left-3">
-                              <LilyPadVerificationBadge 
-                                contractAddress={collection.contract_address} 
-                                size="sm"
-                              />
-                            </div>
-                          )}
                         </div>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-lg truncate">{collection.name}</CardTitle>
