@@ -9,6 +9,7 @@ import {
   LILYPAD_PLATFORM_VERSION
 } from "@/config/nftFactory";
 import { encodeFunctionData, decodeEventLog } from "viem";
+import { toast } from "sonner";
 
 interface DeploymentState {
   isDeploying: boolean;
@@ -67,7 +68,9 @@ export function useContractDeploy() {
     }
     
     if (chainType !== "evm") {
-      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet to deploy contracts" }));
+      const errorMsg = "Please switch to an EVM wallet to deploy contracts. Open the wallet menu and click 'Switch to EVM' or connect with MetaMask.";
+      setState(prev => ({ ...prev, error: errorMsg }));
+      toast.error("EVM Wallet Required", { description: errorMsg });
       return null;
     }
 

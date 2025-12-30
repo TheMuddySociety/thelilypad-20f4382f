@@ -240,7 +240,9 @@ export function useContractMint(contractAddress: string | null) {
     }
     
     if (chainType !== "evm") {
-      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet to mint NFTs" }));
+      const errorMsg = "Please switch to an EVM wallet to mint NFTs. Open the wallet menu and click 'Switch to EVM' or connect with MetaMask.";
+      setState(prev => ({ ...prev, error: errorMsg }));
+      toast.error("EVM Wallet Required", { description: errorMsg });
       return null;
     }
 
@@ -428,7 +430,9 @@ export function useContractMint(contractAddress: string | null) {
     }
     
     if (chainType !== "evm") {
-      setState(prev => ({ ...prev, error: "Please switch to an EVM wallet to mint NFTs" }));
+      const errorMsg = "Please switch to an EVM wallet to mint NFTs. Open the wallet menu and click 'Switch to EVM' or connect with MetaMask.";
+      setState(prev => ({ ...prev, error: errorMsg }));
+      toast.error("EVM Wallet Required", { description: errorMsg });
       return null;
     }
 
