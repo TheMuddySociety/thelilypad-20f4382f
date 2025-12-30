@@ -26,6 +26,14 @@ import { NFTRevealModal } from "@/components/NFTRevealModal";
 import { MintCountdown } from "@/components/MintCountdown";
 import { RevealCountdown } from "@/components/RevealCountdown";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { useSEO } from "@/hooks/useSEO";
 import { useContractMint } from "@/hooks/useContractMint";
 import { useGasEstimation } from "@/hooks/useGasEstimation";
@@ -639,17 +647,29 @@ export default function CollectionDetail() {
           </div>
         )}
 
-        {/* Back button and Edit button */}
-        <div className="flex items-center justify-between mb-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => navigate("/launchpad")}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Launchpad
-          </Button>
-          
+        {/* Breadcrumb Navigation */}
+        <Breadcrumb className="mb-4">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/" className="hover:text-primary transition-colors">Home</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/marketplace" className="hover:text-primary transition-colors">Marketplace</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage className="truncate max-w-[200px]">{collection.name}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
+        {/* Edit button row */}
+        <div className="flex items-center justify-end mb-4">
           {isCreator && !isPreviewMode && (
             <div className="flex items-center gap-2">
               {!collection.contract_address && (
