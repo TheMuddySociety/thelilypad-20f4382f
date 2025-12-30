@@ -1,28 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
-import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck } from "lucide-react";
+import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useWallet } from "@/providers/WalletProvider";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 import type { LucideIcon } from "lucide-react";
 import { Store, Rocket, Video } from "lucide-react";
@@ -54,16 +45,10 @@ const adminLinks = [
 
 export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const { network } = useWallet();
   const { isAdmin } = useIsAdmin();
   const isTestnet = network === "testnet";
-
-  const allMobileLinks = [
-    ...primaryLinks,
-    ...exploreLinks,
-    ...accountLinks,
-    ...(isAdmin ? adminLinks : []),
-  ];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -85,112 +70,25 @@ export const Navbar: React.FC = () => {
     >
       <div className="container mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-14 sm:h-16 md:h-20">
-          {/* Logo */}
-          <a href="/" className="flex items-center gap-2">
-            <LilyPadLogo size={32} className="sm:w-9 sm:h-9" />
-            <span className="font-bold text-base sm:text-lg hidden xs:block">The Lily Pad</span>
-          </a>
-
-          {/* Desktop nav with dropdowns */}
-          <div className="hidden md:flex items-center">
-            <NavigationMenu>
-              <NavigationMenuList className="gap-1">
-                {/* Primary Links */}
-                {primaryLinks.map((link) => (
-                  <NavigationMenuItem key={link.label}>
-                    <NavigationMenuLink
-                      href={link.href}
-                      className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted/50"
-                    >
-                      {link.label}
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
-                ))}
-
-                {/* Explore Dropdown */}
-                <NavigationMenuItem>
-                  <NavigationMenuTrigger className="text-sm font-medium text-muted-foreground hover:text-foreground bg-transparent hover:bg-muted/50 data-[state=open]:bg-muted/50">
-                    Explore
-                  </NavigationMenuTrigger>
-                  <NavigationMenuContent>
-                    <ul className="w-48 p-2 bg-popover border border-border rounded-lg shadow-lg">
-                      {exploreLinks.map((link) => (
-                        <li key={link.label}>
-                          <NavigationMenuLink
-                            href={link.href}
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
-                          >
-                            <link.icon className="w-4 h-4 text-muted-foreground" />
-                            {link.label}
-                          </NavigationMenuLink>
-                        </li>
-                      ))}
-                    </ul>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
-
-                {/* Account Dropdown */}
-                <NavigationMenuItem>
-                  <NavigationMenuTrigger className="text-sm font-medium text-muted-foreground hover:text-foreground bg-transparent hover:bg-muted/50 data-[state=open]:bg-muted/50">
-                    Account
-                  </NavigationMenuTrigger>
-                  <NavigationMenuContent>
-                    <ul className="w-48 p-2 bg-popover border border-border rounded-lg shadow-lg">
-                      {accountLinks.map((link) => (
-                        <li key={link.label}>
-                          <NavigationMenuLink
-                            href={link.href}
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors"
-                          >
-                            <link.icon className="w-4 h-4 text-muted-foreground" />
-                            {link.label}
-                          </NavigationMenuLink>
-                        </li>
-                      ))}
-                      {isAdmin && (
-                        <li className="border-t border-border mt-2 pt-2">
-                          <NavigationMenuLink
-                            href="/admin"
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-muted rounded-md transition-colors font-medium"
-                          >
-                            <ShieldCheck className="w-4 h-4" />
-                            Admin Dashboard
-                          </NavigationMenuLink>
-                        </li>
-                      )}
-                    </ul>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
-              </NavigationMenuList>
-            </NavigationMenu>
-          </div>
-
-          {/* Desktop CTA */}
-          <div className="hidden md:flex items-center gap-3">
-            <NetworkSwitch />
-            <NotificationBell />
-            <ConnectWallet />
-          </div>
-
-          {/* Mobile menu drawer */}
-          <Drawer>
-            <DrawerTrigger asChild className="md:hidden">
+          {/* Hamburger Menu */}
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild>
               <button className="p-2 hover:bg-muted/50 rounded-lg transition-colors">
                 <Menu className="w-5 h-5" />
               </button>
-            </DrawerTrigger>
-            <DrawerContent className="bg-background">
-              <DrawerHeader className="border-b border-border/50">
-                <DrawerTitle className="flex items-center gap-2">
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[300px] sm:w-[350px] bg-background p-0">
+              <SheetHeader className="p-4 border-b border-border/50">
+                <SheetTitle className="flex items-center gap-2">
                   <LilyPadLogo size={28} />
                   <span>The Lily Pad</span>
-                </DrawerTitle>
-              </DrawerHeader>
-              <div className="p-4 space-y-4">
+                </SheetTitle>
+              </SheetHeader>
+              <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-180px)]">
                 {/* Primary Links */}
                 <div className="space-y-1">
                   {primaryLinks.map((link) => (
-                    <DrawerClose asChild key={link.label}>
+                    <SheetClose asChild key={link.label}>
                       <a
                         href={link.href}
                         className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
@@ -198,7 +96,7 @@ export const Navbar: React.FC = () => {
                         <link.icon className="w-5 h-5 text-muted-foreground" />
                         {link.label}
                       </a>
-                    </DrawerClose>
+                    </SheetClose>
                   ))}
                 </div>
 
@@ -206,7 +104,7 @@ export const Navbar: React.FC = () => {
                 <div className="space-y-1">
                   <p className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Explore</p>
                   {exploreLinks.map((link) => (
-                    <DrawerClose asChild key={link.label}>
+                    <SheetClose asChild key={link.label}>
                       <a
                         href={link.href}
                         className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
@@ -214,7 +112,7 @@ export const Navbar: React.FC = () => {
                         <link.icon className="w-5 h-5 text-muted-foreground" />
                         {link.label}
                       </a>
-                    </DrawerClose>
+                    </SheetClose>
                   ))}
                 </div>
 
@@ -222,7 +120,7 @@ export const Navbar: React.FC = () => {
                 <div className="space-y-1">
                   <p className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
                   {accountLinks.map((link) => (
-                    <DrawerClose asChild key={link.label}>
+                    <SheetClose asChild key={link.label}>
                       <a
                         href={link.href}
                         className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-colors font-medium"
@@ -230,22 +128,48 @@ export const Navbar: React.FC = () => {
                         <link.icon className="w-5 h-5 text-muted-foreground" />
                         {link.label}
                       </a>
-                    </DrawerClose>
+                    </SheetClose>
                   ))}
                 </div>
+
+                {/* Admin Section */}
+                {isAdmin && (
+                  <div className="space-y-1">
+                    <p className="px-4 text-xs font-semibold text-primary uppercase tracking-wider">Admin</p>
+                    {adminLinks.map((link) => (
+                      <SheetClose asChild key={link.label}>
+                        <a
+                          href={link.href}
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-primary hover:bg-primary/10 transition-colors font-medium"
+                        >
+                          <link.icon className="w-5 h-5" />
+                          {link.label}
+                        </a>
+                      </SheetClose>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="p-4 pt-0 space-y-3 border-t border-border/50 mt-2">
-                <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 border-t border-border/50 bg-background">
+                <div className="flex items-center justify-center gap-2">
                   <NetworkSwitch />
-                </div>
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <NotificationBell />
-                  <span className="text-sm text-muted-foreground">Live Notifications</span>
                 </div>
                 <ConnectWallet className="w-full justify-center" />
               </div>
-            </DrawerContent>
-          </Drawer>
+            </SheetContent>
+          </Sheet>
+
+          {/* Logo - Center */}
+          <a href="/" className="flex items-center gap-2">
+            <LilyPadLogo size={32} className="sm:w-9 sm:h-9" />
+            <span className="font-bold text-base sm:text-lg hidden xs:block">The Lily Pad</span>
+          </a>
+
+          {/* Right side - Wallet & Notifications */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <NotificationBell />
+            <ConnectWallet />
+          </div>
         </div>
       </div>
     </nav>
