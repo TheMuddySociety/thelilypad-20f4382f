@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { createPublicClient, http, formatEther, parseEther, Chain, fallback } from "viem";
 import { monadMainnet, monadTestnet, getRpcUrls, getMonadChain, NetworkType } from "@/config/alchemy";
-import { WalletType, ChainType } from "@/components/wallet/WalletSelectorModal";
+import { WalletType, ChainType, OAuthProvider } from "@/components/wallet/WalletSelectorModal";
 import { getPhantomSDK, waitForPhantomExtension, AddressType } from "@/config/phantom";
-import type { BrowserSDK, ConnectResult, InjectedWalletInfo } from "@phantom/browser-sdk";
+import type { BrowserSDK, ConnectResult, InjectedWalletInfo, AuthProviderType } from "@phantom/browser-sdk";
 
 interface WalletState {
   address: string | null;
@@ -19,6 +19,7 @@ interface WalletState {
 
 interface WalletContextType extends WalletState {
   connect: (walletType?: WalletType, chainType?: ChainType) => Promise<void>;
+  connectWithOAuth: (provider: OAuthProvider, chainType: ChainType) => Promise<void>;
   disconnect: () => void;
   switchToMonad: () => Promise<void>;
   switchNetwork: (network: NetworkType) => void;
@@ -379,6 +380,71 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       await connectEVM(targetWalletType);
     }
   }, [walletState.walletType, walletState.chainType, connectEVM, connectSolana]);
+
+  // Connect using OAuth (Google/Apple) via Phantom embedded wallet
+  const connectWithOAuth = useCallback(async (provider: OAuthProvider, chainType: ChainType) => {
+    const sdk = getSDK();
+    
+    setWalletState(prev => ({ ...prev, isConnecting: true, walletType: "phantom", chainType }));
+
+    try {
+      // Connect with OAuth provider
+      const result: ConnectResult = await sdk.connect({ provider: provider as AuthProviderType });
+      
+      // Find the appropriate address based on chain type
+      let address: string | null = null;
+      
+      for (const addr of result.addresses) {
+        if (chainType === "solana" && addr.addressType === AddressType.solana) {
+          address = addr.address;
+          break;
+        } else if (chainType === "evm" && addr.addressType === AddressType.ethereum) {
+          address = addr.address;
+          break;
+        }
+      }
+
+      if (!address) {
+        throw new Error(`No ${chainType} address found`);
+      }
+
+      // Fetch balance based on chain type
+      let balance: string | null = null;
+      let chainId: number | null = null;
+
+      if (chainType === "evm") {
+        balance = await fetchEVMBalance(address);
+        try {
+          chainId = await sdk.ethereum.getChainId();
+        } catch {
+          chainId = null;
+        }
+      } else {
+        balance = await fetchSolanaBalance(address);
+      }
+
+      setWalletState(prev => ({
+        ...prev,
+        address,
+        isConnected: true,
+        isConnecting: false,
+        balance,
+        chainId,
+        walletType: "phantom",
+        chainType,
+        authProvider: provider,
+      }));
+
+      localStorage.setItem("walletConnected", "true");
+      localStorage.setItem("walletType", "phantom");
+      localStorage.setItem("chainType", chainType);
+      localStorage.setItem("authProvider", provider);
+    } catch (error) {
+      console.error("Error connecting with OAuth:", error);
+      setWalletState(prev => ({ ...prev, isConnecting: false }));
+      throw error;
+    }
+  }, [getSDK, fetchEVMBalance, fetchSolanaBalance]);
 
   const disconnect = useCallback(async () => {
     const sdk = getSDK();
@@ -805,6 +871,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       value={{
         ...walletState,
         connect,
+        connectWithOAuth,
         disconnect,
         switchToMonad,
         switchNetwork,
