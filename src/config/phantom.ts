@@ -3,13 +3,8 @@ import { BrowserSDK, AddressType, waitForPhantomExtension, isMobileDevice, getDe
 // Phantom App ID from Phantom Portal
 export const PHANTOM_APP_ID = "719e4a2a-a504-4d66-ad15-5566daecb361";
 
-// Get the current app URL for redirect
-const getRedirectUrl = () => {
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}/auth/callback`;
-  }
-  return "https://localhost:5173/auth/callback";
-};
+// Production redirect URL (must be whitelisted in Phantom Portal)
+const REDIRECT_URL = "http://thelilypad.fun/auth/callback";
 
 // Create SDK instance with support for both embedded (OAuth) and injected (extension) wallets
 export const createPhantomSDK = () => {
@@ -19,7 +14,7 @@ export const createPhantomSDK = () => {
     appId: PHANTOM_APP_ID,
     authOptions: {
       authUrl: "https://connect.phantom.app/login",
-      redirectUrl: getRedirectUrl(),
+      redirectUrl: REDIRECT_URL,
     },
   });
 };
