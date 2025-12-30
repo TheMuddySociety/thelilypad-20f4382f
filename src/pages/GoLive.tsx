@@ -504,7 +504,19 @@ export default function GoLive() {
                         {/* Stream Quality Selection */}
                         <div className="space-y-2">
                           <Label>Stream Quality</Label>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-3 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setStreamQuality('480p')}
+                              className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                                streamQuality === '480p'
+                                  ? 'border-primary bg-primary/10'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              <span className="text-sm font-medium">480p</span>
+                              <span className="text-xs text-muted-foreground">854×480</span>
+                            </button>
                             <button
                               type="button"
                               onClick={() => setStreamQuality('720p')}
@@ -515,7 +527,7 @@ export default function GoLive() {
                               }`}
                             >
                               <span className="text-sm font-medium">720p HD</span>
-                              <span className="text-xs text-muted-foreground">1280×720 • 30fps</span>
+                              <span className="text-xs text-muted-foreground">1280×720</span>
                             </button>
                             <button
                               type="button"
@@ -526,8 +538,8 @@ export default function GoLive() {
                                   : 'border-border hover:border-primary/50'
                               }`}
                             >
-                              <span className="text-sm font-medium">1080p Full HD</span>
-                              <span className="text-xs text-muted-foreground">1920×1080 • 30fps</span>
+                              <span className="text-sm font-medium">1080p</span>
+                              <span className="text-xs text-muted-foreground">1920×1080</span>
                             </button>
                           </div>
                         </div>

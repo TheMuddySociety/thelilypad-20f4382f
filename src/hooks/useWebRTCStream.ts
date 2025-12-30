@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export type StreamSource = 'camera' | 'screen';
-export type StreamQuality = '720p' | '1080p';
+export type StreamQuality = '480p' | '720p' | '1080p';
 
 interface StreamState {
   isStreaming: boolean;
@@ -30,6 +30,7 @@ interface StartStreamOptions {
 }
 
 const qualitySettings: Record<StreamQuality, { width: number; height: number; frameRate: number }> = {
+  '480p': { width: 854, height: 480, frameRate: 30 },
   '720p': { width: 1280, height: 720, frameRate: 30 },
   '1080p': { width: 1920, height: 1080, frameRate: 30 },
 };
