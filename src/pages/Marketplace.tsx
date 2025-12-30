@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSEO } from "@/hooks/useSEO";
 import { isFactoryConfigured } from "@/config/nftFactory";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { MarketplaceCardSkeleton } from "@/components/LoadingSkeletons";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -531,8 +532,51 @@ export default function Marketplace() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="space-y-10">
+            {/* Skeleton for NFT Listings */}
+            {showListings && (
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <Tag className="w-5 h-5 text-primary" />
+                  <h2 className="text-xl font-semibold">NFT Listings</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <MarketplaceCardSkeleton key={`listing-skeleton-${i}`} />
+                  ))}
+                </div>
+              </section>
+            )}
+            
+            {/* Skeleton for Collections */}
+            {showCollections && (
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <Rocket className="w-5 h-5 text-primary" />
+                  <h2 className="text-xl font-semibold">Collections</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <MarketplaceCardSkeleton key={`collection-skeleton-${i}`} />
+                  ))}
+                </div>
+              </section>
+            )}
+            
+            {/* Skeleton for Sticker Packs */}
+            {showStickers && (
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <Sticker className="w-5 h-5 text-primary" />
+                  <h2 className="text-xl font-semibold">Sticker Packs</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <MarketplaceCardSkeleton key={`sticker-skeleton-${i}`} />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         ) : (
           <div className="space-y-10">
