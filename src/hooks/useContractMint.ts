@@ -207,22 +207,72 @@ export function useContractMint(contractAddress: string | null) {
         args: [BigInt(quantity), proof as `0x${string}`[]],
       });
 
-      // Calculate gas limit (base + per NFT)
+      // Gas limit multipliers for retry attempts (1x, 1.5x, 2x)
+      const gasMultipliers = [1, 1.5, 2];
       const baseGasLimit = 200000;
       const perNftGas = 80000;
-      const gasLimit = baseGasLimit + (perNftGas * quantity);
+      const initialGasLimit = baseGasLimit + (perNftGas * quantity);
 
-      // Send transaction with explicit gas limit
-      const txHash = await window.ethereum.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: address,
-          to: contractAddress,
-          data,
-          value: `0x${totalValue.toString(16)}`,
-          gas: `0x${gasLimit.toString(16)}`,
-        }],
-      });
+      let txHash: string | null = null;
+      let lastError: any = null;
+
+      // Retry loop with increasing gas limits
+      for (let attempt = 0; attempt < gasMultipliers.length; attempt++) {
+        const gasLimit = Math.floor(initialGasLimit * gasMultipliers[attempt]);
+        
+        console.log(`Mint attempt ${attempt + 1}/${gasMultipliers.length} with gas limit: ${gasLimit}`);
+
+        try {
+          txHash = await window.ethereum.request({
+            method: "eth_sendTransaction",
+            params: [{
+              from: address,
+              to: contractAddress,
+              data,
+              value: `0x${totalValue.toString(16)}`,
+              gas: `0x${gasLimit.toString(16)}`,
+            }],
+          });
+
+          // If we get here, transaction was submitted successfully
+          console.log(`Transaction submitted on attempt ${attempt + 1}: ${txHash}`);
+          break;
+
+        } catch (error: any) {
+          lastError = error;
+          console.error(`Attempt ${attempt + 1} failed:`, error.message);
+
+          // Don't retry if user rejected or non-gas related error
+          if (error.code === 4001) {
+            throw error; // User rejected, don't retry
+          }
+          
+          // Check if it's a gas-related error
+          const isGasError = error.message?.toLowerCase().includes('gas') ||
+                            error.message?.toLowerCase().includes('intrinsic') ||
+                            error.message?.toLowerCase().includes('exceeds');
+          
+          if (!isGasError || attempt === gasMultipliers.length - 1) {
+            throw error; // Not a gas error or last attempt, don't retry
+          }
+
+          // Update state to show retry attempt
+          setState(prev => ({ 
+            ...prev, 
+            error: `Gas limit issue, retrying with higher limit (attempt ${attempt + 2}/${gasMultipliers.length})...` 
+          }));
+          
+          // Small delay before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      if (!txHash) {
+        throw lastError || new Error("Failed to submit transaction");
+      }
+
+      // Clear retry message
+      setState(prev => ({ ...prev, error: null }));
 
       // Wait for receipt
       let receipt = null;
@@ -272,6 +322,8 @@ export function useContractMint(contractAddress: string | null) {
         errorMessage = "Insufficient funds for gas + mint price";
       } else if (error.message?.includes("not on allowlist")) {
         errorMessage = "Address not on allowlist for this phase";
+      } else if (error.message?.toLowerCase().includes("gas")) {
+        errorMessage = "Transaction failed due to gas issues. Please try again or contact support.";
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -326,22 +378,72 @@ export function useContractMint(contractAddress: string | null) {
         args: [BigInt(quantity)],
       });
 
-      // Calculate gas limit (base + per NFT)
+      // Gas limit multipliers for retry attempts (1x, 1.5x, 2x)
+      const gasMultipliers = [1, 1.5, 2];
       const baseGasLimit = 200000;
       const perNftGas = 80000;
-      const gasLimit = baseGasLimit + (perNftGas * quantity);
+      const initialGasLimit = baseGasLimit + (perNftGas * quantity);
 
-      // Send transaction with explicit gas limit
-      const txHash = await window.ethereum.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: address,
-          to: contractAddress,
-          data,
-          value: `0x${totalValue.toString(16)}`,
-          gas: `0x${gasLimit.toString(16)}`,
-        }],
-      });
+      let txHash: string | null = null;
+      let lastError: any = null;
+
+      // Retry loop with increasing gas limits
+      for (let attempt = 0; attempt < gasMultipliers.length; attempt++) {
+        const gasLimit = Math.floor(initialGasLimit * gasMultipliers[attempt]);
+        
+        console.log(`Mint attempt ${attempt + 1}/${gasMultipliers.length} with gas limit: ${gasLimit}`);
+
+        try {
+          txHash = await window.ethereum.request({
+            method: "eth_sendTransaction",
+            params: [{
+              from: address,
+              to: contractAddress,
+              data,
+              value: `0x${totalValue.toString(16)}`,
+              gas: `0x${gasLimit.toString(16)}`,
+            }],
+          });
+
+          // If we get here, transaction was submitted successfully
+          console.log(`Transaction submitted on attempt ${attempt + 1}: ${txHash}`);
+          break;
+
+        } catch (error: any) {
+          lastError = error;
+          console.error(`Attempt ${attempt + 1} failed:`, error.message);
+
+          // Don't retry if user rejected or non-gas related error
+          if (error.code === 4001) {
+            throw error; // User rejected, don't retry
+          }
+          
+          // Check if it's a gas-related error
+          const isGasError = error.message?.toLowerCase().includes('gas') ||
+                            error.message?.toLowerCase().includes('intrinsic') ||
+                            error.message?.toLowerCase().includes('exceeds');
+          
+          if (!isGasError || attempt === gasMultipliers.length - 1) {
+            throw error; // Not a gas error or last attempt, don't retry
+          }
+
+          // Update state to show retry attempt
+          setState(prev => ({ 
+            ...prev, 
+            error: `Gas limit issue, retrying with higher limit (attempt ${attempt + 2}/${gasMultipliers.length})...` 
+          }));
+          
+          // Small delay before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      if (!txHash) {
+        throw lastError || new Error("Failed to submit transaction");
+      }
+
+      // Clear retry message
+      setState(prev => ({ ...prev, error: null }));
 
       // Wait for receipt
       let receipt = null;
@@ -393,6 +495,8 @@ export function useContractMint(contractAddress: string | null) {
         errorMessage = "Max supply reached";
       } else if (error.message?.includes("max per wallet")) {
         errorMessage = "Max per wallet limit reached";
+      } else if (error.message?.toLowerCase().includes("gas")) {
+        errorMessage = "Transaction failed due to gas issues. Please try again or contact support.";
       } else if (error.message) {
         errorMessage = error.message;
       }
