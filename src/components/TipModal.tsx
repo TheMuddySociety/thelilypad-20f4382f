@@ -215,7 +215,7 @@ export const TipModal: React.FC<TipModalProps> = ({
                   <div className="text-center py-6 space-y-4">
                     <Wallet className="w-12 h-12 mx-auto text-muted-foreground" />
                     <p className="text-muted-foreground">Connect your wallet to send a tip</p>
-                    <Button onClick={connect} className="w-full">
+                    <Button onClick={() => connect()} className="w-full">
                       Connect Wallet
                     </Button>
                   </div>

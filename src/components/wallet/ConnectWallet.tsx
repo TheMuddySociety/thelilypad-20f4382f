@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { WalletSelectorModal, WalletType } from "./WalletSelectorModal";
 
 interface ConnectWalletProps {
   variant?: "default" | "ghost" | "outline";
@@ -37,9 +38,10 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
   size = "sm",
   className,
 }) => {
-  const { address, isConnected, isConnecting, balance, chainId, connect, disconnect, currentChain, switchToMonad } = useWallet();
+  const { address, isConnected, isConnecting, balance, chainId, connect, disconnect, currentChain, switchToMonad, walletType } = useWallet();
   const navigate = useNavigate();
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [showWalletSelector, setShowWalletSelector] = useState(false);
 
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
 
@@ -57,18 +59,38 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
     setShowDisconnectConfirm(false);
   };
 
+  const handleWalletSelect = async (selectedWalletType: WalletType) => {
+    setShowWalletSelector(false);
+    await connect(selectedWalletType);
+  };
+
+  const getWalletIcon = () => {
+    if (walletType === "phantom") return "👻";
+    if (walletType === "metamask") return "🦊";
+    return null;
+  };
+
   if (!isConnected) {
     return (
-      <Button
-        variant={variant}
-        size={size}
-        className={className}
-        onClick={connect}
-        disabled={isConnecting}
-      >
-        <Wallet className="w-4 h-4 mr-2" />
-        {isConnecting ? "Connecting..." : "Connect Wallet"}
-      </Button>
+      <>
+        <Button
+          variant={variant}
+          size={size}
+          className={className}
+          onClick={() => setShowWalletSelector(true)}
+          disabled={isConnecting}
+        >
+          <Wallet className="w-4 h-4 mr-2" />
+          {isConnecting ? "Connecting..." : "Connect Wallet"}
+        </Button>
+        
+        <WalletSelectorModal
+          open={showWalletSelector}
+          onOpenChange={setShowWalletSelector}
+          onSelect={handleWalletSelect}
+          isConnecting={isConnecting}
+        />
+      </>
     );
   }
 
@@ -92,6 +114,9 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
           <DropdownMenuTrigger asChild>
             <Button variant={variant} size={size} className={className}>
               <div className="flex items-center gap-2">
+                {getWalletIcon() && (
+                  <span className="text-sm">{getWalletIcon()}</span>
+                )}
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="font-mono">{formatAddress(address!)}</span>
               </div>
@@ -99,7 +124,10 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <div className="px-3 py-2">
-              <p className="text-sm font-medium">Connected</p>
+              <p className="text-sm font-medium flex items-center gap-2">
+                Connected via {walletType === "phantom" ? "Phantom" : "MetaMask"}
+                {getWalletIcon() && <span>{getWalletIcon()}</span>}
+              </p>
               <p className="text-xs text-muted-foreground font-mono">{formatAddress(address!)}</p>
             </div>
             <DropdownMenuSeparator />
