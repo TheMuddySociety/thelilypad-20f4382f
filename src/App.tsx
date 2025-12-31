@@ -38,6 +38,7 @@ import MyPurchases from "./pages/MyPurchases";
 
 import Raffles from "./pages/Raffles";
 import BlindBoxes from "./pages/BlindBoxes";
+import Governance from "./pages/Governance";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -84,6 +85,7 @@ const App = () => (
               
               <Route path="/raffles" element={<Raffles />} />
               <Route path="/blind-boxes" element={<BlindBoxes />} />
+              <Route path="/governance" element={<Governance />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
