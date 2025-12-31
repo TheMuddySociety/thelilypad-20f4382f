@@ -12,8 +12,8 @@ import { ShoppingCart, Loader2, CheckCircle, AlertCircle, ExternalLink, Tag, Inf
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { parseEther, encodeFunctionData } from "viem";
-import { NFT_CONTRACT_ABI } from "@/config/nftContract";
+import { parseEther } from "viem";
+import { useVolumeTracking } from "@/hooks/useVolumeTracking";
 
 interface Listing {
   id: string;
@@ -45,9 +45,11 @@ interface BuyNFTModalProps {
 
 export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTModalProps) {
   const [isBuying, setIsBuying] = useState(false);
-  const [buyStatus, setBuyStatus] = useState<'idle' | 'confirming' | 'processing' | 'success' | 'error'>('idle');
+  const [buyStatus, setBuyStatus] = useState<'idle' | 'confirming' | 'processing' | 'tracking' | 'success' | 'error'>('idle');
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  const { trackSale, isTracking } = useVolumeTracking();
 
   const handleBuy = async () => {
     if (!listing || !window.ethereum) {
@@ -148,6 +150,27 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
           status: 'confirmed',
           confirmed_at: new Date().toISOString(),
         });
+
+      // Track volume for buyback calculations
+      setBuyStatus('tracking');
+      try {
+        const trackingResult = await trackSale(
+          listing.price,
+          paymentTxHash,
+          listing.nft.collection_id || '',
+          user.id
+        );
+        
+        if (trackingResult) {
+          console.log('Volume tracked:', {
+            platformFee: trackingResult.platform_fee,
+            buybackContribution: trackingResult.buyback_contribution,
+          });
+        }
+      } catch (trackingError) {
+        // Don't fail the purchase if tracking fails, just log it
+        console.error('Volume tracking failed:', trackingError);
+      }
 
       setBuyStatus('success');
       toast({
@@ -257,6 +280,13 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
             <div className="flex items-center gap-2 text-primary bg-primary/10 p-3 rounded-lg">
               <Loader2 className="h-5 w-5 animate-spin" />
               <span>Processing payment...</span>
+            </div>
+          )}
+
+          {buyStatus === 'tracking' && (
+            <div className="flex items-center gap-2 text-primary bg-primary/10 p-3 rounded-lg">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Recording transaction for buyback pool...</span>
             </div>
           )}
 
