@@ -10,6 +10,7 @@ import LiveBuybackStats from "@/components/LiveBuybackStats";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { VolumeLeaderboard } from "@/components/VolumeLeaderboard";
 import { RewardCalculator } from "@/components/RewardCalculator";
+import { RewardHistory } from "@/components/RewardHistory";
 import { RewardsClaimCard } from "@/components/RewardsClaimCard";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { useSEO } from "@/hooks/useSEO";
@@ -159,6 +160,7 @@ export default function BuybackProgram() {
             <LiveBuybackStats />
             <RewardsClaimCard />
             <RewardCalculator />
+            <RewardHistory />
           </div>
           <div>
             <VolumeLeaderboard />
