@@ -3,9 +3,10 @@ pragma solidity ^0.8.20;
 
 /**
  * @title LilyPadNFT
- * @dev ERC721 NFT contract with phases, allowlists, and royalties
+ * @dev ERC721 NFT contract with phases, allowlists, royalties, and platform fees
  * @notice Each collection deployed by the factory is an instance of this contract
  * @custom:platform The Lily Pad - NFT Launchpad on Monad
+ * @custom:website https://TheLilyPad.Fun
  */
 contract LilyPadNFT {
     // ============ Platform Identification ============
@@ -14,13 +15,30 @@ contract LilyPadNFT {
     string public constant PLATFORM_NAME = "The Lily Pad";
     
     /// @notice Platform version for compatibility tracking
-    string public constant PLATFORM_VERSION = "1.0.0";
+    string public constant PLATFORM_VERSION = "2.0.0";
+    
+    /// @notice Platform website
+    string public constant PLATFORM_WEBSITE = "https://TheLilyPad.Fun";
     
     /// @notice The factory that deployed this collection (address(0) if deployed directly)
     address public immutable factory;
     
     /// @notice Chain identifier for multi-chain support
     uint256 public immutable deployedOnChainId;
+    
+    // ============ Platform Fee Configuration ============
+    
+    /// @notice Platform treasury address for fee collection
+    address public platformTreasury;
+    
+    /// @notice Platform fee in basis points (2.5% = 250 bps)
+    uint256 public constant PLATFORM_FEE_BPS = 250;
+    
+    /// @notice Portion of platform fee that goes to buyback pool (50%)
+    uint256 public constant BUYBACK_ALLOCATION_BPS = 5000;
+    
+    /// @notice Buyback pool address
+    address public buybackPool;
 
     // ERC721 Events
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
@@ -30,6 +48,22 @@ contract LilyPadNFT {
     // Custom Events
     event PhaseConfigured(uint256 indexed phaseId, uint256 price, uint256 maxPerWallet, uint256 supply);
     event Minted(address indexed to, uint256 indexed tokenId);
+    
+    // Platform Fee Events
+    event PlatformFeePaid(
+        address indexed collection,
+        address indexed minter,
+        uint256 feeAmount,
+        uint256 buybackContribution,
+        uint256 mintCount
+    );
+    event MintWithFee(
+        address indexed minter,
+        uint256 quantity,
+        uint256 totalPaid,
+        uint256 platformFee,
+        uint256 creatorAmount
+    );
     
     // Platform Events
     event LilyPadCollectionCreated(
@@ -59,6 +93,10 @@ contract LilyPadNFT {
     // Royalty Storage (EIP-2981)
     uint256 public royaltyBps;
     address public royaltyReceiver;
+    
+    // Fee Tracking
+    uint256 public totalPlatformFeesCollected;
+    uint256 public totalBuybackContributions;
 
     // Phase Storage
     struct Phase {
@@ -87,7 +125,9 @@ contract LilyPadNFT {
         uint256 royaltyBps_,
         address royaltyReceiver_,
         address owner_,
-        address factory_
+        address factory_,
+        address platformTreasury_,
+        address buybackPool_
     ) {
         name = name_;
         symbol = symbol_;
@@ -96,6 +136,8 @@ contract LilyPadNFT {
         royaltyReceiver = royaltyReceiver_;
         owner = owner_;
         factory = factory_;
+        platformTreasury = platformTreasury_;
+        buybackPool = buybackPool_;
         deployedOnChainId = block.chainid;
         
         // Emit platform identification event
@@ -126,14 +168,34 @@ contract LilyPadNFT {
      * @return version The contract version
      * @return factoryAddress The factory that deployed this collection
      * @return chainId The chain this was deployed on
+     * @return website The platform website
+     * @return feeBps The platform fee in basis points
      */
     function getPlatformInfo() external view returns (
         string memory platformName,
         string memory version,
         address factoryAddress,
-        uint256 chainId
+        uint256 chainId,
+        string memory website,
+        uint256 feeBps
     ) {
-        return (PLATFORM_NAME, PLATFORM_VERSION, factory, deployedOnChainId);
+        return (PLATFORM_NAME, PLATFORM_VERSION, factory, deployedOnChainId, PLATFORM_WEBSITE, PLATFORM_FEE_BPS);
+    }
+    
+    /**
+     * @notice Returns fee information
+     * @return treasury Platform treasury address
+     * @return buyback Buyback pool address
+     * @return totalFees Total platform fees collected
+     * @return totalBuyback Total buyback contributions
+     */
+    function getFeeInfo() external view returns (
+        address treasury,
+        address buyback,
+        uint256 totalFees,
+        uint256 totalBuyback
+    ) {
+        return (platformTreasury, buybackPool, totalPlatformFeesCollected, totalBuybackContributions);
     }
     
     /**
@@ -141,16 +203,15 @@ contract LilyPadNFT {
      * @dev Returns metadata about the collection itself, including LilyPad branding
      */
     function contractURI() external view returns (string memory) {
-        // Return a data URI with collection metadata
-        // In production, this could point to an IPFS/API endpoint
         return string(abi.encodePacked(
             "data:application/json;utf8,{",
             '"name":"', name, '",',
             '"symbol":"', symbol, '",',
-            '"description":"NFT Collection created on The Lily Pad - Premier NFT Launchpad on Monad",',
-            '"external_link":"https://thelilypad.app",',
+            '"description":"NFT Collection created on The Lily Pad - Premier NFT Launchpad on Monad. 2.5% platform fee supports ecosystem growth.",',
+            '"external_link":"', PLATFORM_WEBSITE, '",',
             '"platform":"The Lily Pad",',
             '"platform_version":"', PLATFORM_VERSION, '",',
+            '"platform_fee_bps":', _toString(PLATFORM_FEE_BPS), ',',
             '"seller_fee_basis_points":', _toString(royaltyBps), ',',
             '"fee_recipient":"', _toHexString(royaltyReceiver), '"',
             "}"
@@ -230,8 +291,39 @@ contract LilyPadNFT {
         require(totalSupply + quantity <= maxSupply, "Exceeds max supply");
         require(phase.minted + quantity <= phase.supply, "Exceeds phase supply");
         require(mintedPerPhase[activePhase][msg.sender] + quantity <= phase.maxPerWallet, "Exceeds wallet limit");
-        require(msg.value >= phase.price * quantity, "Insufficient payment");
+        
+        uint256 totalPayment = phase.price * quantity;
+        require(msg.value >= totalPayment, "Insufficient payment");
+        
+        // Calculate platform fee (2.5%)
+        uint256 platformFee = (totalPayment * PLATFORM_FEE_BPS) / 10000;
+        uint256 creatorAmount = totalPayment - platformFee;
+        
+        // Calculate buyback contribution (50% of platform fee)
+        uint256 buybackContribution = (platformFee * BUYBACK_ALLOCATION_BPS) / 10000;
+        uint256 treasuryAmount = platformFee - buybackContribution;
+        
+        // Transfer platform fee to treasury
+        if (treasuryAmount > 0 && platformTreasury != address(0)) {
+            (bool treasurySuccess, ) = platformTreasury.call{value: treasuryAmount}("");
+            require(treasurySuccess, "Treasury transfer failed");
+        }
+        
+        // Transfer buyback contribution to buyback pool
+        if (buybackContribution > 0 && buybackPool != address(0)) {
+            (bool buybackSuccess, ) = buybackPool.call{value: buybackContribution}("");
+            require(buybackSuccess, "Buyback transfer failed");
+        }
+        
+        // Track fees
+        totalPlatformFeesCollected += platformFee;
+        totalBuybackContributions += buybackContribution;
+        
+        // Emit fee events
+        emit PlatformFeePaid(address(this), msg.sender, platformFee, buybackContribution, quantity);
+        emit MintWithFee(msg.sender, quantity, totalPayment, platformFee, creatorAmount);
 
+        // Mint NFTs
         for (uint256 i = 0; i < quantity; i++) {
             uint256 tokenId = totalSupply + 1;
             _owners[tokenId] = msg.sender;
@@ -244,6 +336,12 @@ contract LilyPadNFT {
         }
 
         mintedPerPhase[activePhase][msg.sender] += quantity;
+        
+        // Refund excess payment
+        if (msg.value > totalPayment) {
+            (bool refundSuccess, ) = msg.sender.call{value: msg.value - totalPayment}("");
+            require(refundSuccess, "Refund failed");
+        }
     }
 
     // ============ Owner Functions ============
@@ -284,6 +382,7 @@ contract LilyPadNFT {
         baseURI = baseURI_;
     }
 
+    /// @notice Withdraw creator earnings (after platform fee deduction)
     function withdraw() external onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "No balance");
@@ -294,6 +393,17 @@ contract LilyPadNFT {
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "Invalid address");
         owner = newOwner;
+    }
+    
+    /// @notice Update platform addresses (only factory can call)
+    function updatePlatformAddresses(address newTreasury, address newBuybackPool) external {
+        require(msg.sender == factory || msg.sender == owner, "Not authorized");
+        if (newTreasury != address(0)) {
+            platformTreasury = newTreasury;
+        }
+        if (newBuybackPool != address(0)) {
+            buybackPool = newBuybackPool;
+        }
     }
 
     // ============ View Functions ============
@@ -308,6 +418,20 @@ contract LilyPadNFT {
     ) {
         Phase storage phase = phases[phaseId];
         return (phase.price, phase.maxPerWallet, phase.supply, phase.minted, phase.requiresAllowlist, phase.isActive);
+    }
+    
+    /// @notice Calculate fees for a given mint quantity
+    function calculateFees(uint256 quantity) external view returns (
+        uint256 totalCost,
+        uint256 platformFee,
+        uint256 buybackContribution,
+        uint256 creatorAmount
+    ) {
+        Phase storage phase = phases[activePhase];
+        totalCost = phase.price * quantity;
+        platformFee = (totalCost * PLATFORM_FEE_BPS) / 10000;
+        buybackContribution = (platformFee * BUYBACK_ALLOCATION_BPS) / 10000;
+        creatorAmount = totalCost - platformFee;
     }
 
     function tokenURI(uint256 tokenId) public view returns (string memory) {
@@ -375,4 +499,7 @@ contract LilyPadNFT {
         }
         return string(buffer);
     }
+    
+    // Allow contract to receive ETH
+    receive() external payable {}
 }
