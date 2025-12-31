@@ -13,6 +13,7 @@ import { useWalletNFTs, NFT } from "@/hooks/useWalletNFTs";
 import { useNFTFloorPrices } from "@/hooks/useNFTFloorPrices";
 import { toast } from "sonner";
 import { WalletAvatar } from "@/components/wallet/WalletAvatar";
+import { PublicBadgeShowcase } from "@/components/PublicBadgeShowcase";
 import { NFTNetworkSelector, NFT_NETWORKS } from "@/components/wallet/NFTNetworkSelector";
 import { WalletNFTDetailModal } from "@/components/wallet/WalletNFTDetailModal";
 import { PortfolioValueCard } from "@/components/wallet/PortfolioValueCard";
@@ -76,6 +77,15 @@ export default function WalletProfile() {
     loadMore, 
     refresh: refreshNFTs 
   } = useWalletNFTs(address, selectedNetwork);
+
+  // Get current user session for badges
+  const { data: session } = useQuery({
+    queryKey: ['wallet-session'],
+    queryFn: async () => {
+      const { data } = await supabase.auth.getSession();
+      return data.session;
+    },
+  });
 
   // Fetch real transactions from database
   const { data: transactions = [], isLoading: txLoading, refetch: refetchTx } = useQuery({
@@ -307,6 +317,13 @@ export default function WalletProfile() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Challenge Badges Section */}
+        {session?.user?.id && (
+          <div className="mb-4 sm:mb-8">
+            <PublicBadgeShowcase userId={session.user.id} displayName={walletName} />
+          </div>
+        )}
 
         {/* Tabs Section */}
         <Tabs defaultValue="transactions" className="w-full">

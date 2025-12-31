@@ -14,6 +14,7 @@ import { FollowButton } from "@/components/FollowButton";
 import { ClipCreationModal } from "@/components/ClipCreationModal";
 import { ClipShareMenu } from "@/components/ClipShareMenu";
 import { ClipAnalytics } from "@/components/ClipAnalytics";
+import { PublicBadgeShowcase } from "@/components/PublicBadgeShowcase";
 import { useSEO } from "@/hooks/useSEO";
 import { motion } from "framer-motion";
 import { 
@@ -428,7 +429,7 @@ const StreamerProfile = () => {
                   
                   {/* Profile Info */}
                   <div className="flex-1 text-center lg:text-left">
-                    <div className="flex items-center justify-center lg:justify-start gap-3 mb-3">
+                    <div className="flex items-center justify-center lg:justify-start gap-3 mb-3 flex-wrap">
                       <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
                         {profile?.display_name || streamerId?.slice(0, 8) || 'Unknown Streamer'}
                       </h1>
@@ -436,6 +437,9 @@ const StreamerProfile = () => {
                         <div className="p-1 rounded-full bg-primary/20">
                           <CheckCircle className="h-6 w-6 text-primary" />
                         </div>
+                      )}
+                      {streamerId && (
+                        <PublicBadgeShowcase userId={streamerId} compact />
                       )}
                     </div>
                     
@@ -539,6 +543,20 @@ const StreamerProfile = () => {
               );
             })}
           </motion.div>
+
+          {/* Challenge Badges Section */}
+          {streamerId && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+            >
+              <PublicBadgeShowcase 
+                userId={streamerId} 
+                displayName={profile?.display_name || undefined}
+              />
+            </motion.div>
+          )}
 
           {/* Live Stream Banner */}
           {stats.isLive && stats.currentStreamTitle && (
