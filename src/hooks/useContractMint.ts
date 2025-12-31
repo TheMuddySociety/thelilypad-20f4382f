@@ -4,7 +4,7 @@ import { NFT_CONTRACT_ABI } from "@/config/nftContract";
 import { encodeFunctionData, parseEther, keccak256, encodePacked } from "viem";
 import { MerkleTree } from "merkletreejs";
 import { supabase } from "@/integrations/supabase/client";
-import { getMonadChain, NetworkType, getRpcUrls, checkRpcHealth } from "@/config/alchemy";
+import { getMonadChain, NetworkType } from "@/config/alchemy";
 import { toast } from "sonner";
 
 interface MintState {
@@ -19,62 +19,70 @@ const generateLeaf = (address: string): string => {
   return keccak256(encodePacked(['address'], [address.toLowerCase() as `0x${string}`]));
 };
 
-// Fetch transaction receipt with RPC failover
-const fetchReceiptWithFailover = async (
+// RPC Proxy base URL
+const RPC_PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rpc-proxy`;
+
+// Make RPC call through the proxy with automatic failover
+const rpcProxyCall = async (
+  network: NetworkType,
+  method: string,
+  params: any[]
+): Promise<any> => {
+  const response = await fetch(`${RPC_PROXY_URL}?network=${network}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: Date.now(),
+      method,
+      params,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`RPC Proxy error: HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  // Log which RPC was used (from headers)
+  const rpcUsed = response.headers.get('X-RPC-Used');
+  const latency = response.headers.get('X-RPC-Latency');
+  if (rpcUsed) {
+    console.log(`RPC Proxy: ${method} via ${rpcUsed} (${latency}ms)`);
+  }
+
+  if (data.error) {
+    throw new Error(data.error.message || 'RPC error');
+  }
+
+  return data.result;
+};
+
+// Fetch transaction receipt using RPC proxy with automatic failover
+const fetchReceiptWithProxy = async (
   txHash: string,
   network: NetworkType,
   maxAttempts = 60
 ): Promise<any> => {
-  const rpcs = getRpcUrls(network);
-  let currentRpcIndex = 0;
   let attempts = 0;
-  let consecutiveFailures = 0;
 
   while (attempts < maxAttempts) {
-    const rpcUrl = rpcs[currentRpcIndex];
-    
     try {
-      const response = await fetch(rpcUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: Date.now(),
-          method: "eth_getTransactionReceipt",
-          params: [txHash],
-        }),
-      });
-
-      const data = await response.json();
+      const result = await rpcProxyCall(network, 'eth_getTransactionReceipt', [txHash]);
       
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
-
-      if (data.result) {
-        consecutiveFailures = 0;
-        return data.result;
+      if (result) {
+        return result;
       }
 
       // Receipt not ready yet, continue polling
-      consecutiveFailures = 0;
       await new Promise(resolve => setTimeout(resolve, 2000));
       attempts++;
     } catch (error) {
-      console.error(`RPC ${rpcUrl} failed for receipt:`, error);
-      consecutiveFailures++;
-
-      // Try next RPC after 2 consecutive failures
-      if (consecutiveFailures >= 2 && rpcs.length > 1) {
-        currentRpcIndex = (currentRpcIndex + 1) % rpcs.length;
-        consecutiveFailures = 0;
-        toast.info("Switching RPC", {
-          description: `Trying ${new URL(rpcs[currentRpcIndex]).hostname}`,
-          duration: 2000,
-        });
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.error('Receipt fetch error:', error);
+      
+      // Continue polling on error (proxy handles failover internally)
+      await new Promise(resolve => setTimeout(resolve, 2000));
       attempts++;
     }
   }
@@ -361,7 +369,7 @@ export function useContractMint(contractAddress: string | null) {
       setState(prev => ({ ...prev, error: null }));
 
       // Wait for receipt with RPC failover
-      const receipt = await fetchReceiptWithFailover(txHash, network);
+      const receipt = await fetchReceiptWithProxy(txHash, network);
 
       if (receipt && receipt.status === "0x0") {
         throw new Error("Mint transaction failed");
@@ -542,7 +550,7 @@ export function useContractMint(contractAddress: string | null) {
       setState(prev => ({ ...prev, error: null }));
 
       // Wait for receipt with RPC failover
-      const receipt = await fetchReceiptWithFailover(txHash, network);
+      const receipt = await fetchReceiptWithProxy(txHash, network);
 
       if (receipt && receipt.status === "0x0") {
         throw new Error("Mint transaction failed");
