@@ -35,6 +35,8 @@ import { LaunchpadWalkthrough } from "@/components/walkthrough/LaunchpadWalkthro
 import { useLaunchpadWalkthrough } from "@/hooks/useLaunchpadWalkthrough";
 import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
+import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
+import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 
 interface DraftCollection {
   name: string;
@@ -114,6 +116,7 @@ export default function Launchpad() {
   const isTestnet = network === "testnet";
   const walkthrough = useLaunchpadWalkthrough();
   const { stats, isLoading: statsLoading } = useLaunchpadStats();
+  const { isInProgram } = useBuybackProgram();
 
   useSEO({
     title: "NFT Launchpad | The Lily Pad",
@@ -680,7 +683,10 @@ export default function Launchpad() {
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <CardTitle className="text-lg">{collection.name}</CardTitle>
+                            <div className="flex items-center gap-2">
+                              <CardTitle className="text-lg">{collection.name}</CardTitle>
+                              {isInProgram(collection.id) && <BuybackProgramBadge />}
+                            </div>
                             <CardDescription>by {collection.creator_address.slice(0, 6)}...{collection.creator_address.slice(-4)}</CardDescription>
                           </div>
                           {isOwner && (
