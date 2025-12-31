@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.admin-users]
 verify_jwt = true
+
+[functions.track-volume]
+verify_jwt = false
