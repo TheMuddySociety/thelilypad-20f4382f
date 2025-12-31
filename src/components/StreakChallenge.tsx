@@ -16,7 +16,8 @@ import {
   X, 
   Flame,
   Users,
-  Calendar
+  Calendar,
+  RotateCcw
 } from "lucide-react";
 import {
   Dialog,
@@ -188,6 +189,36 @@ export const StreakChallenge = () => {
         description: accept 
           ? "The streak competition has begun! Trade daily to build your streak." 
           : "You've declined the challenge.",
+      });
+    },
+  });
+
+  const rematchMutation = useMutation({
+    mutationFn: async ({ opponentId, durationDays }: { opponentId: string; durationDays: number }) => {
+      const endDate = addDays(new Date(), durationDays);
+      const { error } = await supabase
+        .from("streak_challenges")
+        .insert({
+          challenger_id: session?.user?.id,
+          challenged_id: opponentId,
+          duration_days: durationDays,
+          end_date: endDate.toISOString().split('T')[0],
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: (_, { durationDays }) => {
+      queryClient.invalidateQueries({ queryKey: ["streak-challenges"] });
+      toast({
+        title: "Rematch Sent!",
+        description: `Waiting for your opponent to accept the ${durationDays}-day rematch.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send rematch. Try again.",
+        variant: "destructive",
       });
     },
   });
@@ -450,11 +481,28 @@ export const StreakChallenge = () => {
                         <span>vs {getDisplayName(opponentId)}</span>
                         {getStatusBadge(challenge)}
                       </div>
-                      {challenge.status === "completed" && (
-                        <Badge variant={didWin ? "default" : "secondary"}>
-                          {didWin ? "Won" : "Lost"}
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {challenge.status === "completed" && (
+                          <>
+                            <Badge variant={didWin ? "default" : "secondary"}>
+                              {didWin ? "Won" : "Lost"}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1"
+                              onClick={() => rematchMutation.mutate({ 
+                                opponentId, 
+                                durationDays: challenge.duration_days 
+                              })}
+                              disabled={rematchMutation.isPending}
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              Rematch
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
