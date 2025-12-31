@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import LiveBuybackStats from "@/components/LiveBuybackStats";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { VolumeLeaderboard } from "@/components/VolumeLeaderboard";
+import { RewardsClaimCard } from "@/components/RewardsClaimCard";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { useSEO } from "@/hooks/useSEO";
 import { useQuery } from "@tanstack/react-query";
@@ -151,10 +152,11 @@ export default function BuybackProgram() {
           </div>
         </div>
 
-        {/* Live Stats and Leaderboard */}
+        {/* Live Stats, Leaderboard, and Rewards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
             <LiveBuybackStats />
+            <RewardsClaimCard />
           </div>
           <div>
             <VolumeLeaderboard />

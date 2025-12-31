@@ -1725,6 +1725,51 @@ export type Database = {
         }
         Relationships: []
       }
+      volume_rewards: {
+        Row: {
+          claim_tx_hash: string | null
+          claimed_at: string | null
+          created_at: string
+          id: string
+          is_claimed: boolean
+          rank: number
+          reward_amount: number
+          reward_period_end: string
+          reward_period_start: string
+          updated_at: string
+          user_id: string
+          weighted_volume: number
+        }
+        Insert: {
+          claim_tx_hash?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          is_claimed?: boolean
+          rank: number
+          reward_amount?: number
+          reward_period_end: string
+          reward_period_start: string
+          updated_at?: string
+          user_id: string
+          weighted_volume?: number
+        }
+        Update: {
+          claim_tx_hash?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          is_claimed?: boolean
+          rank?: number
+          reward_amount?: number
+          reward_period_end?: string
+          reward_period_start?: string
+          updated_at?: string
+          user_id?: string
+          weighted_volume?: number
+        }
+        Relationships: []
+      }
       volume_tracking: {
         Row: {
           collection_id: string | null
