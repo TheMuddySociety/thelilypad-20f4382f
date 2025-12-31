@@ -33,6 +33,28 @@ const AuthCallback: React.FC = () => {
           return;
         }
 
+        // Handle password recovery
+        if (type === "recovery") {
+          if (accessToken && refreshToken) {
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+            if (error) {
+              setStatus("error");
+              setMessage(error.message);
+              return;
+            }
+
+            // Redirect to settings page to set new password
+            setStatus("success");
+            setMessage("Verified! Redirecting to reset your password...");
+            setTimeout(() => navigate("/settings?tab=account", { replace: true }), 2000);
+            return;
+          }
+        }
+
         // Handle email verification success
         if (type === "signup" || type === "email") {
           if (accessToken && refreshToken) {
