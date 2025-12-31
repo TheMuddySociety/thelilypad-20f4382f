@@ -1455,6 +1455,48 @@ export type Database = {
           },
         ]
       }
+      streak_challenges: {
+        Row: {
+          challenged_id: string
+          challenged_streak: number
+          challenger_id: string
+          challenger_streak: number
+          created_at: string
+          end_date: string | null
+          id: string
+          start_date: string
+          status: string
+          updated_at: string
+          winner_id: string | null
+        }
+        Insert: {
+          challenged_id: string
+          challenged_streak?: number
+          challenger_id: string
+          challenger_streak?: number
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Update: {
+          challenged_id?: string
+          challenged_streak?: number
+          challenger_id?: string
+          challenger_streak?: number
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Relationships: []
+      }
       stream_analytics: {
         Row: {
           chat_messages: number
