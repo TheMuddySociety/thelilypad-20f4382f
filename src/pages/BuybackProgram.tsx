@@ -16,6 +16,7 @@ import { VolumeChart } from "@/components/VolumeChart";
 import { PersonalVolumeStats } from "@/components/PersonalVolumeStats";
 import { VolumeAchievements } from "@/components/VolumeAchievements";
 import { TradingStreak } from "@/components/TradingStreak";
+import { StreakLeaderboard } from "@/components/StreakLeaderboard";
 import { RewardsClaimCard } from "@/components/RewardsClaimCard";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { useSEO } from "@/hooks/useSEO";
@@ -176,8 +177,9 @@ export default function BuybackProgram() {
             </div>
             <RewardHistory />
           </div>
-          <div>
+          <div className="space-y-6">
             <VolumeLeaderboard />
+            <StreakLeaderboard />
           </div>
         </div>
 
