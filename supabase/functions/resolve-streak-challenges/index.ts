@@ -124,14 +124,78 @@ serve(async (req) => {
       } else {
         results.push({ id: challenge.id, winner_id: winnerId });
 
+        // Award badges to winner
+        if (winnerId) {
+          const winnerStreak = winnerId === challenge.challenger_id ? challengerStreak : challengedStreak;
+          
+          // Count previous wins for this user
+          const { count: previousWins } = await supabase
+            .from("challenge_badges")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", winnerId)
+            .eq("badge_type", "challenge_victory");
+          
+          const totalWins = (previousWins || 0) + 1;
+          
+          // Determine badge tier based on total wins
+          let badgeType = "challenge_victory";
+          let badgeName = "Challenge Victor";
+          let badgeIcon = "trophy";
+          let description = `Won a ${challenge.duration_days}-day streak challenge with ${winnerStreak} days`;
+          
+          if (totalWins >= 10) {
+            badgeType = "challenge_legend";
+            badgeName = "Challenge Legend";
+            badgeIcon = "crown";
+            description = `Achieved 10+ challenge victories! Latest: ${winnerStreak} day streak`;
+          } else if (totalWins >= 5) {
+            badgeType = "challenge_master";
+            badgeName = "Challenge Master";
+            badgeIcon = "medal";
+            description = `Achieved 5+ challenge victories! Latest: ${winnerStreak} day streak`;
+          } else if (totalWins >= 3) {
+            badgeType = "challenge_champion";
+            badgeName = "Challenge Champion";
+            badgeIcon = "award";
+            description = `Achieved 3+ challenge victories! Latest: ${winnerStreak} day streak`;
+          }
+          
+          // Special badges for impressive streaks
+          if (winnerStreak >= 25) {
+            badgeType = "streak_dominator";
+            badgeName = "Streak Dominator";
+            badgeIcon = "flame";
+            description = `Dominated with an incredible ${winnerStreak}-day streak!`;
+          } else if (winnerStreak >= 14) {
+            badgeType = "streak_warrior";
+            badgeName = "Streak Warrior";
+            badgeIcon = "swords";
+            description = `Won with an impressive ${winnerStreak}-day streak!`;
+          }
+          
+          await supabase.from("challenge_badges").insert({
+            user_id: winnerId,
+            badge_type: badgeType,
+            badge_name: badgeName,
+            badge_icon: badgeIcon,
+            description: description,
+            challenge_id: challenge.id,
+            metadata: {
+              streak: winnerStreak,
+              duration_days: challenge.duration_days,
+              total_wins: totalWins,
+              opponent_streak: winnerId === challenge.challenger_id ? challengedStreak : challengerStreak
+            }
+          });
+        }
+
         // Create notifications for both users
-        const winnerName = winnerId === challenge.challenger_id ? "You" : "Your opponent";
         const challengerNotif = {
           user_id: challenge.challenger_id,
           type: "streak_challenge_complete",
           title: "Streak Challenge Complete!",
           message: winnerId === challenge.challenger_id 
-            ? `You won the streak challenge with ${challengerStreak} days!`
+            ? `You won the streak challenge with ${challengerStreak} days! 🏆`
             : winnerId === null
             ? `The streak challenge ended in a tie at ${challengerStreak} days!`
             : `You lost the streak challenge. Your streak: ${challengerStreak}, Opponent: ${challengedStreak}`,
@@ -144,7 +208,7 @@ serve(async (req) => {
           type: "streak_challenge_complete",
           title: "Streak Challenge Complete!",
           message: winnerId === challenge.challenged_id
-            ? `You won the streak challenge with ${challengedStreak} days!`
+            ? `You won the streak challenge with ${challengedStreak} days! 🏆`
             : winnerId === null
             ? `The streak challenge ended in a tie at ${challengedStreak} days!`
             : `You lost the streak challenge. Your streak: ${challengedStreak}, Opponent: ${challengerStreak}`,
