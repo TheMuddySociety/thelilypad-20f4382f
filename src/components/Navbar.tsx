@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
-import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp } from "lucide-react";
+import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp, Settings } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { RpcSettings } from "@/components/wallet/RpcSettings";
@@ -40,6 +40,7 @@ const accountLinks = [
   { label: "My Donations", href: "/donor-profile", icon: Gift },
   { label: "Edit Profile", href: "/edit-profile", icon: UserCog },
   { label: "Go Live", href: "/go-live", icon: Radio },
+  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 const adminLinks = [
