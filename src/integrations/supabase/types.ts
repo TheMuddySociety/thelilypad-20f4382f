@@ -104,6 +104,66 @@ export type Database = {
         }
         Relationships: []
       }
+      buyback_events: {
+        Row: {
+          executed_at: string
+          id: string
+          mon_spent: number
+          token_address: string | null
+          tokens_bought: number
+          trigger_volume: number
+          tx_hash: string
+        }
+        Insert: {
+          executed_at?: string
+          id?: string
+          mon_spent: number
+          token_address?: string | null
+          tokens_bought?: number
+          trigger_volume: number
+          tx_hash: string
+        }
+        Update: {
+          executed_at?: string
+          id?: string
+          mon_spent?: number
+          token_address?: string | null
+          tokens_bought?: number
+          trigger_volume?: number
+          tx_hash?: string
+        }
+        Relationships: []
+      }
+      buyback_pool: {
+        Row: {
+          accumulated_volume: number
+          buyback_threshold: number
+          id: string
+          last_buyback_at: string | null
+          pool_balance: number
+          total_buybacks_executed: number
+          updated_at: string
+        }
+        Insert: {
+          accumulated_volume?: number
+          buyback_threshold?: number
+          id?: string
+          last_buyback_at?: string | null
+          pool_balance?: number
+          total_buybacks_executed?: number
+          updated_at?: string
+        }
+        Update: {
+          accumulated_volume?: number
+          buyback_threshold?: number
+          id?: string
+          last_buyback_at?: string | null
+          pool_balance?: number
+          total_buybacks_executed?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       channel_emotes: {
         Row: {
           created_at: string
@@ -1019,6 +1079,60 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_fees: {
+        Row: {
+          chain: string
+          collection_id: string | null
+          contributed_to_buyback: number
+          created_at: string
+          fee_amount: number
+          fee_type: string
+          id: string
+          shop_item_id: string | null
+          source_volume: number
+          tx_hash: string
+        }
+        Insert: {
+          chain?: string
+          collection_id?: string | null
+          contributed_to_buyback?: number
+          created_at?: string
+          fee_amount?: number
+          fee_type: string
+          id?: string
+          shop_item_id?: string | null
+          source_volume?: number
+          tx_hash: string
+        }
+        Update: {
+          chain?: string
+          collection_id?: string | null
+          contributed_to_buyback?: number
+          created_at?: string
+          fee_amount?: number
+          fee_type?: string
+          id?: string
+          shop_item_id?: string | null
+          source_volume?: number
+          tx_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_fees_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_fees_shop_item_id_fkey"
+            columns: ["shop_item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -1450,6 +1564,56 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      volume_tracking: {
+        Row: {
+          collection_id: string | null
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          source_type: string
+          tx_hash: string | null
+          user_id: string | null
+          volume_amount: number
+          weight: number
+          weighted_volume: number
+        }
+        Insert: {
+          collection_id?: string | null
+          created_at?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          source_type: string
+          tx_hash?: string | null
+          user_id?: string | null
+          volume_amount?: number
+          weight?: number
+          weighted_volume?: number
+        }
+        Update: {
+          collection_id?: string | null
+          created_at?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          source_type?: string
+          tx_hash?: string | null
+          user_id?: string | null
+          volume_amount?: number
+          weight?: number
+          weighted_volume?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "volume_tracking_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
