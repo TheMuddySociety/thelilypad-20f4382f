@@ -32,11 +32,13 @@ import {
   UserCog,
   Crown,
   Sparkles,
-  TrendingUp
+  TrendingUp,
+  Sticker
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { FeaturedCollectionsManager } from '@/components/admin/FeaturedCollectionsManager';
 import { BuybackProgramManager } from '@/components/admin/BuybackProgramManager';
+import { AdminStickerPackManager } from '@/components/admin/AdminStickerPackManager';
 
 interface AdminUser {
   id: string;
@@ -491,7 +493,7 @@ const AdminDashboard: React.FC = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
             <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" />
               Users
@@ -507,6 +509,10 @@ const AdminDashboard: React.FC = () => {
             <TabsTrigger value="buyback" className="gap-2">
               <TrendingUp className="w-4 h-4" />
               Buyback
+            </TabsTrigger>
+            <TabsTrigger value="packs" className="gap-2">
+              <Sticker className="w-4 h-4" />
+              Packs
             </TabsTrigger>
             <TabsTrigger value="streams" className="gap-2">
               <Video className="w-4 h-4" />
@@ -765,6 +771,11 @@ const AdminDashboard: React.FC = () => {
           {/* Buyback Program Tab */}
           <TabsContent value="buyback">
             <BuybackProgramManager />
+          </TabsContent>
+
+          {/* Official Packs Tab */}
+          <TabsContent value="packs">
+            <AdminStickerPackManager />
           </TabsContent>
 
           {/* Moderation Tab */}
