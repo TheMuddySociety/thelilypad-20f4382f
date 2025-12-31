@@ -21,6 +21,14 @@ contract NFTFactory {
     /// @notice Chain ID this factory is deployed on
     uint256 public immutable deployedOnChainId;
 
+    // ============ Platform Fee Configuration ============
+    
+    /// @notice Platform treasury address for fee collection
+    address public platformTreasury;
+    
+    /// @notice Buyback pool address for token buybacks
+    address public buybackPool;
+
     // Events
     event CollectionCreated(
         address indexed collection,
@@ -40,6 +48,14 @@ contract NFTFactory {
         address royaltyReceiver,
         uint256 timestamp,
         uint256 indexed chainId
+    );
+    
+    /// @notice Emitted when platform addresses are updated
+    event PlatformAddressesUpdated(
+        address indexed oldTreasury,
+        address indexed newTreasury,
+        address oldBuyback,
+        address newBuyback
     );
 
     // State
@@ -61,9 +77,19 @@ contract NFTFactory {
         _;
     }
 
-    constructor() {
+    /**
+     * @dev Constructor initializes factory with platform addresses
+     * @param _platformTreasury Address to receive platform fees
+     * @param _buybackPool Address for buyback pool contributions
+     */
+    constructor(address _platformTreasury, address _buybackPool) {
+        require(_platformTreasury != address(0), "Invalid treasury");
+        require(_buybackPool != address(0), "Invalid buyback pool");
+        
         owner = msg.sender;
         deployedOnChainId = block.chainid;
+        platformTreasury = _platformTreasury;
+        buybackPool = _buybackPool;
     }
 
     /**
@@ -82,15 +108,17 @@ contract NFTFactory {
         uint256 royaltyBps,
         address royaltyReceiver
     ) external whenActive returns (address collection) {
-        // Deploy new NFT contract with factory reference
+        // Deploy new NFT contract with all required parameters
         LilyPadNFT nft = new LilyPadNFT(
             name,
             symbol,
             maxSupply,
             royaltyBps,
             royaltyReceiver,
-            msg.sender,     // creator becomes owner
-            address(this)   // factory reference
+            msg.sender,         // creator becomes owner
+            address(this),      // factory reference
+            platformTreasury,   // platform treasury for fees
+            buybackPool         // buyback pool for contributions
         );
 
         collection = address(nft);
@@ -153,6 +181,16 @@ contract NFTFactory {
     ) {
         return (PLATFORM_NAME, VERSION, deployedOnChainId, allCollections.length, isActive);
     }
+    
+    /**
+     * @notice Get platform addresses
+     */
+    function getPlatformAddresses() external view returns (
+        address treasury,
+        address buyback
+    ) {
+        return (platformTreasury, buybackPool);
+    }
 
     function getCollectionsByCreator(address creator) external view returns (address[] memory) {
         return collectionsByCreator[creator];
@@ -167,6 +205,29 @@ contract NFTFactory {
     }
 
     // ============ Admin Functions ============
+    
+    /**
+     * @notice Update platform treasury and buyback pool addresses
+     * @param _platformTreasury New treasury address
+     * @param _buybackPool New buyback pool address
+     */
+    function updatePlatformAddresses(
+        address _platformTreasury,
+        address _buybackPool
+    ) external onlyOwner {
+        require(_platformTreasury != address(0), "Invalid treasury");
+        require(_buybackPool != address(0), "Invalid buyback pool");
+        
+        emit PlatformAddressesUpdated(
+            platformTreasury,
+            _platformTreasury,
+            buybackPool,
+            _buybackPool
+        );
+        
+        platformTreasury = _platformTreasury;
+        buybackPool = _buybackPool;
+    }
     
     function setActive(bool _active) external onlyOwner {
         isActive = _active;
