@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
-import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi } from "lucide-react";
+import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { RpcSettings } from "@/components/wallet/RpcSettings";
@@ -28,6 +28,7 @@ const primaryLinks: { label: string; href: string; icon: LucideIcon }[] = [
 const exploreLinks = [
   { label: "Streamers", href: "/streamers", icon: Users },
   { label: "Following", href: "/following", icon: Heart },
+  { label: "Buyback Program", href: "/buyback", icon: TrendingUp },
 ];
 
 const accountLinks = [
