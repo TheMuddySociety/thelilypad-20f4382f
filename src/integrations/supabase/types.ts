@@ -1462,6 +1462,7 @@ export type Database = {
           challenger_id: string
           challenger_streak: number
           created_at: string
+          duration_days: number
           end_date: string | null
           id: string
           start_date: string
@@ -1475,6 +1476,7 @@ export type Database = {
           challenger_id: string
           challenger_streak?: number
           created_at?: string
+          duration_days?: number
           end_date?: string | null
           id?: string
           start_date?: string
@@ -1488,6 +1490,7 @@ export type Database = {
           challenger_id?: string
           challenger_streak?: number
           created_at?: string
+          duration_days?: number
           end_date?: string | null
           id?: string
           start_date?: string
