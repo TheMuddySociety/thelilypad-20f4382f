@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Leaf, Sparkles, Sticker, Smile, Image, ShoppingCart, Eye, Crown, Package, Percent, Gift } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { BundlePurchaseModal } from "@/components/shop/BundlePurchaseModal";
 
 interface OfficialPack {
   id: string;
@@ -42,7 +43,10 @@ interface BundleItem {
 
 const OfficialPacks: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("all");
+  const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
+  const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
 
   const { data: packs = [], isLoading } = useQuery({
     queryKey: ['official-packs-shop'],
@@ -190,6 +194,15 @@ const OfficialPacks: React.FC = () => {
     </Card>
   );
 
+  const handleBundleClick = (bundle: Bundle) => {
+    setSelectedBundle(bundle);
+    setPurchaseModalOpen(true);
+  };
+
+  const handlePurchaseComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ['official-bundles-shop'] });
+  };
+
   const BundleCard = ({ bundle }: { bundle: Bundle }) => {
     const items = bundleItemsMap[bundle.id] || [];
     const savings = bundle.original_price - bundle.bundle_price;
@@ -277,7 +290,10 @@ const OfficialPacks: React.FC = () => {
             </div>
           </div>
           
-          <Button className="w-full gap-2 h-12 text-lg">
+          <Button 
+            className="w-full gap-2 h-12 text-lg"
+            onClick={() => handleBundleClick(bundle)}
+          >
             <ShoppingCart className="w-5 h-5" />
             Get Bundle
           </Button>
@@ -423,6 +439,17 @@ const OfficialPacks: React.FC = () => {
               </div>
             )}
           </div>
+        )}
+
+        {/* Bundle Purchase Modal */}
+        {selectedBundle && (
+          <BundlePurchaseModal
+            open={purchaseModalOpen}
+            onOpenChange={setPurchaseModalOpen}
+            bundle={selectedBundle}
+            bundleItems={bundleItemsMap[selectedBundle.id] || []}
+            onPurchaseComplete={handlePurchaseComplete}
+          />
         )}
       </main>
     </div>
