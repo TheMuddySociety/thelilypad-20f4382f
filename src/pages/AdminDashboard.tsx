@@ -419,68 +419,68 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="container mx-auto px-4 pt-24 pb-12">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <ShieldCheck className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+      <main className="container mx-auto px-4 pt-20 sm:pt-24 pb-12">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <ShieldCheck className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+            <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
           </div>
-          <p className="text-muted-foreground">
-            Manage users, collections, streams, and moderation across the platform.
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Manage users, collections, streams, and moderation.
           </p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <Card className="p-3 sm:p-0">
+            <CardHeader className="p-0 sm:pb-2 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                 Total Users
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0 pt-1 sm:p-6 sm:pt-0">
               <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary" />
-                <span className="text-2xl font-bold">{stats.totalUsers}</span>
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                <span className="text-xl sm:text-2xl font-bold">{stats.totalUsers}</span>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Collections
+          <Card className="p-3 sm:p-0">
+            <CardHeader className="p-0 sm:pb-2 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+                Collections
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0 pt-1 sm:p-6 sm:pt-0">
               <div className="flex items-center gap-2">
-                <Layers className="w-5 h-5 text-primary" />
-                <span className="text-2xl font-bold">{stats.totalCollections}</span>
+                <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                <span className="text-xl sm:text-2xl font-bold">{stats.totalCollections}</span>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Pending Moderation
+          <Card className="p-3 sm:p-0">
+            <CardHeader className="p-0 sm:pb-2 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+                Pending
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0 pt-1 sm:p-6 sm:pt-0">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-yellow-500" />
-                <span className="text-2xl font-bold">{stats.pendingModeration}</span>
+                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
+                <span className="text-xl sm:text-2xl font-bold">{stats.pendingModeration}</span>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Live Streams
+          <Card className="p-3 sm:p-0">
+            <CardHeader className="p-0 sm:pb-2 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+                Live
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0 pt-1 sm:p-6 sm:pt-0">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-2xl font-bold">
+                <span className="text-xl sm:text-2xl font-bold">
                   {streams.filter(s => s.is_live).length}
                 </span>
               </div>
@@ -489,10 +489,10 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Search */}
-        <div className="relative mb-6">
+        <div className="relative mb-4 sm:mb-6">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search users, collections, streams..."
+            placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -500,152 +500,232 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-10 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="users" className="gap-2">
-              <Users className="w-4 h-4" />
-              Users
-            </TabsTrigger>
-            <TabsTrigger value="collections" className="gap-2">
-              <Layers className="w-4 h-4" />
-              Collections
-            </TabsTrigger>
-            <TabsTrigger value="featured" className="gap-2">
-              <Sparkles className="w-4 h-4" />
-              Featured
-            </TabsTrigger>
-            <TabsTrigger value="buyback" className="gap-2">
-              <TrendingUp className="w-4 h-4" />
-              Buyback
-            </TabsTrigger>
-            <TabsTrigger value="raffles" className="gap-2">
-              <Ticket className="w-4 h-4" />
-              Raffles
-            </TabsTrigger>
-            <TabsTrigger value="blindboxes" className="gap-2">
-              <Gift className="w-4 h-4" />
-              Blind Boxes
-            </TabsTrigger>
-            <TabsTrigger value="packs" className="gap-2">
-              <Sticker className="w-4 h-4" />
-              Packs
-            </TabsTrigger>
-            <TabsTrigger value="bundles" className="gap-2">
-              <Package className="w-4 h-4" />
-              Bundles
-            </TabsTrigger>
-            <TabsTrigger value="streams" className="gap-2">
-              <Video className="w-4 h-4" />
-              Streams
-            </TabsTrigger>
-            <TabsTrigger value="moderation" className="gap-2">
-              <ShieldCheck className="w-4 h-4" />
-              Moderation
-            </TabsTrigger>
-          </TabsList>
+        <Tabs defaultValue="users" className="space-y-4 sm:space-y-6">
+          <ScrollArea className="w-full">
+            <TabsList className="inline-flex w-max gap-1 p-1">
+              <TabsTrigger value="users" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+                <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Users</span>
+              </TabsTrigger>
+              <TabsTrigger value="collections" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+                <Layers className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Collections</span>
+              </TabsTrigger>
+              <TabsTrigger value="featured" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Featured</span>
+              </TabsTrigger>
+              <TabsTrigger value="buyback" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Buyback</span>
+              </TabsTrigger>
+              <TabsTrigger value="raffles" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+                <Ticket className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Raffles</span>
+              </TabsTrigger>
+              <TabsTrigger value="blindboxes" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+                <Gift className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Boxes</span>
+              </TabsTrigger>
+              <TabsTrigger value="packs" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+                <Sticker className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Packs</span>
+              </TabsTrigger>
+              <TabsTrigger value="bundles" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+                <Package className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Bundles</span>
+              </TabsTrigger>
+              <TabsTrigger value="streams" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+                <Video className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Streams</span>
+              </TabsTrigger>
+              <TabsTrigger value="moderation" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+                <ShieldCheck className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Moderation</span>
+              </TabsTrigger>
+            </TabsList>
+          </ScrollArea>
 
           {/* Users Tab */}
           <TabsContent value="users">
             <Card>
-              <CardHeader>
-                <CardTitle>All Users</CardTitle>
-                <CardDescription>
+              <CardHeader className="px-4 sm:px-6">
+                <CardTitle className="text-lg sm:text-xl">All Users</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   Manage user accounts, roles, and bans
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[500px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Joined</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredUsers.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar className="w-8 h-8">
-                                <AvatarImage src={user.profile?.avatar_url || ''} />
-                                <AvatarFallback>
-                                  {user.email?.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="font-medium">
+              <CardContent className="px-4 sm:px-6">
+                {/* Mobile Card Layout */}
+                <div className="block sm:hidden space-y-3">
+                  <ScrollArea className="h-[400px]">
+                    {filteredUsers.map((user) => (
+                      <div key={user.id} className="border rounded-lg p-3 mb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar className="w-8 h-8 flex-shrink-0">
+                              <AvatarImage src={user.profile?.avatar_url || ''} />
+                              <AvatarFallback className="text-xs">
+                                {user.email?.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">
                                 {user.profile?.display_name || 'No name'}
-                              </span>
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {user.email}
+                              </p>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {user.email}
-                          </TableCell>
-                          <TableCell>
-                            {getRoleBadge(user.role)}
-                          </TableCell>
-                          <TableCell>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openRoleModal(user)}
+                            >
+                              <UserCog className="w-4 h-4" />
+                            </Button>
                             {user.is_banned ? (
-                              <Badge variant="destructive">
-                                <Ban className="w-3 h-3 mr-1" />
-                                Banned
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-green-500 border-green-500">
-                                Active
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {format(new Date(user.created_at), 'MMM d, yyyy')}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => openRoleModal(user)}
-                                title="Assign Role"
+                                className="h-8 w-8"
+                                onClick={() => handleUnbanUser(user)}
                               >
-                                <UserCog className="w-4 h-4" />
+                                <CheckCircle className="w-4 h-4 text-green-500" />
                               </Button>
-                              {user.is_banned ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleUnbanUser(user)}
-                                  title="Unban User"
-                                >
-                                  <CheckCircle className="w-4 h-4 text-green-500" />
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => openBanModal(user)}
-                                  title="Ban User"
-                                >
-                                  <Ban className="w-4 h-4 text-destructive" />
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {filteredUsers.length === 0 && (
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => openBanModal(user)}
+                              >
+                                <Ban className="w-4 h-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          {getRoleBadge(user.role)}
+                          {user.is_banned ? (
+                            <Badge variant="destructive" className="text-xs">
+                              <Ban className="w-3 h-3 mr-1" />
+                              Banned
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-green-500 border-green-500">
+                              Active
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(user.created_at), 'MMM d, yyyy')}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredUsers.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8 text-sm">No users found</p>
+                    )}
+                  </ScrollArea>
+                </div>
+                {/* Desktop Table Layout */}
+                <div className="hidden sm:block">
+                  <ScrollArea className="h-[500px]">
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                            No users found
-                          </TableCell>
+                          <TableHead>User</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Joined</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredUsers.map((user) => (
+                          <TableRow key={user.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar className="w-8 h-8">
+                                  <AvatarImage src={user.profile?.avatar_url || ''} />
+                                  <AvatarFallback>
+                                    {user.email?.charAt(0).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium">
+                                  {user.profile?.display_name || 'No name'}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {user.email}
+                            </TableCell>
+                            <TableCell>
+                              {getRoleBadge(user.role)}
+                            </TableCell>
+                            <TableCell>
+                              {user.is_banned ? (
+                                <Badge variant="destructive">
+                                  <Ban className="w-3 h-3 mr-1" />
+                                  Banned
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-green-500 border-green-500">
+                                  Active
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(user.created_at), 'MMM d, yyyy')}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openRoleModal(user)}
+                                  title="Assign Role"
+                                >
+                                  <UserCog className="w-4 h-4" />
+                                </Button>
+                                {user.is_banned ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleUnbanUser(user)}
+                                    title="Unban User"
+                                  >
+                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => openBanModal(user)}
+                                    title="Ban User"
+                                  >
+                                    <Ban className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {filteredUsers.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                              No users found
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -653,71 +733,121 @@ const AdminDashboard: React.FC = () => {
           {/* Collections Tab */}
           <TabsContent value="collections">
             <Card>
-              <CardHeader>
-                <CardTitle>All Collections</CardTitle>
-                <CardDescription>
+              <CardHeader className="px-4 sm:px-6">
+                <CardTitle className="text-lg sm:text-xl">All Collections</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   Manage NFT collections across the platform
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[500px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Symbol</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Supply</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredCollections.map((collection) => (
-                        <TableRow key={collection.id}>
-                          <TableCell className="font-medium">{collection.name}</TableCell>
-                          <TableCell>{collection.symbol}</TableCell>
-                          <TableCell>
-                            <Badge variant={collection.status === 'live' ? 'default' : 'secondary'}>
-                              {collection.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {collection.minted}/{collection.total_supply}
-                          </TableCell>
-                          <TableCell>
+              <CardContent className="px-4 sm:px-6">
+                {/* Mobile Card Layout */}
+                <div className="block sm:hidden space-y-3">
+                  <ScrollArea className="h-[400px]">
+                    {filteredCollections.map((collection) => (
+                      <div key={collection.id} className="border rounded-lg p-3 mb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm truncate">{collection.name}</p>
+                            <p className="text-xs text-muted-foreground">{collection.symbol}</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => navigate(`/launchpad/${collection.id}`)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleDeleteCollection(collection.id)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <Badge variant={collection.status === 'live' ? 'default' : 'secondary'} className="text-xs">
+                            {collection.status}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {collection.minted}/{collection.total_supply} minted
+                          </span>
+                          <span className="text-xs text-muted-foreground">
                             {format(new Date(collection.created_at), 'MMM d, yyyy')}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => navigate(`/launchpad/${collection.id}`)}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteCollection(collection.id)}
-                              >
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {filteredCollections.length === 0 && (
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredCollections.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8 text-sm">No collections found</p>
+                    )}
+                  </ScrollArea>
+                </div>
+                {/* Desktop Table Layout */}
+                <div className="hidden sm:block">
+                  <ScrollArea className="h-[500px]">
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                            No collections found
-                          </TableCell>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Symbol</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Supply</TableHead>
+                          <TableHead>Created</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredCollections.map((collection) => (
+                          <TableRow key={collection.id}>
+                            <TableCell className="font-medium">{collection.name}</TableCell>
+                            <TableCell>{collection.symbol}</TableCell>
+                            <TableCell>
+                              <Badge variant={collection.status === 'live' ? 'default' : 'secondary'}>
+                                {collection.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {collection.minted}/{collection.total_supply}
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(collection.created_at), 'MMM d, yyyy')}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => navigate(`/launchpad/${collection.id}`)}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteCollection(collection.id)}
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {filteredCollections.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                              No collections found
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -730,60 +860,101 @@ const AdminDashboard: React.FC = () => {
           {/* Streams Tab */}
           <TabsContent value="streams">
             <Card>
-              <CardHeader>
-                <CardTitle>All Streams</CardTitle>
-                <CardDescription>
+              <CardHeader className="px-4 sm:px-6">
+                <CardTitle className="text-lg sm:text-xl">All Streams</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   View and manage streams across the platform
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[500px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Views</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredStreams.map((stream) => (
-                        <TableRow key={stream.id}>
-                          <TableCell className="font-medium">{stream.title}</TableCell>
-                          <TableCell>
-                            {stream.is_live ? (
-                              <Badge className="bg-green-500">Live</Badge>
-                            ) : (
-                              <Badge variant="secondary">Offline</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>{stream.total_views.toLocaleString()}</TableCell>
-                          <TableCell>
+              <CardContent className="px-4 sm:px-6">
+                {/* Mobile Card Layout */}
+                <div className="block sm:hidden space-y-3">
+                  <ScrollArea className="h-[400px]">
+                    {filteredStreams.map((stream) => (
+                      <div key={stream.id} className="border rounded-lg p-3 mb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm truncate">{stream.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {stream.total_views.toLocaleString()} views
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => navigate(`/streamer/${stream.user_id}`)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          {stream.is_live ? (
+                            <Badge className="bg-green-500 text-xs">Live</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Offline</Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
                             {format(new Date(stream.created_at), 'MMM d, yyyy')}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => navigate(`/streamer/${stream.user_id}`)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {filteredStreams.length === 0 && (
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredStreams.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8 text-sm">No streams found</p>
+                    )}
+                  </ScrollArea>
+                </div>
+                {/* Desktop Table Layout */}
+                <div className="hidden sm:block">
+                  <ScrollArea className="h-[500px]">
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                            No streams found
-                          </TableCell>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Views</TableHead>
+                          <TableHead>Created</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredStreams.map((stream) => (
+                          <TableRow key={stream.id}>
+                            <TableCell className="font-medium">{stream.title}</TableCell>
+                            <TableCell>
+                              {stream.is_live ? (
+                                <Badge className="bg-green-500">Live</Badge>
+                              ) : (
+                                <Badge variant="secondary">Offline</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>{stream.total_views.toLocaleString()}</TableCell>
+                            <TableCell>
+                              {format(new Date(stream.created_at), 'MMM d, yyyy')}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => navigate(`/streamer/${stream.user_id}`)}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {filteredStreams.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                              No streams found
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -820,89 +991,154 @@ const AdminDashboard: React.FC = () => {
           {/* Moderation Tab */}
           <TabsContent value="moderation">
             <Card>
-              <CardHeader>
-                <CardTitle>Moderation Queue</CardTitle>
-                <CardDescription>
+              <CardHeader className="px-4 sm:px-6">
+                <CardTitle className="text-lg sm:text-xl">Moderation Queue</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   Review and moderate flagged content
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[500px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Content</TableHead>
-                        <TableHead>AI Score</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {moderationQueue.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            <Badge variant="outline">{item.content_type}</Badge>
-                          </TableCell>
-                          <TableCell className="max-w-[200px] truncate">
-                            {item.content_text || 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            {item.ai_score !== null ? (
-                              <span className={item.ai_score > 0.7 ? 'text-destructive' : ''}>
-                                {(item.ai_score * 100).toFixed(0)}%
-                              </span>
-                            ) : (
-                              'N/A'
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant={
-                                item.status === 'approved' ? 'default' : 
-                                item.status === 'rejected' ? 'destructive' : 
-                                'secondary'
-                              }
-                            >
-                              {item.status}
+              <CardContent className="px-4 sm:px-6">
+                {/* Mobile Card Layout */}
+                <div className="block sm:hidden space-y-3">
+                  <ScrollArea className="h-[400px]">
+                    {moderationQueue.map((item) => (
+                      <div key={item.id} className="border rounded-lg p-3 mb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <Badge variant="outline" className="text-xs mb-1">
+                              {item.content_type}
                             </Badge>
-                          </TableCell>
-                          <TableCell>
+                            <p className="text-sm truncate">
+                              {item.content_text || 'N/A'}
+                            </p>
+                          </div>
+                          {item.status === 'pending' && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleModerationAction(item.id, 'approved')}
+                              >
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleModerationAction(item.id, 'rejected')}
+                              >
+                                <XCircle className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <Badge 
+                            variant={
+                              item.status === 'approved' ? 'default' : 
+                              item.status === 'rejected' ? 'destructive' : 
+                              'secondary'
+                            }
+                            className="text-xs"
+                          >
+                            {item.status}
+                          </Badge>
+                          {item.ai_score !== null && (
+                            <span className={`text-xs ${item.ai_score > 0.7 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                              AI: {(item.ai_score * 100).toFixed(0)}%
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground">
                             {format(new Date(item.created_at), 'MMM d, yyyy')}
-                          </TableCell>
-                          <TableCell>
-                            {item.status === 'pending' && (
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleModerationAction(item.id, 'approved')}
-                                >
-                                  <CheckCircle className="w-4 h-4 text-green-500" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleModerationAction(item.id, 'rejected')}
-                                >
-                                  <XCircle className="w-4 h-4 text-destructive" />
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {moderationQueue.length === 0 && (
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {moderationQueue.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8 text-sm">No items in moderation queue</p>
+                    )}
+                  </ScrollArea>
+                </div>
+                {/* Desktop Table Layout */}
+                <div className="hidden sm:block">
+                  <ScrollArea className="h-[500px]">
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                            No items in moderation queue
-                          </TableCell>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Content</TableHead>
+                          <TableHead>AI Score</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Created</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+                      </TableHeader>
+                      <TableBody>
+                        {moderationQueue.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <Badge variant="outline">{item.content_type}</Badge>
+                            </TableCell>
+                            <TableCell className="max-w-[200px] truncate">
+                              {item.content_text || 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                              {item.ai_score !== null ? (
+                                <span className={item.ai_score > 0.7 ? 'text-destructive' : ''}>
+                                  {(item.ai_score * 100).toFixed(0)}%
+                                </span>
+                              ) : (
+                                'N/A'
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={
+                                  item.status === 'approved' ? 'default' : 
+                                  item.status === 'rejected' ? 'destructive' : 
+                                  'secondary'
+                                }
+                              >
+                                {item.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(item.created_at), 'MMM d, yyyy')}
+                            </TableCell>
+                            <TableCell>
+                              {item.status === 'pending' && (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleModerationAction(item.id, 'approved')}
+                                  >
+                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleModerationAction(item.id, 'rejected')}
+                                  >
+                                    <XCircle className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {moderationQueue.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                              No items in moderation queue
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
