@@ -35,7 +35,7 @@ import BuybackProgram from "./pages/BuybackProgram";
 import AuthCallback from "./pages/AuthCallback";
 import OfficialPacks from "./pages/OfficialPacks";
 import MyPurchases from "./pages/MyPurchases";
-import Settings from "./pages/Settings";
+
 import Raffles from "./pages/Raffles";
 import BlindBoxes from "./pages/BlindBoxes";
 import NotFound from "./pages/NotFound";
@@ -81,7 +81,7 @@ const App = () => (
               <Route path="/buyback-program" element={<BuybackProgram />} />
               <Route path="/official-packs" element={<OfficialPacks />} />
               <Route path="/my-purchases" element={<MyPurchases />} />
-              <Route path="/settings" element={<Settings />} />
+              
               <Route path="/raffles" element={<Raffles />} />
               <Route path="/blind-boxes" element={<BlindBoxes />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
