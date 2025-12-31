@@ -54,7 +54,8 @@ import {
   Settings2,
   Tags,
   Download,
-  HelpCircle
+  HelpCircle,
+  Music
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -65,6 +66,8 @@ import { GenerationPreview } from "./GenerationPreview";
 import { ArtworkMetadataEditor, OneOfOneArtwork } from "./ArtworkMetadataEditor";
 import { BulkTraitsEditor } from "./BulkTraitsEditor";
 import { ImportMetadataEditor } from "./ImportMetadataEditor";
+import { MusicArtworkUploader } from "./MusicArtworkUploader";
+import { MusicTrack } from "./MusicMetadataEditor";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { formatDistanceToNow } from "date-fns";
@@ -120,7 +123,7 @@ const steps = [
 const STORAGE_KEY = "launchpad_draft";
 const DRAFT_BUCKET = "collection-drafts";
 
-type CollectionType = "generative" | "one_of_one" | "editions";
+type CollectionType = "generative" | "one_of_one" | "editions" | "music";
 
 interface SavedArtwork {
   id: string;
@@ -194,6 +197,9 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   // Edition artwork
   const [editionArtwork, setEditionArtwork] = useState<{ file: File; preview: string } | null>(null);
   const [editionType, setEditionType] = useState<"open" | "limited" | "timed">("open");
+  
+  // Music tracks
+  const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
   
   // Drag and drop states
   const [isOneOfOneDragging, setIsOneOfOneDragging] = useState(false);
@@ -1024,6 +1030,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       setSocialTelegram("");
       setCollectionType("generative");
       setOneOfOneArtworks([]);
+      setMusicTracks([]);
       setEditionArtwork(null);
       setEditionType("open");
     } catch (err: any) {
@@ -1161,7 +1168,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
             {/* Collection Type Selector */}
             <div className="space-y-3" data-walkthrough="collection-type">
               <Label>Collection Type *</Label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Card 
                   className={`cursor-pointer transition-all hover:border-primary/50 ${
                     collectionType === "generative" 
@@ -1209,6 +1216,23 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                     <h4 className="font-semibold text-sm">Editions</h4>
                     <p className="text-xs text-muted-foreground mt-1">
                       Multiple copies of artwork
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card 
+                  className={`cursor-pointer transition-all hover:border-primary/50 ${
+                    collectionType === "music" 
+                      ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                      : "border-border"
+                  }`}
+                  onClick={() => setCollectionType("music")}
+                >
+                  <CardContent className="p-4 text-center">
+                    <Music className="w-8 h-8 mx-auto mb-2 text-pink-500" />
+                    <h4 className="font-semibold text-sm">Music</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Audio NFTs with cover art
                     </p>
                   </CardContent>
                 </Card>
@@ -1447,7 +1471,37 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
               </Tabs>
             )}
 
-            {/* 1 of 1 Collection - Individual Artwork Upload */}
+            {/* Music Collection - Audio Upload */}
+            {collectionType === "music" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Music className="w-5 h-5 text-pink-500" />
+                      Music Tracks
+                      {musicTracks.length > 0 && (
+                        <Badge variant="secondary" className="ml-auto">
+                          {musicTracks.length} track{musicTracks.length !== 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <CardDescription>
+                      Upload audio files (MP3, WAV, FLAC) with cover art. Each track becomes a unique Music NFT.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <MusicArtworkUploader
+                      tracks={musicTracks}
+                      onTracksChange={(tracks) => {
+                        setMusicTracks(tracks);
+                        setTotalSupply(String(tracks.length));
+                      }}
+                      maxTracks={100}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+            )}
             {collectionType === "one_of_one" && (
               <div className="space-y-6">
                 <Card>
