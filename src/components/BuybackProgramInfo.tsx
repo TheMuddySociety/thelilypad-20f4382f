@@ -1,6 +1,8 @@
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Gift, Coins, Trophy, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, Gift, Coins, Trophy, Sparkles, ChevronRight } from "lucide-react";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 
 interface BuybackProgramInfoProps {
@@ -77,6 +79,13 @@ export function BuybackProgramInfo({ collectionId }: BuybackProgramInfoProps) {
             </div>
           </div>
         </div>
+        
+        <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
+          <Link to="/buyback-program">
+            Learn More About the Program
+            <ChevronRight className="w-4 h-4 ml-1" />
+          </Link>
+        </Button>
       </CardContent>
     </Card>
   );
