@@ -9,8 +9,21 @@ export const NFT_FACTORY_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const LILYPAD_PLATFORM_NAME = "LilyPad";
 export const LILYPAD_PLATFORM_VERSION = "1.0.0";
 
+// Platform fee configuration (matches LilyPadNFT.sol)
+export const PLATFORM_FEE_BPS = 250; // 2.5% total platform fee
+export const BUYBACK_SPLIT_BPS = 5000; // 50% of platform fee goes to buyback
+
 // LilyPad NFT Factory ABI - includes platform identification features
 export const NFT_FACTORY_ABI = [
+  // Constructor (for reference when deploying)
+  {
+    inputs: [
+      { name: "_platformTreasury", type: "address" },
+      { name: "_buybackPool", type: "address" }
+    ],
+    stateMutability: "nonpayable",
+    type: "constructor"
+  },
   // Create a new NFT collection with LilyPad identification
   {
     inputs: [
@@ -48,7 +61,10 @@ export const NFT_FACTORY_ABI = [
       { indexed: false, name: "name", type: "string" },
       { indexed: false, name: "symbol", type: "string" },
       { indexed: false, name: "maxSupply", type: "uint256" },
-      { indexed: false, name: "timestamp", type: "uint256" }
+      { indexed: false, name: "royaltyBps", type: "uint256" },
+      { indexed: false, name: "royaltyReceiver", type: "address" },
+      { indexed: false, name: "timestamp", type: "uint256" },
+      { indexed: true, name: "chainId", type: "uint256" }
     ],
     name: "LilyPadCollectionDeployed",
     type: "event"
@@ -63,6 +79,18 @@ export const NFT_FACTORY_ABI = [
       { indexed: false, name: "symbol", type: "string" }
     ],
     name: "CollectionCreated",
+    type: "event"
+  },
+  // Platform Addresses Updated Event
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "oldTreasury", type: "address" },
+      { indexed: true, name: "newTreasury", type: "address" },
+      { indexed: false, name: "oldBuyback", type: "address" },
+      { indexed: false, name: "newBuyback", type: "address" }
+    ],
+    name: "PlatformAddressesUpdated",
     type: "event"
   },
   // View function to get collections by creator
@@ -86,10 +114,39 @@ export const NFT_FACTORY_ABI = [
     inputs: [],
     name: "getFactoryInfo",
     outputs: [
-      { name: "platform", type: "string" },
+      { name: "platformName", type: "string" },
       { name: "version", type: "string" },
-      { name: "totalCollections", type: "uint256" }
+      { name: "chainId", type: "uint256" },
+      { name: "totalCollections", type: "uint256" },
+      { name: "active", type: "bool" }
     ],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Get platform addresses
+  {
+    inputs: [],
+    name: "getPlatformAddresses",
+    outputs: [
+      { name: "treasury", type: "address" },
+      { name: "buyback", type: "address" }
+    ],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Platform treasury address
+  {
+    inputs: [],
+    name: "platformTreasury",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Buyback pool address
+  {
+    inputs: [],
+    name: "buybackPool",
+    outputs: [{ name: "", type: "address" }],
     stateMutability: "view",
     type: "function"
   },
@@ -114,6 +171,41 @@ export const NFT_FACTORY_ABI = [
     inputs: [],
     name: "isActive",
     outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Update platform addresses (admin only)
+  {
+    inputs: [
+      { name: "_platformTreasury", type: "address" },
+      { name: "_buybackPool", type: "address" }
+    ],
+    name: "updatePlatformAddresses",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  // Get all collections
+  {
+    inputs: [],
+    name: "getAllCollections",
+    outputs: [{ name: "", type: "address[]" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Get collection count
+  {
+    inputs: [],
+    name: "getCollectionCount",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Factory owner
+  {
+    inputs: [],
+    name: "owner",
+    outputs: [{ name: "", type: "address" }],
     stateMutability: "view",
     type: "function"
   }
@@ -151,8 +243,38 @@ export const LILYPAD_NFT_ABI = [
     outputs: [
       { name: "platform", type: "string" },
       { name: "version", type: "string" },
+      { name: "website", type: "string" },
       { name: "factoryAddress", type: "address" },
-      { name: "deployedChainId", type: "uint256" }
+      { name: "deployedChainId", type: "uint256" },
+      { name: "deployedAt", type: "uint256" }
+    ],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Get fee info
+  {
+    inputs: [],
+    name: "getFeeInfo",
+    outputs: [
+      { name: "treasury", type: "address" },
+      { name: "buyback", type: "address" },
+      { name: "feeBps", type: "uint256" },
+      { name: "buybackSplitBps", type: "uint256" },
+      { name: "totalCollected", type: "uint256" },
+      { name: "totalToBuyback", type: "uint256" }
+    ],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Calculate fees for minting
+  {
+    inputs: [{ name: "quantity", type: "uint256" }],
+    name: "calculateFees",
+    outputs: [
+      { name: "totalCost", type: "uint256" },
+      { name: "platformFee", type: "uint256" },
+      { name: "buybackAmount", type: "uint256" },
+      { name: "creatorAmount", type: "uint256" }
     ],
     stateMutability: "view",
     type: "function"
@@ -180,6 +302,47 @@ export const LILYPAD_NFT_ABI = [
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function"
+  },
+  // Platform treasury
+  {
+    inputs: [],
+    name: "platformTreasury",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Buyback pool
+  {
+    inputs: [],
+    name: "buybackPool",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Platform Fee Paid Event
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "minter", type: "address" },
+      { indexed: false, name: "totalPaid", type: "uint256" },
+      { indexed: false, name: "platformFee", type: "uint256" },
+      { indexed: false, name: "toBuyback", type: "uint256" }
+    ],
+    name: "PlatformFeePaid",
+    type: "event"
+  },
+  // Mint With Fee Event
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "minter", type: "address" },
+      { indexed: false, name: "quantity", type: "uint256" },
+      { indexed: false, name: "totalCost", type: "uint256" },
+      { indexed: false, name: "platformFee", type: "uint256" },
+      { indexed: false, name: "firstTokenId", type: "uint256" }
+    ],
+    name: "MintWithFee",
+    type: "event"
   }
 ] as const;
 
@@ -196,8 +359,20 @@ export interface FactoryDeployParams {
 export interface LilyPadPlatformInfo {
   platform: string;
   version: string;
+  website: string;
   factory: string;
   chainId: number;
+  deployedAt: number;
+}
+
+// Fee info interface
+export interface LilyPadFeeInfo {
+  treasury: string;
+  buyback: string;
+  feeBps: number;
+  buybackSplitBps: number;
+  totalCollected: bigint;
+  totalToBuyback: bigint;
 }
 
 // Helper to encode createCollection function call
@@ -220,6 +395,19 @@ export function encodeCreateCollection(params: FactoryDeployParams): string {
 // Check if factory is configured (not zero address)
 export function isFactoryConfigured(): boolean {
   return NFT_FACTORY_ADDRESS !== "0x0000000000000000000000000000000000000000";
+}
+
+// Calculate platform fees for a given mint cost
+export function calculatePlatformFees(mintCost: bigint): {
+  platformFee: bigint;
+  buybackAmount: bigint;
+  creatorAmount: bigint;
+} {
+  const platformFee = (mintCost * BigInt(PLATFORM_FEE_BPS)) / BigInt(10000);
+  const buybackAmount = (platformFee * BigInt(BUYBACK_SPLIT_BPS)) / BigInt(10000);
+  const creatorAmount = mintCost - platformFee;
+  
+  return { platformFee, buybackAmount, creatorAmount };
 }
 
 // Verify if an address is a LilyPad collection

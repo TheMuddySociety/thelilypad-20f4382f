@@ -57,10 +57,11 @@ export function useContractAllowlist(contractAddress: string | null) {
 
     try {
       // Encode the setAllowlist function call
+      // Args order: (phaseId, addresses) - matches LilyPadNFT.sol
       const data = encodeFunctionData({
         abi: NFT_CONTRACT_ABI,
         functionName: "setAllowlist",
-        args: [addresses as `0x${string}`[], BigInt(phaseId)],
+        args: [BigInt(phaseId), addresses as `0x${string}`[]],
       });
 
       // Send transaction
