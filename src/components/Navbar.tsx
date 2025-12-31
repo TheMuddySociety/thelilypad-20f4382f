@@ -28,6 +28,7 @@ const primaryLinks: { label: string; href: string; icon: LucideIcon }[] = [
 const exploreLinks = [
   { label: "Streamers", href: "/streamers", icon: Users },
   { label: "Following", href: "/following", icon: Heart },
+  { label: "Official Packs", href: "/official-packs", icon: Sticker },
   { label: "Buyback Program", href: "/buyback", icon: TrendingUp },
 ];
 
