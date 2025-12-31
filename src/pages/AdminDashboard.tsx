@@ -33,12 +33,14 @@ import {
   Crown,
   Sparkles,
   TrendingUp,
-  Sticker
+  Sticker,
+  Package
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { FeaturedCollectionsManager } from '@/components/admin/FeaturedCollectionsManager';
 import { BuybackProgramManager } from '@/components/admin/BuybackProgramManager';
 import { AdminStickerPackManager } from '@/components/admin/AdminStickerPackManager';
+import { AdminBundleManager } from '@/components/admin/AdminBundleManager';
 
 interface AdminUser {
   id: string;
@@ -493,7 +495,7 @@ const AdminDashboard: React.FC = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid">
             <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" />
               Users
@@ -513,6 +515,10 @@ const AdminDashboard: React.FC = () => {
             <TabsTrigger value="packs" className="gap-2">
               <Sticker className="w-4 h-4" />
               Packs
+            </TabsTrigger>
+            <TabsTrigger value="bundles" className="gap-2">
+              <Package className="w-4 h-4" />
+              Bundles
             </TabsTrigger>
             <TabsTrigger value="streams" className="gap-2">
               <Video className="w-4 h-4" />
@@ -776,6 +782,11 @@ const AdminDashboard: React.FC = () => {
           {/* Official Packs Tab */}
           <TabsContent value="packs">
             <AdminStickerPackManager />
+          </TabsContent>
+
+          {/* Bundles Tab */}
+          <TabsContent value="bundles">
+            <AdminBundleManager />
           </TabsContent>
 
           {/* Moderation Tab */}
