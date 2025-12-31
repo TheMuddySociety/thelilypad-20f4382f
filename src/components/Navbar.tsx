@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
-import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp, Settings, Ticket, Package } from "lucide-react";
+import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp, Settings, Ticket, Package, LogOut } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { RpcSettings } from "@/components/wallet/RpcSettings";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useWallet } from "@/providers/WalletProvider";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import {
   Sheet,
   SheetClose,
@@ -52,8 +55,10 @@ const adminLinks = [
 export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const { network } = useWallet();
   const { isAdmin } = useIsAdmin();
+  const navigate = useNavigate();
   const isTestnet = network === "testnet";
 
   useEffect(() => {
@@ -63,6 +68,23 @@ export const Navbar: React.FC = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+  };
 
   return (
     <nav
@@ -195,6 +217,17 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center gap-2 sm:gap-3">
             <NotificationBell />
             <ConnectWallet />
+            {user && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSignOut}
+                className="text-muted-foreground hover:text-foreground"
+                title="Sign out"
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
