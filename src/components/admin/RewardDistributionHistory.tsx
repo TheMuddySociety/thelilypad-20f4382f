@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   History, 
   Calendar, 
@@ -22,11 +24,15 @@ import {
   Trophy,
   Eye,
   Download,
-  Loader2
+  Loader2,
+  Filter,
+  X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from "date-fns";
 import { toast } from "@/hooks/use-toast";
+
+type ClaimStatusFilter = 'all' | 'fully_claimed' | 'partially_claimed' | 'unclaimed';
 
 interface RewardPeriodSummary {
   period_start: string;
@@ -55,6 +61,12 @@ export function RewardDistributionHistory() {
   const [selectedPeriod, setSelectedPeriod] = useState<RewardPeriodSummary | null>(null);
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
+  
+  // Filter states
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [claimStatus, setClaimStatus] = useState<ClaimStatusFilter>('all');
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data: history, isLoading } = useQuery({
     queryKey: ['reward-distribution-history'],
@@ -172,15 +184,56 @@ export function RewardDistributionHistory() {
     return `${recipient.user_id.slice(0, 8)}...`;
   };
 
-  // Calculate totals
-  const totals = history?.reduce(
+  // Filter history based on selected filters
+  const filteredHistory = useMemo(() => {
+    if (!history) return [];
+    
+    return history.filter(period => {
+      // Date range filter
+      if (dateFrom) {
+        const fromDate = startOfDay(parseISO(dateFrom));
+        const periodEnd = new Date(period.period_end);
+        if (isBefore(periodEnd, fromDate)) return false;
+      }
+      
+      if (dateTo) {
+        const toDate = endOfDay(parseISO(dateTo));
+        const periodStart = new Date(period.period_start);
+        if (isAfter(periodStart, toDate)) return false;
+      }
+      
+      // Claim status filter
+      if (claimStatus !== 'all') {
+        const isFullyClaimed = period.claimed_count === period.recipient_count;
+        const isPartiallyClaimed = period.claimed_count > 0 && period.claimed_count < period.recipient_count;
+        const isUnclaimed = period.claimed_count === 0;
+        
+        if (claimStatus === 'fully_claimed' && !isFullyClaimed) return false;
+        if (claimStatus === 'partially_claimed' && !isPartiallyClaimed) return false;
+        if (claimStatus === 'unclaimed' && !isUnclaimed) return false;
+      }
+      
+      return true;
+    });
+  }, [history, dateFrom, dateTo, claimStatus]);
+
+  // Calculate totals from filtered history
+  const totals = filteredHistory.reduce(
     (acc, period) => ({
       totalDistributed: acc.totalDistributed + period.total_distributed,
       totalClaimed: acc.totalClaimed + period.total_claimed,
       totalRecipients: acc.totalRecipients + period.recipient_count,
     }),
     { totalDistributed: 0, totalClaimed: 0, totalRecipients: 0 }
-  ) || { totalDistributed: 0, totalClaimed: 0, totalRecipients: 0 };
+  );
+
+  const hasActiveFilters = dateFrom || dateTo || claimStatus !== 'all';
+
+  const clearFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+    setClaimStatus('all');
+  };
 
   // Export to CSV
   const handleExportCSV = async () => {
@@ -287,67 +340,140 @@ export function RewardDistributionHistory() {
                 View all past reward allocations and claim status. Click a period to see recipients.
               </CardDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCSV}
-              disabled={isExporting || !history || history.length === 0}
-              className="gap-2"
-            >
-              {isExporting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Exporting...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4" />
-                  Export CSV
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCSV}
+                disabled={isExporting || !history || history.length === 0}
+                className="gap-2"
+              >
+                {isExporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </>
+                )}
+              </Button>
+              <Button
+                variant={showFilters ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="gap-2"
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+                {hasActiveFilters && (
+                  <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
+                    {[dateFrom, dateTo, claimStatus !== 'all'].filter(Boolean).length}
+                  </Badge>
+                )}
+              </Button>
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Summary Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 rounded-lg bg-muted/50 border">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                <Coins className="w-4 h-4" />
-                Total Distributed
-              </div>
-              <p className="text-2xl font-bold text-primary">
-                {totals.totalDistributed.toFixed(2)} MON
-              </p>
+      <CardContent className="space-y-6">
+        {/* Filters Panel */}
+        {showFilters && (
+          <div className="p-4 rounded-lg border bg-muted/30 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium flex items-center gap-2">
+                <Filter className="w-4 h-4" />
+                Filter Options
+              </h4>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-muted-foreground">
+                  <X className="w-3 h-3" />
+                  Clear All
+                </Button>
+              )}
             </div>
-            <div className="p-4 rounded-lg bg-muted/50 border">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
-                Total Claimed
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="date-from">From Date</Label>
+                <Input
+                  id="date-from"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
               </div>
-              <p className="text-2xl font-bold text-green-500">
-                {totals.totalClaimed.toFixed(2)} MON
-              </p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted/50 border">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                <Users className="w-4 h-4" />
-                Total Recipients
+              <div className="space-y-2">
+                <Label htmlFor="date-to">To Date</Label>
+                <Input
+                  id="date-to"
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
               </div>
-              <p className="text-2xl font-bold">
-                {totals.totalRecipients}
-              </p>
+              <div className="space-y-2">
+                <Label>Claim Status</Label>
+                <Select value={claimStatus} onValueChange={(v) => setClaimStatus(v as ClaimStatusFilter)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="fully_claimed">Fully Claimed</SelectItem>
+                    <SelectItem value="partially_claimed">Partially Claimed</SelectItem>
+                    <SelectItem value="unclaimed">Unclaimed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            {hasActiveFilters && (
+              <p className="text-xs text-muted-foreground">
+                Showing {filteredHistory.length} of {history?.length || 0} periods
+              </p>
+            )}
           </div>
+        )}
 
-          {/* History Table */}
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
+        {/* Summary Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-lg bg-muted/50 border">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <Coins className="w-4 h-4" />
+              Total Distributed {hasActiveFilters && '(Filtered)'}
             </div>
-          ) : history && history.length > 0 ? (
+            <p className="text-2xl font-bold text-primary">
+              {totals.totalDistributed.toFixed(2)} MON
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-muted/50 border">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <CheckCircle2 className="w-4 h-4 text-green-500" />
+              Total Claimed {hasActiveFilters && '(Filtered)'}
+            </div>
+            <p className="text-2xl font-bold text-green-500">
+              {totals.totalClaimed.toFixed(2)} MON
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-muted/50 border">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <Users className="w-4 h-4" />
+              Total Recipients {hasActiveFilters && '(Filtered)'}
+            </div>
+            <p className="text-2xl font-bold">
+              {totals.totalRecipients}
+            </p>
+          </div>
+        </div>
+
+        {/* History Table */}
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        ) : filteredHistory.length > 0 ? (
             <ScrollArea className="h-[400px]">
               <Table>
                 <TableHeader>
@@ -362,7 +488,7 @@ export function RewardDistributionHistory() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {history.map((period, index) => {
+                  {filteredHistory.map((period, index) => {
                     const periodKey = `${period.period_start}-${period.period_end}`;
                     const claimProgress = getClaimProgress(period.claimed_count, period.recipient_count);
                     const isFullyClaimed = period.claimed_count === period.recipient_count;
