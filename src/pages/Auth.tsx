@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +12,7 @@ import { Loader2, Mail, Lock, CheckCircle, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { useSEO } from "@/hooks/useSEO";
+import authHero from "@/assets/auth-hero.png";
 
 const emailSchema = z.string().email("Invalid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
@@ -41,13 +41,13 @@ export default function Auth() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        navigate("/streams");
+        navigate("/");
       }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        navigate("/streams");
+        navigate("/");
       }
     });
 
@@ -232,13 +232,21 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      {/* Left side - Hero Image */}
+      <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-emerald-50 to-emerald-100">
+        <img 
+          src={authHero} 
+          alt="The Lily Pad" 
+          className="w-full h-full object-cover"
+        />
+      </div>
       
-      <main className="container mx-auto px-4 pt-24 pb-12 flex items-center justify-center min-h-[calc(100vh-6rem)]">
-        <Card className="w-full max-w-md glass-card border-border/50">
+      {/* Right side - Auth Form */}
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-background">
+        <Card className="w-full max-w-md border-border/50 shadow-xl">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold">Welcome to Lily Pad</CardTitle>
+            <CardTitle className="text-2xl font-bold">Welcome to The Lily Pad</CardTitle>
             <CardDescription>Sign in to manage your streams and access creator tools</CardDescription>
           </CardHeader>
           <CardContent>
@@ -501,7 +509,7 @@ export default function Auth() {
             )}
           </CardContent>
         </Card>
-      </main>
+      </div>
     </div>
   );
 }
