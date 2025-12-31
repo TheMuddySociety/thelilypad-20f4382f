@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Leaf, Sparkles, Sticker, Smile, Image, ShoppingCart, Eye, Crown } from "lucide-react";
+import { Leaf, Sparkles, Sticker, Smile, Image, ShoppingCart, Eye, Crown, Package, Percent, Gift } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface OfficialPack {
@@ -20,6 +20,24 @@ interface OfficialPack {
   price_mon: number;
   total_sales: number;
   created_at: string;
+}
+
+interface Bundle {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  discount_percent: number;
+  original_price: number;
+  bundle_price: number;
+  created_at: string;
+}
+
+interface BundleItem {
+  id: string;
+  bundle_id: string;
+  item_id: string;
+  shop_items: OfficialPack;
 }
 
 const OfficialPacks: React.FC = () => {
@@ -39,6 +57,42 @@ const OfficialPacks: React.FC = () => {
       if (error) throw error;
       return data as OfficialPack[];
     }
+  });
+
+  const { data: bundles = [], isLoading: bundlesLoading } = useQuery({
+    queryKey: ['official-bundles-shop'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shop_bundles")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data as Bundle[];
+    }
+  });
+
+  const { data: bundleItemsMap = {} } = useQuery({
+    queryKey: ['bundle-items-map', bundles.map(b => b.id)],
+    queryFn: async () => {
+      if (bundles.length === 0) return {};
+      
+      const { data, error } = await supabase
+        .from("shop_bundle_items")
+        .select("*, shop_items(*)")
+        .in("bundle_id", bundles.map(b => b.id));
+
+      if (error) throw error;
+      
+      const map: Record<string, BundleItem[]> = {};
+      (data as BundleItem[]).forEach(item => {
+        if (!map[item.bundle_id]) map[item.bundle_id] = [];
+        map[item.bundle_id].push(item);
+      });
+      return map;
+    },
+    enabled: bundles.length > 0
   });
 
   const filteredPacks = packs.filter(pack => {
@@ -136,6 +190,102 @@ const OfficialPacks: React.FC = () => {
     </Card>
   );
 
+  const BundleCard = ({ bundle }: { bundle: Bundle }) => {
+    const items = bundleItemsMap[bundle.id] || [];
+    const savings = bundle.original_price - bundle.bundle_price;
+    
+    return (
+      <Card className="group overflow-hidden hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 border-2 border-primary/20 hover:border-primary/50 bg-gradient-to-br from-primary/5 to-secondary/5">
+        <div className="relative p-6">
+          {/* Bundle Badge */}
+          <div className="absolute top-4 right-4">
+            <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 gap-1 text-sm">
+              <Percent className="w-3 h-3" />
+              {bundle.discount_percent}% OFF
+            </Badge>
+          </div>
+          
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 rounded-xl bg-primary/20">
+              <Package className="w-8 h-8 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-bold text-xl">{bundle.name}</h3>
+              <p className="text-sm text-muted-foreground">Bundle Deal</p>
+            </div>
+          </div>
+          
+          {bundle.description && (
+            <p className="text-muted-foreground mb-4">
+              {bundle.description}
+            </p>
+          )}
+          
+          {/* Included Packs Preview */}
+          {items.length > 0 && (
+            <div className="mb-4">
+              <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                <Gift className="w-4 h-4" />
+                Includes {items.length} packs:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {items.slice(0, 4).map((item) => (
+                  <div 
+                    key={item.id}
+                    className="flex items-center gap-2 bg-muted/50 rounded-lg p-2"
+                  >
+                    {item.shop_items.image_url ? (
+                      <img 
+                        src={item.shop_items.image_url}
+                        alt={item.shop_items.name}
+                        className="w-8 h-8 rounded object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">
+                        {getCategoryIcon(item.shop_items.category)}
+                      </div>
+                    )}
+                    <span className="text-sm font-medium line-clamp-1">
+                      {item.shop_items.name}
+                    </span>
+                  </div>
+                ))}
+                {items.length > 4 && (
+                  <div className="flex items-center justify-center px-3 py-2 bg-muted/50 rounded-lg">
+                    <span className="text-sm text-muted-foreground">
+                      +{items.length - 4} more
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Pricing */}
+          <div className="bg-muted/50 rounded-lg p-4 mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-muted-foreground">Original Price:</span>
+              <span className="text-lg line-through text-muted-foreground">{bundle.original_price} MON</span>
+            </div>
+            <div className="flex justify-between items-center mb-2 text-green-600">
+              <span className="text-sm">You Save:</span>
+              <span className="font-medium">{savings.toFixed(2)} MON</span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-border">
+              <span className="font-semibold">Bundle Price:</span>
+              <span className="text-2xl font-bold text-primary">{bundle.bundle_price} MON</span>
+            </div>
+          </div>
+          
+          <Button className="w-full gap-2 h-12 text-lg">
+            <ShoppingCart className="w-5 h-5" />
+            Get Bundle
+          </Button>
+        </div>
+      </Card>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -162,6 +312,22 @@ const OfficialPacks: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {/* Bundle Deals Section */}
+        {!bundlesLoading && bundles.length > 0 && (
+          <section className="mb-12">
+            <div className="flex items-center gap-2 mb-6">
+              <Package className="w-6 h-6 text-primary" />
+              <h2 className="text-2xl font-bold">Bundle Deals</h2>
+              <Badge className="bg-green-500/20 text-green-600 border-green-500/30">Save More</Badge>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {bundles.map((bundle) => (
+                <BundleCard key={bundle.id} bundle={bundle} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Category Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
@@ -202,7 +368,7 @@ const OfficialPacks: React.FC = () => {
         )}
 
         {/* Empty State */}
-        {!isLoading && filteredPacks.length === 0 && (
+        {!isLoading && filteredPacks.length === 0 && bundles.length === 0 && (
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted mb-6">
               <Sticker className="w-10 h-10 text-muted-foreground" />

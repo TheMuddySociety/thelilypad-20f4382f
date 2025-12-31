@@ -1198,6 +1198,119 @@ export type Database = {
         }
         Relationships: []
       }
+      shop_bundle_items: {
+        Row: {
+          bundle_id: string
+          created_at: string
+          id: string
+          item_id: string
+        }
+        Insert: {
+          bundle_id: string
+          created_at?: string
+          id?: string
+          item_id: string
+        }
+        Update: {
+          bundle_id?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_bundle_items_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "shop_bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_bundle_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_bundle_purchases: {
+        Row: {
+          bundle_id: string
+          id: string
+          price_paid: number
+          purchased_at: string
+          tx_hash: string | null
+          user_id: string
+        }
+        Insert: {
+          bundle_id: string
+          id?: string
+          price_paid: number
+          purchased_at?: string
+          tx_hash?: string | null
+          user_id: string
+        }
+        Update: {
+          bundle_id?: string
+          id?: string
+          price_paid?: number
+          purchased_at?: string
+          tx_hash?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_bundle_purchases_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "shop_bundles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_bundles: {
+        Row: {
+          bundle_price: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discount_percent: number
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          original_price: number
+          updated_at: string
+        }
+        Insert: {
+          bundle_price?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_percent?: number
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          original_price?: number
+          updated_at?: string
+        }
+        Update: {
+          bundle_price?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_percent?: number
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          original_price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shop_item_contents: {
         Row: {
           created_at: string
