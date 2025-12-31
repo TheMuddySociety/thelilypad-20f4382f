@@ -12,6 +12,7 @@ import { VolumeLeaderboard } from "@/components/VolumeLeaderboard";
 import { RewardCalculator } from "@/components/RewardCalculator";
 import { RewardHistory } from "@/components/RewardHistory";
 import { VolumeSimulator } from "@/components/VolumeSimulator";
+import { VolumeChart } from "@/components/VolumeChart";
 import { RewardsClaimCard } from "@/components/RewardsClaimCard";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { useSEO } from "@/hooks/useSEO";
@@ -160,6 +161,7 @@ export default function BuybackProgram() {
           <div className="lg:col-span-2 space-y-6">
             <LiveBuybackStats />
             <RewardsClaimCard />
+            <VolumeChart />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <RewardCalculator />
               <VolumeSimulator />
