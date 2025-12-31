@@ -15,7 +15,8 @@ import {
   Check, 
   X, 
   Flame,
-  Users
+  Users,
+  Calendar
 } from "lucide-react";
 import {
   Dialog,
@@ -25,6 +26,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { format, differenceInDays, addDays } from "date-fns";
+
+const DURATION_OPTIONS = [
+  { value: 7, label: "7 days" },
+  { value: 14, label: "14 days" },
+  { value: 30, label: "30 days" },
+];
 
 interface Challenge {
   id: string;
@@ -33,6 +48,7 @@ interface Challenge {
   status: string;
   start_date: string;
   end_date: string | null;
+  duration_days: number;
   challenger_streak: number;
   challenged_streak: number;
   winner_id: string | null;
@@ -47,6 +63,7 @@ interface UserProfile {
 export const StreakChallenge = () => {
   const [challengeDialogOpen, setChallengeDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDuration, setSelectedDuration] = useState(7);
   const queryClient = useQueryClient();
 
   const { data: session } = useQuery({
@@ -117,11 +134,14 @@ export const StreakChallenge = () => {
 
   const createChallengeMutation = useMutation({
     mutationFn: async (challengedId: string) => {
+      const endDate = addDays(new Date(), selectedDuration);
       const { error } = await supabase
         .from("streak_challenges")
         .insert({
           challenger_id: session?.user?.id,
           challenged_id: challengedId,
+          duration_days: selectedDuration,
+          end_date: endDate.toISOString().split('T')[0],
         });
 
       if (error) throw error;
@@ -130,9 +150,10 @@ export const StreakChallenge = () => {
       queryClient.invalidateQueries({ queryKey: ["streak-challenges"] });
       setChallengeDialogOpen(false);
       setSearchQuery("");
+      setSelectedDuration(7);
       toast({
         title: "Challenge Sent!",
-        description: "Waiting for your friend to accept the challenge.",
+        description: `Waiting for your friend to accept the ${selectedDuration}-day challenge.`,
       });
     },
     onError: () => {
@@ -145,12 +166,16 @@ export const StreakChallenge = () => {
   });
 
   const respondChallengeMutation = useMutation({
-    mutationFn: async ({ challengeId, accept }: { challengeId: string; accept: boolean }) => {
+    mutationFn: async ({ challengeId, accept, durationDays }: { challengeId: string; accept: boolean; durationDays: number }) => {
+      const startDate = new Date();
+      const endDate = addDays(startDate, durationDays);
+      
       const { error } = await supabase
         .from("streak_challenges")
         .update({ 
           status: accept ? "active" : "declined",
-          start_date: accept ? new Date().toISOString().split('T')[0] : undefined,
+          start_date: accept ? startDate.toISOString().split('T')[0] : undefined,
+          end_date: accept ? endDate.toISOString().split('T')[0] : undefined,
         })
         .eq("id", challengeId);
 
@@ -230,6 +255,27 @@ export const StreakChallenge = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Challenge Duration</label>
+                <Select
+                  value={selectedDuration.toString()}
+                  onValueChange={(v) => setSelectedDuration(parseInt(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select duration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DURATION_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value.toString()}>
+                        <span className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          {option.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Input
                 placeholder="Search by username..."
                 value={searchQuery}
@@ -252,7 +298,7 @@ export const StreakChallenge = () => {
                         disabled={createChallengeMutation.isPending}
                       >
                         <Swords className="w-4 h-4 mr-1" />
-                        Challenge
+                        {selectedDuration}d Challenge
                       </Button>
                     </div>
                   ))}
@@ -290,8 +336,9 @@ export const StreakChallenge = () => {
                         <p className="font-medium">
                           {getDisplayName(challenge.challenger_id)} challenged you!
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          Compete for the longest trading streak
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {challenge.duration_days}-day streak competition
                         </p>
                       </div>
                     </div>
@@ -299,13 +346,21 @@ export const StreakChallenge = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => respondChallengeMutation.mutate({ challengeId: challenge.id, accept: false })}
+                        onClick={() => respondChallengeMutation.mutate({ 
+                          challengeId: challenge.id, 
+                          accept: false,
+                          durationDays: challenge.duration_days 
+                        })}
                       >
                         <X className="w-4 h-4" />
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() => respondChallengeMutation.mutate({ challengeId: challenge.id, accept: true })}
+                        onClick={() => respondChallengeMutation.mutate({ 
+                          challengeId: challenge.id, 
+                          accept: true,
+                          durationDays: challenge.duration_days 
+                        })}
                       >
                         <Check className="w-4 h-4 mr-1" />
                         Accept
@@ -326,6 +381,9 @@ export const StreakChallenge = () => {
                   const myStreak = isChallenger ? challenge.challenger_streak : challenge.challenged_streak;
                   const opponentStreak = isChallenger ? challenge.challenged_streak : challenge.challenger_streak;
                   const isWinning = myStreak > opponentStreak;
+                  const daysRemaining = challenge.end_date 
+                    ? Math.max(0, differenceInDays(new Date(challenge.end_date), new Date()))
+                    : 0;
 
                   return (
                     <div
@@ -337,12 +395,20 @@ export const StreakChallenge = () => {
                           <span className="font-medium">vs {getDisplayName(opponentId)}</span>
                           {getStatusBadge(challenge)}
                         </div>
-                        {isWinning && myStreak > 0 && (
-                          <Badge className="bg-green-500/20 text-green-500">
-                            <Trophy className="w-3 h-3 mr-1" />
-                            Leading
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {daysRemaining > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {daysRemaining}d left
+                            </Badge>
+                          )}
+                          {isWinning && myStreak > 0 && (
+                            <Badge className="bg-green-500/20 text-green-500">
+                              <Trophy className="w-3 h-3 mr-1" />
+                              Leading
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className={`text-center p-3 rounded-lg ${isWinning ? 'bg-green-500/10' : 'bg-muted/50'}`}>
