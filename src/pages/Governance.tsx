@@ -18,7 +18,7 @@ const Governance: React.FC = () => {
   const { data: votingPower } = useVotingPower(address);
   const { data: config } = useGovernanceConfig();
 
-  const canCreateProposal = votingPower && votingPower.votingPower >= GOVERNANCE_PARAMS.proposalThreshold;
+  const canCreateProposal = votingPower && (votingPower.nftCount || 0) >= GOVERNANCE_PARAMS.proposalThresholdNFTs;
 
   return (
     <div className="min-h-screen bg-background">

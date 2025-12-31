@@ -53,7 +53,7 @@ export interface TokenHolder {
 
 export interface GovernanceConfig {
   id: string;
-  token_address: string;
+  token_address?: string;
   governor_address: string;
   timelock_address: string;
   chain_id: number;
@@ -63,6 +63,9 @@ export interface GovernanceConfig {
   quorum_percentage: number;
   timelock_delay_seconds: number;
   is_active: boolean;
+  governance_collection_id?: string;
+  governance_type?: string;
+  nft_voting_tiers?: unknown;
 }
 
 // Fetch all proposals
@@ -116,12 +119,19 @@ export function useProposalDetail(proposalId: string) {
   });
 }
 
-// Fetch user's voting power
+// Fetch user's voting power (NFT-based)
 export function useVotingPower(address?: string) {
   return useQuery({
     queryKey: ["voting-power", address],
     queryFn: async () => {
-      if (!address) return { balance: 0, votingPower: 0, delegatedTo: null };
+      if (!address) return { 
+        balance: 0, 
+        votingPower: 0, 
+        delegatedTo: null,
+        nftCount: 0,
+        nftIds: [] as string[],
+        rarityBreakdown: { common: 0, rare: 0, legendary: 0 }
+      };
 
       const { data, error } = await supabase
         .from("governance_token_holders")
@@ -131,12 +141,17 @@ export function useVotingPower(address?: string) {
 
       if (error && error.code !== "PGRST116") throw error;
 
+      const rarityBreakdown = (data?.rarity_breakdown as { common: number; rare: number; legendary: number }) || { common: 0, rare: 0, legendary: 0 };
+
       return {
         balance: data?.balance || 0,
         votingPower: data?.voting_power || 0,
         delegatedTo: data?.delegated_to || null,
         isDelegate: data?.is_delegate || false,
         delegatorsCount: data?.delegators_count || 0,
+        nftCount: data?.nft_count || 0,
+        nftIds: (data?.nft_ids as string[]) || [],
+        rarityBreakdown,
       };
     },
     enabled: !!address,

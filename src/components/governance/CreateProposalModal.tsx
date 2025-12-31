@@ -36,8 +36,8 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
   const createProposal = useCreateProposal();
   const { toast } = useToast();
 
-  const canCreate = votingPower && votingPower.votingPower >= GOVERNANCE_PARAMS.proposalThreshold;
-  const threshold = GOVERNANCE_PARAMS.proposalThreshold.toLocaleString();
+  const canCreate = votingPower && votingPower.nftCount >= GOVERNANCE_PARAMS.proposalThresholdNFTs;
+  const threshold = GOVERNANCE_PARAMS.proposalThresholdNFTs;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,8 +100,8 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              You need at least {threshold} LILY tokens to create a proposal.
-              Your current voting power: {votingPower?.votingPower.toLocaleString() || 0} LILY
+              You need at least {threshold} governance NFTs to create a proposal.
+              Your current NFTs: {votingPower?.nftCount || 0}
             </AlertDescription>
           </Alert>
         )}
@@ -147,7 +147,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
               </div>
               <div>
                 <p className="font-medium text-foreground">Quorum Required</p>
-                <p>4% of total supply</p>
+                <p>{GOVERNANCE_PARAMS.quorumPercentage}% of total voting power</p>
               </div>
               <div>
                 <p className="font-medium text-foreground">Execution Delay</p>
