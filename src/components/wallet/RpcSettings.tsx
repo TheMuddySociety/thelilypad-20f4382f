@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Settings, Check, Loader2, Wifi, WifiOff } from "lucide-react";
+import { Settings, Check, Loader2, Wifi, WifiOff, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,6 +12,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import {
   MONAD_MAINNET_RPCS,
@@ -21,6 +22,9 @@ import {
   NetworkType,
 } from "@/config/alchemy";
 import { useWallet } from "@/providers/WalletProvider";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 const RPC_LABELS: Record<string, string> = {
   "https://rpc1.monad.xyz": "Alchemy (Primary)",
@@ -54,10 +58,20 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
 }) => {
   const { network } = useWallet();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [selectedRpc, setSelectedRpc] = useState<string>("auto");
   const [healthStatuses, setHealthStatuses] = useState<Record<string, RpcHealthStatus>>({});
   const [isChecking, setIsChecking] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data } = await supabase.auth.getSession();
+      return data.session;
+    },
+  });
 
   const rpcs = network === "mainnet" ? MONAD_MAINNET_RPCS : MONAD_TESTNET_RPCS;
 
@@ -102,6 +116,27 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
     
     // Trigger page reload to apply new RPC settings
     window.location.reload();
+  };
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Signed Out",
+        description: "You have been successfully signed out.",
+      });
+      setOpen(false);
+      navigate("/");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   const getLatencyBadge = (status?: RpcHealthStatus) => {
@@ -229,6 +264,34 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
               Save
             </Button>
           </div>
+
+          {/* Sign Out Section */}
+          {session && (
+            <>
+              <Separator className="my-4" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Account</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                    {session.user.email}
+                  </p>
+                </div>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={handleSignOut}
+                  disabled={isSigningOut}
+                >
+                  {isSigningOut ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <LogOut className="h-4 w-4 mr-2" />
+                  )}
+                  Sign Out
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
