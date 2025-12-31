@@ -15,6 +15,7 @@ import { VolumeSimulator } from "@/components/VolumeSimulator";
 import { VolumeChart } from "@/components/VolumeChart";
 import { PersonalVolumeStats } from "@/components/PersonalVolumeStats";
 import { VolumeAchievements } from "@/components/VolumeAchievements";
+import { TradingStreak } from "@/components/TradingStreak";
 import { RewardsClaimCard } from "@/components/RewardsClaimCard";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { useSEO } from "@/hooks/useSEO";
@@ -164,8 +165,9 @@ export default function BuybackProgram() {
             <LiveBuybackStats />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <PersonalVolumeStats />
-              <VolumeAchievements />
+              <TradingStreak />
             </div>
+            <VolumeAchievements />
             <RewardsClaimCard />
             <VolumeChart />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
