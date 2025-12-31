@@ -1,0 +1,193 @@
+import React, { useState, useEffect } from "react";
+import { Navbar } from "@/components/Navbar";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Ticket, Clock, Users, Trophy, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useBundleCountdown, formatCountdown } from "@/hooks/useBundleCountdown";
+import { RaffleEntryModal } from "@/components/raffles/RaffleEntryModal";
+
+interface Raffle {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  prize_type: string;
+  prize_details: any;
+  entry_price: number;
+  max_tickets_per_user: number | null;
+  total_tickets: number | null;
+  required_collection_id: string | null;
+  start_date: string;
+  end_date: string;
+  winner_count: number;
+  is_drawn: boolean;
+  winners: any;
+}
+
+const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void }> = ({ raffle, onEnter }) => {
+  const countdown = useBundleCountdown(raffle.start_date, raffle.end_date, true);
+  const isActive = !countdown.isNotStarted && !countdown.isExpired && !raffle.is_drawn;
+  
+  const getPrizeTypeLabel = (type: string) => {
+    switch (type) {
+      case 'nft': return 'NFT Prize';
+      case 'token': return 'MON Tokens';
+      case 'shop_item': return 'Shop Items';
+      case 'mixed': return 'Mixed Prizes';
+      default: return type;
+    }
+  };
+
+  return (
+    <Card className="overflow-hidden hover:border-primary/50 transition-all duration-300 group">
+      <div className="aspect-video relative overflow-hidden bg-muted">
+        {raffle.image_url ? (
+          <img 
+            src={raffle.image_url} 
+            alt={raffle.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Trophy className="w-16 h-16 text-muted-foreground/30" />
+          </div>
+        )}
+        <div className="absolute top-3 left-3 flex gap-2">
+          <Badge variant={isActive ? "default" : "secondary"}>
+            {countdown.isNotStarted ? "Coming Soon" : countdown.isExpired || raffle.is_drawn ? "Ended" : "Active"}
+          </Badge>
+          <Badge variant="outline" className="bg-background/80">
+            {getPrizeTypeLabel(raffle.prize_type)}
+          </Badge>
+        </div>
+      </div>
+      
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">{raffle.name}</CardTitle>
+        {raffle.description && (
+          <p className="text-sm text-muted-foreground line-clamp-2">{raffle.description}</p>
+        )}
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <Ticket className="w-4 h-4 text-primary" />
+            <span>{raffle.entry_price > 0 ? `${raffle.entry_price} MON` : 'Free Entry'}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-yellow-500" />
+            <span>{raffle.winner_count} Winner{raffle.winner_count > 1 ? 's' : ''}</span>
+          </div>
+          <div className="flex items-center gap-2 col-span-2">
+            <Clock className="w-4 h-4 text-muted-foreground" />
+            <span className={countdown.isExpired ? "text-destructive" : "text-muted-foreground"}>
+              {formatCountdown(countdown)}
+            </span>
+          </div>
+          {raffle.total_tickets !== null && raffle.total_tickets > 0 && (
+            <div className="flex items-center gap-2 col-span-2">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">{raffle.total_tickets} entries</span>
+            </div>
+          )}
+        </div>
+        
+        <Button 
+          className="w-full" 
+          disabled={!isActive}
+          onClick={() => onEnter(raffle)}
+        >
+          {countdown.isNotStarted ? "Starting Soon" : 
+           countdown.isExpired || raffle.is_drawn ? "Raffle Ended" : 
+           "Enter Raffle"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
+
+const Raffles: React.FC = () => {
+  const [raffles, setRaffles] = useState<Raffle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedRaffle, setSelectedRaffle] = useState<Raffle | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchRaffles();
+  }, []);
+
+  const fetchRaffles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('lily_raffles')
+        .select('*')
+        .eq('is_active', true)
+        .order('end_date', { ascending: true });
+
+      if (error) throw error;
+      setRaffles((data || []) as unknown as Raffle[]);
+    } catch (error: any) {
+      toast({
+        title: "Error loading raffles",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <main className="container mx-auto px-4 pt-24 pb-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
+            <Ticket className="w-8 h-8 text-primary" />
+            Lily Raffles
+          </h1>
+          <p className="text-muted-foreground">
+            Enter raffles for a chance to win NFTs, tokens, and exclusive rewards
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : raffles.length === 0 ? (
+          <Card className="p-12 text-center">
+            <Ticket className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Active Raffles</h3>
+            <p className="text-muted-foreground">Check back soon for new raffle opportunities!</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {raffles.map((raffle) => (
+              <RaffleCard 
+                key={raffle.id} 
+                raffle={raffle} 
+                onEnter={setSelectedRaffle}
+              />
+            ))}
+          </div>
+        )}
+      </main>
+
+      {selectedRaffle && (
+        <RaffleEntryModal
+          raffle={selectedRaffle}
+          open={!!selectedRaffle}
+          onOpenChange={(open) => !open && setSelectedRaffle(null)}
+          onSuccess={fetchRaffles}
+        />
+      )}
+    </div>
+  );
+};
+
+export default Raffles;
