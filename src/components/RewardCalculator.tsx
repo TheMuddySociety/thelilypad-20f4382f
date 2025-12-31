@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, TrendingUp, Trophy, Info, Coins } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calculator, TrendingUp, Trophy, Info, Coins, BarChart3 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const REWARD_TIERS = [
@@ -35,6 +36,7 @@ export function RewardCalculator() {
   const [volume, setVolume] = useState<number>(100);
   const [expectedRank, setExpectedRank] = useState<number>(5);
   const [rewardPool, setRewardPool] = useState<number>(1000);
+  const [showComparison, setShowComparison] = useState<boolean>(false);
 
   const calculations = useMemo(() => {
     const tier = REWARD_TIERS.find(t => t.rank === expectedRank) || REWARD_TIERS[4];
@@ -45,9 +47,19 @@ export function RewardCalculator() {
       tier,
       estimatedReward,
       rewardPerVolume,
-      weightedVolume: volume * VOLUME_WEIGHTS.nft_sell, // Assuming NFT sales
+      weightedVolume: volume * VOLUME_WEIGHTS.nft_sell,
     };
   }, [volume, expectedRank, rewardPool]);
+
+  const allRankRewards = useMemo(() => {
+    return REWARD_TIERS.map(tier => ({
+      ...tier,
+      reward: (rewardPool * tier.percentage) / 100,
+      rewardPerVolume: volume > 0 ? ((rewardPool * tier.percentage) / 100) / volume : 0,
+    }));
+  }, [rewardPool, volume]);
+
+  const maxReward = useMemo(() => Math.max(...allRankRewards.map(r => r.reward)), [allRankRewards]);
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value) || 0;
@@ -72,16 +84,27 @@ export function RewardCalculator() {
               <CardDescription>Estimate your potential earnings</CardDescription>
             </div>
           </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="w-4 h-4 text-muted-foreground" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p>This calculator provides estimates based on the current reward structure. Actual rewards depend on competition and pool size.</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showComparison ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowComparison(!showComparison)}
+              className="gap-1"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Compare
+            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>This calculator provides estimates based on the current reward structure. Actual rewards depend on competition and pool size.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -119,70 +142,127 @@ export function RewardCalculator() {
           </div>
         </div>
 
-        {/* Expected Rank Slider */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label className="flex items-center gap-1">
-              <Trophy className="w-4 h-4 text-amber-500" />
-              Expected Rank
-            </Label>
-            <Badge variant="secondary" className="font-mono">
-              #{expectedRank}
-            </Badge>
+        {/* Comparison View */}
+        {showComparison ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              Earnings by Rank
+            </div>
+            <div className="space-y-2">
+              {allRankRewards.map((tier) => (
+                <div
+                  key={tier.rank}
+                  className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${
+                    tier.rank === expectedRank ? 'bg-primary/10 border border-primary/30' : 'bg-muted/30'
+                  }`}
+                  onClick={() => setExpectedRank(tier.rank)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="w-8 flex-shrink-0">
+                    <Badge 
+                      variant={tier.rank <= 3 ? "default" : "secondary"}
+                      className={`w-full justify-center ${
+                        tier.rank === 1 ? 'bg-amber-500 hover:bg-amber-500' :
+                        tier.rank === 2 ? 'bg-slate-400 hover:bg-slate-400' :
+                        tier.rank === 3 ? 'bg-amber-700 hover:bg-amber-700' : ''
+                      }`}
+                    >
+                      #{tier.rank}
+                    </Badge>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="h-6 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full transition-all duration-300"
+                        style={{ width: `${(tier.reward / maxReward) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="w-24 text-right flex-shrink-0">
+                    <div className="font-semibold text-sm">
+                      {tier.reward.toLocaleString(undefined, { maximumFractionDigits: 2 })} MON
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {tier.percentage}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border/50">
+              Click any rank to select it for detailed view
+            </div>
           </div>
-          <Slider
-            value={[expectedRank]}
-            onValueChange={(v) => setExpectedRank(v[0])}
-            min={1}
-            max={10}
-            step={1}
-            className="py-2"
-          />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>1st (25%)</span>
-            <span>10th (2%)</span>
-          </div>
-        </div>
-
-        {/* Results */}
-        <div className="rounded-lg bg-muted/50 p-4 space-y-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            Estimated Earnings
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-background rounded-lg p-3 border border-border/50">
-              <div className="text-xs text-muted-foreground mb-1">Reward Amount</div>
-              <div className="text-2xl font-bold text-primary">
-                {calculations.estimatedReward.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+        ) : (
+          <>
+            {/* Expected Rank Slider */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1">
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  Expected Rank
+                </Label>
+                <Badge variant="secondary" className="font-mono">
+                  #{expectedRank}
+                </Badge>
               </div>
-              <div className="text-xs text-muted-foreground">MON</div>
-            </div>
-            <div className="bg-background rounded-lg p-3 border border-border/50">
-              <div className="text-xs text-muted-foreground mb-1">Pool Share</div>
-              <div className="text-2xl font-bold">
-                {calculations.tier.percentage}%
+              <Slider
+                value={[expectedRank]}
+                onValueChange={(v) => setExpectedRank(v[0])}
+                min={1}
+                max={10}
+                step={1}
+                className="py-2"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>1st (25%)</span>
+                <span>10th (2%)</span>
               </div>
-              <div className="text-xs text-muted-foreground">{calculations.tier.label}</div>
             </div>
-          </div>
 
-          <div className="text-xs text-muted-foreground border-t border-border/50 pt-3">
-            <div className="flex items-center justify-between mb-1">
-              <span>Return per MON traded:</span>
-              <span className="font-medium text-foreground">
-                {calculations.rewardPerVolume.toFixed(4)} MON
-              </span>
+            {/* Results */}
+            <div className="rounded-lg bg-muted/50 p-4 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <TrendingUp className="w-4 h-4 text-primary" />
+                Estimated Earnings
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-background rounded-lg p-3 border border-border/50">
+                  <div className="text-xs text-muted-foreground mb-1">Reward Amount</div>
+                  <div className="text-2xl font-bold text-primary">
+                    {calculations.estimatedReward.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-xs text-muted-foreground">MON</div>
+                </div>
+                <div className="bg-background rounded-lg p-3 border border-border/50">
+                  <div className="text-xs text-muted-foreground mb-1">Pool Share</div>
+                  <div className="text-2xl font-bold">
+                    {calculations.tier.percentage}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">{calculations.tier.label}</div>
+                </div>
+              </div>
+
+              <div className="text-xs text-muted-foreground border-t border-border/50 pt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span>Return per MON traded:</span>
+                  <span className="font-medium text-foreground">
+                    {calculations.rewardPerVolume.toFixed(4)} MON
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Weighted volume:</span>
+                  <span className="font-medium text-foreground">
+                    {calculations.weightedVolume.toLocaleString()} MON
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span>Weighted volume:</span>
-              <span className="font-medium text-foreground">
-                {calculations.weightedVolume.toLocaleString()} MON
-              </span>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
 
         {/* Volume Weight Info */}
         <div className="text-xs text-muted-foreground">
