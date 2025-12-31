@@ -703,15 +703,19 @@ export default function Marketplace() {
                     const isHot = !!hotMintCount;
                     // Check if collection is sold out
                     const isSoldOut = collection.total_supply > 0 && collection.minted >= collection.total_supply;
+                    // Check if collection is in buyback program
+                    const inBuybackProgram = isInProgram(collection.id);
                     // Determine which special badge to show (priority: Sold Out > Hot > New)
                     const showSoldOutBadge = isSoldOut;
                     const showHotBadge = isHot && !isSoldOut;
                     const showNewBadge = isNew && !isHot && !isSoldOut;
                     const hasSpecialBadge = showSoldOutBadge || showHotBadge || showNewBadge;
+                    // Determine ring color (priority: Sold Out > Hot > New > Buyback)
+                    const ringClass = showSoldOutBadge ? 'ring-2 ring-gray-500/50' : showHotBadge ? 'ring-2 ring-pink-500/50' : isNew ? 'ring-2 ring-orange-500/50' : inBuybackProgram ? 'ring-2 ring-primary/50' : '';
                     return (
                       <Card 
                         key={collection.id} 
-                        className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group animate-fade-in ${showSoldOutBadge ? 'ring-2 ring-gray-500/50' : showHotBadge ? 'ring-2 ring-pink-500/50' : isNew ? 'ring-2 ring-orange-500/50' : ''}`}
+                        className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group animate-fade-in ${ringClass}`}
                         style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'backwards' }}
                         onClick={() => navigate(`/launchpad/${collection.id}`)}
                       >
@@ -763,6 +767,12 @@ export default function Marketplace() {
                               />
                             </div>
                           )}
+                          {/* Buyback Program Badge - prominent position in bottom-right */}
+                          {inBuybackProgram && (
+                            <div className="absolute bottom-3 right-3">
+                              <BuybackProgramBadge className="shadow-lg" />
+                            </div>
+                          )}
                           <Badge 
                             variant="outline" 
                             className={`absolute top-3 right-3 ${statusColors[collection.status as keyof typeof statusColors] || statusColors.upcoming}`}
@@ -772,10 +782,7 @@ export default function Marketplace() {
                           </Badge>
                         </div>
                         <CardHeader className="pb-2">
-                          <div className="flex items-center gap-2">
-                            <CardTitle className="text-lg truncate flex-1">{collection.name}</CardTitle>
-                            {isInProgram(collection.id) && <BuybackProgramBadge />}
-                          </div>
+                          <CardTitle className="text-lg truncate">{collection.name}</CardTitle>
                           <CardDescription>by {collection.creator_address.slice(0, 6)}...{collection.creator_address.slice(-4)}</CardDescription>
                         </CardHeader>
                         <CardContent>
