@@ -58,15 +58,25 @@ export const useRpcFailover = (network: NetworkType): UseRpcFailoverReturn => {
   const failoverInProgress = useRef(false);
   const healthCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Check health of all RPCs
+  // Check health of all RPCs using eth_chainId (universally supported)
   const checkHealth = useCallback(async () => {
-    const results = await Promise.all(rpcs.map(url => checkRpcHealth(url, 5000)));
+    const results = await Promise.all(rpcs.map(url => checkRpcHealth(url, 5000, network)));
     setHealthStatuses(results);
     
     // Update failed RPCs based on health check
+    // Only mark as failed if it's a real connection failure, not just "method not found"
     const newFailedRpcs = new Set<string>();
     results.forEach(result => {
-      if (!result.healthy) {
+      // Only add to failed list for actual connection/timeout errors
+      const isHardFailure = !result.healthy && (
+        result.error === 'Timeout' ||
+        result.error?.includes('HTTP') ||
+        result.error?.includes('fetch') ||
+        result.error?.includes('network') ||
+        result.latency === null
+      );
+      
+      if (isHardFailure) {
         newFailedRpcs.add(result.url);
       }
     });
@@ -94,23 +104,33 @@ export const useRpcFailover = (network: NetworkType): UseRpcFailoverReturn => {
     
     // Check health of available RPCs in order
     for (const rpcUrl of availableRpcs) {
-      const health = await checkRpcHealth(rpcUrl, 3000);
+      const health = await checkRpcHealth(rpcUrl, 3000, network);
       if (health.healthy) {
         return rpcUrl;
       } else {
-        globalFailedRpcs[network].add(rpcUrl);
+        // Only add to failed list for hard failures
+        const isHardFailure = health.error === 'Timeout' ||
+          health.error?.includes('HTTP') ||
+          health.error?.includes('fetch') ||
+          health.latency === null;
+        
+        if (isHardFailure) {
+          globalFailedRpcs[network].add(rpcUrl);
+        }
       }
     }
     
-    // If all RPCs failed, try resetting and checking again
-    if (globalFailedRpcs[network].size === rpcs.length) {
-      console.log("All RPCs marked as failed, resetting...");
+    // If all RPCs in the failed list, reset and try again
+    if (globalFailedRpcs[network].size >= rpcs.length) {
+      console.log("All RPCs marked as failed, resetting and retrying...");
       globalFailedRpcs[network].clear();
       
-      // Try the first RPC again
-      const health = await checkRpcHealth(rpcs[0], 3000);
-      if (health.healthy) {
-        return rpcs[0];
+      // Try all RPCs again
+      for (const rpcUrl of rpcs) {
+        const health = await checkRpcHealth(rpcUrl, 3000, network);
+        if (health.healthy) {
+          return rpcUrl;
+        }
       }
     }
     
