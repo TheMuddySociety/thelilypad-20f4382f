@@ -495,64 +495,128 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   }, [walletState.chainType, walletState.walletType, disconnect, connect]);
 
   const switchNetwork = useCallback(async (network: NetworkType) => {
+    console.log("[switchNetwork] Starting network switch", {
+      targetNetwork: network,
+      currentNetwork: walletState.network,
+      chainType: walletState.chainType,
+      walletType: walletState.walletType,
+      isConnected: walletState.isConnected,
+    });
+
     setWalletState(prev => ({
       ...prev,
       network,
     }));
     localStorage.setItem("monadNetwork", network);
+    console.log("[switchNetwork] Updated state and localStorage to:", network);
     
     // If connected to EVM, prompt wallet to switch to the new network
     if (walletState.chainType === "evm") {
+      console.log("[switchNetwork] Chain type is EVM, proceeding with wallet switch");
       const sdk = getSDK();
       const targetChain = getMonadChain(network);
       
+      console.log("[switchNetwork] Target chain config:", {
+        id: targetChain.id,
+        hexId: `0x${targetChain.id.toString(16)}`,
+        name: targetChain.name,
+        rpcUrl: targetChain.rpcUrls?.default?.http?.[0],
+        explorer: targetChain.blockExplorers?.default?.url,
+      });
+      
       // Try SDK first if using Phantom
-      if (walletState.walletType === "phantom" && sdk.isConnected()) {
+      const sdkConnected = sdk.isConnected();
+      console.log("[switchNetwork] SDK check:", {
+        walletType: walletState.walletType,
+        sdkConnected,
+        willUseSDK: walletState.walletType === "phantom" && sdkConnected,
+      });
+
+      if (walletState.walletType === "phantom" && sdkConnected) {
         try {
+          console.log("[switchNetwork] Attempting SDK switchChain to chainId:", targetChain.id);
           await sdk.ethereum.switchChain(targetChain.id);
+          console.log("[switchNetwork] SDK switchChain SUCCESS");
           return;
-        } catch (error) {
-          console.warn("SDK switchChain failed, trying legacy:", error);
+        } catch (error: any) {
+          console.warn("[switchNetwork] SDK switchChain FAILED:", {
+            error,
+            code: error?.code,
+            message: error?.message,
+          });
         }
       }
       
       // Fallback to legacy provider
       const provider = getProviderForWallet(walletState.walletType);
+      console.log("[switchNetwork] Legacy provider check:", {
+        hasProvider: !!provider,
+        isConnected: walletState.isConnected,
+        willAttemptLegacy: walletState.isConnected && !!provider,
+      });
+
       if (walletState.isConnected && provider) {
+        const chainIdHex = `0x${targetChain.id.toString(16)}`;
         try {
+          console.log("[switchNetwork] Attempting wallet_switchEthereumChain with chainId:", chainIdHex);
           await provider.request({
             method: "wallet_switchEthereumChain",
-            params: [{ chainId: `0x${targetChain.id.toString(16)}` }],
+            params: [{ chainId: chainIdHex }],
           });
+          console.log("[switchNetwork] wallet_switchEthereumChain SUCCESS");
         } catch (switchError: any) {
+          console.error("[switchNetwork] wallet_switchEthereumChain FAILED:", {
+            error: switchError,
+            code: switchError?.code,
+            message: switchError?.message,
+          });
+
           if (switchError.code === 4902) {
+            console.log("[switchNetwork] Chain not found (4902), attempting wallet_addEthereumChain");
+            const addChainParams = {
+              chainId: chainIdHex,
+              chainName: targetChain.name,
+              nativeCurrency: targetChain.nativeCurrency,
+              rpcUrls: [targetChain.rpcUrls.default.http[0]],
+              blockExplorerUrls: [targetChain.blockExplorers.default.url],
+            };
+            console.log("[switchNetwork] wallet_addEthereumChain params:", addChainParams);
+
             try {
               await provider.request({
                 method: "wallet_addEthereumChain",
-                params: [
-                  {
-                    chainId: `0x${targetChain.id.toString(16)}`,
-                    chainName: targetChain.name,
-                    nativeCurrency: targetChain.nativeCurrency,
-                    rpcUrls: [targetChain.rpcUrls.default.http[0]],
-                    blockExplorerUrls: [targetChain.blockExplorers.default.url],
-                  },
-                ],
+                params: [addChainParams],
               });
-            } catch (addError) {
-              console.error("Error adding chain:", addError);
+              console.log("[switchNetwork] wallet_addEthereumChain SUCCESS");
+            } catch (addError: any) {
+              console.error("[switchNetwork] wallet_addEthereumChain FAILED:", {
+                error: addError,
+                code: addError?.code,
+                message: addError?.message,
+              });
+              throw addError;
             }
+          } else {
+            console.error("[switchNetwork] Non-4902 error, not attempting to add chain");
+            throw switchError;
           }
         }
+      } else {
+        console.log("[switchNetwork] Skipping wallet switch - not connected or no provider");
       }
+    } else {
+      console.log("[switchNetwork] Chain type is not EVM:", walletState.chainType);
     }
     
     // Refresh Solana balance if on Solana
     if (walletState.chainType === "solana" && walletState.address) {
+      console.log("[switchNetwork] Refreshing Solana balance");
       const balance = await fetchSolanaBalance(walletState.address);
       setWalletState(prev => ({ ...prev, balance }));
     }
-  }, [walletState.isConnected, walletState.walletType, walletState.chainType, walletState.address, fetchSolanaBalance, getSDK]);
+
+    console.log("[switchNetwork] Network switch complete");
+  }, [walletState.isConnected, walletState.walletType, walletState.chainType, walletState.address, walletState.network, fetchSolanaBalance, getSDK]);
 
   const switchToMonad = useCallback(async () => {
     if (walletState.chainType !== "evm") {
