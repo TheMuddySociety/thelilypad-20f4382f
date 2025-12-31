@@ -1,7 +1,9 @@
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Coins, Activity, ArrowUpRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, Coins, Activity, ArrowUpRight, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -129,10 +131,16 @@ const BuybackStats = () => {
         )}
 
         {/* Platform Fee Info */}
-        <div className="border-t pt-3 mt-3">
+        <div className="border-t pt-3 mt-3 space-y-3">
           <p className="text-xs text-muted-foreground text-center">
             2.5% platform fee • 50% goes to buyback pool
           </p>
+          <Button asChild variant="outline" size="sm" className="w-full">
+            <Link to="/buyback-program">
+              Learn More
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Link>
+          </Button>
         </div>
       </CardContent>
     </Card>
