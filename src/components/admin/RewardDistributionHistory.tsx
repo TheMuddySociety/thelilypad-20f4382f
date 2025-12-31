@@ -20,10 +20,13 @@ import {
   ChevronDown,
   ChevronRight,
   Trophy,
-  Eye
+  Eye,
+  Download,
+  Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { toast } from "@/hooks/use-toast";
 
 interface RewardPeriodSummary {
   period_start: string;
@@ -51,6 +54,7 @@ interface RecipientDetail {
 export function RewardDistributionHistory() {
   const [selectedPeriod, setSelectedPeriod] = useState<RewardPeriodSummary | null>(null);
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: history, isLoading } = useQuery({
     queryKey: ['reward-distribution-history'],
@@ -178,17 +182,131 @@ export function RewardDistributionHistory() {
     { totalDistributed: 0, totalClaimed: 0, totalRecipients: 0 }
   ) || { totalDistributed: 0, totalClaimed: 0, totalRecipients: 0 };
 
+  // Export to CSV
+  const handleExportCSV = async () => {
+    setIsExporting(true);
+    try {
+      // Fetch all reward data
+      const { data: allRewards, error } = await supabase
+        .from('volume_rewards')
+        .select('*')
+        .order('reward_period_end', { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch profiles for display names
+      const userIds = [...new Set(allRewards?.map(r => r.user_id) || [])];
+      const { data: profiles } = await supabase
+        .from('streamer_profiles')
+        .select('user_id, display_name')
+        .in('user_id', userIds);
+
+      const profileMap = new Map(
+        profiles?.map(p => [p.user_id, p.display_name]) || []
+      );
+
+      // Build CSV content
+      const headers = [
+        'Period Start',
+        'Period End',
+        'User ID',
+        'Display Name',
+        'Rank',
+        'Reward Amount (MON)',
+        'Weighted Volume',
+        'Status',
+        'Claimed At',
+        'Created At'
+      ];
+
+      const rows = allRewards?.map(reward => [
+        format(new Date(reward.reward_period_start), 'yyyy-MM-dd'),
+        format(new Date(reward.reward_period_end), 'yyyy-MM-dd'),
+        reward.user_id,
+        profileMap.get(reward.user_id) || 'Unknown',
+        reward.rank,
+        Number(reward.reward_amount).toFixed(4),
+        Number(reward.weighted_volume).toFixed(4),
+        reward.is_claimed ? 'Claimed' : 'Pending',
+        reward.claimed_at ? format(new Date(reward.claimed_at), 'yyyy-MM-dd HH:mm:ss') : '',
+        format(new Date(reward.created_at), 'yyyy-MM-dd HH:mm:ss')
+      ]) || [];
+
+      // Escape CSV values
+      const escapeCSV = (value: string | number) => {
+        const str = String(value);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(escapeCSV).join(','))
+      ].join('\n');
+
+      // Download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `reward-distribution-history-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Export Complete",
+        description: `Exported ${allRewards?.length || 0} reward records to CSV.`,
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: "Export Failed",
+        description: "Unable to export reward history. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="w-5 h-5 text-primary" />
-            Reward Distribution History
-          </CardTitle>
-          <CardDescription>
-            View all past reward allocations and claim status. Click a period to see recipients.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <History className="w-5 h-5 text-primary" />
+                Reward Distribution History
+              </CardTitle>
+              <CardDescription>
+                View all past reward allocations and claim status. Click a period to see recipients.
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              disabled={isExporting || !history || history.length === 0}
+              className="gap-2"
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </>
+              )}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Summary Stats */}
