@@ -31,10 +31,12 @@ import {
   Ban,
   UserCog,
   Crown,
-  Sparkles
+  Sparkles,
+  TrendingUp
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { FeaturedCollectionsManager } from '@/components/admin/FeaturedCollectionsManager';
+import { BuybackProgramManager } from '@/components/admin/BuybackProgramManager';
 
 interface AdminUser {
   id: string;
@@ -489,7 +491,7 @@ const AdminDashboard: React.FC = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
             <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" />
               Users
@@ -501,6 +503,10 @@ const AdminDashboard: React.FC = () => {
             <TabsTrigger value="featured" className="gap-2">
               <Sparkles className="w-4 h-4" />
               Featured
+            </TabsTrigger>
+            <TabsTrigger value="buyback" className="gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Buyback
             </TabsTrigger>
             <TabsTrigger value="streams" className="gap-2">
               <Video className="w-4 h-4" />
@@ -754,6 +760,11 @@ const AdminDashboard: React.FC = () => {
                 </ScrollArea>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Buyback Program Tab */}
+          <TabsContent value="buyback">
+            <BuybackProgramManager />
           </TabsContent>
 
           {/* Moderation Tab */}

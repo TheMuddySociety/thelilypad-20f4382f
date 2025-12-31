@@ -14,7 +14,8 @@ import {
   Check, 
   Trash2, 
   ExternalLink,
-  BellOff
+  BellOff,
+  TrendingUp
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "@/hooks/use-toast";
@@ -165,6 +166,9 @@ export const CreatorNotifications: React.FC = () => {
         <Calendar className="w-5 h-5 text-violet-500" />
       );
     }
+    if (type === "buyback_program") {
+      return <TrendingUp className="w-5 h-5 text-green-500" />;
+    }
     return <Sparkles className="w-5 h-5 text-primary" />;
   };
 
@@ -254,6 +258,17 @@ export const CreatorNotifications: React.FC = () => {
                       {/* Feature type badge */}
                       {(() => {
                         const parsed = parseMetadata(notification.metadata);
+                        if (notification.type === "buyback_program") {
+                          return (
+                            <Badge
+                              variant="outline"
+                              className="mt-2 border-green-500/50 text-green-600 bg-green-500/10"
+                            >
+                              <TrendingUp className="w-3 h-3 mr-1" />
+                              Buyback Program
+                            </Badge>
+                          );
+                        }
                         return parsed?.feature_type ? (
                           <Badge
                             variant="outline"
