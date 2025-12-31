@@ -34,7 +34,9 @@ import {
   Sparkles,
   TrendingUp,
   Sticker,
-  Package
+  Package,
+  Ticket,
+  Gift
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { FeaturedCollectionsManager } from '@/components/admin/FeaturedCollectionsManager';
@@ -43,6 +45,8 @@ import { AdminStickerPackManager } from '@/components/admin/AdminStickerPackMana
 import { AdminBundleManager } from '@/components/admin/AdminBundleManager';
 import { RewardsAllocationManager } from '@/components/admin/RewardsAllocationManager';
 import { RewardDistributionHistory } from '@/components/admin/RewardDistributionHistory';
+import RaffleManager from '@/components/admin/RaffleManager';
+import BlindBoxManager from '@/components/admin/BlindBoxManager';
 
 interface AdminUser {
   id: string;
@@ -497,7 +501,7 @@ const AdminDashboard: React.FC = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-10 lg:w-auto lg:inline-grid">
             <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" />
               Users
@@ -513,6 +517,14 @@ const AdminDashboard: React.FC = () => {
             <TabsTrigger value="buyback" className="gap-2">
               <TrendingUp className="w-4 h-4" />
               Buyback
+            </TabsTrigger>
+            <TabsTrigger value="raffles" className="gap-2">
+              <Ticket className="w-4 h-4" />
+              Raffles
+            </TabsTrigger>
+            <TabsTrigger value="blindboxes" className="gap-2">
+              <Gift className="w-4 h-4" />
+              Blind Boxes
             </TabsTrigger>
             <TabsTrigger value="packs" className="gap-2">
               <Sticker className="w-4 h-4" />
@@ -783,6 +795,16 @@ const AdminDashboard: React.FC = () => {
               <RewardsAllocationManager />
               <RewardDistributionHistory />
             </div>
+          </TabsContent>
+
+          {/* Raffles Tab */}
+          <TabsContent value="raffles">
+            <RaffleManager />
+          </TabsContent>
+
+          {/* Blind Boxes Tab */}
+          <TabsContent value="blindboxes">
+            <BlindBoxManager />
           </TabsContent>
 
           {/* Official Packs Tab */}

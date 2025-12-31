@@ -722,6 +722,216 @@ export type Database = {
         }
         Relationships: []
       }
+      lily_blind_box_purchases: {
+        Row: {
+          blind_box_id: string
+          created_at: string
+          id: string
+          quantity: number
+          rewards_received: Json
+          total_paid: number
+          tx_hash: string | null
+          user_id: string
+        }
+        Insert: {
+          blind_box_id: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          rewards_received?: Json
+          total_paid?: number
+          tx_hash?: string | null
+          user_id: string
+        }
+        Update: {
+          blind_box_id?: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          rewards_received?: Json
+          total_paid?: number
+          tx_hash?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lily_blind_box_purchases_blind_box_id_fkey"
+            columns: ["blind_box_id"]
+            isOneToOne: false
+            referencedRelation: "lily_blind_boxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lily_blind_boxes: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          end_date: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          max_per_user: number | null
+          name: string
+          price: number
+          remaining_supply: number
+          rewards: Json
+          start_date: string
+          total_supply: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          end_date: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          max_per_user?: number | null
+          name: string
+          price?: number
+          remaining_supply?: number
+          rewards?: Json
+          start_date: string
+          total_supply?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          end_date?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          max_per_user?: number | null
+          name?: string
+          price?: number
+          remaining_supply?: number
+          rewards?: Json
+          start_date?: string
+          total_supply?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lily_raffle_entries: {
+        Row: {
+          created_at: string
+          id: string
+          raffle_id: string
+          ticket_count: number
+          total_paid: number
+          tx_hash: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          raffle_id: string
+          ticket_count?: number
+          total_paid?: number
+          tx_hash?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          raffle_id?: string
+          ticket_count?: number
+          total_paid?: number
+          tx_hash?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lily_raffle_entries_raffle_id_fkey"
+            columns: ["raffle_id"]
+            isOneToOne: false
+            referencedRelation: "lily_raffles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lily_raffles: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          drawn_at: string | null
+          end_date: string
+          entry_price: number
+          id: string
+          image_url: string | null
+          is_active: boolean
+          is_drawn: boolean
+          max_tickets_per_user: number | null
+          name: string
+          prize_details: Json
+          prize_type: string
+          required_collection_id: string | null
+          start_date: string
+          total_tickets: number | null
+          updated_at: string
+          winner_count: number
+          winners: Json | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          drawn_at?: string | null
+          end_date: string
+          entry_price?: number
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_drawn?: boolean
+          max_tickets_per_user?: number | null
+          name: string
+          prize_details?: Json
+          prize_type?: string
+          required_collection_id?: string | null
+          start_date: string
+          total_tickets?: number | null
+          updated_at?: string
+          winner_count?: number
+          winners?: Json | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          drawn_at?: string | null
+          end_date?: string
+          entry_price?: number
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_drawn?: boolean
+          max_tickets_per_user?: number | null
+          name?: string
+          prize_details?: Json
+          prize_type?: string
+          required_collection_id?: string | null
+          start_date?: string
+          total_tickets?: number | null
+          updated_at?: string
+          winner_count?: number
+          winners?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lily_raffles_required_collection_id_fkey"
+            columns: ["required_collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_transactions: {
         Row: {
           action_type: string
