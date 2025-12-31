@@ -202,6 +202,50 @@ export type Database = {
           },
         ]
       }
+      challenge_badges: {
+        Row: {
+          badge_icon: string
+          badge_name: string
+          badge_type: string
+          challenge_id: string | null
+          description: string | null
+          earned_at: string
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          badge_icon: string
+          badge_name: string
+          badge_type: string
+          challenge_id?: string | null
+          description?: string | null
+          earned_at?: string
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          badge_icon?: string
+          badge_name?: string
+          badge_type?: string
+          challenge_id?: string | null
+          description?: string | null
+          earned_at?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_badges_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "streak_challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_emotes: {
         Row: {
           created_at: string
