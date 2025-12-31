@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { startOfWeek, eachDayOfInterval, format, startOfYear, eachMonthOfInterval, endOfMonth } from "date-fns";
+import { startOfWeek, eachDayOfInterval, format, startOfYear, eachMonthOfInterval, endOfMonth, formatDistanceToNow } from "date-fns";
 
 interface ViewerDataPoint {
   date: string;
@@ -12,16 +12,47 @@ interface EarningsDataPoint {
   amount: number;
 }
 
+interface RecentStream {
+  id: string;
+  title: string;
+  category: string | null;
+  viewers: number;
+  duration: string;
+  date: string;
+}
+
+interface RecentDonation {
+  id: string;
+  from: string;
+  amount: number;
+  message: string | null;
+  date: string;
+}
+
 interface DashboardAnalytics {
   viewerData: ViewerDataPoint[];
   earningsData: EarningsDataPoint[];
+  recentStreams: RecentStream[];
+  recentDonations: RecentDonation[];
   isLoading: boolean;
   refetch: () => void;
 }
 
+const formatDuration = (seconds: number | null): string => {
+  if (!seconds) return "0m";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+};
+
 export function useDashboardAnalytics(userId: string | undefined): DashboardAnalytics {
   const [viewerData, setViewerData] = useState<ViewerDataPoint[]>([]);
   const [earningsData, setEarningsData] = useState<EarningsDataPoint[]>([]);
+  const [recentStreams, setRecentStreams] = useState<RecentStream[]>([]);
+  const [recentDonations, setRecentDonations] = useState<RecentDonation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchAnalytics = useCallback(async () => {
@@ -30,9 +61,10 @@ export function useDashboardAnalytics(userId: string | undefined): DashboardAnal
     setIsLoading(true);
     
     try {
-      // Fetch weekly viewer analytics (last 7 days)
       const now = new Date();
-      const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+      
+      // Fetch weekly viewer analytics (last 7 days)
+      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
       const days = eachDayOfInterval({ start: weekStart, end: now });
       
       const viewerPromises = days.map(async (day) => {
@@ -85,6 +117,44 @@ export function useDashboardAnalytics(userId: string | undefined): DashboardAnal
 
       const earningsResults = await Promise.all(earningsPromises);
       setEarningsData(earningsResults);
+
+      // Fetch recent streams
+      const { data: streamsData } = await supabase
+        .from("streams")
+        .select("id, title, category, peak_viewers, duration_seconds, ended_at, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (streamsData) {
+        setRecentStreams(streamsData.map(stream => ({
+          id: stream.id,
+          title: stream.title || "Untitled Stream",
+          category: stream.category,
+          viewers: stream.peak_viewers || 0,
+          duration: formatDuration(stream.duration_seconds),
+          date: formatDistanceToNow(new Date(stream.ended_at || stream.created_at), { addSuffix: true })
+        })));
+      }
+
+      // Fetch recent donations/earnings
+      const { data: donationsData } = await supabase
+        .from("earnings")
+        .select("id, from_username, amount, message, created_at")
+        .eq("user_id", userId)
+        .eq("type", "tip")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (donationsData) {
+        setRecentDonations(donationsData.map(donation => ({
+          id: donation.id,
+          from: donation.from_username || "Anonymous",
+          amount: Number(donation.amount),
+          message: donation.message,
+          date: formatDistanceToNow(new Date(donation.created_at), { addSuffix: true })
+        })));
+      }
     } catch (error) {
       console.error("Error fetching dashboard analytics:", error);
     } finally {
@@ -105,7 +175,7 @@ export function useDashboardAnalytics(userId: string | undefined): DashboardAnal
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'stream_analytics',
           filter: `user_id=eq.${userId}`
@@ -115,9 +185,19 @@ export function useDashboardAnalytics(userId: string | undefined): DashboardAnal
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'earnings',
+          filter: `user_id=eq.${userId}`
+        },
+        () => fetchAnalytics()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'streams',
           filter: `user_id=eq.${userId}`
         },
         () => fetchAnalytics()
@@ -132,6 +212,8 @@ export function useDashboardAnalytics(userId: string | undefined): DashboardAnal
   return {
     viewerData,
     earningsData,
+    recentStreams,
+    recentDonations,
     isLoading,
     refetch: fetchAnalytics
   };

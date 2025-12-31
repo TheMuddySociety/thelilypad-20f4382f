@@ -81,18 +81,6 @@ interface DraftCollection {
 }
 
 
-const recentStreams = [
-  { id: 1, title: "Late Night Gaming Session", category: "Gaming", viewers: 342, duration: "3h 24m", date: "2 hours ago" },
-  { id: 2, title: "Art & Chill Stream", category: "Art", viewers: 189, duration: "2h 45m", date: "Yesterday" },
-  { id: 3, title: "Just Chatting with Community", category: "Just Chatting", viewers: 567, duration: "4h 12m", date: "2 days ago" },
-];
-
-const recentDonations = [
-  { id: 1, from: "CryptoFrog", amount: 25.00, message: "Love the content!", date: "1 hour ago" },
-  { id: 2, from: "MonadMaxi", amount: 50.00, message: "Keep up the great streams!", date: "3 hours ago" },
-  { id: 3, from: "LilyPadFan", amount: 10.00, message: "🐸", date: "Yesterday" },
-];
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -112,7 +100,7 @@ export default function Dashboard() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Real-time analytics data
-  const { viewerData, earningsData, isLoading: isAnalyticsLoading } = useDashboardAnalytics(user?.id);
+  const { viewerData, earningsData, recentStreams, recentDonations, isLoading: isAnalyticsLoading } = useDashboardAnalytics(user?.id);
 
   useSEO({
     title: "Creator Dashboard | The Lily Pad",
