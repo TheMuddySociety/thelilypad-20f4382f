@@ -1,9 +1,8 @@
-// Governance contract configuration
+// NFT-based Governance configuration
 export const GOVERNANCE_CONFIG = {
   // Monad Testnet
   testnet: {
     chainId: 10143,
-    tokenAddress: "", // Deploy and fill in
     governorAddress: "", // Deploy and fill in
     timelockAddress: "", // Deploy and fill in
     rpcUrl: "https://testnet-rpc.monad.xyz",
@@ -12,7 +11,6 @@ export const GOVERNANCE_CONFIG = {
   // Monad Mainnet (future)
   mainnet: {
     chainId: 1, // Update when mainnet launches
-    tokenAddress: "",
     governorAddress: "",
     timelockAddress: "",
     rpcUrl: "",
@@ -20,14 +18,22 @@ export const GOVERNANCE_CONFIG = {
   },
 };
 
-// Governance parameters
+// NFT Voting Power Tiers
+export const NFT_VOTING_TIERS = {
+  common: 1,
+  rare: 3,
+  legendary: 10,
+} as const;
+
+export type NFTRarityTier = keyof typeof NFT_VOTING_TIERS;
+
+// Governance parameters (NFT-based)
 export const GOVERNANCE_PARAMS = {
   votingDelayBlocks: 7200, // ~1 day
   votingPeriodBlocks: 50400, // ~7 days
-  proposalThreshold: 100000, // 100,000 LILY tokens
-  quorumPercentage: 4, // 4% of total supply
+  proposalThresholdNFTs: 10, // Minimum 10 NFTs to create proposal
+  quorumPercentage: 10, // 10% of total NFT voting power
   timelockDelaySeconds: 86400, // 24 hours
-  maxSupply: 100_000_000, // 100M LILY
 };
 
 // Vote support values
@@ -52,26 +58,7 @@ export const PROPOSAL_STATUS = {
 export type ProposalStatus = typeof PROPOSAL_STATUS[keyof typeof PROPOSAL_STATUS];
 export type VoteSupport = typeof VOTE_SUPPORT[keyof typeof VOTE_SUPPORT];
 
-// ABI for LilyPadToken
-export const LILY_TOKEN_ABI = [
-  "function name() view returns (string)",
-  "function symbol() view returns (string)",
-  "function decimals() view returns (uint8)",
-  "function totalSupply() view returns (uint256)",
-  "function balanceOf(address account) view returns (uint256)",
-  "function transfer(address to, uint256 amount) returns (bool)",
-  "function approve(address spender, uint256 amount) returns (bool)",
-  "function delegate(address delegatee)",
-  "function delegates(address account) view returns (address)",
-  "function getVotes(address account) view returns (uint256)",
-  "function getPastVotes(address account, uint256 blockNumber) view returns (uint256)",
-  "function getPastTotalSupply(uint256 blockNumber) view returns (uint256)",
-  "event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)",
-  "event DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)",
-  "event Transfer(address indexed from, address indexed to, uint256 value)",
-] as const;
-
-// ABI for LilyPadGovernor
+// ABI for NFT-based Governor
 export const GOVERNOR_ABI = [
   "function name() view returns (string)",
   "function version() view returns (string)",

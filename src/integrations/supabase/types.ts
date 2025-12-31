@@ -785,14 +785,17 @@ export type Database = {
         Row: {
           chain_id: number
           created_at: string
+          governance_collection_id: string | null
+          governance_type: string | null
           governor_address: string
           id: string
           is_active: boolean
+          nft_voting_tiers: Json | null
           proposal_threshold: number
           quorum_percentage: number
           timelock_address: string
           timelock_delay_seconds: number
-          token_address: string
+          token_address: string | null
           updated_at: string
           voting_delay_blocks: number
           voting_period_blocks: number
@@ -800,14 +803,17 @@ export type Database = {
         Insert: {
           chain_id: number
           created_at?: string
+          governance_collection_id?: string | null
+          governance_type?: string | null
           governor_address: string
           id?: string
           is_active?: boolean
+          nft_voting_tiers?: Json | null
           proposal_threshold?: number
           quorum_percentage?: number
           timelock_address: string
           timelock_delay_seconds?: number
-          token_address: string
+          token_address?: string | null
           updated_at?: string
           voting_delay_blocks?: number
           voting_period_blocks?: number
@@ -815,19 +821,30 @@ export type Database = {
         Update: {
           chain_id?: number
           created_at?: string
+          governance_collection_id?: string | null
+          governance_type?: string | null
           governor_address?: string
           id?: string
           is_active?: boolean
+          nft_voting_tiers?: Json | null
           proposal_threshold?: number
           quorum_percentage?: number
           timelock_address?: string
           timelock_delay_seconds?: number
-          token_address?: string
+          token_address?: string | null
           updated_at?: string
           voting_delay_blocks?: number
           voting_period_blocks?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "governance_config_governance_collection_id_fkey"
+            columns: ["governance_collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       governance_delegations: {
         Row: {
@@ -938,6 +955,9 @@ export type Database = {
           delegators_count: number
           id: string
           is_delegate: boolean
+          nft_count: number | null
+          nft_ids: string[] | null
+          rarity_breakdown: Json | null
           updated_at: string
           user_id: string | null
           voting_power: number
@@ -949,6 +969,9 @@ export type Database = {
           delegators_count?: number
           id?: string
           is_delegate?: boolean
+          nft_count?: number | null
+          nft_ids?: string[] | null
+          rarity_breakdown?: Json | null
           updated_at?: string
           user_id?: string | null
           voting_power?: number
@@ -960,6 +983,9 @@ export type Database = {
           delegators_count?: number
           id?: string
           is_delegate?: boolean
+          nft_count?: number | null
+          nft_ids?: string[] | null
+          rarity_breakdown?: Json | null
           updated_at?: string
           user_id?: string | null
           voting_power?: number

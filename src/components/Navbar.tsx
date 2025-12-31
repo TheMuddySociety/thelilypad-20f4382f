@@ -31,7 +31,7 @@ const primaryLinks: { label: string; href: string; icon: LucideIcon }[] = [
 const exploreLinks = [
   { label: "Streamers", href: "/streamers", icon: Users },
   { label: "Following", href: "/following", icon: Heart },
-  { label: "Governance", href: "/governance", icon: Vote },
+  { label: "Governance", href: "/governance", icon: Vote, disabled: true, comingSoon: true },
   { label: "Raffles", href: "/raffles", icon: Ticket },
   { label: "Blind Boxes", href: "/blind-boxes", icon: Package },
   { label: "Official Packs", href: "/official-packs", icon: Sticker },
@@ -137,18 +137,39 @@ export const Navbar: React.FC = () => {
                   >
                     Explore
                   </p>
-                  {exploreLinks.map((link, index) => (
-                    <SheetClose asChild key={link.label}>
-                      <a
-                        href={link.href}
-                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
-                        style={{ animationDelay: `${(primaryLinks.length + index + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
-                      >
-                        <link.icon className="w-5 h-5 text-muted-foreground" />
-                        {link.label}
-                      </a>
-                    </SheetClose>
-                  ))}
+                  {exploreLinks.map((link, index) => {
+                    const isDisabled = 'disabled' in link && link.disabled;
+                    const isComingSoon = 'comingSoon' in link && link.comingSoon;
+                    
+                    if (isDisabled) {
+                      return (
+                        <div
+                          key={link.label}
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground/50 cursor-not-allowed animate-fade-in"
+                          style={{ animationDelay: `${(primaryLinks.length + index + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
+                        >
+                          <link.icon className="w-5 h-5" />
+                          <span>{link.label}</span>
+                          {isComingSoon && (
+                            <span className="ml-auto text-xs bg-muted px-2 py-0.5 rounded-full">Soon</span>
+                          )}
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <SheetClose asChild key={link.label}>
+                        <a
+                          href={link.href}
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                          style={{ animationDelay: `${(primaryLinks.length + index + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
+                        >
+                          <link.icon className="w-5 h-5 text-muted-foreground" />
+                          {link.label}
+                        </a>
+                      </SheetClose>
+                    );
+                  })}
                 </div>
 
                 {/* Account Section */}
