@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.rpc-proxy]
 verify_jwt = false
+
+[functions.gasless-relayer]
+verify_jwt = false
