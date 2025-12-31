@@ -28,7 +28,10 @@ interface WalletContextType extends WalletState {
   disconnect: () => void;
   switchNetwork: (network: NetworkType) => void;
   switchChain: (chainType: ChainType) => Promise<void>;
+  switchToMonad: () => Promise<void>;
   sendTransaction: (to: string, amount: string) => Promise<string | null>;
+  getProvider: () => any;
+  getSolanaProvider: () => any;
   currentChain: Chain;
   isPhantomAvailable: boolean;
   discoveredWallets: InjectedWalletInfo[];
@@ -394,6 +397,55 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [state.chainType, state.walletType, state.address, currentChain.id]);
 
+  // Switch to Monad network
+  const switchToMonad = useCallback(async () => {
+    if (state.chainType !== "evm" || !state.isConnected) return;
+    
+    const provider = getEVMProvider(state.walletType);
+    if (!provider) return;
+
+    const targetChainId = `0x${currentChain.id.toString(16)}`;
+    
+    try {
+      await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: targetChainId }],
+      });
+    } catch (switchError: any) {
+      // Chain not added, try to add it
+      if (switchError.code === 4902) {
+        try {
+          await provider.request({
+            method: "wallet_addEthereumChain",
+            params: [{
+              chainId: targetChainId,
+              chainName: currentChain.name,
+              nativeCurrency: currentChain.nativeCurrency,
+              rpcUrls: [currentChain.rpcUrls.default.http[0]],
+              blockExplorerUrls: currentChain.blockExplorers ? [currentChain.blockExplorers.default.url] : undefined,
+            }],
+          });
+        } catch (addError) {
+          console.error("Failed to add chain:", addError);
+          toast.error("Failed to add network");
+        }
+      } else {
+        console.error("Failed to switch chain:", switchError);
+        toast.error("Failed to switch network");
+      }
+    }
+  }, [state.chainType, state.isConnected, state.walletType, currentChain]);
+
+  // Get EVM provider (for hooks that need direct access)
+  const getProvider = useCallback(() => {
+    return getEVMProvider(state.walletType);
+  }, [state.walletType]);
+
+  // Get Solana provider (for hooks that need direct access)
+  const getSolanaProviderCallback = useCallback(() => {
+    return getSolanaProvider();
+  }, []);
+
   // Initialize SDK and detect wallets
   useEffect(() => {
     const init = async () => {
@@ -428,7 +480,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (savedWallet === "phantom" || savedAuth === "google" || savedAuth === "apple") {
           const sdk = getSDK();
           if (sdk.autoConnect) {
-            const result = await sdk.autoConnect() as ConnectResult | undefined;
+            const result = await sdk.autoConnect() as unknown as ConnectResult | undefined;
             if (result?.addresses) {
               let address: string | null = null;
               const chainType = savedChain || "evm";
@@ -522,7 +574,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         disconnect,
         switchNetwork,
         switchChain,
+        switchToMonad,
         sendTransaction,
+        getProvider,
+        getSolanaProvider: getSolanaProviderCallback,
         currentChain,
         isPhantomAvailable,
         discoveredWallets,
