@@ -25,6 +25,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [showVerificationMessage, setShowVerificationMessage] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
 
@@ -161,6 +162,36 @@ export default function Auth() {
     }
   };
 
+  const handleResendVerification = async () => {
+    if (!verificationEmail) return;
+    
+    setIsResending(true);
+    const redirectUrl = `${window.location.origin}/auth/callback`;
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: verificationEmail,
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
+    });
+
+    setIsResending(false);
+
+    if (error) {
+      toast({
+        title: "Failed to resend",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Email sent!",
+        description: "We've sent another verification email. Please check your inbox.",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -181,16 +212,35 @@ export default function Auth() {
                     Please check your inbox and click the link to verify your account.
                   </AlertDescription>
                 </Alert>
-                <div className="text-center space-y-2">
+                <div className="text-center space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Didn't receive the email? Check your spam folder or try again.
+                    Didn't receive the email? Check your spam folder or resend.
                   </p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowVerificationMessage(false)}
-                  >
-                    Back to Sign In
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                    <Button 
+                      variant="default"
+                      onClick={handleResendVerification}
+                      disabled={isResending}
+                    >
+                      {isResending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-4 h-4 mr-2" />
+                          Resend Email
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowVerificationMessage(false)}
+                    >
+                      Back to Sign In
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : (
