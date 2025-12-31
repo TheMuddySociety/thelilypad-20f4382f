@@ -12,6 +12,8 @@ import { useSEO } from "@/hooks/useSEO";
 import { motion } from "framer-motion";
 import { ArrowLeft, Layers, Filter, ArrowUpDown, Search, ChevronLeft, ChevronRight, LayoutGrid, List } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
+import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 
 const ITEMS_PER_PAGE = 12;
 type ViewMode = 'grid' | 'list';
@@ -45,6 +47,7 @@ const StreamerCollections = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const { isInProgram } = useBuybackProgram();
 
   useSEO({
     title: streamerName ? `${streamerName}'s Collections | The Lily Pad` : "NFT Collections | The Lily Pad",
@@ -311,9 +314,12 @@ const StreamerCollections = () => {
                               </div>
                             </div>
                             <CardContent className="p-4">
-                              <h3 className="font-semibold text-base mb-1 line-clamp-1 group-hover:text-purple-500 transition-colors">
-                                {collection.name}
-                              </h3>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold text-base line-clamp-1 group-hover:text-purple-500 transition-colors">
+                                  {collection.name}
+                                </h3>
+                                {isInProgram(collection.id) && <BuybackProgramBadge />}
+                              </div>
                               {collection.description && (
                                 <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                                   {collection.description}
@@ -377,9 +383,12 @@ const StreamerCollections = () => {
                               <CardContent className="flex-1 p-4 flex flex-col justify-between">
                                 <div>
                                   <div className="flex items-start justify-between gap-2 mb-2">
-                                    <h3 className="font-semibold text-base group-hover:text-purple-500 transition-colors">
-                                      {collection.name}
-                                    </h3>
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="font-semibold text-base group-hover:text-purple-500 transition-colors">
+                                        {collection.name}
+                                      </h3>
+                                      {isInProgram(collection.id) && <BuybackProgramBadge />}
+                                    </div>
                                     <Badge className={`${status.bg} ${status.text} text-xs font-semibold px-2 py-0.5 flex-shrink-0`}>
                                       {status.label}
                                     </Badge>
