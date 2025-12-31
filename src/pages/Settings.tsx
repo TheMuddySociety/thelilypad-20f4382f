@@ -17,8 +17,7 @@ import {
   User, 
   Bell, 
   Shield, 
-  Palette, 
-  LogOut, 
+  Palette,
   Save, 
   Camera,
   Twitter,
@@ -69,7 +68,7 @@ const passwordSchema = z.object({
 const Settings = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [isSigningOut, setIsSigningOut] = useState(false);
+  
   
   // Form state
   const [displayName, setDisplayName] = useState("");
@@ -225,18 +224,6 @@ const Settings = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    setIsSigningOut(true);
-    try {
-      await supabase.auth.signOut();
-      toast.success("Signed out successfully");
-      navigate("/");
-    } catch (error) {
-      toast.error("Failed to sign out");
-    } finally {
-      setIsSigningOut(false);
-    }
-  };
 
   // 2FA handlers
   const handleStart2FAEnrollment = async () => {
@@ -795,30 +782,6 @@ const Settings = () => {
                     </Button>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-destructive/50">
-              <CardHeader>
-                <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                <CardDescription>
-                  Actions that affect your account
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleSignOut}
-                  disabled={isSigningOut}
-                  className="w-full sm:w-auto"
-                >
-                  {isSigningOut ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <LogOut className="w-4 h-4 mr-2" />
-                  )}
-                  Sign Out
-                </Button>
               </CardContent>
             </Card>
           </TabsContent>
