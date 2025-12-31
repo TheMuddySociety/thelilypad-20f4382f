@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trophy, Medal, Award, TrendingUp, Crown } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Trophy, Medal, Award, TrendingUp, Crown, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface LeaderboardEntry {
@@ -10,6 +11,8 @@ interface LeaderboardEntry {
   total_volume: number;
   total_weighted_volume: number;
   trade_count: number;
+  display_name?: string | null;
+  avatar_url?: string | null;
 }
 
 export function VolumeLeaderboard() {
@@ -47,12 +50,33 @@ export function VolumeLeaderboard() {
       });
       
       // Convert to array and sort by weighted volume
-      const sorted: LeaderboardEntry[] = Array.from(userVolumes.entries())
+      const sorted = Array.from(userVolumes.entries())
         .map(([user_id, stats]) => ({ user_id, ...stats }))
         .sort((a, b) => b.total_weighted_volume - a.total_weighted_volume)
         .slice(0, 10);
       
-      return sorted;
+      // Fetch user profiles for display names
+      if (sorted.length > 0) {
+        const userIds = sorted.map(e => e.user_id);
+        const { data: profiles } = await supabase
+          .from('streamer_profiles')
+          .select('user_id, display_name, avatar_url')
+          .in('user_id', userIds);
+        
+        // Create a map of user profiles
+        const profileMap = new Map(
+          profiles?.map(p => [p.user_id, { display_name: p.display_name, avatar_url: p.avatar_url }]) || []
+        );
+        
+        // Merge profile data into leaderboard entries
+        return sorted.map(entry => ({
+          ...entry,
+          display_name: profileMap.get(entry.user_id)?.display_name,
+          avatar_url: profileMap.get(entry.user_id)?.avatar_url,
+        })) as LeaderboardEntry[];
+      }
+      
+      return sorted as LeaderboardEntry[];
     },
     refetchInterval: 60000, // Refresh every minute
   });
@@ -92,14 +116,20 @@ export function VolumeLeaderboard() {
     return volume.toFixed(2);
   };
 
-  const truncateAddress = (address: string) => {
-    if (!address) return 'Unknown';
-    // If it's a UUID, show first 8 chars
-    if (address.length === 36 && address.includes('-')) {
-      return `${address.slice(0, 8)}...`;
+  const getDisplayName = (entry: LeaderboardEntry) => {
+    if (entry.display_name) return entry.display_name;
+    // Fallback to truncated user ID
+    if (entry.user_id.length === 36 && entry.user_id.includes('-')) {
+      return `User ${entry.user_id.slice(0, 8)}...`;
     }
-    // If it's a wallet address
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    return `${entry.user_id.slice(0, 6)}...${entry.user_id.slice(-4)}`;
+  };
+
+  const getInitials = (entry: LeaderboardEntry) => {
+    if (entry.display_name) {
+      return entry.display_name.slice(0, 2).toUpperCase();
+    }
+    return entry.user_id.slice(0, 2).toUpperCase();
   };
 
   return (
@@ -155,10 +185,17 @@ export function VolumeLeaderboard() {
                     {getRankIcon(rank)}
                   </div>
                   
-                  {/* User Info */}
+                  {/* User Info with Avatar */}
+                  <Avatar className="w-8 h-8 border border-border">
+                    <AvatarImage src={entry.avatar_url || undefined} alt={getDisplayName(entry)} />
+                    <AvatarFallback className="text-xs bg-muted">
+                      {getInitials(entry)}
+                    </AvatarFallback>
+                  </Avatar>
+                  
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">
-                      {truncateAddress(entry.user_id)}
+                      {getDisplayName(entry)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {entry.trade_count} trade{entry.trade_count !== 1 ? 's' : ''}
