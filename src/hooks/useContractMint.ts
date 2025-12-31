@@ -90,6 +90,114 @@ const fetchReceiptWithProxy = async (
   return null;
 };
 
+// Exponential backoff delay calculator
+const getExponentialDelay = (attempt: number, baseDelay: number = 1000, maxDelay: number = 15000): number => {
+  const delay = baseDelay * Math.pow(2, attempt);
+  const jitter = delay * 0.2 * Math.random(); // Add 20% jitter
+  return Math.min(delay + jitter, maxDelay);
+};
+
+// Check if error is RPC-related and retryable
+const isRetryableRpcError = (error: any): boolean => {
+  if (!error) return false;
+  
+  const errorCode = error.code;
+  const errorMessage = error.message?.toLowerCase() || '';
+  const httpStatus = error.data?.httpStatus;
+  
+  // User rejection - never retry
+  if (errorCode === 4001) return false;
+  
+  // RPC/network errors
+  const rpcErrorCodes = [-32080, -32603, -32000, -32005];
+  if (rpcErrorCodes.includes(errorCode)) return true;
+  
+  // HTTP errors
+  if (httpStatus === 403 || httpStatus === 429 || httpStatus >= 500) return true;
+  
+  // Message-based detection
+  const retryablePatterns = [
+    'rpc', 'http', 'network', 'timeout', 'connection',
+    'econnrefused', 'etimedout', 'rate limit', '403', '429', '502', '503', '504',
+    'failed to fetch', 'fetch failed', 'server error'
+  ];
+  
+  return retryablePatterns.some(pattern => errorMessage.includes(pattern));
+};
+
+// Check if error is gas-related
+const isGasError = (error: any): boolean => {
+  if (!error) return false;
+  const msg = error.message?.toLowerCase() || '';
+  return msg.includes('gas') || msg.includes('intrinsic') || msg.includes('exceeds') || msg.includes('underpriced');
+};
+
+// Submit transaction with exponential backoff retry
+const submitTransactionWithRetry = async (
+  provider: any,
+  txParams: any,
+  options: {
+    maxRetries?: number;
+    baseDelay?: number;
+    onRetry?: (attempt: number, reason: string, delay: number) => void;
+  } = {}
+): Promise<string> => {
+  const { maxRetries = 5, baseDelay = 1000, onRetry } = options;
+  
+  let lastError: any = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Transaction attempt ${attempt + 1}/${maxRetries + 1}`);
+      
+      const txHash = await provider.request({
+        method: "eth_sendTransaction",
+        params: [txParams],
+      });
+      
+      console.log(`Transaction submitted successfully: ${txHash}`);
+      return txHash;
+      
+    } catch (error: any) {
+      lastError = error;
+      console.error(`Attempt ${attempt + 1} failed:`, error.message, error.code);
+      
+      // User rejected - don't retry
+      if (error.code === 4001) {
+        throw error;
+      }
+      
+      // Check if we should retry
+      const isRpcRetryable = isRetryableRpcError(error);
+      const isGasRetryable = isGasError(error);
+      
+      if (!isRpcRetryable && !isGasRetryable) {
+        // Not a retryable error
+        throw error;
+      }
+      
+      if (attempt === maxRetries) {
+        // Last attempt failed
+        throw error;
+      }
+      
+      // Calculate delay with exponential backoff
+      const delay = getExponentialDelay(attempt, baseDelay);
+      const reason = isRpcRetryable ? 'RPC error' : 'Gas error';
+      
+      console.log(`Retrying in ${Math.round(delay)}ms due to ${reason}...`);
+      
+      if (onRetry) {
+        onRetry(attempt + 1, reason, delay);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError || new Error('Transaction submission failed after retries');
+};
+
 export function useContractMint(contractAddress: string | null) {
   const { address, isConnected, balance, network, switchToMonad, chainId, chainType, getProvider } = useWallet();
   const [state, setState] = useState<MintState>({
@@ -289,81 +397,35 @@ export function useContractMint(contractAddress: string | null) {
         args: [BigInt(quantity), proof as `0x${string}`[]],
       });
 
-      // Gas limit multipliers for retry attempts (1x, 1.5x, 2x)
-      const gasMultipliers = customGasLimit ? [1] : [1, 1.5, 2]; // Skip retries if custom gas limit is set
+      // Calculate gas limit
       const baseGasLimit = 200000;
       const perNftGas = 80000;
-      const initialGasLimit = customGasLimit || (baseGasLimit + (perNftGas * quantity));
+      const gasLimit = customGasLimit || (baseGasLimit + (perNftGas * quantity));
 
-      let txHash: string | null = null;
-      let lastError: any = null;
+      // Build transaction params
+      const txParams = {
+        from: address,
+        to: contractAddress,
+        data,
+        value: `0x${totalValue.toString(16)}`,
+        gas: `0x${gasLimit.toString(16)}`,
+      };
 
-      // Retry loop with increasing gas limits
-      for (let attempt = 0; attempt < gasMultipliers.length; attempt++) {
-        const gasLimit = Math.floor(initialGasLimit * gasMultipliers[attempt]);
-        
-        console.log(`Mint attempt ${attempt + 1}/${gasMultipliers.length} with gas limit: ${gasLimit}`);
-
-        try {
-          txHash = await provider.request({
-            method: "eth_sendTransaction",
-            params: [{
-              from: address,
-              to: contractAddress,
-              data,
-              value: `0x${totalValue.toString(16)}`,
-              gas: `0x${gasLimit.toString(16)}`,
-            }],
-          });
-
-          // If we get here, transaction was submitted successfully
-          console.log(`Transaction submitted on attempt ${attempt + 1}: ${txHash}`);
-          break;
-
-        } catch (error: any) {
-          lastError = error;
-          console.error(`Attempt ${attempt + 1} failed:`, error.message);
-
-          // Don't retry if user rejected
-          if (error.code === 4001) {
-            throw error; // User rejected, don't retry
-          }
-          
-          // Check if it's an RPC/network error that might be transient
-          const isRpcError = error.code === -32080 || 
-                            error.message?.includes('RPC') ||
-                            error.message?.includes('HTTP') ||
-                            error.message?.includes('403') ||
-                            error.message?.includes('network') ||
-                            error.data?.httpStatus === 403;
-          
-          // Check if it's a gas-related error
-          const isGasError = error.message?.toLowerCase().includes('gas') ||
-                            error.message?.toLowerCase().includes('intrinsic') ||
-                            error.message?.toLowerCase().includes('exceeds');
-          
-          const shouldRetry = isGasError || isRpcError;
-          
-          if (!shouldRetry || attempt === gasMultipliers.length - 1) {
-            throw error; // Not retryable or last attempt
-          }
-
-          // Update state to show retry attempt
-          const retryReason = isRpcError ? 'RPC issue' : 'Gas limit issue';
+      // Submit transaction with exponential backoff retry
+      const txHash = await submitTransactionWithRetry(provider, txParams, {
+        maxRetries: 5,
+        baseDelay: 1000,
+        onRetry: (attempt, reason, delay) => {
           setState(prev => ({ 
             ...prev, 
-            error: `${retryReason}, retrying (attempt ${attempt + 2}/${gasMultipliers.length})...` 
+            error: `${reason}, retrying in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/6)...` 
           }));
-          
-          // Longer delay for RPC errors
-          const delay = isRpcError ? 2000 : 1000;
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-
-      if (!txHash) {
-        throw lastError || new Error("Failed to submit transaction");
-      }
+          toast.info("Retrying transaction", {
+            description: `${reason} detected, waiting ${Math.round(delay / 1000)}s before retry...`,
+            duration: Math.min(delay, 3000),
+          });
+        },
+      });
 
       // Clear retry message
       setState(prev => ({ ...prev, error: null }));
@@ -470,81 +532,35 @@ export function useContractMint(contractAddress: string | null) {
         args: [BigInt(quantity)],
       });
 
-      // Gas limit multipliers for retry attempts (1x, 1.5x, 2x)
-      const gasMultipliers = customGasLimit ? [1] : [1, 1.5, 2]; // Skip retries if custom gas limit is set
+      // Calculate gas limit
       const baseGasLimit = 200000;
       const perNftGas = 80000;
-      const initialGasLimit = customGasLimit || (baseGasLimit + (perNftGas * quantity));
+      const gasLimit = customGasLimit || (baseGasLimit + (perNftGas * quantity));
 
-      let txHash: string | null = null;
-      let lastError: any = null;
+      // Build transaction params
+      const txParams = {
+        from: address,
+        to: contractAddress,
+        data,
+        value: `0x${totalValue.toString(16)}`,
+        gas: `0x${gasLimit.toString(16)}`,
+      };
 
-      // Retry loop with increasing gas limits
-      for (let attempt = 0; attempt < gasMultipliers.length; attempt++) {
-        const gasLimit = Math.floor(initialGasLimit * gasMultipliers[attempt]);
-        
-        console.log(`Mint attempt ${attempt + 1}/${gasMultipliers.length} with gas limit: ${gasLimit}`);
-
-        try {
-          txHash = await provider.request({
-            method: "eth_sendTransaction",
-            params: [{
-              from: address,
-              to: contractAddress,
-              data,
-              value: `0x${totalValue.toString(16)}`,
-              gas: `0x${gasLimit.toString(16)}`,
-            }],
-          });
-
-          // If we get here, transaction was submitted successfully
-          console.log(`Transaction submitted on attempt ${attempt + 1}: ${txHash}`);
-          break;
-
-        } catch (error: any) {
-          lastError = error;
-          console.error(`Attempt ${attempt + 1} failed:`, error.message);
-
-          // Don't retry if user rejected
-          if (error.code === 4001) {
-            throw error; // User rejected, don't retry
-          }
-          
-          // Check if it's an RPC/network error that might be transient
-          const isRpcError = error.code === -32080 || 
-                            error.message?.includes('RPC') ||
-                            error.message?.includes('HTTP') ||
-                            error.message?.includes('403') ||
-                            error.message?.includes('network') ||
-                            error.data?.httpStatus === 403;
-          
-          // Check if it's a gas-related error
-          const isGasError = error.message?.toLowerCase().includes('gas') ||
-                            error.message?.toLowerCase().includes('intrinsic') ||
-                            error.message?.toLowerCase().includes('exceeds');
-          
-          const shouldRetry = isGasError || isRpcError;
-          
-          if (!shouldRetry || attempt === gasMultipliers.length - 1) {
-            throw error; // Not retryable or last attempt
-          }
-
-          // Update state to show retry attempt
-          const retryReason = isRpcError ? 'RPC issue' : 'Gas limit issue';
+      // Submit transaction with exponential backoff retry
+      const txHash = await submitTransactionWithRetry(provider, txParams, {
+        maxRetries: 5,
+        baseDelay: 1000,
+        onRetry: (attempt, reason, delay) => {
           setState(prev => ({ 
             ...prev, 
-            error: `${retryReason}, retrying (attempt ${attempt + 2}/${gasMultipliers.length})...` 
+            error: `${reason}, retrying in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/6)...` 
           }));
-          
-          // Longer delay for RPC errors
-          const delay = isRpcError ? 2000 : 1000;
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-
-      if (!txHash) {
-        throw lastError || new Error("Failed to submit transaction");
-      }
+          toast.info("Retrying transaction", {
+            description: `${reason} detected, waiting ${Math.round(delay / 1000)}s before retry...`,
+            duration: Math.min(delay, 3000),
+          });
+        },
+      });
 
       // Clear retry message
       setState(prev => ({ ...prev, error: null }));
