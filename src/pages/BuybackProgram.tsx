@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import LiveBuybackStats from "@/components/LiveBuybackStats";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
+import { VolumeLeaderboard } from "@/components/VolumeLeaderboard";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { useSEO } from "@/hooks/useSEO";
 import { useQuery } from "@tanstack/react-query";
@@ -150,9 +151,14 @@ export default function BuybackProgram() {
           </div>
         </div>
 
-        {/* Live Stats Section */}
-        <div className="mb-16">
-          <LiveBuybackStats />
+        {/* Live Stats and Leaderboard */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16">
+          <div className="lg:col-span-2">
+            <LiveBuybackStats />
+          </div>
+          <div>
+            <VolumeLeaderboard />
+          </div>
         </div>
 
         {/* Benefits Grid */}
