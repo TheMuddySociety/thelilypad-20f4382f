@@ -21,11 +21,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Trash2, Package, Percent, Edit } from "lucide-react";
+import { Loader2, Plus, Trash2, Package, Percent, Edit, Clock, Timer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { Switch } from "@/components/ui/switch";
+import { BundleCountdown } from "@/components/shop/BundleCountdown";
 
 interface ShopItem {
   id: string;
@@ -44,6 +46,9 @@ interface Bundle {
   original_price: number;
   bundle_price: number;
   is_active: boolean;
+  is_limited_time: boolean;
+  starts_at: string | null;
+  expires_at: string | null;
   created_at: string;
 }
 
@@ -64,6 +69,9 @@ export const AdminBundleManager: React.FC = () => {
   const [discountPercent, setDiscountPercent] = useState(10);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLimitedTime, setIsLimitedTime] = useState(false);
+  const [startsAt, setStartsAt] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
 
   // Fetch all bundles
   const { data: bundles = [], isLoading: bundlesLoading } = useQuery({
@@ -144,6 +152,9 @@ export const AdminBundleManager: React.FC = () => {
           original_price: originalPrice,
           bundle_price: bundlePrice,
           created_by: userData.user.id,
+          is_limited_time: isLimitedTime,
+          starts_at: isLimitedTime && startsAt ? new Date(startsAt).toISOString() : null,
+          expires_at: isLimitedTime && expiresAt ? new Date(expiresAt).toISOString() : null,
         })
         .select()
         .single();
@@ -211,6 +222,9 @@ export const AdminBundleManager: React.FC = () => {
     setName(bundle.name);
     setDescription(bundle.description || "");
     setDiscountPercent(bundle.discount_percent);
+    setIsLimitedTime(bundle.is_limited_time);
+    setStartsAt(bundle.starts_at ? format(new Date(bundle.starts_at), "yyyy-MM-dd'T'HH:mm") : "");
+    setExpiresAt(bundle.expires_at ? format(new Date(bundle.expires_at), "yyyy-MM-dd'T'HH:mm") : "");
     setEditModalOpen(true);
   };
 
@@ -226,6 +240,9 @@ export const AdminBundleManager: React.FC = () => {
           name: name.trim(),
           description: description.trim() || null,
           discount_percent: discountPercent,
+          is_limited_time: isLimitedTime,
+          starts_at: isLimitedTime && startsAt ? new Date(startsAt).toISOString() : null,
+          expires_at: isLimitedTime && expiresAt ? new Date(expiresAt).toISOString() : null,
         })
         .eq("id", selectedBundle.id);
 
@@ -248,6 +265,9 @@ export const AdminBundleManager: React.FC = () => {
     setDiscountPercent(10);
     setSelectedItems([]);
     setSelectedBundle(null);
+    setIsLimitedTime(false);
+    setStartsAt("");
+    setExpiresAt("");
   };
 
   const toggleItemSelection = (itemId: string) => {
@@ -315,6 +335,48 @@ export const AdminBundleManager: React.FC = () => {
                     />
                     <Percent className="w-4 h-4 text-muted-foreground" />
                   </div>
+                </div>
+
+                {/* Limited Time Toggle */}
+                <div className="border rounded-lg p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Timer className="w-4 h-4 text-amber-500" />
+                      <Label htmlFor="limited-time">Limited Time Offer</Label>
+                    </div>
+                    <Switch
+                      id="limited-time"
+                      checked={isLimitedTime}
+                      onCheckedChange={setIsLimitedTime}
+                    />
+                  </div>
+                  
+                  {isLimitedTime && (
+                    <div className="grid gap-4 pt-2 border-t">
+                      <div>
+                        <Label htmlFor="starts-at">Starts At (optional)</Label>
+                        <Input
+                          id="starts-at"
+                          type="datetime-local"
+                          value={startsAt}
+                          onChange={(e) => setStartsAt(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Leave empty to start immediately
+                        </p>
+                      </div>
+                      <div>
+                        <Label htmlFor="expires-at">Expires At</Label>
+                        <Input
+                          id="expires-at"
+                          type="datetime-local"
+                          value={expiresAt}
+                          onChange={(e) => setExpiresAt(e.target.value)}
+                          required={isLimitedTime}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -410,7 +472,7 @@ export const AdminBundleManager: React.FC = () => {
                 <TableHead>Discount</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>Time Limit</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -444,12 +506,26 @@ export const AdminBundleManager: React.FC = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={bundle.is_active ? "default" : "secondary"}>
-                      {bundle.is_active ? "Active" : "Inactive"}
-                    </Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={bundle.is_active ? "default" : "secondary"}>
+                        {bundle.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {format(new Date(bundle.created_at), "MMM d, yyyy")}
+                  <TableCell>
+                    {bundle.is_limited_time ? (
+                      <BundleCountdown
+                        startsAt={bundle.starts_at}
+                        expiresAt={bundle.expires_at}
+                        isLimitedTime={bundle.is_limited_time}
+                        variant="badge"
+                      />
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Permanent
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -524,6 +600,46 @@ export const AdminBundleManager: React.FC = () => {
                 <Percent className="w-4 h-4 text-muted-foreground" />
               </div>
             </div>
+
+            {/* Limited Time Toggle */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Timer className="w-4 h-4 text-amber-500" />
+                  <Label htmlFor="edit-limited-time">Limited Time Offer</Label>
+                </div>
+                <Switch
+                  id="edit-limited-time"
+                  checked={isLimitedTime}
+                  onCheckedChange={setIsLimitedTime}
+                />
+              </div>
+              
+              {isLimitedTime && (
+                <div className="grid gap-4 pt-2 border-t">
+                  <div>
+                    <Label htmlFor="edit-starts-at">Starts At (optional)</Label>
+                    <Input
+                      id="edit-starts-at"
+                      type="datetime-local"
+                      value={startsAt}
+                      onChange={(e) => setStartsAt(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-expires-at">Expires At</Label>
+                    <Input
+                      id="edit-expires-at"
+                      type="datetime-local"
+                      value={expiresAt}
+                      onChange={(e) => setExpiresAt(e.target.value)}
+                      required={isLimitedTime}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>

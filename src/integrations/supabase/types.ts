@@ -1276,11 +1276,14 @@ export type Database = {
           created_by: string | null
           description: string | null
           discount_percent: number
+          expires_at: string | null
           id: string
           image_url: string | null
           is_active: boolean
+          is_limited_time: boolean
           name: string
           original_price: number
+          starts_at: string | null
           updated_at: string
         }
         Insert: {
@@ -1289,11 +1292,14 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           discount_percent?: number
+          expires_at?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_limited_time?: boolean
           name: string
           original_price?: number
+          starts_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -1302,11 +1308,14 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           discount_percent?: number
+          expires_at?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_limited_time?: boolean
           name?: string
           original_price?: number
+          starts_at?: string | null
           updated_at?: string
         }
         Relationships: []
