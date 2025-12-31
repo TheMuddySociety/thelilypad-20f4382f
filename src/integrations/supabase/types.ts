@@ -470,6 +470,62 @@ export type Database = {
           },
         ]
       }
+      collection_audio_metadata: {
+        Row: {
+          album: string | null
+          artist: string | null
+          artwork_id: string
+          audio_url: string
+          bpm: number | null
+          collection_id: string
+          cover_art_url: string
+          created_at: string | null
+          duration_seconds: number | null
+          genre: string | null
+          id: string
+          track_number: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          album?: string | null
+          artist?: string | null
+          artwork_id: string
+          audio_url: string
+          bpm?: number | null
+          collection_id: string
+          cover_art_url: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          genre?: string | null
+          id?: string
+          track_number?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          album?: string | null
+          artist?: string | null
+          artwork_id?: string
+          audio_url?: string
+          bpm?: number | null
+          collection_id?: string
+          cover_art_url?: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          genre?: string | null
+          id?: string
+          track_number?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_audio_metadata_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collections: {
         Row: {
           artworks_metadata: Json | null
@@ -485,6 +541,7 @@ export type Database = {
           image_url: string | null
           is_revealed: boolean
           layers_metadata: Json | null
+          media_type: string | null
           minted: number
           name: string
           phases: Json
@@ -516,6 +573,7 @@ export type Database = {
           image_url?: string | null
           is_revealed?: boolean
           layers_metadata?: Json | null
+          media_type?: string | null
           minted?: number
           name: string
           phases?: Json
@@ -547,6 +605,7 @@ export type Database = {
           image_url?: string | null
           is_revealed?: boolean
           layers_metadata?: Json | null
+          media_type?: string | null
           minted?: number
           name?: string
           phases?: Json
