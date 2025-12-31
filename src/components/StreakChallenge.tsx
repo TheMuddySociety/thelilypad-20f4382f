@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format, differenceInDays, addDays } from "date-fns";
+import { StreakHistoryGraph } from "./StreakHistoryGraph";
 
 const DURATION_OPTIONS = [
   { value: 7, label: "7 days" },
@@ -441,7 +442,7 @@ export const StreakChallenge = () => {
                           )}
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-4 mb-3">
                         <div className={`text-center p-3 rounded-lg ${isWinning ? 'bg-green-500/10' : 'bg-muted/50'}`}>
                           <p className="text-xs text-muted-foreground">Your Streak</p>
                           <p className="text-2xl font-bold flex items-center justify-center gap-1">
@@ -457,6 +458,19 @@ export const StreakChallenge = () => {
                           </p>
                         </div>
                       </div>
+                      
+                      {/* Streak History Graph */}
+                      {challenge.start_date && challenge.end_date && (
+                        <StreakHistoryGraph
+                          challengeId={challenge.id}
+                          userId={session?.user?.id || ""}
+                          opponentId={opponentId}
+                          startDate={challenge.start_date}
+                          endDate={challenge.end_date}
+                          userDisplayName="You"
+                          opponentDisplayName={getDisplayName(opponentId)}
+                        />
+                      )}
                     </div>
                   );
                 })}
