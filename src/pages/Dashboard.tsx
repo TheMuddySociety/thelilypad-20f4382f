@@ -11,6 +11,7 @@ import { useToast, toast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { addDays } from "date-fns";
 import { useSEO } from "@/hooks/useSEO";
+import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
 import { 
   BarChart3, 
   Users, 
@@ -79,25 +80,6 @@ interface DraftCollection {
   contract_address: string | null;
 }
 
-// Mock data for charts - in production this would come from the database
-const viewerData = [
-  { date: "Mon", viewers: 120 },
-  { date: "Tue", viewers: 180 },
-  { date: "Wed", viewers: 250 },
-  { date: "Thu", viewers: 310 },
-  { date: "Fri", viewers: 420 },
-  { date: "Sat", viewers: 580 },
-  { date: "Sun", viewers: 490 },
-];
-
-const earningsData = [
-  { date: "Jan", amount: 120 },
-  { date: "Feb", amount: 180 },
-  { date: "Mar", amount: 250 },
-  { date: "Apr", amount: 310 },
-  { date: "May", amount: 420 },
-  { date: "Jun", amount: 380 },
-];
 
 const recentStreams = [
   { id: 1, title: "Late Night Gaming Session", category: "Gaming", viewers: 342, duration: "3h 24m", date: "2 hours ago" },
@@ -128,6 +110,9 @@ export default function Dashboard() {
   const [shopItemRefreshTrigger, setShopItemRefreshTrigger] = useState(0);
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Real-time analytics data
+  const { viewerData, earningsData, isLoading: isAnalyticsLoading } = useDashboardAnalytics(user?.id);
 
   useSEO({
     title: "Creator Dashboard | The Lily Pad",
