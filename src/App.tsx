@@ -34,6 +34,7 @@ import FeesAndPricing from "./pages/FeesAndPricing";
 import BuybackProgram from "./pages/BuybackProgram";
 import AuthCallback from "./pages/AuthCallback";
 import OfficialPacks from "./pages/OfficialPacks";
+import MyPurchases from "./pages/MyPurchases";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -76,6 +77,7 @@ const App = () => (
               <Route path="/fees" element={<FeesAndPricing />} />
               <Route path="/buyback-program" element={<BuybackProgram />} />
               <Route path="/official-packs" element={<OfficialPacks />} />
+              <Route path="/my-purchases" element={<MyPurchases />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
