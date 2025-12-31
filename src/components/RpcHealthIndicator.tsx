@@ -169,8 +169,13 @@ export const RpcHealthIndicator: React.FC = () => {
                         {rpcStatus.latency}ms
                       </span>
                     ) : rpcStatus.error ? (
-                      <span className="text-xs text-destructive truncate max-w-[80px]" title={rpcStatus.error}>
-                        {rpcStatus.error}
+                      <span 
+                        className={`text-xs truncate max-w-[80px] ${
+                          rpcStatus.error.includes('Method not') ? 'text-amber-500' : 'text-destructive'
+                        }`} 
+                        title={rpcStatus.error}
+                      >
+                        {rpcStatus.error.includes('Method not') ? 'Partial' : rpcStatus.error}
                       </span>
                     ) : null}
                   </div>
