@@ -781,6 +781,236 @@ export type Database = {
         }
         Relationships: []
       }
+      governance_config: {
+        Row: {
+          chain_id: number
+          created_at: string
+          governor_address: string
+          id: string
+          is_active: boolean
+          proposal_threshold: number
+          quorum_percentage: number
+          timelock_address: string
+          timelock_delay_seconds: number
+          token_address: string
+          updated_at: string
+          voting_delay_blocks: number
+          voting_period_blocks: number
+        }
+        Insert: {
+          chain_id: number
+          created_at?: string
+          governor_address: string
+          id?: string
+          is_active?: boolean
+          proposal_threshold?: number
+          quorum_percentage?: number
+          timelock_address: string
+          timelock_delay_seconds?: number
+          token_address: string
+          updated_at?: string
+          voting_delay_blocks?: number
+          voting_period_blocks?: number
+        }
+        Update: {
+          chain_id?: number
+          created_at?: string
+          governor_address?: string
+          id?: string
+          is_active?: boolean
+          proposal_threshold?: number
+          quorum_percentage?: number
+          timelock_address?: string
+          timelock_delay_seconds?: number
+          token_address?: string
+          updated_at?: string
+          voting_delay_blocks?: number
+          voting_period_blocks?: number
+        }
+        Relationships: []
+      }
+      governance_delegations: {
+        Row: {
+          created_at: string
+          delegate_address: string
+          delegator_address: string
+          id: string
+          tx_hash: string | null
+          updated_at: string
+          voting_power: number
+        }
+        Insert: {
+          created_at?: string
+          delegate_address: string
+          delegator_address: string
+          id?: string
+          tx_hash?: string | null
+          updated_at?: string
+          voting_power?: number
+        }
+        Update: {
+          created_at?: string
+          delegate_address?: string
+          delegator_address?: string
+          id?: string
+          tx_hash?: string | null
+          updated_at?: string
+          voting_power?: number
+        }
+        Relationships: []
+      }
+      governance_proposals: {
+        Row: {
+          abstain_votes: number
+          against_votes: number
+          calldatas: Json
+          canceled_at: string | null
+          created_at: string
+          description: string
+          end_block: number
+          executed_at: string | null
+          execution_tx_hash: string | null
+          for_votes: number
+          id: string
+          proposal_id: string
+          proposer_address: string
+          queued_at: string | null
+          quorum_votes: number
+          start_block: number
+          status: string
+          targets: Json
+          title: string
+          tx_hash: string | null
+          values: Json
+        }
+        Insert: {
+          abstain_votes?: number
+          against_votes?: number
+          calldatas?: Json
+          canceled_at?: string | null
+          created_at?: string
+          description: string
+          end_block: number
+          executed_at?: string | null
+          execution_tx_hash?: string | null
+          for_votes?: number
+          id?: string
+          proposal_id: string
+          proposer_address: string
+          queued_at?: string | null
+          quorum_votes?: number
+          start_block: number
+          status?: string
+          targets?: Json
+          title: string
+          tx_hash?: string | null
+          values?: Json
+        }
+        Update: {
+          abstain_votes?: number
+          against_votes?: number
+          calldatas?: Json
+          canceled_at?: string | null
+          created_at?: string
+          description?: string
+          end_block?: number
+          executed_at?: string | null
+          execution_tx_hash?: string | null
+          for_votes?: number
+          id?: string
+          proposal_id?: string
+          proposer_address?: string
+          queued_at?: string | null
+          quorum_votes?: number
+          start_block?: number
+          status?: string
+          targets?: Json
+          title?: string
+          tx_hash?: string | null
+          values?: Json
+        }
+        Relationships: []
+      }
+      governance_token_holders: {
+        Row: {
+          balance: number
+          delegated_to: string | null
+          delegators_count: number
+          id: string
+          is_delegate: boolean
+          updated_at: string
+          user_id: string | null
+          voting_power: number
+          wallet_address: string
+        }
+        Insert: {
+          balance?: number
+          delegated_to?: string | null
+          delegators_count?: number
+          id?: string
+          is_delegate?: boolean
+          updated_at?: string
+          user_id?: string | null
+          voting_power?: number
+          wallet_address: string
+        }
+        Update: {
+          balance?: number
+          delegated_to?: string | null
+          delegators_count?: number
+          id?: string
+          is_delegate?: boolean
+          updated_at?: string
+          user_id?: string | null
+          voting_power?: number
+          wallet_address?: string
+        }
+        Relationships: []
+      }
+      governance_votes: {
+        Row: {
+          created_at: string
+          id: string
+          proposal_id: string
+          reason: string | null
+          support: number
+          tx_hash: string | null
+          voter_address: string
+          voter_id: string | null
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          proposal_id: string
+          reason?: string | null
+          support: number
+          tx_hash?: string | null
+          voter_address: string
+          voter_id?: string | null
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          proposal_id?: string
+          reason?: string | null
+          support?: number
+          tx_hash?: string | null
+          voter_address?: string
+          voter_id?: string | null
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governance_votes_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "governance_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lily_blind_box_purchases: {
         Row: {
           blind_box_id: string
