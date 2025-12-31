@@ -22,9 +22,13 @@ import {
   Percent, 
   Gift,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  ExternalLink
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+// Platform treasury address for receiving bundle payments
+const PLATFORM_TREASURY_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e7595f5CB25";
 
 interface BundleItem {
   id: string;
@@ -65,11 +69,15 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
   onPurchaseComplete,
 }) => {
   const navigate = useNavigate();
-  const { address, isConnected, connect } = useWallet();
+  const { address, isConnected, connect, sendTransaction, balance, chainId, currentChain, switchToMonad } = useWallet();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [ownedItems, setOwnedItems] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [purchaseStep, setPurchaseStep] = useState<"idle" | "confirming" | "processing" | "complete">("idle");
+
+  const isWrongNetwork = isConnected && chainId !== currentChain.id;
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -110,8 +118,19 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
     checkExistingPurchases();
   }, [userId, bundle.id, bundleItems, open]);
 
+  // Reset state when modal opens
+  useEffect(() => {
+    if (open) {
+      setPurchaseStep("idle");
+      setTxHash(null);
+    }
+  }, [open]);
+
   const savings = bundle.original_price - bundle.bundle_price;
   const newItems = bundleItems.filter(bi => !ownedItems.includes(bi.item_id));
+  
+  // Check if user has sufficient balance
+  const hasInsufficientBalance = balance ? parseFloat(balance) < bundle.bundle_price : false;
 
   const handlePurchase = async () => {
     if (!userId) {
@@ -120,24 +139,46 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
       return;
     }
 
-    if (!isConnected) {
+    if (!isConnected || !address) {
       toast.error("Please connect your wallet first");
       return;
     }
 
+    if (isWrongNetwork) {
+      toast.error("Please switch to the correct network");
+      return;
+    }
+
+    if (hasInsufficientBalance) {
+      toast.error("Insufficient MON balance");
+      return;
+    }
+
     setIsPurchasing(true);
+    setPurchaseStep("confirming");
+
     try {
-      // In a real implementation, this would trigger a blockchain transaction
-      // For now, we'll simulate the purchase with a database record
-      
-      // Record the bundle purchase
+      // Send on-chain transaction to transfer MON to platform treasury
+      const txHashResult = await sendTransaction(
+        PLATFORM_TREASURY_ADDRESS,
+        bundle.bundle_price.toString()
+      );
+
+      if (!txHashResult) {
+        throw new Error("Transaction failed - no transaction hash returned");
+      }
+
+      setTxHash(txHashResult);
+      setPurchaseStep("processing");
+
+      // Record the bundle purchase in database
       const { error: bundlePurchaseError } = await supabase
         .from("shop_bundle_purchases")
         .insert({
           bundle_id: bundle.id,
           user_id: userId,
           price_paid: bundle.bundle_price,
-          tx_hash: `0x${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`,
+          tx_hash: txHashResult,
         });
 
       if (bundlePurchaseError) {
@@ -154,7 +195,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         item_id: bi.item_id,
         user_id: userId,
         price_paid: 0, // Purchased as part of bundle
-        tx_hash: null,
+        tx_hash: txHashResult,
       }));
 
       if (newPurchases.length > 0) {
@@ -168,12 +209,20 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         }
       }
 
+      setPurchaseStep("complete");
       setHasPurchased(true);
       toast.success("Bundle purchased successfully! You now have access to all included packs.");
       onPurchaseComplete?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Purchase error:", error);
-      toast.error("Failed to complete purchase. Please try again.");
+      setPurchaseStep("idle");
+      
+      // Handle user rejection
+      if (error?.code === 4001 || error?.message?.includes("rejected")) {
+        toast.error("Transaction was cancelled");
+      } else {
+        toast.error(error?.message || "Failed to complete purchase. Please try again.");
+      }
     } finally {
       setIsPurchasing(false);
     }
@@ -184,6 +233,14 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
       await connect();
     } catch (error) {
       console.error("Failed to connect wallet:", error);
+    }
+  };
+
+  const handleSwitchNetwork = async () => {
+    try {
+      await switchToMonad();
+    } catch (error) {
+      console.error("Failed to switch network:", error);
     }
   };
 
@@ -212,6 +269,51 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
               <p className="text-lg font-bold text-green-600">Save {savings.toFixed(2)} MON</p>
             </div>
           </div>
+
+          {/* Transaction Status */}
+          {purchaseStep !== "idle" && purchaseStep !== "complete" && (
+            <div className="bg-primary/10 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <div>
+                  <p className="font-medium">
+                    {purchaseStep === "confirming" && "Confirm transaction in your wallet..."}
+                    {purchaseStep === "processing" && "Processing purchase..."}
+                  </p>
+                  {txHash && (
+                    <a 
+                      href={`${currentChain.blockExplorers?.default?.url}/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline flex items-center gap-1"
+                    >
+                      View transaction <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {purchaseStep === "complete" && txHash && (
+            <div className="bg-green-500/20 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-3">
+                <Check className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="font-medium text-green-600">Purchase Complete!</p>
+                  <a 
+                    href={`${currentChain.blockExplorers?.default?.url}/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-green-600 hover:underline flex items-center gap-1"
+                  >
+                    View transaction <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Included Items */}
           <div className="mb-4">
@@ -296,23 +398,48 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
 
           {/* Wallet Status */}
           {!hasPurchased && (
-            <div className="bg-muted/30 rounded-lg p-3 mb-4">
+            <div className="bg-muted/30 rounded-lg p-3 mb-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm">Wallet</span>
                 </div>
                 {isConnected ? (
-                  <Badge variant="secondary" className="gap-1">
-                    <Check className="w-3 h-3" />
-                    {address?.slice(0, 6)}...{address?.slice(-4)}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="gap-1">
+                      <Check className="w-3 h-3" />
+                      {address?.slice(0, 6)}...{address?.slice(-4)}
+                    </Badge>
+                  </div>
                 ) : (
                   <Button variant="outline" size="sm" onClick={handleConnectWallet}>
                     Connect
                   </Button>
                 )}
               </div>
+              {isConnected && (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Balance:</span>
+                    <span className={hasInsufficientBalance ? "text-destructive font-medium" : ""}>
+                      {balance ? `${parseFloat(balance).toFixed(4)} MON` : "Loading..."}
+                    </span>
+                  </div>
+                  {hasInsufficientBalance && (
+                    <p className="text-xs text-destructive">
+                      Insufficient balance. You need at least {bundle.bundle_price} MON.
+                    </p>
+                  )}
+                  {isWrongNetwork && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-destructive">Wrong network</span>
+                      <Button variant="outline" size="sm" onClick={handleSwitchNetwork}>
+                        Switch Network
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -339,16 +466,24 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
               <Wallet className="w-4 h-4" />
               Connect Wallet to Purchase
             </Button>
+          ) : isWrongNetwork ? (
+            <Button 
+              onClick={handleSwitchNetwork}
+              className="w-full gap-2"
+              variant="secondary"
+            >
+              Switch to {currentChain.name}
+            </Button>
           ) : (
             <Button 
               onClick={handlePurchase}
-              disabled={isPurchasing}
+              disabled={isPurchasing || hasInsufficientBalance}
               className="w-full gap-2 h-12 text-lg"
             >
               {isPurchasing ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Processing...
+                  {purchaseStep === "confirming" ? "Confirm in Wallet..." : "Processing..."}
                 </>
               ) : (
                 <>
