@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, CheckCircle } from "lucide-react";
+import { Loader2, Mail, Lock, CheckCircle, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { useSEO } from "@/hooks/useSEO";
@@ -26,7 +26,11 @@ export default function Auth() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [isResetLoading, setIsResetLoading] = useState(false);
   const [showVerificationMessage, setShowVerificationMessage] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetEmailError, setResetEmailError] = useState("");
   const [verificationEmail, setVerificationEmail] = useState("");
 
   useSEO({
@@ -192,6 +196,41 @@ export default function Auth() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetEmailError("");
+
+    const emailResult = emailSchema.safeParse(resetEmail);
+    if (!emailResult.success) {
+      setResetEmailError(emailResult.error.errors[0].message);
+      return;
+    }
+
+    setIsResetLoading(true);
+    const redirectUrl = `${window.location.origin}/auth/callback`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: redirectUrl,
+    });
+
+    setIsResetLoading(false);
+
+    if (error) {
+      toast({
+        title: "Failed to send reset email",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Reset email sent!",
+        description: "Check your inbox for a password reset link.",
+      });
+      setShowForgotPassword(false);
+      setResetEmail("");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -243,6 +282,49 @@ export default function Auth() {
                   </div>
                 </div>
               </div>
+            ) : showForgotPassword ? (
+              <div className="space-y-4 py-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mb-2 -ml-2"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setResetEmail("");
+                    setResetEmailError("");
+                  }}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Sign In
+                </Button>
+                <div className="text-center mb-4">
+                  <h3 className="text-lg font-semibold">Reset Password</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Enter your email and we'll send you a reset link
+                  </p>
+                </div>
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="reset-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    {resetEmailError && <p className="text-sm text-destructive">{resetEmailError}</p>}
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isResetLoading}>
+                    {isResetLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Send Reset Link
+                  </Button>
+                </form>
+              </div>
             ) : (
             <Tabs defaultValue="signin" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
@@ -281,6 +363,16 @@ export default function Auth() {
                       />
                     </div>
                     {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="px-0 h-auto text-sm text-muted-foreground hover:text-primary"
+                      onClick={() => setShowForgotPassword(true)}
+                    >
+                      Forgot password?
+                    </Button>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
