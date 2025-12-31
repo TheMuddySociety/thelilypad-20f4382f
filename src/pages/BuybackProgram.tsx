@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import BuybackStats from "@/components/BuybackStats";
+import LiveBuybackStats from "@/components/LiveBuybackStats";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { useSEO } from "@/hooks/useSEO";
@@ -150,9 +150,9 @@ export default function BuybackProgram() {
           </div>
         </div>
 
-        {/* Stats Section */}
-        <div className="mb-12">
-          <BuybackStats />
+        {/* Live Stats Section */}
+        <div className="mb-16">
+          <LiveBuybackStats />
         </div>
 
         {/* Benefits Grid */}
