@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock } from "lucide-react";
+import { Loader2, Mail, Lock, CheckCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { useSEO } from "@/hooks/useSEO";
 
@@ -24,6 +25,8 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState("");
 
   useSEO({
     title: "Sign In | The Lily Pad",
@@ -95,9 +98,13 @@ export default function Auth() {
         });
       }
     } else {
+      setVerificationEmail(email);
+      setShowVerificationMessage(true);
+      setEmail("");
+      setPassword("");
       toast({
-        title: "Account created!",
-        description: "You can now sign in with your credentials.",
+        title: "Verification email sent!",
+        description: "Please check your inbox and click the verification link to complete signup.",
       });
     }
   };
@@ -116,11 +123,20 @@ export default function Auth() {
     setIsLoading(false);
 
     if (error) {
-      toast({
-        title: "Sign in failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      // Check if the error is about unverified email
+      if (error.message.includes("Email not confirmed")) {
+        toast({
+          title: "Email not verified",
+          description: "Please check your inbox and verify your email before signing in.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Sign in failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -156,6 +172,28 @@ export default function Auth() {
             <CardDescription>Sign in to manage your streams and access creator tools</CardDescription>
           </CardHeader>
           <CardContent>
+            {showVerificationMessage ? (
+              <div className="space-y-4 py-4">
+                <Alert className="border-green-500/50 bg-green-500/10">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <AlertDescription className="text-foreground">
+                    We've sent a verification email to <strong>{verificationEmail}</strong>. 
+                    Please check your inbox and click the link to verify your account.
+                  </AlertDescription>
+                </Alert>
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Didn't receive the email? Check your spam folder or try again.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowVerificationMessage(false)}
+                  >
+                    Back to Sign In
+                  </Button>
+                </div>
+              </div>
+            ) : (
             <Tabs defaultValue="signin" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
@@ -318,6 +356,7 @@ export default function Auth() {
                 </form>
               </TabsContent>
             </Tabs>
+            )}
           </CardContent>
         </Card>
       </main>
