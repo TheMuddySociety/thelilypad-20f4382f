@@ -21,11 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Upload, Sticker, Plus, Trash2, Smile, Sparkles, Leaf } from "lucide-react";
+import { Loader2, Upload, Sticker, Plus, Trash2, Smile, Sparkles, Leaf, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { ManageStickerPackModal } from "@/components/stickers/ManageStickerPackModal";
 
 type PackType = "sticker_pack" | "emote_pack" | "emoji_pack";
 type PackBrand = "lilypad" | "frognad" | "custom";
@@ -39,6 +40,7 @@ interface OfficialPack {
   tier: string;
   price_mon: number;
   creator_type: string;
+  creator_id: string;
   is_active: boolean;
   created_at: string;
   total_sales: number;
@@ -59,6 +61,8 @@ const brandLabels: Record<PackBrand, { label: string; color: string }> = {
 export const AdminStickerPackManager: React.FC = () => {
   const queryClient = useQueryClient();
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [selectedPack, setSelectedPack] = useState<OfficialPack | null>(null);
   const [packType, setPackType] = useState<PackType>("sticker_pack");
   const [brand, setBrand] = useState<PackBrand>("lilypad");
   const [name, setName] = useState("");
@@ -210,6 +214,15 @@ export const AdminStickerPackManager: React.FC = () => {
     setCreateModalOpen(false);
   };
 
+  const handleOpenManage = (pack: OfficialPack) => {
+    setSelectedPack(pack);
+    setManageModalOpen(true);
+  };
+
+  const handleManageUpdate = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-official-packs'] });
+  };
+
   const getCategoryBadge = (category: string) => {
     const config = packTypeLabels[category as PackType];
     if (!config) return <Badge variant="outline">{category}</Badge>;
@@ -306,6 +319,15 @@ export const AdminStickerPackManager: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenManage(pack)}
+                          className="gap-1"
+                        >
+                          <Settings className="w-4 h-4" />
+                          Manage
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -489,6 +511,16 @@ export const AdminStickerPackManager: React.FC = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Manage Pack Modal */}
+      {selectedPack && (
+        <ManageStickerPackModal
+          open={manageModalOpen}
+          onOpenChange={setManageModalOpen}
+          pack={selectedPack}
+          onUpdate={handleManageUpdate}
+        />
+      )}
     </Card>
   );
 };
