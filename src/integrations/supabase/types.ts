@@ -580,6 +580,71 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_transactions: {
+        Row: {
+          action_type: string
+          collection_id: string | null
+          created_at: string
+          deadline: string
+          error_message: string | null
+          gas_paid_by: string | null
+          gas_used: number | null
+          id: string
+          nonce: number
+          processed_at: string | null
+          signature: string
+          status: string
+          tx_hash: string | null
+          typed_data: Json
+          user_address: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          collection_id?: string | null
+          created_at?: string
+          deadline: string
+          error_message?: string | null
+          gas_paid_by?: string | null
+          gas_used?: number | null
+          id?: string
+          nonce: number
+          processed_at?: string | null
+          signature: string
+          status?: string
+          tx_hash?: string | null
+          typed_data: Json
+          user_address: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          collection_id?: string | null
+          created_at?: string
+          deadline?: string
+          error_message?: string | null
+          gas_paid_by?: string | null
+          gas_used?: number | null
+          id?: string
+          nonce?: number
+          processed_at?: string | null
+          signature?: string
+          status?: string
+          tx_hash?: string | null
+          typed_data?: Json
+          user_address?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_transactions_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       minted_nfts: {
         Row: {
           attributes: Json | null
@@ -1346,6 +1411,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_nonces: {
+        Row: {
+          nonce: number
+          updated_at: string
+          user_address: string
+        }
+        Insert: {
+          nonce?: number
+          updated_at?: string
+          user_address: string
+        }
+        Update: {
+          nonce?: number
+          updated_at?: string
+          user_address?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
