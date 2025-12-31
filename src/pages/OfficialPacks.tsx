@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,9 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Leaf, Sparkles, Sticker, Smile, Image, ShoppingCart, Eye, Crown, Package, Percent, Gift } from "lucide-react";
+import { Leaf, Sparkles, Sticker, Smile, Image, ShoppingCart, Eye, Crown, Package, Percent, Gift, Timer, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { BundlePurchaseModal } from "@/components/shop/BundlePurchaseModal";
+import { BundleCountdown } from "@/components/shop/BundleCountdown";
 
 interface OfficialPack {
   id: string;
@@ -31,6 +32,9 @@ interface Bundle {
   discount_percent: number;
   original_price: number;
   bundle_price: number;
+  is_limited_time: boolean;
+  starts_at: string | null;
+  expires_at: string | null;
   created_at: string;
 }
 
@@ -76,6 +80,27 @@ const OfficialPacks: React.FC = () => {
       return data as Bundle[];
     }
   });
+
+  // Filter bundles: show active ones that haven't expired and have started (or have no time limit)
+  const activeBundles = useMemo(() => {
+    const now = Date.now();
+    return bundles.filter(bundle => {
+      if (!bundle.is_limited_time) return true;
+      
+      // Check if started (or no start date)
+      if (bundle.starts_at && new Date(bundle.starts_at).getTime() > now) {
+        // Not started yet - still show it with "Coming Soon" badge
+        return true;
+      }
+      
+      // Check if expired
+      if (bundle.expires_at && new Date(bundle.expires_at).getTime() <= now) {
+        return false; // Expired, don't show
+      }
+      
+      return true;
+    });
+  }, [bundles]);
 
   const { data: bundleItemsMap = {} } = useQuery({
     queryKey: ['bundle-items-map', bundles.map(b => b.id)],
@@ -207,24 +232,46 @@ const OfficialPacks: React.FC = () => {
     const items = bundleItemsMap[bundle.id] || [];
     const savings = bundle.original_price - bundle.bundle_price;
     
+    // Check if this is a "coming soon" bundle
+    const isNotStarted = bundle.is_limited_time && bundle.starts_at && 
+      new Date(bundle.starts_at).getTime() > Date.now();
+    
     return (
-      <Card className="group overflow-hidden hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 border-2 border-primary/20 hover:border-primary/50 bg-gradient-to-br from-primary/5 to-secondary/5">
+      <Card className={`group overflow-hidden transition-all duration-300 border-2 bg-gradient-to-br from-primary/5 to-secondary/5 ${
+        bundle.is_limited_time 
+          ? "border-amber-500/30 hover:border-amber-500/60 hover:shadow-xl hover:shadow-amber-500/10" 
+          : "border-primary/20 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10"
+      }`}>
         <div className="relative p-6">
-          {/* Bundle Badge */}
-          <div className="absolute top-4 right-4">
+          {/* Badges */}
+          <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
             <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 gap-1 text-sm">
               <Percent className="w-3 h-3" />
               {bundle.discount_percent}% OFF
             </Badge>
+            {bundle.is_limited_time && (
+              <BundleCountdown
+                startsAt={bundle.starts_at}
+                expiresAt={bundle.expires_at}
+                isLimitedTime={bundle.is_limited_time}
+                variant="badge"
+              />
+            )}
           </div>
           
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-xl bg-primary/20">
-              <Package className="w-8 h-8 text-primary" />
+            <div className={`p-3 rounded-xl ${bundle.is_limited_time ? "bg-amber-500/20" : "bg-primary/20"}`}>
+              {bundle.is_limited_time ? (
+                <Timer className="w-8 h-8 text-amber-500" />
+              ) : (
+                <Package className="w-8 h-8 text-primary" />
+              )}
             </div>
             <div>
               <h3 className="font-bold text-xl">{bundle.name}</h3>
-              <p className="text-sm text-muted-foreground">Bundle Deal</p>
+              <p className="text-sm text-muted-foreground">
+                {bundle.is_limited_time ? "Limited Time Deal" : "Bundle Deal"}
+              </p>
             </div>
           </div>
           
@@ -273,6 +320,18 @@ const OfficialPacks: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Limited Time Countdown - Full Display */}
+          {bundle.is_limited_time && !isNotStarted && (
+            <div className="mb-4">
+              <BundleCountdown
+                startsAt={bundle.starts_at}
+                expiresAt={bundle.expires_at}
+                isLimitedTime={bundle.is_limited_time}
+                variant="full"
+              />
+            </div>
+          )}
           
           {/* Pricing */}
           <div className="bg-muted/50 rounded-lg p-4 mb-4">
@@ -290,13 +349,24 @@ const OfficialPacks: React.FC = () => {
             </div>
           </div>
           
-          <Button 
-            className="w-full gap-2 h-12 text-lg"
-            onClick={() => handleBundleClick(bundle)}
-          >
-            <ShoppingCart className="w-5 h-5" />
-            Get Bundle
-          </Button>
+          {isNotStarted ? (
+            <Button 
+              className="w-full gap-2 h-12 text-lg"
+              variant="secondary"
+              disabled
+            >
+              <Clock className="w-5 h-5" />
+              Coming Soon
+            </Button>
+          ) : (
+            <Button 
+              className="w-full gap-2 h-12 text-lg"
+              onClick={() => handleBundleClick(bundle)}
+            >
+              <ShoppingCart className="w-5 h-5" />
+              Get Bundle
+            </Button>
+          )}
         </div>
       </Card>
     );
@@ -330,15 +400,21 @@ const OfficialPacks: React.FC = () => {
         </div>
 
         {/* Bundle Deals Section */}
-        {!bundlesLoading && bundles.length > 0 && (
+        {!bundlesLoading && activeBundles.length > 0 && (
           <section className="mb-12">
             <div className="flex items-center gap-2 mb-6">
               <Package className="w-6 h-6 text-primary" />
               <h2 className="text-2xl font-bold">Bundle Deals</h2>
               <Badge className="bg-green-500/20 text-green-600 border-green-500/30">Save More</Badge>
+              {activeBundles.some(b => b.is_limited_time) && (
+                <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 gap-1">
+                  <Timer className="w-3 h-3" />
+                  Limited Time
+                </Badge>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {bundles.map((bundle) => (
+              {activeBundles.map((bundle) => (
                 <BundleCard key={bundle.id} bundle={bundle} />
               ))}
             </div>
