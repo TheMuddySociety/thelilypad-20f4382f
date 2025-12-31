@@ -1,14 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { TrendingUp, Coins, Activity, Zap, ArrowUpRight } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import confetti from "canvas-confetti";
 
 const LiveBuybackStats = () => {
   const queryClient = useQueryClient();
   const [isLive, setIsLive] = useState(false);
+  const [hasTriggeredConfetti, setHasTriggeredConfetti] = useState(false);
+  const previousProgress = useRef(0);
 
   const { data: poolData } = useQuery({
     queryKey: ['buyback-pool-live'],
@@ -89,6 +92,50 @@ const LiveBuybackStats = () => {
   const threshold = poolData?.buyback_threshold || 100;
   const progress = threshold > 0 ? Math.min((accumulatedVolume / threshold) * 100, 100) : 0;
   const totalBuybacks = poolData?.total_buybacks_executed || buybackCount || 0;
+
+  // Trigger confetti when threshold is reached
+  useEffect(() => {
+    if (progress >= 100 && previousProgress.current < 100 && !hasTriggeredConfetti) {
+      setHasTriggeredConfetti(true);
+      
+      // Fire confetti from both sides
+      const duration = 3000;
+      const end = Date.now() + duration;
+
+      const frame = () => {
+        confetti({
+          particleCount: 3,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.7 },
+          colors: ['#22c55e', '#10b981', '#14b8a6', '#06b6d4'],
+        });
+        confetti({
+          particleCount: 3,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.7 },
+          colors: ['#22c55e', '#10b981', '#14b8a6', '#06b6d4'],
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      };
+
+      // Initial burst
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#a855f7'],
+      });
+
+      frame();
+    }
+    
+    previousProgress.current = progress;
+  }, [progress, hasTriggeredConfetti]);
 
   const stats = [
     {
