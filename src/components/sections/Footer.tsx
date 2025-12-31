@@ -10,7 +10,7 @@ const footerLinks = {
     { label: "Streams", href: "/streams" },
     { label: "Streamers", href: "/streamers" },
     { label: "Go Live", href: "/go-live" },
-    { label: "Buyback Program", href: "/buyback" },
+    { label: "Buyback Program", href: "/buyback-program" },
   ],
   legal: [
     { label: "Terms of Service", href: "#" },
