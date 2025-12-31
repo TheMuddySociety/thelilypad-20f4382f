@@ -41,6 +41,7 @@ import { FeaturedCollectionsManager } from '@/components/admin/FeaturedCollectio
 import { BuybackProgramManager } from '@/components/admin/BuybackProgramManager';
 import { AdminStickerPackManager } from '@/components/admin/AdminStickerPackManager';
 import { AdminBundleManager } from '@/components/admin/AdminBundleManager';
+import { RewardsAllocationManager } from '@/components/admin/RewardsAllocationManager';
 
 interface AdminUser {
   id: string;
@@ -776,7 +777,10 @@ const AdminDashboard: React.FC = () => {
 
           {/* Buyback Program Tab */}
           <TabsContent value="buyback">
-            <BuybackProgramManager />
+            <div className="space-y-6">
+              <BuybackProgramManager />
+              <RewardsAllocationManager />
+            </div>
           </TabsContent>
 
           {/* Official Packs Tab */}
