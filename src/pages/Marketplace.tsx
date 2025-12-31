@@ -28,6 +28,7 @@ import { isFactoryConfigured } from "@/config/nftFactory";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { MarketplaceCardSkeleton } from "@/components/LoadingSkeletons";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
+import frognadBanner from "@/assets/frognad-banner.png";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -394,6 +395,25 @@ export default function Marketplace() {
                 Browse collections and sticker packs on {currentChain.name}
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Platform NFT Collection Coming Soon Banner */}
+        <div className="relative mb-8 rounded-xl overflow-hidden">
+          <img 
+            src={frognadBanner} 
+            alt="The Lily Pad Frognad Collection" 
+            className="w-full h-auto object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4 text-center sm:text-left">
+            <Badge className="bg-emerald-500/90 text-white border-none mb-2">
+              <Sparkles className="w-3 h-3 mr-1" />
+              Coming Soon
+            </Badge>
+            <p className="text-white font-semibold text-lg sm:text-xl drop-shadow-lg">
+              The Lily Pad own platform NFT collection coming soon.
+            </p>
           </div>
         </div>
 
