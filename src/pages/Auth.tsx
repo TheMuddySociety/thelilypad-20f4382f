@@ -12,7 +12,7 @@ import { Loader2, Mail, Lock, CheckCircle, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { useSEO } from "@/hooks/useSEO";
-import authHero from "@/assets/auth-hero.png";
+import authBranding from "@/assets/auth-branding.png";
 
 const emailSchema = z.string().email("Invalid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
@@ -213,17 +213,26 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Left side - Hero Image */}
+      {/* Left side - Hero Image (Desktop) */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-emerald-50 to-emerald-100">
         <img 
-          src={authHero} 
+          src={authBranding} 
           alt="The Lily Pad" 
           className="w-full h-full object-cover"
         />
       </div>
       
       {/* Right side - Auth Form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-background">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 bg-background">
+        {/* Mobile Branding */}
+        <div className="lg:hidden mb-6 w-full max-w-[280px]">
+          <img 
+            src={authBranding} 
+            alt="The Lily Pad" 
+            className="w-full h-auto rounded-lg"
+          />
+        </div>
+        
         <Card className="w-full max-w-md border-border/50 shadow-xl">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">Welcome to The Lily Pad</CardTitle>
