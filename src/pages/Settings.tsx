@@ -26,9 +26,27 @@ import {
   Youtube,
   Loader2,
   Settings as SettingsIcon,
-  Wallet
+  Wallet,
+  Lock,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { z } from "zod";
+
+const passwordSchema = z.object({
+  newPassword: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(72, "Password must be less than 72 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+  confirmPassword: z.string(),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -47,6 +65,14 @@ const Settings = () => {
   // Preferences state
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [soundNotifications, setSoundNotifications] = useState(true);
+  
+  // Password change state
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<{ newPassword?: string; confirmPassword?: string }>({});
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ["session"],
@@ -124,6 +150,43 @@ const Settings = () => {
       toast.error("Failed to update profile: " + error.message);
     },
   });
+
+  const handlePasswordChange = async () => {
+    // Validate password
+    const result = passwordSchema.safeParse({ newPassword, confirmPassword });
+    
+    if (!result.success) {
+      const errors: { newPassword?: string; confirmPassword?: string } = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0] === "newPassword") {
+          errors.newPassword = err.message;
+        } else if (err.path[0] === "confirmPassword") {
+          errors.confirmPassword = err.message;
+        }
+      });
+      setPasswordErrors(errors);
+      return;
+    }
+    
+    setPasswordErrors({});
+    setIsChangingPassword(true);
+    
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      
+      if (error) throw error;
+      
+      toast.success("Password changed successfully!");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      toast.error("Failed to change password: " + error.message);
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -456,6 +519,90 @@ const Settings = () => {
                     className="bg-muted"
                   />
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Password Change Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="w-5 h-5" />
+                  Change Password
+                </CardTitle>
+                <CardDescription>
+                  Update your password to keep your account secure
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="new-password"
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => {
+                        setNewPassword(e.target.value);
+                        setPasswordErrors((prev) => ({ ...prev, newPassword: undefined }));
+                      }}
+                      placeholder="Enter new password"
+                      className={passwordErrors.newPassword ? "border-destructive" : ""}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {passwordErrors.newPassword && (
+                    <p className="text-sm text-destructive">{passwordErrors.newPassword}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Must be 8+ characters with uppercase, lowercase, and number
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirm-password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        setPasswordErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                      }}
+                      placeholder="Confirm new password"
+                      className={passwordErrors.confirmPassword ? "border-destructive" : ""}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {passwordErrors.confirmPassword && (
+                    <p className="text-sm text-destructive">{passwordErrors.confirmPassword}</p>
+                  )}
+                </div>
+
+                <Button
+                  onClick={handlePasswordChange}
+                  disabled={isChangingPassword || !newPassword || !confirmPassword}
+                  className="w-full sm:w-auto"
+                >
+                  {isChangingPassword ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Lock className="w-4 h-4 mr-2" />
+                  )}
+                  Change Password
+                </Button>
               </CardContent>
             </Card>
 
