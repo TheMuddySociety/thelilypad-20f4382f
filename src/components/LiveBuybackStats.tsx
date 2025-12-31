@@ -222,24 +222,48 @@ const LiveBuybackStats = () => {
       </div>
 
       {/* Progress to Next Buyback */}
-      <Card className="border-border/50">
+      <Card className={`border-border/50 transition-all duration-500 ${progress >= 80 ? 'ring-2 ring-primary/50' : ''}`}>
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-primary/10">
+              <div className={`p-2 rounded-lg bg-primary/10 ${progress >= 80 ? 'animate-pulse' : ''}`}>
                 <TrendingUp className="w-4 h-4 text-primary" />
               </div>
               <span className="font-semibold">Next Buyback Progress</span>
+              {progress >= 80 && progress < 100 && (
+                <span className="text-xs text-amber-500 font-medium animate-pulse">Almost there!</span>
+              )}
             </div>
             <span className="text-sm text-muted-foreground">
               <AnimatedCounter value={accumulatedVolume} decimals={2} /> / {threshold} MON
             </span>
           </div>
-          <Progress value={progress} className="h-3 mb-2" />
+          <div className={`relative ${progress >= 80 ? 'animate-pulse' : ''}`}>
+            <Progress 
+              value={progress} 
+              className={`h-3 mb-2 transition-all duration-300 ${
+                progress >= 100 
+                  ? '[&>div]:bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.5)]' 
+                  : progress >= 80 
+                    ? '[&>div]:bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]' 
+                    : ''
+              }`} 
+            />
+            {progress >= 80 && (
+              <div 
+                className={`absolute inset-0 rounded-full ${
+                  progress >= 100 
+                    ? 'bg-green-500/20' 
+                    : 'bg-amber-500/20'
+                } blur-md animate-pulse`} 
+                style={{ height: '12px' }}
+              />
+            )}
+          </div>
           <p className="text-sm text-muted-foreground text-center">
             {progress >= 100 ? (
               <span className="text-green-500 font-medium flex items-center justify-center gap-1">
-                <Zap className="w-4 h-4" />
+                <Zap className="w-4 h-4 animate-bounce" />
                 Buyback threshold reached!
               </span>
             ) : (
