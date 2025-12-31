@@ -15,6 +15,8 @@ import {
 import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
+import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
+import BuybackStats from "@/components/BuybackStats";
 import { Rocket, Sparkles, Loader2, ChevronDown, Check, Image as ImageIcon, Sticker, LayoutGrid, Clock, CheckCircle, Tag, ShoppingCart, BarChart3, Shield, Leaf, Flame, TrendingUp, Ban } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
@@ -25,6 +27,7 @@ import { useSEO } from "@/hooks/useSEO";
 import { isFactoryConfigured } from "@/config/nftFactory";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { MarketplaceCardSkeleton } from "@/components/LoadingSkeletons";
+import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -112,8 +115,9 @@ export default function Marketplace() {
 
   // Check if factory is configured (for showing verified filter)
   const factoryAvailable = isFactoryConfigured();
-
-  // Infinite scroll for collections
+  
+  // Get buyback program collections
+  const { isInProgram } = useBuybackProgram();
   const { loadMoreRef } = useInfiniteScroll(
     () => loadMoreCollections(),
     hasMoreCollections,
@@ -427,10 +431,15 @@ export default function Marketplace() {
           </Card>
         </div>
 
-        {/* Top Collections Highlights */}
-        <TopCollectionsHighlights />
-
-        {/* Filter Controls */}
+        {/* Buyback Stats and Top Collections */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="lg:col-span-2">
+            <TopCollectionsHighlights />
+          </div>
+          <div>
+            <BuybackStats />
+          </div>
+        </div>
         <div className="flex flex-wrap items-center gap-4 mb-8">
           {/* Category Dropdown */}
           <DropdownMenu>
@@ -763,7 +772,10 @@ export default function Marketplace() {
                           </Badge>
                         </div>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-lg truncate">{collection.name}</CardTitle>
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-lg truncate flex-1">{collection.name}</CardTitle>
+                            {isInProgram(collection.id) && <BuybackProgramBadge />}
+                          </div>
                           <CardDescription>by {collection.creator_address.slice(0, 6)}...{collection.creator_address.slice(-4)}</CardDescription>
                         </CardHeader>
                         <CardContent>

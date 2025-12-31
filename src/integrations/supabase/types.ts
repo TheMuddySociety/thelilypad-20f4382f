@@ -164,6 +164,44 @@ export type Database = {
         }
         Relationships: []
       }
+      buyback_program_collections: {
+        Row: {
+          added_at: string
+          added_by: string
+          collection_id: string
+          id: string
+          is_active: boolean
+          notified_creator: boolean
+          reason: string | null
+        }
+        Insert: {
+          added_at?: string
+          added_by: string
+          collection_id: string
+          id?: string
+          is_active?: boolean
+          notified_creator?: boolean
+          reason?: string | null
+        }
+        Update: {
+          added_at?: string
+          added_by?: string
+          collection_id?: string
+          id?: string
+          is_active?: boolean
+          notified_creator?: boolean
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyback_program_collections_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: true
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_emotes: {
         Row: {
           created_at: string
