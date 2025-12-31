@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Award, 
   Trophy, 
@@ -15,10 +17,15 @@ import {
   Target,
   TrendingUp,
   Coins,
-  Lock
+  Lock,
+  Share2,
+  Twitter,
+  Check,
+  Copy
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { subDays } from "date-fns";
+import { toast } from "sonner";
 
 interface Achievement {
   id: string;
@@ -53,6 +60,9 @@ const ACHIEVEMENTS: Achievement[] = [
 const TIER_ORDER = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
 
 export function VolumeAchievements() {
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
   const { data: session } = useQuery({
     queryKey: ['session'],
     queryFn: async () => {
@@ -108,8 +118,48 @@ export function VolumeAchievements() {
 
   const unlockedCount = achievementStatus.filter(a => a.unlocked).length;
   const totalCount = achievementStatus.length;
+  const unlockedAchievements = achievementStatus.filter(a => a.unlocked);
 
   const nextAchievement = achievementStatus.find(a => !a.unlocked);
+
+  const getShareText = () => {
+    const highestTier = unlockedAchievements.length > 0
+      ? unlockedAchievements.reduce((highest, current) => {
+          const tierIndex = TIER_ORDER.indexOf(current.tier);
+          const highestIndex = TIER_ORDER.indexOf(highest.tier);
+          return tierIndex > highestIndex ? current : highest;
+        })
+      : null;
+
+    if (!highestTier) {
+      return `I'm trading on @TheLilyPadNFT! Join me and start earning achievements. 🐸`;
+    }
+
+    const tierEmoji = {
+      bronze: '🥉',
+      silver: '🥈',
+      gold: '🥇',
+      platinum: '💎',
+      diamond: '👑'
+    };
+
+    return `I just unlocked the "${highestTier.name}" achievement ${tierEmoji[highestTier.tier]} on @TheLilyPadNFT!\n\n${unlockedCount}/${totalCount} achievements unlocked\n${userStats?.totalVolume.toFixed(0)} MON traded\n\nJoin the Buyback Program and start earning! 🐸`;
+  };
+
+  const shareToTwitter = () => {
+    const text = encodeURIComponent(getShareText());
+    const url = encodeURIComponent(window.location.origin + '/buyback-program');
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank', 'width=550,height=420');
+    setShareDialogOpen(false);
+  };
+
+  const copyShareLink = async () => {
+    const text = getShareText() + `\n\n${window.location.origin}/buyback-program`;
+    await navigator.clipboard.writeText(text);
+    setCopiedLink(true);
+    toast.success("Copied to clipboard!");
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   if (!session) {
     return (
@@ -177,10 +227,23 @@ export function VolumeAchievements() {
               <CardDescription>Unlock milestones as you trade</CardDescription>
             </div>
           </div>
-          <Badge variant="secondary" className="gap-1">
-            <Award className="w-3 h-3" />
-            {unlockedCount}/{totalCount}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {unlockedCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                onClick={() => setShareDialogOpen(true)}
+              >
+                <Share2 className="w-4 h-4" />
+                Share
+              </Button>
+            )}
+            <Badge variant="secondary" className="gap-1">
+              <Award className="w-3 h-3" />
+              {unlockedCount}/{totalCount}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -272,6 +335,66 @@ export function VolumeAchievements() {
             </div>
           </div>
         )}
+
+        {/* Share Dialog */}
+        <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-500" />
+                Share Your Achievements
+              </DialogTitle>
+              <DialogDescription>
+                Show off your trading milestones to the world!
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {/* Preview */}
+              <div className="rounded-lg bg-muted/50 p-4 text-sm">
+                <p className="whitespace-pre-line">{getShareText()}</p>
+              </div>
+
+              {/* Share Buttons */}
+              <div className="flex flex-col gap-2">
+                <Button onClick={shareToTwitter} className="w-full gap-2">
+                  <Twitter className="w-4 h-4" />
+                  Share on X (Twitter)
+                </Button>
+                <Button variant="outline" onClick={copyShareLink} className="w-full gap-2">
+                  {copiedLink ? (
+                    <>
+                      <Check className="w-4 h-4 text-green-500" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copy to Clipboard
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Unlocked Achievements Preview */}
+              {unlockedAchievements.length > 0 && (
+                <div className="pt-2 border-t border-border/50">
+                  <div className="text-xs text-muted-foreground mb-2">Your unlocked achievements:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {unlockedAchievements.map(achievement => (
+                      <Badge
+                        key={achievement.id}
+                        variant="outline"
+                        className={`text-xs ${achievement.color} ${achievement.bgColor}`}
+                      >
+                        {achievement.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
