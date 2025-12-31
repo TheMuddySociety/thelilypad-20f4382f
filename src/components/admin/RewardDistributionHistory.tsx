@@ -1,9 +1,14 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   History, 
   Calendar, 
@@ -11,7 +16,11 @@ import {
   Coins, 
   CheckCircle2,
   Clock,
-  TrendingUp
+  TrendingUp,
+  ChevronDown,
+  ChevronRight,
+  Trophy,
+  Eye
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -27,7 +36,22 @@ interface RewardPeriodSummary {
   total_weighted_volume: number;
 }
 
+interface RecipientDetail {
+  id: string;
+  user_id: string;
+  rank: number;
+  reward_amount: number;
+  weighted_volume: number;
+  is_claimed: boolean;
+  claimed_at: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+}
+
 export function RewardDistributionHistory() {
+  const [selectedPeriod, setSelectedPeriod] = useState<RewardPeriodSummary | null>(null);
+  const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
+
   const { data: history, isLoading } = useQuery({
     queryKey: ['reward-distribution-history'],
     queryFn: async () => {
@@ -72,6 +96,45 @@ export function RewardDistributionHistory() {
     },
   });
 
+  // Fetch recipients for selected period
+  const { data: recipients, isLoading: isLoadingRecipients } = useQuery({
+    queryKey: ['period-recipients', selectedPeriod?.period_start, selectedPeriod?.period_end],
+    queryFn: async () => {
+      if (!selectedPeriod) return [];
+
+      const { data, error } = await supabase
+        .from('volume_rewards')
+        .select('*')
+        .eq('reward_period_start', selectedPeriod.period_start)
+        .eq('reward_period_end', selectedPeriod.period_end)
+        .order('rank', { ascending: true });
+
+      if (error) throw error;
+
+      // Fetch profiles
+      if (data && data.length > 0) {
+        const userIds = data.map(r => r.user_id);
+        const { data: profiles } = await supabase
+          .from('streamer_profiles')
+          .select('user_id, display_name, avatar_url')
+          .in('user_id', userIds);
+
+        const profileMap = new Map(
+          profiles?.map(p => [p.user_id, { display_name: p.display_name, avatar_url: p.avatar_url }]) || []
+        );
+
+        return data.map(reward => ({
+          ...reward,
+          display_name: profileMap.get(reward.user_id)?.display_name,
+          avatar_url: profileMap.get(reward.user_id)?.avatar_url,
+        })) as RecipientDetail[];
+      }
+
+      return data as RecipientDetail[];
+    },
+    enabled: !!selectedPeriod,
+  });
+
   const formatPeriod = (start: string, end: string) => {
     return `${format(new Date(start), 'MMM d')} - ${format(new Date(end), 'MMM d, yyyy')}`;
   };
@@ -79,6 +142,30 @@ export function RewardDistributionHistory() {
   const getClaimProgress = (claimed: number, total: number) => {
     if (total === 0) return 0;
     return Math.round((claimed / total) * 100);
+  };
+
+  const togglePeriod = (periodKey: string) => {
+    setExpandedPeriods(prev => {
+      const next = new Set(prev);
+      if (next.has(periodKey)) {
+        next.delete(periodKey);
+      } else {
+        next.add(periodKey);
+      }
+      return next;
+    });
+  };
+
+  const getRankBadge = (rank: number) => {
+    if (rank === 1) return <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30">🥇 1st</Badge>;
+    if (rank === 2) return <Badge className="bg-gray-400/20 text-gray-400 border-gray-400/30">🥈 2nd</Badge>;
+    if (rank === 3) return <Badge className="bg-amber-600/20 text-amber-500 border-amber-600/30">🥉 3rd</Badge>;
+    return <Badge variant="outline">#{rank}</Badge>;
+  };
+
+  const getDisplayName = (recipient: RecipientDetail) => {
+    if (recipient.display_name) return recipient.display_name;
+    return `${recipient.user_id.slice(0, 8)}...`;
   };
 
   // Calculate totals
@@ -92,134 +179,234 @@ export function RewardDistributionHistory() {
   ) || { totalDistributed: 0, totalClaimed: 0, totalRecipients: 0 };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <History className="w-5 h-5 text-primary" />
-          Reward Distribution History
-        </CardTitle>
-        <CardDescription>
-          View all past reward allocations and claim status
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-4 rounded-lg bg-muted/50 border">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <Coins className="w-4 h-4" />
-              Total Distributed
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="w-5 h-5 text-primary" />
+            Reward Distribution History
+          </CardTitle>
+          <CardDescription>
+            View all past reward allocations and claim status. Click a period to see recipients.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Summary Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg bg-muted/50 border">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <Coins className="w-4 h-4" />
+                Total Distributed
+              </div>
+              <p className="text-2xl font-bold text-primary">
+                {totals.totalDistributed.toFixed(2)} MON
+              </p>
             </div>
-            <p className="text-2xl font-bold text-primary">
-              {totals.totalDistributed.toFixed(2)} MON
-            </p>
-          </div>
-          <div className="p-4 rounded-lg bg-muted/50 border">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <CheckCircle2 className="w-4 h-4 text-green-500" />
-              Total Claimed
+            <div className="p-4 rounded-lg bg-muted/50 border">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                Total Claimed
+              </div>
+              <p className="text-2xl font-bold text-green-500">
+                {totals.totalClaimed.toFixed(2)} MON
+              </p>
             </div>
-            <p className="text-2xl font-bold text-green-500">
-              {totals.totalClaimed.toFixed(2)} MON
-            </p>
-          </div>
-          <div className="p-4 rounded-lg bg-muted/50 border">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <Users className="w-4 h-4" />
-              Total Recipients
+            <div className="p-4 rounded-lg bg-muted/50 border">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <Users className="w-4 h-4" />
+                Total Recipients
+              </div>
+              <p className="text-2xl font-bold">
+                {totals.totalRecipients}
+              </p>
             </div>
-            <p className="text-2xl font-bold">
-              {totals.totalRecipients}
-            </p>
           </div>
-        </div>
 
-        {/* History Table */}
-        {isLoading ? (
-          <div className="space-y-2">
-            {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        ) : history && history.length > 0 ? (
-          <ScrollArea className="h-[400px]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Recipients</TableHead>
-                  <TableHead>Total Pool</TableHead>
-                  <TableHead>Top Reward</TableHead>
-                  <TableHead>Volume</TableHead>
-                  <TableHead>Claim Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {history.map((period, index) => {
-                  const claimProgress = getClaimProgress(period.claimed_count, period.recipient_count);
-                  const isFullyClaimed = period.claimed_count === period.recipient_count;
-                  
-                  return (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium">
-                            {formatPeriod(period.period_start, period.period_end)}
+          {/* History Table */}
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : history && history.length > 0 ? (
+            <ScrollArea className="h-[400px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40px]"></TableHead>
+                    <TableHead>Period</TableHead>
+                    <TableHead>Recipients</TableHead>
+                    <TableHead>Total Pool</TableHead>
+                    <TableHead>Top Reward</TableHead>
+                    <TableHead>Claim Status</TableHead>
+                    <TableHead className="w-[80px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {history.map((period, index) => {
+                    const periodKey = `${period.period_start}-${period.period_end}`;
+                    const claimProgress = getClaimProgress(period.claimed_count, period.recipient_count);
+                    const isFullyClaimed = period.claimed_count === period.recipient_count;
+                    const isExpanded = expandedPeriods.has(periodKey);
+                    
+                    return (
+                      <TableRow 
+                        key={index}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => togglePeriod(periodKey)}
+                      >
+                        <TableCell>
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium">
+                              {formatPeriod(period.period_start, period.period_end)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Users className="w-4 h-4 text-muted-foreground" />
+                            {period.recipient_count}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-semibold text-primary">
+                            {period.total_distributed.toFixed(2)} MON
                           </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Users className="w-4 h-4 text-muted-foreground" />
-                          {period.recipient_count}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-semibold text-primary">
-                          {period.total_distributed.toFixed(2)} MON
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="gap-1">
-                          <TrendingUp className="w-3 h-3" />
-                          {period.top_reward.toFixed(2)} MON
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-muted-foreground">
-                          {period.total_weighted_volume.toFixed(2)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {isFullyClaimed ? (
-                          <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            All Claimed
-                          </Badge>
-                        ) : (
+                        </TableCell>
+                        <TableCell>
                           <Badge variant="outline" className="gap-1">
-                            <Clock className="w-3 h-3" />
-                            {period.claimed_count}/{period.recipient_count} ({claimProgress}%)
+                            <TrendingUp className="w-3 h-3" />
+                            {period.top_reward.toFixed(2)} MON
                           </Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                        </TableCell>
+                        <TableCell>
+                          {isFullyClaimed ? (
+                            <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              All Claimed
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1">
+                              <Clock className="w-3 h-3" />
+                              {period.claimed_count}/{period.recipient_count} ({claimProgress}%)
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedPeriod(period);
+                            }}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground border rounded-lg">
+              <History className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">No reward distributions yet</p>
+              <p className="text-sm">
+                Allocate rewards to top traders to see the history here
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recipient Details Modal */}
+      <Dialog open={!!selectedPeriod} onOpenChange={() => setSelectedPeriod(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-primary" />
+              Reward Recipients
+            </DialogTitle>
+            <DialogDescription>
+              {selectedPeriod && formatPeriod(selectedPeriod.period_start, selectedPeriod.period_end)}
+              {" • "}
+              {selectedPeriod?.total_distributed.toFixed(2)} MON distributed
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="max-h-[400px]">
+            {isLoadingRecipients ? (
+              <div className="space-y-2 p-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : recipients && recipients.length > 0 ? (
+              <div className="space-y-2 p-1">
+                {recipients.map((recipient) => (
+                  <div
+                    key={recipient.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      recipient.is_claimed 
+                        ? 'bg-green-500/5 border-green-500/20' 
+                        : 'bg-muted/30 border-border'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {getRankBadge(recipient.rank)}
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={recipient.avatar_url || undefined} />
+                        <AvatarFallback className="text-xs">
+                          {recipient.display_name?.slice(0, 2).toUpperCase() || 
+                           recipient.user_id.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-sm">{getDisplayName(recipient)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Volume: {Number(recipient.weighted_volume).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-primary">
+                        {Number(recipient.reward_amount).toFixed(2)} MON
+                      </p>
+                      {recipient.is_claimed ? (
+                        <p className="text-xs text-green-500 flex items-center gap-1 justify-end">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Claimed {recipient.claimed_at && format(new Date(recipient.claimed_at), 'MMM d')}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                          <Clock className="w-3 h-3" />
+                          Pending
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No recipients found for this period
+              </div>
+            )}
           </ScrollArea>
-        ) : (
-          <div className="text-center py-12 text-muted-foreground border rounded-lg">
-            <History className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No reward distributions yet</p>
-            <p className="text-sm">
-              Allocate rewards to top traders to see the history here
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
