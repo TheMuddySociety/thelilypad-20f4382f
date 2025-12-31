@@ -27,6 +27,7 @@ import { MintCountdown } from "@/components/MintCountdown";
 import { RevealCountdown } from "@/components/RevealCountdown";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
 import { BackToTop } from "@/components/BackToTop";
+import { BuybackProgramInfo } from "@/components/BuybackProgramInfo";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -931,6 +932,10 @@ export default function CollectionDetail() {
               totalSupply={collection.total_supply}
               minted={collection.minted}
             />
+
+            {/* Buyback Program Info */}
+            <BuybackProgramInfo collectionId={collection.id} />
+
             {/* Description */}
             <Card>
               <CardHeader>
