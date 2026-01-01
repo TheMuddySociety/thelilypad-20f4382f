@@ -26,7 +26,7 @@ interface WalletContextType extends WalletState {
   connect: (walletType?: WalletType, chainType?: ChainType) => Promise<void>;
   connectWithOAuth: (provider: OAuthProvider, chainType: ChainType) => Promise<void>;
   disconnect: () => void;
-  switchNetwork: (network: NetworkType) => void;
+  switchNetwork: (network: NetworkType) => Promise<void>;
   switchChain: (chainType: ChainType) => Promise<void>;
   switchToMonad: () => Promise<void>;
   sendTransaction: (to: string, amount: string) => Promise<string | null>;
