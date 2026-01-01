@@ -14,6 +14,7 @@ import {
   User, ArrowLeft, Save, Plus, Trash2,
   Twitter, Youtube, MessageCircle, Instagram, Music2, Calendar, Tag, X, Upload, ImageIcon, Wallet, CheckCircle
 } from "lucide-react";
+import { StreamerPlaylistSelector } from "@/components/streaming/StreamerPlaylistSelector";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
@@ -64,6 +65,7 @@ const EditStreamerProfile = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [payoutWalletAddress, setPayoutWalletAddress] = useState("");
+  const [playlistIds, setPlaylistIds] = useState<string[]>([]);
 
   useSEO({
     title: "Edit Profile | The Lily Pad",
@@ -128,6 +130,9 @@ const EditStreamerProfile = () => {
           
           // Set payout wallet
           setPayoutWalletAddress(profile.payout_wallet_address || "");
+          
+          // Set playlist IDs
+          setPlaylistIds(Array.isArray((profile as any).playlist_ids) ? (profile as any).playlist_ids : []);
         }
       } catch (err) {
         console.error('Error in fetchProfile:', err);
@@ -165,6 +170,7 @@ const EditStreamerProfile = () => {
       schedule: JSON.parse(JSON.stringify(schedule)),
       categories: categories,
       payout_wallet_address: payoutWalletAddress || null,
+      playlist_ids: playlistIds,
     };
 
     let error;
@@ -753,6 +759,15 @@ const EditStreamerProfile = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Music Playlists */}
+          {userId && (
+            <StreamerPlaylistSelector
+              userId={userId}
+              selectedPlaylistIds={playlistIds}
+              onSelectionChange={setPlaylistIds}
+            />
+          )}
 
           {/* Schedule */}
           <Card className="border-border/50 bg-card/50 backdrop-blur-sm">

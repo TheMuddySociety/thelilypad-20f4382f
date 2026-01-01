@@ -2237,6 +2237,7 @@ export type Database = {
           id: string
           is_verified: boolean
           payout_wallet_address: string | null
+          playlist_ids: string[] | null
           schedule: Json | null
           social_discord: string | null
           social_instagram: string | null
@@ -2256,6 +2257,7 @@ export type Database = {
           id?: string
           is_verified?: boolean
           payout_wallet_address?: string | null
+          playlist_ids?: string[] | null
           schedule?: Json | null
           social_discord?: string | null
           social_instagram?: string | null
@@ -2275,6 +2277,7 @@ export type Database = {
           id?: string
           is_verified?: boolean
           payout_wallet_address?: string | null
+          playlist_ids?: string[] | null
           schedule?: Json | null
           social_discord?: string | null
           social_instagram?: string | null

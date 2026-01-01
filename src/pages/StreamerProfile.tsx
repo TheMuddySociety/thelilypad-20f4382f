@@ -22,6 +22,7 @@ import {
   Twitter, Youtube, MessageCircle, Instagram, Music2,
   Users, Video, Eye, Sparkles, ExternalLink, Play, ImageIcon, Scissors, Film, Pencil, Trash2, Layers
 } from "lucide-react";
+import { StreamerPlaylistDisplay } from "@/components/streaming/StreamerPlaylistDisplay";
 
 interface ScheduleItem {
   day: string;
@@ -44,6 +45,7 @@ interface StreamerProfileData {
   social_tiktok: string | null;
   schedule: ScheduleItem[];
   is_verified: boolean;
+  playlist_ids: string[] | null;
 }
 
 interface StreamerStats {
@@ -158,7 +160,12 @@ const StreamerProfile = () => {
           }
         }
 
-        setProfile(profileData ? { ...profileData, schedule: parsedSchedule, banner_url: (profileData as any).banner_url || null } : null);
+        setProfile(profileData ? { 
+          ...profileData, 
+          schedule: parsedSchedule, 
+          banner_url: (profileData as any).banner_url || null,
+          playlist_ids: Array.isArray((profileData as any).playlist_ids) ? (profileData as any).playlist_ids : null
+        } : null);
 
         // Fetch follower count
         const { count: followerCount } = await supabase
@@ -555,6 +562,17 @@ const StreamerProfile = () => {
                 userId={streamerId} 
                 displayName={profile?.display_name || undefined}
               />
+            </motion.div>
+          )}
+
+          {/* Music Playlists */}
+          {profile?.playlist_ids && profile.playlist_ids.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.27 }}
+            >
+              <StreamerPlaylistDisplay playlistIds={profile.playlist_ids} />
             </motion.div>
           )}
 
