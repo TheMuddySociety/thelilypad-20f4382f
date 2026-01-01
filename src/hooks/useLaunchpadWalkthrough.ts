@@ -45,38 +45,24 @@ export const launchpadSteps: WalkthroughStep[] = [
 
 export const modalSteps: WalkthroughStep[] = [
   {
-    id: "modal-steps",
-    target: "[data-walkthrough='modal-steps']",
-    title: "Creation Steps",
-    description: "Follow these 5 steps to create your collection: Details → Art Generation → Mint Phases → Allowlist → Review",
+    id: "collection-type",
+    target: "[data-walkthrough='collection-type']",
+    title: "1. Choose Your Type",
+    description: "Pick Generative, 1-of-1, Editions, or Music based on your artwork style.",
     placement: "bottom",
   },
   {
-    id: "collection-details",
-    target: "[data-walkthrough='collection-details']",
-    title: "Collection Details",
-    description: "Enter your collection name, symbol (like a ticker), description, and total supply. Upload a cover image and banner too!",
-    placement: "right",
-  },
-  {
-    id: "collection-type",
-    target: "[data-walkthrough='collection-type']",
-    title: "Choose Collection Type",
-    description: "Select from Generative (layered art), 1-of-1 (unique pieces), or Editions (same artwork, multiple copies).",
-    placement: "top",
-  },
-  {
-    id: "save-draft",
-    target: "[data-walkthrough='save-draft']",
-    title: "Save Your Progress",
-    description: "Your work is auto-saved, but you can also manually save at any time. Drafts are stored for 24 hours.",
+    id: "modal-steps",
+    target: "[data-walkthrough='modal-steps']",
+    title: "2. Follow the Steps",
+    description: "Complete each step: Details → Art → Phases → Allowlist → Review & Deploy.",
     placement: "bottom",
   },
   {
     id: "navigation",
     target: "[data-walkthrough='navigation']",
-    title: "Navigate Steps",
-    description: "Use these buttons to move between steps. You can go back and forth to make changes before deploying.",
+    title: "3. Navigate & Save",
+    description: "Move between steps anytime. Your progress auto-saves.",
     placement: "top",
   },
 ];
