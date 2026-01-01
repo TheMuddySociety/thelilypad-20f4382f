@@ -165,7 +165,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       let chainId: number | null = null;
       if (chainType === "evm") {
-        try { chainId = await sdk.ethereum.getChainId(); } catch {}
+        try { 
+          chainId = await sdk.ethereum.getChainId(); 
+        } catch (e) {
+          // Fallback to provider request
+          try {
+            const provider = getEVMProvider("phantom");
+            if (provider) {
+              const chainIdHex = await provider.request({ method: "eth_chainId" });
+              chainId = parseInt(chainIdHex, 16);
+            }
+          } catch {}
+        }
+        console.log("Connected on chain ID:", chainId);
       }
 
       setState(prev => ({
@@ -348,22 +360,62 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await connect(state.walletType || "phantom", chainType);
   }, [state.chainType, state.walletType, disconnect, connect]);
 
-  // Switch network
-  const switchNetwork = useCallback((network: NetworkType) => {
+  // Switch network - actually requests wallet to switch chains
+  const switchNetwork = useCallback(async (network: NetworkType) => {
+    const targetChain = getMonadChain(network);
+    const targetChainId = `0x${targetChain.id.toString(16)}`;
+    
+    // Update local state first
     setState(prev => ({ ...prev, network }));
     localStorage.setItem("monadNetwork", network);
     
-    // Refresh balance
-    if (state.isConnected && state.address) {
-      if (state.chainType === "evm") {
-        fetchEVMBalance(state.address).then(balance => {
-          setState(prev => ({ ...prev, balance }));
-        });
+    // If connected on EVM, request wallet to switch chains
+    if (state.isConnected && state.chainType === "evm") {
+      const provider = getEVMProvider(state.walletType);
+      if (provider) {
+        try {
+          await provider.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: targetChainId }],
+          });
+          
+          // Update chainId after successful switch
+          const newChainId = await provider.request({ method: "eth_chainId" });
+          setState(prev => ({ ...prev, chainId: parseInt(newChainId, 16) }));
+          
+          // Refresh balance
+          if (state.address) {
+            const balance = await fetchEVMBalance(state.address);
+            setState(prev => ({ ...prev, balance }));
+          }
+        } catch (switchError: any) {
+          // Chain not added, try to add it
+          if (switchError.code === 4902) {
+            try {
+              await provider.request({
+                method: "wallet_addEthereumChain",
+                params: [{
+                  chainId: targetChainId,
+                  chainName: targetChain.name,
+                  nativeCurrency: targetChain.nativeCurrency,
+                  rpcUrls: [targetChain.rpcUrls.default.http[0]],
+                  blockExplorerUrls: targetChain.blockExplorers ? [targetChain.blockExplorers.default.url] : undefined,
+                }],
+              });
+            } catch (addError) {
+              console.error("Failed to add chain:", addError);
+              toast.error("Failed to add network to wallet");
+              return;
+            }
+          } else {
+            console.error("Failed to switch chain:", switchError);
+            toast.error("Failed to switch network in wallet");
+            return;
+          }
+        }
       }
     }
-    
-    toast.success(`Switched to ${network}`);
-  }, [state.isConnected, state.address, state.chainType, fetchEVMBalance]);
+  }, [state.isConnected, state.address, state.chainType, state.walletType, fetchEVMBalance]);
 
   // Send transaction
   const sendTransaction = useCallback(async (to: string, amount: string): Promise<string | null> => {
@@ -544,7 +596,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     autoConnect();
   }, [getSDK, fetchEVMBalance, fetchSolanaBalance]);
 
-  // Listen for account changes
+  // Listen for account and chain changes
   useEffect(() => {
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length === 0) {
@@ -557,11 +609,35 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     };
 
+    const handleChainChanged = (chainIdHex: string) => {
+      const newChainId = parseInt(chainIdHex, 16);
+      console.log("Chain changed to:", newChainId);
+      setState(prev => ({ ...prev, chainId: newChainId }));
+      
+      // Check if the new chain matches mainnet or testnet
+      if (newChainId === 143) {
+        setState(prev => ({ ...prev, network: "mainnet" }));
+        localStorage.setItem("monadNetwork", "mainnet");
+      } else if (newChainId === 10143) {
+        setState(prev => ({ ...prev, network: "testnet" }));
+        localStorage.setItem("monadNetwork", "testnet");
+      }
+      
+      // Refresh balance on the new chain
+      if (state.address) {
+        fetchEVMBalance(state.address).then(balance => {
+          setState(prev => ({ ...prev, balance }));
+        });
+      }
+    };
+
     const provider = getEVMProvider(state.walletType);
     provider?.on?.("accountsChanged", handleAccountsChanged);
+    provider?.on?.("chainChanged", handleChainChanged);
 
     return () => {
       provider?.removeListener?.("accountsChanged", handleAccountsChanged);
+      provider?.removeListener?.("chainChanged", handleChainChanged);
     };
   }, [state.address, state.chainType, state.walletType, disconnect, fetchEVMBalance]);
 
