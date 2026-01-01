@@ -93,6 +93,10 @@ export function useContractDeploy() {
     });
 
     try {
+      console.log("[Deploy] Starting contract deployment...", params);
+      console.log("[Deploy] Factory address:", NFT_FACTORY_ADDRESS);
+      console.log("[Deploy] User address:", address);
+      
       // Encode the createCollection function call
       const callData = encodeFunctionData({
         abi: NFT_FACTORY_ABI,
@@ -106,41 +110,79 @@ export function useContractDeploy() {
         ]
       });
 
-      setState(prev => ({ ...prev, deploymentStep: "confirming" }));
+      console.log("[Deploy] Call data encoded, requesting gas estimate...");
 
-      // Send transaction to factory contract
+      // Estimate gas first
+      let gasEstimate: string;
+      try {
+        gasEstimate = await provider.request({
+          method: "eth_estimateGas",
+          params: [{
+            from: address,
+            to: NFT_FACTORY_ADDRESS,
+            data: callData,
+          }],
+        });
+        console.log("[Deploy] Gas estimate:", gasEstimate, "=", parseInt(gasEstimate, 16));
+      } catch (gasError: any) {
+        console.error("[Deploy] Gas estimation failed:", gasError);
+        throw new Error(`Gas estimation failed: ${gasError?.message || "Contract may be invalid or you lack funds"}`);
+      }
+
+      // Add 20% buffer to gas estimate
+      const gasLimit = Math.floor(parseInt(gasEstimate, 16) * 1.2);
+      console.log("[Deploy] Using gas limit with buffer:", gasLimit);
+
+      setState(prev => ({ ...prev, deploymentStep: "confirming" }));
+      console.log("[Deploy] Requesting wallet confirmation...");
+
+      // Send transaction to factory contract with explicit gas limit
       const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [{
           from: address,
           to: NFT_FACTORY_ADDRESS,
           data: callData,
+          gas: "0x" + gasLimit.toString(16),
         }],
       });
 
+      console.log("[Deploy] Transaction submitted! Hash:", txHash);
+      
       setState(prev => ({ 
         ...prev, 
         deploymentStep: "deploying",
         txHash 
       }));
 
-      // Wait for transaction receipt
+      // Wait for transaction receipt with faster polling
       let receipt = null;
       let attempts = 0;
-      const maxAttempts = 60;
+      const maxAttempts = 90; // 90 attempts * 1 second = 90 seconds max
+      const pollInterval = 1000; // Poll every 1 second (faster)
 
+      console.log("[Deploy] Waiting for transaction receipt...");
+      
       while (!receipt && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
         
         try {
           receipt = await provider.request({
             method: "eth_getTransactionReceipt",
             params: [txHash],
           });
+          if (receipt) {
+            console.log("[Deploy] Receipt received after", attempts + 1, "attempts");
+          }
         } catch (e) {
           // Receipt not available yet, continue waiting
         }
         attempts++;
+        
+        // Log progress every 10 attempts
+        if (attempts % 10 === 0) {
+          console.log(`[Deploy] Still waiting... (${attempts}/${maxAttempts} attempts)`);
+        }
       }
 
       if (!receipt) {
