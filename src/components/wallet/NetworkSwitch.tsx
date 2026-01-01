@@ -21,11 +21,19 @@ export const NetworkSwitch: React.FC = () => {
     
     setIsSwitching(true);
     try {
+      console.log(`Switching network to ${newNetwork}, target chain ID: ${newNetwork === "testnet" ? 10143 : 143}`);
       await switchNetwork(newNetwork);
+      
+      // Small delay to allow wallet to process
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       toast.success(`Switched to ${newNetwork === "testnet" ? "Testnet" : "Mainnet"}`);
     } catch (error: any) {
       console.error("Network switch error:", error);
-      toast.error(`Failed to switch network: ${error?.message || "Unknown error"}`);
+      // Don't show error if user rejected - that's intentional
+      if (error?.code !== 4001) {
+        toast.error(`Failed to switch network: ${error?.message || "Unknown error"}`);
+      }
     } finally {
       setIsSwitching(false);
     }
