@@ -162,14 +162,24 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
 
   if (isWrongNetwork) {
     return (
-      <Button
-        variant="destructive"
-        size={size}
-        className={className}
-        onClick={switchToMonad}
-      >
-        Switch to {currentChain.name}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="destructive"
+            size={size}
+            className={className}
+            onClick={switchToMonad}
+          >
+            <AlertTriangle className="w-4 h-4 mr-2" />
+            Switch to {currentChain.name}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="text-xs">
+            Wallet is on chain {chainId}, expected {currentChain.id} ({currentChain.name})
+          </p>
+        </TooltipContent>
+      </Tooltip>
     );
   }
 

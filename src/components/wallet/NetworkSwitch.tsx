@@ -10,10 +10,11 @@ import { toast } from "sonner";
 const TESTNET_FAUCET_URL = "https://faucet.monad.xyz";
 
 export const NetworkSwitch: React.FC = () => {
-  const { network, switchNetwork, isConnected } = useWallet();
+  const { network, switchNetwork, isConnected, chainId, currentChain } = useWallet();
   const [isSwitching, setIsSwitching] = useState(false);
 
   const isTestnet = network === "testnet";
+  const isWrongChain = isConnected && chainId && chainId !== currentChain.id;
 
   const handleNetworkSwitch = async (checked: boolean) => {
     const newNetwork = checked ? "testnet" : "mainnet";
