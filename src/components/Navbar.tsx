@@ -99,141 +99,143 @@ export const Navbar: React.FC = () => {
     >
       <div className="container mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-14 sm:h-16 md:h-20">
-          {/* Hamburger Menu */}
-          <Sheet open={isOpen} onOpenChange={setIsOpen}>
-            <SheetTrigger asChild>
-              <button className="p-2 hover:bg-muted/50 rounded-lg transition-colors">
-                <Menu className="w-5 h-5" />
-              </button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[300px] sm:w-[350px] bg-background p-0">
-              <SheetHeader className="p-4 border-b border-border/50">
-                <SheetTitle className="flex items-center gap-2">
-                  <LilyPadLogo size={28} />
-                  <span>The Lily Pad</span>
-                </SheetTitle>
-              </SheetHeader>
-              <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-180px)]">
-                {/* Primary Links */}
-                <div className="space-y-1">
-                  {primaryLinks.map((link, index) => (
-                    <SheetClose asChild key={link.label}>
-                      <a
-                        href={link.href}
-                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
-                        style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
-                      >
-                        <link.icon className="w-5 h-5 text-muted-foreground" />
-                        {link.label}
-                      </a>
-                    </SheetClose>
-                  ))}
-                </div>
-
-                {/* Explore Section */}
-                <div className="space-y-1">
-                  <p 
-                    className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider animate-fade-in"
-                    style={{ animationDelay: `${primaryLinks.length * 50 + 50}ms`, animationFillMode: 'both' }}
-                  >
-                    Explore
-                  </p>
-                  {exploreLinks.map((link, index) => {
-                    const isDisabled = 'disabled' in link && link.disabled;
-                    const isComingSoon = 'comingSoon' in link && link.comingSoon;
-                    
-                    if (isDisabled) {
-                      return (
-                        <div
-                          key={link.label}
-                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground/50 cursor-not-allowed animate-fade-in"
-                          style={{ animationDelay: `${(primaryLinks.length + index + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
-                        >
-                          <link.icon className="w-5 h-5" />
-                          <span>{link.label}</span>
-                          {isComingSoon && (
-                            <span className="ml-auto text-xs bg-muted px-2 py-0.5 rounded-full">Soon</span>
-                          )}
-                        </div>
-                      );
-                    }
-                    
-                    return (
+          {/* Hamburger Menu + Logo */}
+          <div className="flex items-center gap-2">
+            <Sheet open={isOpen} onOpenChange={setIsOpen}>
+              <SheetTrigger asChild>
+                <button className="p-2 hover:bg-muted/50 rounded-lg transition-colors">
+                  <Menu className="w-5 h-5" />
+                </button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[300px] sm:w-[350px] bg-background p-0">
+                <SheetHeader className="p-4 border-b border-border/50">
+                  <SheetTitle className="flex items-center gap-2">
+                    <LilyPadLogo size={28} />
+                    <span>The Lily Pad</span>
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-180px)]">
+                  {/* Primary Links */}
+                  <div className="space-y-1">
+                    {primaryLinks.map((link, index) => (
                       <SheetClose asChild key={link.label}>
                         <a
                           href={link.href}
                           className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
-                          style={{ animationDelay: `${(primaryLinks.length + index + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
+                          style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
                         >
                           <link.icon className="w-5 h-5 text-muted-foreground" />
                           {link.label}
                         </a>
                       </SheetClose>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
 
-                {/* Account Section */}
-                <div className="space-y-1">
-                  <p 
-                    className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider animate-fade-in"
-                    style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
-                  >
-                    Account
-                  </p>
-                  {accountLinks.map((link, index) => (
-                    <SheetClose asChild key={link.label}>
-                      <a
-                        href={link.href}
-                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
-                        style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + index + 2) * 50 + 50}ms`, animationFillMode: 'both' }}
-                      >
-                        <link.icon className="w-5 h-5 text-muted-foreground" />
-                        {link.label}
-                      </a>
-                    </SheetClose>
-                  ))}
-                </div>
-
-                {/* Admin Section */}
-                {isAdmin && (
+                  {/* Explore Section */}
                   <div className="space-y-1">
                     <p 
-                      className="px-4 text-xs font-semibold text-primary uppercase tracking-wider animate-fade-in"
-                      style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + accountLinks.length + 2) * 50 + 50}ms`, animationFillMode: 'both' }}
+                      className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider animate-fade-in"
+                      style={{ animationDelay: `${primaryLinks.length * 50 + 50}ms`, animationFillMode: 'both' }}
                     >
-                      Admin
+                      Explore
                     </p>
-                    {adminLinks.map((link, index) => (
+                    {exploreLinks.map((link, index) => {
+                      const isDisabled = 'disabled' in link && link.disabled;
+                      const isComingSoon = 'comingSoon' in link && link.comingSoon;
+                      
+                      if (isDisabled) {
+                        return (
+                          <div
+                            key={link.label}
+                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground/50 cursor-not-allowed animate-fade-in"
+                            style={{ animationDelay: `${(primaryLinks.length + index + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
+                          >
+                            <link.icon className="w-5 h-5" />
+                            <span>{link.label}</span>
+                            {isComingSoon && (
+                              <span className="ml-auto text-xs bg-muted px-2 py-0.5 rounded-full">Soon</span>
+                            )}
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <SheetClose asChild key={link.label}>
+                          <a
+                            href={link.href}
+                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                            style={{ animationDelay: `${(primaryLinks.length + index + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
+                          >
+                            <link.icon className="w-5 h-5 text-muted-foreground" />
+                            {link.label}
+                          </a>
+                        </SheetClose>
+                      );
+                    })}
+                  </div>
+
+                  {/* Account Section */}
+                  <div className="space-y-1">
+                    <p 
+                      className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider animate-fade-in"
+                      style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
+                    >
+                      Account
+                    </p>
+                    {accountLinks.map((link, index) => (
                       <SheetClose asChild key={link.label}>
                         <a
                           href={link.href}
-                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-primary hover:bg-primary/10 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
-                          style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + accountLinks.length + index + 3) * 50 + 50}ms`, animationFillMode: 'both' }}
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                          style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + index + 2) * 50 + 50}ms`, animationFillMode: 'both' }}
                         >
-                          <link.icon className="w-5 h-5" />
+                          <link.icon className="w-5 h-5 text-muted-foreground" />
                           {link.label}
                         </a>
                       </SheetClose>
                     ))}
                   </div>
-                )}
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 border-t border-border/50 bg-background">
-                <div className="flex items-center justify-center gap-2">
-                  <NetworkSwitch />
-                  <RpcSettings variant="icon" />
-                </div>
-                <ConnectWallet className="w-full justify-center" />
-              </div>
-            </SheetContent>
-          </Sheet>
 
-          {/* Logo - Center */}
-          <a href="/" className="flex items-center gap-2">
-            <LilyPadLogo size={32} className="sm:w-9 sm:h-9" />
-            <span className="font-bold text-base sm:text-lg hidden xs:block">The Lily Pad</span>
-          </a>
+                  {/* Admin Section */}
+                  {isAdmin && (
+                    <div className="space-y-1">
+                      <p 
+                        className="px-4 text-xs font-semibold text-primary uppercase tracking-wider animate-fade-in"
+                        style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + accountLinks.length + 2) * 50 + 50}ms`, animationFillMode: 'both' }}
+                      >
+                        Admin
+                      </p>
+                      {adminLinks.map((link, index) => (
+                        <SheetClose asChild key={link.label}>
+                          <a
+                            href={link.href}
+                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-primary hover:bg-primary/10 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                            style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + accountLinks.length + index + 3) * 50 + 50}ms`, animationFillMode: 'both' }}
+                          >
+                            <link.icon className="w-5 h-5" />
+                            {link.label}
+                          </a>
+                        </SheetClose>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 border-t border-border/50 bg-background">
+                  <div className="flex items-center justify-center gap-2">
+                    <NetworkSwitch />
+                    <RpcSettings variant="icon" />
+                  </div>
+                  <ConnectWallet className="w-full justify-center" />
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Logo - Next to hamburger */}
+            <a href="/" className="flex items-center gap-2">
+              <LilyPadLogo size={32} className="sm:w-9 sm:h-9" />
+              <span className="font-bold text-base sm:text-lg hidden xs:block">The Lily Pad</span>
+            </a>
+          </div>
 
           {/* Right side - Wallet & Notifications */}
           <div className="flex items-center gap-2 sm:gap-3">
