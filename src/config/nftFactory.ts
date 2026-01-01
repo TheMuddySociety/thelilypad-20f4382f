@@ -1,15 +1,21 @@
 // NFT Factory Contract Configuration for Monad Testnet
-// LilyPad NFT Factory - deploys new NFT collections with platform identification
+// TheLilyPadFactory - deploys new NFT collections with platform identification
 
-// Factory contract address on Monad Testnet
-// NOTE: Replace this with the actual deployed factory address when available
-export const NFT_FACTORY_ADDRESS = "0x0000000000000000000000000000000000000000";
+// Factory contract address on Monad Testnet (ERC1967 Proxy)
+export const NFT_FACTORY_ADDRESS = "0xfE52dDa06aC1a66c34753280Ab71F36A722c2346";
+
+// Implementation address (for reference)
+export const NFT_FACTORY_IMPLEMENTATION = "0x9B35097Ff8d28c073e2aC9c7e2816A83B65C4C7e";
 
 // LilyPad platform constants
-export const LILYPAD_PLATFORM_NAME = "LilyPad";
+export const LILYPAD_PLATFORM_NAME = "The Lily Pad";
 export const LILYPAD_PLATFORM_VERSION = "1.0.0";
 
-// Platform fee configuration (matches LilyPadNFT.sol)
+// Platform addresses
+export const PLATFORM_TREASURY = "0x73BE356D8434E34bc7312559E52c76cE2140Ad2F";
+export const BUYBACK_POOL = "0x8393F351546fE294B84Ab13Ea6553bdb4c24F6b5";
+
+// Platform fee configuration (matches TheLilyPad.sol)
 export const PLATFORM_FEE_BPS = 250; // 2.5% total platform fee
 export const BUYBACK_SPLIT_BPS = 5000; // 50% of platform fee goes to buyback
 
@@ -394,7 +400,7 @@ export function encodeCreateCollection(params: FactoryDeployParams): string {
 
 // Check if factory is configured (not zero address)
 export function isFactoryConfigured(): boolean {
-  return NFT_FACTORY_ADDRESS !== "0x0000000000000000000000000000000000000000";
+  return NFT_FACTORY_ADDRESS.toLowerCase() !== "0x0000000000000000000000000000000000000000";
 }
 
 // Calculate platform fees for a given mint cost
