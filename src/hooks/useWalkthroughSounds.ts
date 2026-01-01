@@ -72,58 +72,50 @@ class WalkthroughSounds {
     }
   }
 
-  // Celebratory chime for completion
+  // Frog ribbit sound for completion
   playCelebrationSound() {
     if (!this.enabled) return;
     
     try {
       const ctx = this.getContext();
       
-      // Play a sequence of ascending notes
-      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-      const noteDuration = 0.15;
-      
-      notes.forEach((freq, i) => {
+      // Create a frog "ribbit" sound using frequency modulation
+      const playRibbit = (startTime: number, baseFreq: number) => {
         const oscillator = ctx.createOscillator();
         const gainNode = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
 
-        oscillator.connect(gainNode);
+        oscillator.connect(filter);
+        filter.connect(gainNode);
         gainNode.connect(ctx.destination);
 
-        oscillator.frequency.setValueAtTime(freq, ctx.currentTime + i * noteDuration);
-        oscillator.type = 'sine';
+        // Frog-like frequency sweep (ribbit goes up then down)
+        oscillator.frequency.setValueAtTime(baseFreq, startTime);
+        oscillator.frequency.exponentialRampToValueAtTime(baseFreq * 1.8, startTime + 0.05);
+        oscillator.frequency.exponentialRampToValueAtTime(baseFreq * 0.7, startTime + 0.15);
+        oscillator.type = 'sawtooth';
 
-        const startTime = ctx.currentTime + i * noteDuration;
+        // Low-pass filter for more natural sound
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, startTime);
+        filter.Q.setValueAtTime(5, startTime);
+
+        // Quick attack, short sustain, quick decay
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + noteDuration + 0.1);
+        gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
+        gainNode.gain.setValueAtTime(0.25, startTime + 0.08);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.18);
 
         oscillator.start(startTime);
-        oscillator.stop(startTime + noteDuration + 0.2);
-      });
+        oscillator.stop(startTime + 0.2);
+      };
 
-      // Add a final sustained chord
-      setTimeout(() => {
-        const chordFreqs = [523.25, 659.25, 783.99]; // C major chord
-        chordFreqs.forEach((freq) => {
-          const oscillator = ctx.createOscillator();
-          const gainNode = ctx.createGain();
-
-          oscillator.connect(gainNode);
-          gainNode.connect(ctx.destination);
-
-          oscillator.frequency.setValueAtTime(freq * 2, ctx.currentTime);
-          oscillator.type = 'sine';
-
-          gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-
-          oscillator.start(ctx.currentTime);
-          oscillator.stop(ctx.currentTime + 0.6);
-        });
-      }, notes.length * noteDuration * 1000);
+      // Play two ribbits (classic frog double-croak)
+      const now = ctx.currentTime;
+      playRibbit(now, 180);
+      playRibbit(now + 0.25, 200);
     } catch (e) {
-      console.warn('Could not play celebration sound:', e);
+      console.warn('Could not play frog sound:', e);
     }
   }
 
