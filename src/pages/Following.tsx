@@ -63,7 +63,7 @@ const Following = () => {
   const navigate = useNavigate();
 
   useSEO({
-    title: "Following | The Lily Pad",
+    title: "Lily Following | The Lily Pad",
     description: "Stay updated with your favorite streamers. See who's live, upcoming schedules, and never miss a stream from creators you follow."
   });
 
@@ -491,7 +491,7 @@ const Following = () => {
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Following
+              Lily Following
             </span>
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
