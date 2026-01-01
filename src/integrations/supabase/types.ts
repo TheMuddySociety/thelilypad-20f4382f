@@ -1740,6 +1740,48 @@ export type Database = {
           },
         ]
       }
+      playlist_tracks: {
+        Row: {
+          added_at: string | null
+          collection_id: string
+          id: string
+          playlist_id: string
+          position: number
+          track_id: string | null
+        }
+        Insert: {
+          added_at?: string | null
+          collection_id: string
+          id?: string
+          playlist_id: string
+          position?: number
+          track_id?: string | null
+        }
+        Update: {
+          added_at?: string | null
+          collection_id?: string
+          id?: string
+          playlist_id?: string
+          position?: number
+          track_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_tracks_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_tracks_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "user_playlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -2315,6 +2357,39 @@ export type Database = {
           nonce?: number
           updated_at?: string
           user_address?: string
+        }
+        Relationships: []
+      }
+      user_playlists: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
