@@ -37,6 +37,7 @@ import OfficialPacks from "./pages/OfficialPacks";
 import MyPurchases from "./pages/MyPurchases";
 
 import MusicStore from "./pages/MusicStore";
+import ArtistProfile from "./pages/ArtistProfile";
 import Raffles from "./pages/Raffles";
 import BlindBoxes from "./pages/BlindBoxes";
 import Governance from "./pages/Governance";
@@ -87,6 +88,7 @@ const App = () => (
               <Route path="/official-packs" element={<OfficialPacks />} />
               <Route path="/my-purchases" element={<MyPurchases />} />
               <Route path="/music-store" element={<MusicStore />} />
+              <Route path="/artist/:artistAddress" element={<ArtistProfile />} />
               <Route path="/raffles" element={<Raffles />} />
               <Route path="/blind-boxes" element={<BlindBoxes />} />
               <Route path="/governance" element={<Governance />} />

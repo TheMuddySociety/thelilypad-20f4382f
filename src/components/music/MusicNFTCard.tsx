@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { Play, Pause, Clock, Music2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -140,9 +141,13 @@ export const MusicNFTCard: React.FC<MusicNFTCardProps> = ({
 
         <CardContent className="p-4">
           <h3 className="font-semibold truncate">{collection.name}</h3>
-          <p className="text-sm text-muted-foreground truncate">
+          <Link 
+            to={`/artist/${collection.creator_address}`}
+            className="text-sm text-muted-foreground truncate hover:text-primary transition-colors block"
+            onClick={(e) => e.stopPropagation()}
+          >
             {firstTrack?.artist || collection.creator_address.slice(0, 6) + '...'}
-          </p>
+          </Link>
 
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
