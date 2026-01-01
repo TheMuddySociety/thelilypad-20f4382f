@@ -36,10 +36,13 @@ import AuthCallback from "./pages/AuthCallback";
 import OfficialPacks from "./pages/OfficialPacks";
 import MyPurchases from "./pages/MyPurchases";
 
+import MusicStore from "./pages/MusicStore";
 import Raffles from "./pages/Raffles";
 import BlindBoxes from "./pages/BlindBoxes";
 import Governance from "./pages/Governance";
 import NotFound from "./pages/NotFound";
+import { AudioPlayerProvider } from "./providers/AudioPlayerProvider";
+import { MiniPlayer } from "./components/music/MiniPlayer";
 
 const queryClient = new QueryClient();
 
@@ -47,13 +50,14 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <WalletProvider>
-        <TooltipProvider>
-          <TestnetBanner />
-          <NetworkStatusIndicator />
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
+        <AudioPlayerProvider>
+          <TooltipProvider>
+            <TestnetBanner />
+            <NetworkStatusIndicator />
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/wallet" element={<WalletProfile />} />
               <Route path="/streams" element={<Streams />} />
@@ -82,7 +86,7 @@ const App = () => (
               <Route path="/buyback-program" element={<BuybackProgram />} />
               <Route path="/official-packs" element={<OfficialPacks />} />
               <Route path="/my-purchases" element={<MyPurchases />} />
-              
+              <Route path="/music-store" element={<MusicStore />} />
               <Route path="/raffles" element={<Raffles />} />
               <Route path="/blind-boxes" element={<BlindBoxes />} />
               <Route path="/governance" element={<Governance />} />
@@ -90,9 +94,11 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <MiniPlayer />
           </BrowserRouter>
         </TooltipProvider>
-      </WalletProvider>
+      </AudioPlayerProvider>
+    </WalletProvider>
     </QueryClientProvider>
   </ErrorBoundary>
 );
