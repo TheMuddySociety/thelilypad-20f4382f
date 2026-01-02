@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { Heart, Loader2, Wallet, Coins, CheckCircle2 } from "lucide-react";
 import { monadMainnet } from "@/config/alchemy";
 import { motion, AnimatePresence } from "framer-motion";
+import { getErrorMessage } from "@/lib/errorUtils";
 
 interface TipModalProps {
   isOpen: boolean;
@@ -147,12 +148,12 @@ export const TipModal: React.FC<TipModalProps> = ({
           onClose();
         }, 2000);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error sending tip:", error);
       setTipState("error");
       toast({
         title: "Transaction failed",
-        description: error.message || "Failed to send tip. Please try again.",
+        description: getErrorMessage(error) || "Failed to send tip. Please try again.",
         variant: "destructive",
       });
       

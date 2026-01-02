@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { BundleCountdown } from "@/components/shop/BundleCountdown";
+import { getErrorMessage } from "@/lib/errorUtils";
 
 interface ShopItem {
   id: string;
@@ -177,9 +178,9 @@ export const AdminBundleManager: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-bundles'] });
       resetForm();
       setCreateModalOpen(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating bundle:", error);
-      toast.error(error.message || "Failed to create bundle");
+      toast.error(getErrorMessage(error) || "Failed to create bundle");
     } finally {
       setIsSubmitting(false);
     }
@@ -195,8 +196,8 @@ export const AdminBundleManager: React.FC = () => {
       if (error) throw error;
       toast.success(`Bundle ${!currentActive ? "activated" : "deactivated"}`);
       queryClient.invalidateQueries({ queryKey: ['admin-bundles'] });
-    } catch (error: any) {
-      toast.error("Failed to update bundle");
+    } catch (error: unknown) {
+      toast.error("Failed to update bundle: " + getErrorMessage(error));
     }
   };
 
@@ -212,8 +213,8 @@ export const AdminBundleManager: React.FC = () => {
       if (error) throw error;
       toast.success("Bundle deleted");
       queryClient.invalidateQueries({ queryKey: ['admin-bundles'] });
-    } catch (error: any) {
-      toast.error("Failed to delete bundle");
+    } catch (error: unknown) {
+      toast.error("Failed to delete bundle: " + getErrorMessage(error));
     }
   };
 

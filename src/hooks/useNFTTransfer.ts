@@ -4,6 +4,7 @@ import { NFT_CONTRACT_ABI } from "@/config/nftContract";
 import { encodeFunctionData } from "viem";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatTransactionError } from "@/lib/errorUtils";
 
 interface TransferState {
   isTransferring: boolean;
@@ -148,19 +149,10 @@ export function useNFTTransfer() {
 
       return txHash;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Transfer error:", error);
       
-      let errorMessage = "Transfer failed";
-      if (error.code === 4001) {
-        errorMessage = "Transaction rejected by user";
-      } else if (error.message?.includes("insufficient funds")) {
-        errorMessage = "Insufficient funds for gas";
-      } else if (error.message?.includes("not owner")) {
-        errorMessage = "You don't own this NFT";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      const errorMessage = formatTransactionError(error, "Transfer failed");
 
       setState({
         isTransferring: false,

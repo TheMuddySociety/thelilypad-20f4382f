@@ -1,3 +1,5 @@
+import { getErrorMessage, getErrorStatus, errorContains } from "./errorUtils";
+
 interface RetryOptions {
   maxRetries?: number;
   baseDelay?: number;
@@ -29,21 +31,22 @@ export async function fetchWithRetry<T>(
     ...options,
   };
 
-  let lastError: Error | null = null;
+  let lastError: unknown = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const result = await fetchFn();
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
 
       // Check if we should retry
+      const status = getErrorStatus(error);
       const isRetryable =
-        error.name === "TypeError" || // Network errors
-        error.message?.includes("network") ||
-        error.message?.includes("fetch") ||
-        (error.status && retryableStatuses.includes(error.status));
+        (error instanceof TypeError) || // Network errors
+        errorContains(error, "network") ||
+        errorContains(error, "fetch") ||
+        (status !== undefined && retryableStatuses.includes(status));
 
       if (!isRetryable || attempt === maxRetries) {
         throw error;
@@ -60,18 +63,18 @@ export async function fetchWithRetry<T>(
 
 // Wrapper for Supabase queries with retry
 export async function supabaseWithRetry<T>(
-  queryFn: () => Promise<{ data: T | null; error: any }>
-): Promise<{ data: T | null; error: any }> {
+  queryFn: () => Promise<{ data: T | null; error: { status?: number; code?: number; message?: string } | null }>
+): Promise<{ data: T | null; error: { status?: number; code?: number; message?: string } | null }> {
   return fetchWithRetry(async () => {
     const result = await queryFn();
     
     // Don't retry on auth errors or client errors
     if (result.error) {
-      const status = result.error.status || result.error.code;
-      if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+      const status = result.error.status ?? result.error.code;
+      if (status !== undefined && status >= 400 && status < 500 && status !== 408 && status !== 429) {
         return result; // Return error without retrying
       }
-      if (status >= 500 || status === 408 || status === 429) {
+      if (status !== undefined && (status >= 500 || status === 408 || status === 429)) {
         throw { ...result.error, status };
       }
     }

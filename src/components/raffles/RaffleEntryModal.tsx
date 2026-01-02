@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Ticket, Trophy, Minus, Plus, Loader2, CheckCircle } from "lucide-react";
+import { getErrorMessage } from "@/lib/errorUtils";
 
 interface Raffle {
   id: string;
@@ -108,10 +109,10 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
         description: `You've entered ${ticketCount} ticket${ticketCount > 1 ? 's' : ''} into the raffle`
       });
       onSuccess();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Entry failed",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {

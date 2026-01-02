@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface Playlist {
   id: string;
@@ -50,8 +51,8 @@ export const useUserPlaylists = (userId?: string) => {
       );
 
       setPlaylists(playlistsWithCounts);
-    } catch (error: any) {
-      console.error('Error fetching playlists:', error);
+    } catch (error: unknown) {
+      console.error('Error fetching playlists:', getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -72,8 +73,8 @@ export const useUserPlaylists = (userId?: string) => {
 
       setPlaylists(prev => prev.filter(p => p.id !== playlistId));
       toast.success('Playlist deleted');
-    } catch (error: any) {
-      toast.error('Failed to delete playlist');
+    } catch (error: unknown) {
+      toast.error('Failed to delete playlist: ' + getErrorMessage(error));
     }
   };
 
@@ -106,8 +107,8 @@ export const useUserPlaylists = (userId?: string) => {
 
       toast.success('Track added to playlist');
       fetchPlaylists(); // Refresh to update counts
-    } catch (error: any) {
-      toast.error('Failed to add track to playlist');
+    } catch (error: unknown) {
+      toast.error('Failed to add track: ' + getErrorMessage(error));
     }
   };
 
