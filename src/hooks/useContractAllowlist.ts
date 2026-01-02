@@ -3,6 +3,7 @@ import { useWallet } from "@/providers/WalletProvider";
 import { NFT_CONTRACT_ABI } from "@/config/nftContract";
 import { encodeFunctionData } from "viem";
 import { toast } from "sonner";
+import { isUserRejection, getErrorMessage } from "@/lib/errorUtils";
 
 interface AllowlistState {
   isUpdating: boolean;
@@ -82,15 +83,12 @@ export function useContractAllowlist(contractAddress: string | null) {
 
       return txHash;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Allowlist update error:", error);
       
-      let errorMessage = "Failed to update allowlist";
-      if (error.code === 4001) {
-        errorMessage = "Transaction rejected by user";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      const errorMessage = isUserRejection(error)
+        ? "Transaction rejected by user"
+        : getErrorMessage(error) || "Failed to update allowlist";
 
       setState({
         isUpdating: false,
@@ -164,15 +162,12 @@ export function useContractAllowlist(contractAddress: string | null) {
 
       return txHash;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Phase config error:", error);
       
-      let errorMessage = "Failed to configure phase";
-      if (error.code === 4001) {
-        errorMessage = "Transaction rejected by user";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      const errorMessage = isUserRejection(error)
+        ? "Transaction rejected by user"
+        : getErrorMessage(error) || "Failed to configure phase";
 
       setState({
         isUpdating: false,
@@ -229,15 +224,12 @@ export function useContractAllowlist(contractAddress: string | null) {
 
       return txHash;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Set active phase error:", error);
       
-      let errorMessage = "Failed to set active phase";
-      if (error.code === 4001) {
-        errorMessage = "Transaction rejected by user";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      const errorMessage = isUserRejection(error)
+        ? "Transaction rejected by user"
+        : getErrorMessage(error) || "Failed to set active phase";
 
       setState({
         isUpdating: false,

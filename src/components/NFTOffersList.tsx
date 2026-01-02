@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import {
 import { format, isPast } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getErrorMessage } from "@/lib/errorUtils";
 
 interface Offer {
   id: string;
@@ -106,9 +107,9 @@ export const NFTOffersList: React.FC<NFTOffersListProps> = ({
       onOfferAccepted?.(offer);
       onOffersChange?.();
       fetchOffers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error accepting offer:", error);
-      toast.error("Failed to accept offer", { description: error.message });
+      toast.error("Failed to accept offer", { description: getErrorMessage(error) });
     } finally {
       setProcessingId(null);
     }
@@ -129,9 +130,9 @@ export const NFTOffersList: React.FC<NFTOffersListProps> = ({
       toast.success("Offer rejected");
       onOffersChange?.();
       fetchOffers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error rejecting offer:", error);
-      toast.error("Failed to reject offer", { description: error.message });
+      toast.error("Failed to reject offer", { description: getErrorMessage(error) });
     } finally {
       setProcessingId(null);
     }
@@ -151,9 +152,9 @@ export const NFTOffersList: React.FC<NFTOffersListProps> = ({
       toast.success("Offer cancelled");
       onOffersChange?.();
       fetchOffers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error cancelling offer:", error);
-      toast.error("Failed to cancel offer", { description: error.message });
+      toast.error("Failed to cancel offer", { description: getErrorMessage(error) });
     } finally {
       setProcessingId(null);
     }

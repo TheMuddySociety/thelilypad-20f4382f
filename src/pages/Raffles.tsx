@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useBundleCountdown, formatCountdown } from "@/hooks/useBundleCountdown";
 import { RaffleEntryModal } from "@/components/raffles/RaffleEntryModal";
+import { getErrorMessage } from "@/lib/errorUtils";
+import type { Json } from "@/integrations/supabase/types";
 
 interface Raffle {
   id: string;
@@ -15,7 +17,7 @@ interface Raffle {
   description: string | null;
   image_url: string | null;
   prize_type: string;
-  prize_details: any;
+  prize_details: Json;
   entry_price: number;
   max_tickets_per_user: number | null;
   total_tickets: number | null;
@@ -24,7 +26,7 @@ interface Raffle {
   end_date: string;
   winner_count: number;
   is_drawn: boolean;
-  winners: any;
+  winners: Json;
 }
 
 const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void }> = ({ raffle, onEnter }) => {
@@ -130,10 +132,10 @@ const Raffles: React.FC = () => {
 
       if (error) throw error;
       setRaffles((data || []) as unknown as Raffle[]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error loading raffles",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {

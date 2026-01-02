@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { parseEther } from "viem";
 import { useVolumeTracking } from "@/hooks/useVolumeTracking";
+import { getErrorMessage } from "@/lib/errorUtils";
 
 interface Listing {
   id: string;
@@ -183,9 +184,9 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
         onOpenChange(false);
         resetForm();
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Purchase error:', err);
-      setError(err.message || "Failed to complete purchase");
+      setError(getErrorMessage(err) || "Failed to complete purchase");
       setBuyStatus('error');
     } finally {
       setIsBuying(false);

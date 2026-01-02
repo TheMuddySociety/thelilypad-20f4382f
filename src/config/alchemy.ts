@@ -1,4 +1,5 @@
 import { defineChain } from "viem";
+import { isAbortError, getErrorMessage } from "@/lib/errorUtils";
 
 // Network type
 export type NetworkType = "mainnet" | "testnet";
@@ -85,12 +86,12 @@ export const checkRpcHealth = async (
     }
     
     return { url: rpcUrl, healthy: true, latency };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return { 
       url: rpcUrl, 
       healthy: false, 
       latency: null, 
-      error: error.name === 'AbortError' ? 'Timeout' : error.message 
+      error: isAbortError(error) ? 'Timeout' : getErrorMessage(error) 
     };
   }
 };
@@ -136,12 +137,12 @@ const checkRpcHealthFallback = async (
     }
     
     return { url: rpcUrl, healthy: false, latency: totalLatency, error: 'Invalid response' };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return { 
       url: rpcUrl, 
       healthy: false, 
       latency: null, 
-      error: error.name === 'AbortError' ? 'Timeout' : error.message 
+      error: isAbortError(error) ? 'Timeout' : getErrorMessage(error) 
     };
   }
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { isUserRejection, getErrorMessage, errorContains } from "@/lib/errorUtils";
 
 // Platform treasury address for receiving bundle payments
 const PLATFORM_TREASURY_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e7595f5CB25";
@@ -213,15 +214,15 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
       setHasPurchased(true);
       toast.success("Bundle purchased successfully! You now have access to all included packs.");
       onPurchaseComplete?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Purchase error:", error);
       setPurchaseStep("idle");
       
       // Handle user rejection
-      if (error?.code === 4001 || error?.message?.includes("rejected")) {
+      if (isUserRejection(error) || errorContains(error, "rejected")) {
         toast.error("Transaction was cancelled");
       } else {
-        toast.error(error?.message || "Failed to complete purchase. Please try again.");
+        toast.error(getErrorMessage(error) || "Failed to complete purchase. Please try again.");
       }
     } finally {
       setIsPurchasing(false);

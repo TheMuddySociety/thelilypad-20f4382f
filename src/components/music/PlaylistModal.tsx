@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Music2, Upload, Globe, Lock } from 'lucide-react';
 import {
   Dialog,
@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface Playlist {
   id: string;
@@ -106,8 +107,8 @@ export const PlaylistModal: React.FC<PlaylistModalProps> = ({
 
       onOpenChange(false);
       onSuccess?.();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to save playlist');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error) || 'Failed to save playlist');
     } finally {
       setIsLoading(false);
     }
