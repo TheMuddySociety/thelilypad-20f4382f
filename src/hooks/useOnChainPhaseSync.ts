@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { NFT_CONTRACT_ABI } from "@/config/nftContract";
+import { NFT_FACTORY_ABI } from "@/config/nftFactory";
 import { useWallet } from "@/providers/WalletProvider";
 import { formatEther } from "viem";
 
@@ -34,7 +34,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
     const rpcUrl = currentChain.rpcUrls.default.http[0];
     
     // Find the function in ABI
-    const func = NFT_CONTRACT_ABI.find(
+    const func = NFT_FACTORY_ABI.find(
       (item) => item.type === "function" && item.name === functionName
     );
     if (!func || func.type !== "function") {
@@ -44,7 +44,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
     // Encode function call
     const { encodeFunctionData, decodeFunctionResult } = await import("viem");
     const data = encodeFunctionData({
-      abi: NFT_CONTRACT_ABI,
+      abi: NFT_FACTORY_ABI,
       functionName: functionName as any,
       args: args as any,
     });
@@ -68,7 +68,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
 
     // Decode result
     const decoded = decodeFunctionResult({
-      abi: NFT_CONTRACT_ABI,
+      abi: NFT_FACTORY_ABI,
       functionName: functionName as any,
       data: result.result,
     });
@@ -104,8 +104,9 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
         try {
           const phaseData = await callContract("getPhase", [BigInt(phaseId)]);
           
-          // phaseData returns: [price, maxPerWallet, supply, minted, requiresAllowlist, isActive]
-          const [price, maxPerWallet, supply, minted, requiresAllowlist, isActive] = phaseData as [bigint, bigint, bigint, bigint, boolean, boolean];
+          // NFT_FACTORY_ABI getPhase returns: [price, maxPerWallet, phaseMaxSupply, phaseMinted, isActive]
+          // Note: No requiresAllowlist in this contract version
+          const [price, maxPerWallet, supply, minted, isActive] = phaseData as [bigint, bigint, bigint, bigint, boolean];
           
           // Only include phases that have been configured (supply > 0 or it's the active phase)
           if (Number(supply) > 0 || phaseId === Number(activePhaseId)) {
@@ -115,7 +116,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
               maxPerWallet: Number(maxPerWallet),
               supply: Number(supply),
               minted: Number(minted),
-              requiresAllowlist,
+              requiresAllowlist: false, // This contract version doesn't track this on-chain
               isActive,
             });
             console.log(`[Phase Sync] Phase ${phaseId}:`, { price: formatEther(price), supply: Number(supply), isActive });
