@@ -40,6 +40,7 @@ import { useSEO } from "@/hooks/useSEO";
 import { useContractMint } from "@/hooks/useContractMint";
 import { useGasEstimation } from "@/hooks/useGasEstimation";
 import { useOnChainPhaseSync } from "@/hooks/useOnChainPhaseSync";
+import { useTheLilyPadContract } from "@/hooks/useTheLilyPadContract";
 import {
   ArrowLeft, 
   ExternalLink, 
@@ -161,6 +162,15 @@ export default function CollectionDetail() {
     syncPhases,
     isSyncing,
   } = useOnChainPhaseSync(collection?.contract_address || null, collectionId || null);
+
+  // TheLilyPad contract hook for owner functions
+  const {
+    configurePhase: configureContractPhase,
+    setActivePhase: setContractActivePhase,
+    isLoading: isContractLoading,
+  } = useTheLilyPadContract();
+
+  const [isInitializing, setIsInitializing] = useState(false);
 
   const isTestnet = network === "testnet";
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
@@ -410,6 +420,44 @@ export default function CollectionDetail() {
       });
     }
     setIsSwitchingNetwork(false);
+  };
+
+  // Initialize contract phase (owner only)
+  const handleInitializeContract = async () => {
+    if (!isConnected || !collection?.contract_address) {
+      toast.error("Wallet not connected or contract not deployed");
+      return;
+    }
+
+    setIsInitializing(true);
+    try {
+      // Get phase settings from DB
+      const price = activePhase?.price || "0";
+      const maxPerWallet = activePhase?.maxPerWallet || 100;
+      const supply = activePhase?.supply || collection.total_supply || 100;
+
+      toast.info("Step 1/2: Configuring phase...");
+      const configTx = await configureContractPhase(0, price, maxPerWallet, supply);
+      
+      if (!configTx) {
+        setIsInitializing(false);
+        return;
+      }
+
+      toast.info("Step 2/2: Activating phase...");
+      const activateTx = await setContractActivePhase(0);
+      
+      if (activateTx) {
+        toast.success("Contract initialized! Phase 0 is now active.");
+        // Sync phases from contract to update DB
+        await syncPhases();
+        fetchCollection();
+      }
+    } catch (error) {
+      console.error("Initialize error:", error);
+      toast.error("Failed to initialize contract");
+    }
+    setIsInitializing(false);
   };
 
   // Calculate remaining supply
@@ -1722,6 +1770,20 @@ export default function CollectionDetail() {
                   </p>
                 )}
 
+
+                {/* INITIALIZE CONTRACT - Owner only: Configure and activate phase 0 on-chain */}
+                {isConnected && collection?.contract_address && isCreator && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="w-full gap-2 bg-gradient-to-r from-primary to-accent hover:opacity-90"
+                    onClick={handleInitializeContract}
+                    disabled={isInitializing || isContractLoading}
+                  >
+                    <Rocket className={`w-4 h-4 ${isInitializing ? "animate-pulse" : ""}`} />
+                    {isInitializing ? "Initializing..." : "⚡ Initialize Contract (Owner)"}
+                  </Button>
+                )}
 
                 {/* SYNC PHASES - Read on-chain phase status and update DB */}
                 {isConnected && collection?.contract_address && (
