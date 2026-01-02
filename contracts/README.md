@@ -1,139 +1,67 @@
-# Lily Pad NFT Factory Contracts
+# TheLilyPadLaunchpad - NFT Contracts
 
-Smart contracts for deploying NFT collections on Monad.
+Smart contracts for the Lily Pad NFT platform on Monad.
 
-## Contracts
+## Active Contract
 
-- **NFTFactory.sol** - Factory contract that deploys new NFT collections
-- **LilyPadNFT.sol** - ERC721 NFT contract with phases, allowlists, and royalties
+**TheLilyPadLaunchpad** - `0xE9fbe48cc99E3ee6b41DE2BF830df02D1e14b651`
+
+This is the primary NFT contract for the platform. It is already deployed and ready to use.
+
+## Available Contracts
+
+| Contract | Description |
+|----------|-------------|
+| **TheLilyPad.sol** | Main ERC721 NFT contract with phases, allowlists, and royalties |
+| **TheLilyPadUpgradeable.sol** | Upgradeable version using UUPS proxy pattern |
+| **LilyPadNFT.sol** | Standard NFT implementation |
+| **SimpleLilyPadNFT.sol** | Minimal NFT implementation |
+| **LilyPadToken.sol** | Platform governance token |
+| **LilyPadGovernor.sol** | Governance contract for proposals and voting |
+| **LilyPadTimelock.sol** | Timelock for governance execution |
+| **BuybackController.sol** | Manages platform buyback mechanics |
+
+## Contract Addresses
+
+| Network | Contract | Address |
+|---------|----------|---------|
+| Monad Testnet | TheLilyPadLaunchpad | `0xE9fbe48cc99E3ee6b41DE2BF830df02D1e14b651` |
+| Monad Mainnet | Coming soon | TBD |
+
+## Features
+
+- **Multi-phase minting**: Configure different mint phases with unique prices and limits
+- **Allowlist support**: Restrict minting to approved addresses per phase
+- **Platform fees**: 2.5% platform fee with 50% going to buyback pool
+- **Royalties**: EIP-2981 royalty support for secondary sales
+- **LilyPad verified**: All collections are verifiable as authentic Lily Pad drops
 
 ## Deployment Guide
 
-### Prerequisites
-
-1. Install [Foundry](https://book.getfoundry.sh/getting-started/installation) or [Hardhat](https://hardhat.org/getting-started/)
-2. Get testnet MON from the [Monad Faucet](https://faucet.monad.xyz)
-3. Have a wallet private key with testnet funds
-
-### Option 1: Deploy with Foundry
-
-```bash
-# Install Foundry if not already installed
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
-
-# Navigate to contracts directory
-cd contracts
-
-# Deploy to Monad Testnet
-forge create --rpc-url https://testnet-rpc.monad.xyz \
-  --private-key YOUR_PRIVATE_KEY \
-  NFTFactory.sol:NFTFactory
-```
-
-### Option 2: Deploy with Remix IDE (Easiest)
+### Deploy with Remix IDE
 
 1. Go to [Remix IDE](https://remix.ethereum.org)
-2. Create new files and paste the contract code:
-   - `NFTFactory.sol`
-   - `LilyPadNFT.sol`
-3. Compile both contracts (Solidity 0.8.20+)
+2. Create new file and paste the contract code
+3. Compile (Solidity 0.8.20+)
 4. Connect MetaMask to Monad Testnet:
    - Network Name: Monad Testnet
    - RPC URL: `https://testnet-rpc.monad.xyz`
    - Chain ID: `10143`
    - Currency: MON
    - Explorer: `https://testnet.monadexplorer.com`
-5. Deploy `NFTFactory` contract
-6. Copy the deployed contract address
-
-### Option 3: Deploy with Hardhat
-
-```bash
-# Create a new Hardhat project
-mkdir nft-factory && cd nft-factory
-npm init -y
-npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
-
-# Initialize Hardhat
-npx hardhat init
-
-# Copy contracts to contracts/ folder
-# Update hardhat.config.js with Monad network:
-```
-
-```javascript
-// hardhat.config.js
-module.exports = {
-  solidity: "0.8.20",
-  networks: {
-    monadTestnet: {
-      url: "https://testnet-rpc.monad.xyz",
-      chainId: 10143,
-      accounts: [process.env.PRIVATE_KEY]
-    }
-  }
-};
-```
-
-```bash
-# Deploy
-npx hardhat run scripts/deploy.js --network monadTestnet
-```
-
-## After Deployment
-
-Once deployed, update the factory address in your Lily Pad app:
-
-1. Open `src/config/nftFactory.ts`
-2. Replace the zero address with your deployed factory address:
-
-```typescript
-export const NFT_FACTORY_ADDRESS = "0xYOUR_DEPLOYED_ADDRESS_HERE";
-```
-
-3. The app will now use the factory to create NFT collections!
-
-## Contract Addresses
-
-| Network | Factory Address |
-|---------|-----------------|
-| Monad Testnet | `TBD - Deploy and update` |
-| Monad Mainnet | `TBD - Coming soon` |
-
-## Testing
-
-```bash
-# With Foundry
-forge test
-
-# With Hardhat
-npx hardhat test
-```
-
-## Verification
-
-After deployment, verify on Monad Explorer:
-
-```bash
-# Foundry
-forge verify-contract --chain-id 10143 \
-  --constructor-args $(cast abi-encode "constructor()") \
-  YOUR_CONTRACT_ADDRESS \
-  NFTFactory
-
-# Or use the Monad Explorer UI
-```
+5. Deploy contract
+6. Update `src/config/nftFactory.ts` with new address
 
 ## Gas Estimates
 
-- Factory Deployment: ~2,000,000 gas
-- Create Collection: ~1,500,000 gas
+- Contract Deployment: ~2,000,000 gas
+- Configure Phase: ~50,000 gas
 - Mint NFT: ~100,000 gas per NFT
+- Set Allowlist: ~30,000 gas per address
 
-## Security Considerations
+## Security
 
-- Factory owner can pause/unpause collection creation
-- Each NFT collection owner can configure phases independently
-- Royalties are set at collection creation and stored on-chain
+- Only contract owner can configure phases and manage allowlists
+- Platform fees are automatically distributed
 - Withdraw function only available to collection owner
+- All collections are immutably linked to the Lily Pad platform
