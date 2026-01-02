@@ -184,56 +184,61 @@ export function ArtworkUploader({
 
     setIsUploading(true);
 
-    const newArtworks: ArtworkItem[] = [];
+    try {
+      const newArtworks: ArtworkItem[] = [];
 
-    for (const file of imageFiles) {
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`${file.name} is too large (max 10MB)`);
-        continue;
-      }
-
-      const id = `artwork-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-      
-      try {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${creatorId}/artwork/${id}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('collection-images')
-          .upload(fileName, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (uploadError) {
-          console.error("Upload error:", uploadError);
-          toast.error(`Failed to upload ${file.name}`);
+      for (const file of imageFiles) {
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`${file.name} is too large (max 10MB)`);
           continue;
         }
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('collection-images')
-          .getPublicUrl(fileName);
+        const id = `artwork-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+        
+        try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${creatorId}/artwork/${id}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('collection-images')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
 
-        newArtworks.push({
-          id,
-          name,
-          imageUrl: publicUrl,
-          description: ""
-        });
-      } catch (err) {
-        console.error("Error uploading:", err);
-        toast.error(`Failed to upload ${file.name}`);
+          if (uploadError) {
+            console.error("Upload error:", uploadError);
+            toast.error(`Failed to upload ${file.name}`);
+            continue;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('collection-images')
+            .getPublicUrl(fileName);
+
+          newArtworks.push({
+            id,
+            name,
+            imageUrl: publicUrl,
+            description: ""
+          });
+        } catch (err) {
+          console.error("Error uploading:", err);
+          toast.error(`Failed to upload ${file.name}`);
+        }
       }
-    }
 
-    if (newArtworks.length > 0) {
-      onArtworksChange([...artworks, ...newArtworks]);
-      toast.success(`Added ${newArtworks.length} artwork${newArtworks.length > 1 ? 's' : ''}`);
+      if (newArtworks.length > 0) {
+        onArtworksChange([...artworks, ...newArtworks]);
+        toast.success(`Added ${newArtworks.length} artwork${newArtworks.length > 1 ? 's' : ''}`);
+      }
+    } catch (err) {
+      console.error("Unexpected error during upload:", err);
+      toast.error("Upload failed unexpectedly");
+    } finally {
+      setIsUploading(false);
     }
-
-    setIsUploading(false);
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
