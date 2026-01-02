@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Ticket, Clock, Users, Trophy, Loader2 } from "lucide-react";
+import { Ticket, Clock, Users, Trophy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useBundleCountdown, formatCountdown } from "@/hooks/useBundleCountdown";
 import { RaffleEntryModal } from "@/components/raffles/RaffleEntryModal";
 import { getErrorMessage } from "@/lib/errorUtils";
@@ -158,8 +159,24 @@ const Raffles: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="overflow-hidden">
+                <Skeleton className="aspect-video w-full" />
+                <CardHeader className="pb-2">
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-4 w-full mt-2" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-5 w-full col-span-2" />
+                  </div>
+                  <Skeleton className="h-10 w-full" />
+                </CardContent>
+              </Card>
+            ))}
           </div>
         ) : raffles.length === 0 ? (
           <Card className="p-12 text-center">
