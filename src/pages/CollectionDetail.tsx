@@ -163,12 +163,12 @@ export default function CollectionDetail() {
     isSyncing,
   } = useOnChainPhaseSync(collection?.contract_address || null, collectionId || null);
 
-  // TheLilyPad contract hook for owner functions
+  // TheLilyPad contract hook for owner functions (targets this collection contract)
   const {
     configurePhase: configureContractPhase,
     setActivePhase: setContractActivePhase,
     isLoading: isContractLoading,
-  } = useTheLilyPadContract();
+  } = useTheLilyPadContract(collection?.contract_address || null);
 
   const [isInitializing, setIsInitializing] = useState(false);
 

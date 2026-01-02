@@ -65,8 +65,9 @@ interface ContractState {
   error: string | null;
 }
 
-export function useTheLilyPadContract() {
+export function useTheLilyPadContract(targetContractAddress?: string | null) {
   const { address, isConnected, network, switchToMonad, chainId, chainType, getProvider } = useWallet();
+  const contractAddress = targetContractAddress || THELILYPAD_CONTRACT_ADDRESS;
   const [state, setState] = useState<ContractState>({
     isLoading: false,
     error: null,
@@ -102,7 +103,7 @@ export function useTheLilyPadContract() {
       });
 
       const result = await rpcProxyCall(network, 'eth_call', [{
-        to: THELILYPAD_CONTRACT_ADDRESS,
+        to: contractAddress,
         data,
       }, 'latest']);
 
@@ -111,7 +112,7 @@ export function useTheLilyPadContract() {
       console.error(`Error reading ${functionName}:`, error);
       throw error;
     }
-  }, [network]);
+  }, [network, contractAddress]);
 
   // Get phase info
   const getPhase = useCallback(async (phaseId: number): Promise<TheLilyPadPhase | null> => {
@@ -221,7 +222,7 @@ export function useTheLilyPadContract() {
         method: "eth_sendTransaction",
         params: [{
           from: address,
-          to: THELILYPAD_CONTRACT_ADDRESS,
+          to: contractAddress,
           data,
           gas: "0x30D40", // 200,000
         }],
@@ -239,7 +240,7 @@ export function useTheLilyPadContract() {
       toast.error("Failed to configure phase", { description: errorMessage });
       return null;
     }
-  }, [address, isConnected, chainType, network, getProvider, ensureCorrectNetwork]);
+  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork]);
 
   // Owner-only: Set active phase
   const setActivePhase = useCallback(async (phaseId: number): Promise<string | null> => {
@@ -268,7 +269,7 @@ export function useTheLilyPadContract() {
         method: "eth_sendTransaction",
         params: [{
           from: address,
-          to: THELILYPAD_CONTRACT_ADDRESS,
+          to: contractAddress,
           data,
           gas: "0x1E848", // 125,000
         }],
@@ -286,7 +287,7 @@ export function useTheLilyPadContract() {
       toast.error("Failed to set active phase", { description: errorMessage });
       return null;
     }
-  }, [address, isConnected, chainType, network, getProvider, ensureCorrectNetwork]);
+  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork]);
 
   // Owner-only: Set allowlist
   const setAllowlist = useCallback(async (
@@ -322,7 +323,7 @@ export function useTheLilyPadContract() {
         method: "eth_sendTransaction",
         params: [{
           from: address,
-          to: THELILYPAD_CONTRACT_ADDRESS,
+          to: contractAddress,
           data,
           gas: `0x${gasLimit.toString(16)}`,
         }],
@@ -340,7 +341,7 @@ export function useTheLilyPadContract() {
       toast.error("Failed to set allowlist", { description: errorMessage });
       return null;
     }
-  }, [address, isConnected, chainType, network, getProvider, ensureCorrectNetwork]);
+  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork]);
 
   // Owner-only: Set base URI
   const setBaseURI = useCallback(async (baseURI: string): Promise<string | null> => {
@@ -369,7 +370,7 @@ export function useTheLilyPadContract() {
         method: "eth_sendTransaction",
         params: [{
           from: address,
-          to: THELILYPAD_CONTRACT_ADDRESS,
+          to: contractAddress,
           data,
           gas: "0x30D40", // 200,000
         }],
@@ -387,7 +388,7 @@ export function useTheLilyPadContract() {
       toast.error("Failed to set base URI", { description: errorMessage });
       return null;
     }
-  }, [address, isConnected, chainType, network, getProvider, ensureCorrectNetwork]);
+  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork]);
 
   // Owner-only: Withdraw funds
   const withdraw = useCallback(async (): Promise<string | null> => {
@@ -416,7 +417,7 @@ export function useTheLilyPadContract() {
         method: "eth_sendTransaction",
         params: [{
           from: address,
-          to: THELILYPAD_CONTRACT_ADDRESS,
+          to: contractAddress,
           data,
           gas: "0x1E848", // 125,000
         }],
@@ -434,7 +435,7 @@ export function useTheLilyPadContract() {
       toast.error("Failed to withdraw", { description: errorMessage });
       return null;
     }
-  }, [address, isConnected, chainType, network, getProvider, ensureCorrectNetwork]);
+  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork]);
 
   return {
     ...state,
