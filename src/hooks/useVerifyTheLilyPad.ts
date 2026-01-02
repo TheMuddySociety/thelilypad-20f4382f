@@ -70,20 +70,6 @@ export function useVerifyTheLilyPad(network: NetworkType = 'testnet') {
         const isLilyPad = BigInt(isLilyPadResult) === 1n;
 
         if (isLilyPad) {
-          // Get platform info
-          const platformInfoData = encodeFunctionData({
-            abi: THELILYPAD_ABI,
-            functionName: "getPlatformInfo",
-            args: [],
-          });
-
-          const platformResult = await rpcProxyCall(network, 'eth_call', [{
-            to: contractAddress,
-            data: platformInfoData,
-          }, 'latest']);
-
-          // Decode platform info (4 return values: string, string, address, address)
-          // This is simplified - in production you'd want proper ABI decoding
           setIsVerifying(false);
           return {
             isLilyPadCollection: true,

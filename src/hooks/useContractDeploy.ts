@@ -2,11 +2,69 @@ import { useState, useCallback } from "react";
 import { useWallet } from "@/providers/WalletProvider";
 import {
   NFT_FACTORY_ADDRESS,
+  NFT_FACTORY_ABI,
   isFactoryConfigured,
   LILYPAD_PLATFORM_NAME,
   LILYPAD_PLATFORM_VERSION,
 } from "@/config/nftFactory";
+import { encodeFunctionData, decodeEventLog } from "viem";
+import { getMonadChain, NetworkType } from "@/config/alchemy";
 import { toast } from "sonner";
+
+// RPC Proxy base URL
+const RPC_PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rpc-proxy`;
+
+// Make RPC call through the proxy
+const rpcProxyCall = async (
+  network: NetworkType,
+  method: string,
+  params: any[]
+): Promise<any> => {
+  const response = await fetch(`${RPC_PROXY_URL}?network=${network}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: Date.now(),
+      method,
+      params,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`RPC Proxy error: HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error.message || 'RPC error');
+  }
+
+  return data.result;
+};
+
+// Fetch transaction receipt with polling
+const fetchReceiptWithProxy = async (
+  txHash: string,
+  network: NetworkType,
+  maxAttempts = 60
+): Promise<any> => {
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    try {
+      const result = await rpcProxyCall(network, 'eth_getTransactionReceipt', [txHash]);
+      if (result) return result;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      attempts++;
+    } catch (error) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      attempts++;
+    }
+  }
+
+  return null;
+};
 
 interface DeploymentState {
   isDeploying: boolean;
@@ -17,17 +75,18 @@ interface DeploymentState {
   isVerified: boolean;
 }
 
-// Legacy interface for backwards compatibility
 export interface DeployParams {
   name: string;
   symbol: string;
   maxSupply: number;
-  royaltyBps: number;
-  royaltyReceiver: string;
+  baseURI?: string;
+  // Legacy params (ignored but kept for compatibility)
+  royaltyBps?: number;
+  royaltyReceiver?: string;
 }
 
 export function useContractDeploy() {
-  const { address, isConnected, chainType, getProvider } = useWallet();
+  const { address, isConnected, chainType, getProvider, network, chainId, switchToMonad } = useWallet();
   const [state, setState] = useState<DeploymentState>({
     isDeploying: false,
     deploymentStep: "idle",
@@ -48,8 +107,28 @@ export function useContractDeploy() {
     });
   }, []);
 
+  // Ensure wallet is on correct network
+  const ensureCorrectNetwork = useCallback(async (): Promise<boolean> => {
+    const provider = getProvider();
+    if (!provider || chainType !== "evm") return false;
+    
+    const targetChain = getMonadChain(network);
+    
+    if (chainId !== targetChain.id) {
+      try {
+        await switchToMonad();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return true;
+      } catch (error) {
+        console.error("Failed to switch network:", error);
+        return false;
+      }
+    }
+    return true;
+  }, [network, chainId, switchToMonad, chainType, getProvider]);
+
   const deployContract = useCallback(
-    async (_params: DeployParams): Promise<string | null> => {
+    async (params: DeployParams): Promise<string | null> => {
       const provider = getProvider();
       if (!isConnected || !address || !provider) {
         setState((prev) => ({ ...prev, error: "Wallet not connected" }));
@@ -64,46 +143,201 @@ export function useContractDeploy() {
         return null;
       }
 
-      // Keep the existing 'factory configured' check for UI state, but do NOT
-      // auto-write NFT_FACTORY_ADDRESS into collection.contract_address.
       if (!isFactoryConfigured()) {
         setState((prev) => ({
           ...prev,
-          error:
-            "Automatic deploy isn't available right now. Please deploy externally and link the contract address.",
+          error: "Factory contract not configured. Please use Link Existing Contract.",
         }));
         return null;
       }
 
+      // Ensure correct network
+      const networkOk = await ensureCorrectNetwork();
+      if (!networkOk) {
+        setState((prev) => ({ ...prev, error: "Please switch to Monad network" }));
+        toast.error("Please switch to Monad network");
+        return null;
+      }
+
       setState({
-        isDeploying: false,
-        deploymentStep: "error",
+        isDeploying: true,
+        deploymentStep: "preparing",
         txHash: null,
         contractAddress: null,
-        error:
-          "Automatic deployment isn't configured yet. Please deploy your collection contract externally (Remix/Hardhat) and then use 'Link Existing Contract' to paste the deployed address.",
+        error: null,
         isVerified: false,
       });
 
-      toast.error("Deployment not available", {
-        description:
-          "Deploy externally and link the deployed contract address in this modal.",
-      });
+      try {
+        // Encode factory createCollection call
+        const data = encodeFunctionData({
+          abi: NFT_FACTORY_ABI,
+          functionName: "createCollection",
+          args: [
+            params.name,
+            params.symbol,
+            BigInt(params.maxSupply),
+            params.baseURI || ""
+          ],
+        });
 
-      return null;
+        setState((prev) => ({ ...prev, deploymentStep: "confirming" }));
+
+        // Send transaction to factory
+        const txHash = await provider.request({
+          method: "eth_sendTransaction",
+          params: [{
+            from: address,
+            to: NFT_FACTORY_ADDRESS,
+            data,
+            gas: "0x4C4B40", // 5,000,000 gas for clone deployment
+          }],
+        });
+
+        setState((prev) => ({ 
+          ...prev, 
+          deploymentStep: "deploying",
+          txHash 
+        }));
+
+        toast.info("Transaction submitted", {
+          description: "Waiting for confirmation...",
+        });
+
+        // Wait for receipt
+        const receipt = await fetchReceiptWithProxy(txHash, network);
+
+        if (!receipt) {
+          throw new Error("Transaction receipt not found. Check explorer for status.");
+        }
+
+        if (receipt.status === "0x0") {
+          throw new Error("Transaction failed on-chain");
+        }
+
+        // Parse CollectionCreated event to get deployed address
+        let deployedAddress: string | null = null;
+        
+        // CollectionCreated event signature
+        const eventSignature = "0x" + "CollectionCreated(address,address,string,string,uint256)"
+          .split('')
+          .reduce((hash, char) => {
+            // Simplified - we'll search logs instead
+            return hash;
+          }, '');
+
+        // Search through logs for the deployed collection address
+        if (receipt.logs && receipt.logs.length > 0) {
+          for (const log of receipt.logs) {
+            // The first topic is the event signature, second is indexed collection address
+            if (log.topics && log.topics.length >= 2) {
+              // Extract the collection address from the second topic (first indexed param)
+              const potentialAddress = "0x" + log.topics[1].slice(26);
+              if (potentialAddress.length === 42) {
+                deployedAddress = potentialAddress;
+                break;
+              }
+            }
+          }
+        }
+
+        // Fallback: try to get from return data or use a verification call
+        if (!deployedAddress) {
+          // Last resort: query factory for creator's collections
+          try {
+            const collectionsData = encodeFunctionData({
+              abi: NFT_FACTORY_ABI,
+              functionName: "getCreatorCollections",
+              args: [address as `0x${string}`],
+            });
+
+            const result = await rpcProxyCall(network, 'eth_call', [{
+              to: NFT_FACTORY_ADDRESS,
+              data: collectionsData,
+            }, 'latest']);
+
+            // Decode array of addresses - get the last one
+            if (result && result.length > 130) {
+              // Skip offset (64) and length (64), then get addresses
+              const dataWithoutPrefix = result.slice(2);
+              const length = parseInt(dataWithoutPrefix.slice(64, 128), 16);
+              if (length > 0) {
+                // Get the last address in the array
+                const lastAddressStart = 128 + (length - 1) * 64;
+                deployedAddress = "0x" + dataWithoutPrefix.slice(lastAddressStart + 24, lastAddressStart + 64);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to query creator collections:", e);
+          }
+        }
+
+        if (!deployedAddress) {
+          // If we still can't find it, return a special value
+          setState({
+            isDeploying: false,
+            deploymentStep: "success",
+            txHash,
+            contractAddress: null,
+            error: null,
+            isVerified: true,
+          });
+          
+          toast.warning("Contract deployed!", {
+            description: "Check the explorer to find your contract address in the transaction logs.",
+          });
+          
+          return "pending-verification";
+        }
+
+        setState({
+          isDeploying: false,
+          deploymentStep: "success",
+          txHash,
+          contractAddress: deployedAddress,
+          error: null,
+          isVerified: true,
+        });
+
+        toast.success("Contract deployed!", {
+          description: `Collection created at ${deployedAddress.slice(0, 10)}...`,
+        });
+
+        return deployedAddress;
+
+      } catch (error: any) {
+        console.error("Deployment error:", error);
+        
+        let errorMessage = "Deployment failed";
+        if (error.code === 4001) {
+          errorMessage = "Transaction rejected by user";
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
+        setState({
+          isDeploying: false,
+          deploymentStep: "error",
+          txHash: state.txHash,
+          contractAddress: null,
+          error: errorMessage,
+          isVerified: false,
+        });
+
+        toast.error("Deployment failed", { description: errorMessage });
+        return null;
+      }
     },
-    [address, isConnected, chainType, getProvider]
+    [address, isConnected, chainType, getProvider, network, ensureCorrectNetwork, state.txHash]
   );
 
   return {
     ...state,
     deployContract,
     resetState,
-    // Still expose this for UI messaging
     isFactoryAvailable: isFactoryConfigured(),
     platformName: LILYPAD_PLATFORM_NAME,
     platformVersion: LILYPAD_PLATFORM_VERSION,
-    // Helpful for debugging / display if needed
-    platformContractAddress: NFT_FACTORY_ADDRESS,
+    factoryAddress: NFT_FACTORY_ADDRESS,
   };
 }

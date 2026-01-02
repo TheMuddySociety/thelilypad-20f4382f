@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useWallet } from "@/providers/WalletProvider";
-import { NFT_CONTRACT_ABI } from "@/config/nftContract";
+import { NFT_COLLECTION_ABI } from "@/config/nftFactory";
 import { encodeFunctionData, parseEther, keccak256, encodePacked } from "viem";
 import { MerkleTree } from "merkletreejs";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,7 +45,6 @@ const rpcProxyCall = async (
 
   const data = await response.json();
   
-  // Log which RPC was used (from headers)
   const rpcUsed = response.headers.get('X-RPC-Used');
   const latency = response.headers.get('X-RPC-Latency');
   if (rpcUsed) {
@@ -75,13 +74,10 @@ const fetchReceiptWithProxy = async (
         return result;
       }
 
-      // Receipt not ready yet, continue polling
       await new Promise(resolve => setTimeout(resolve, 2000));
       attempts++;
     } catch (error) {
       console.error('Receipt fetch error:', error);
-      
-      // Continue polling on error (proxy handles failover internally)
       await new Promise(resolve => setTimeout(resolve, 2000));
       attempts++;
     }
@@ -93,7 +89,7 @@ const fetchReceiptWithProxy = async (
 // Exponential backoff delay calculator
 const getExponentialDelay = (attempt: number, baseDelay: number = 1000, maxDelay: number = 15000): number => {
   const delay = baseDelay * Math.pow(2, attempt);
-  const jitter = delay * 0.2 * Math.random(); // Add 20% jitter
+  const jitter = delay * 0.2 * Math.random();
   return Math.min(delay + jitter, maxDelay);
 };
 
@@ -105,17 +101,13 @@ const isRetryableRpcError = (error: any): boolean => {
   const errorMessage = error.message?.toLowerCase() || '';
   const httpStatus = error.data?.httpStatus;
   
-  // User rejection - never retry
   if (errorCode === 4001) return false;
   
-  // RPC/network errors
   const rpcErrorCodes = [-32080, -32603, -32000, -32005];
   if (rpcErrorCodes.includes(errorCode)) return true;
   
-  // HTTP errors
   if (httpStatus === 403 || httpStatus === 429 || httpStatus >= 500) return true;
   
-  // Message-based detection
   const retryablePatterns = [
     'rpc', 'http', 'network', 'timeout', 'connection',
     'econnrefused', 'etimedout', 'rate limit', '403', '429', '502', '503', '504',
@@ -162,26 +154,21 @@ const submitTransactionWithRetry = async (
       lastError = error;
       console.error(`Attempt ${attempt + 1} failed:`, error.message, error.code);
       
-      // User rejected - don't retry
       if (error.code === 4001) {
         throw error;
       }
       
-      // Check if we should retry
       const isRpcRetryable = isRetryableRpcError(error);
       const isGasRetryable = isGasError(error);
       
       if (!isRpcRetryable && !isGasRetryable) {
-        // Not a retryable error
         throw error;
       }
       
       if (attempt === maxRetries) {
-        // Last attempt failed
         throw error;
       }
       
-      // Calculate delay with exponential backoff
       const delay = getExponentialDelay(attempt, baseDelay);
       const reason = isRpcRetryable ? 'RPC error' : 'Gas error';
       
@@ -258,7 +245,6 @@ export function useContractMint(contractAddress: string | null) {
     if (currentChainId !== targetChain.id) {
       try {
         await switchToMonad();
-        // Wait a moment for the network switch to complete
         await new Promise(resolve => setTimeout(resolve, 500));
         return true;
       } catch (error) {
@@ -304,7 +290,6 @@ export function useContractMint(contractAddress: string | null) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !address) return;
 
-    // Get current minted count to calculate token IDs
     const { data: collection } = await supabase
       .from("collections")
       .select("minted")
@@ -313,7 +298,6 @@ export function useContractMint(contractAddress: string | null) {
 
     const startTokenId = (collection?.minted || 0) - quantity + 1;
 
-    // Insert minted NFTs
     const nftsToInsert = Array.from({ length: quantity }, (_, i) => ({
       collection_id: collectionId,
       owner_id: user.id,
@@ -339,7 +323,7 @@ export function useContractMint(contractAddress: string | null) {
       .eq("tx_hash", txHash);
   }, []);
 
-  // Mint with allowlist (requires proof)
+  // Mint with allowlist - uses mintAllowlist function
   const mintWithAllowlist = useCallback(async (
     quantity: number,
     pricePerNft: string,
@@ -362,16 +346,9 @@ export function useContractMint(contractAddress: string | null) {
       return null;
     }
 
-    // Ensure we're on the correct Monad network
     const networkOk = await ensureCorrectNetwork();
     if (!networkOk) {
       setState(prev => ({ ...prev, error: "Please switch to Monad network" }));
-      return null;
-    }
-
-    // Verify user is on allowlist
-    if (!verifyAllowlist(address, allowlistAddresses)) {
-      setState(prev => ({ ...prev, error: "Address not on allowlist" }));
       return null;
     }
 
@@ -383,26 +360,20 @@ export function useContractMint(contractAddress: string | null) {
     });
 
     try {
-      // Generate Merkle proof
-      const proof = generateMerkleProof(address, allowlistAddresses);
-
-      // Calculate total price in wei
       const priceInWei = parseEther(pricePerNft);
       const totalValue = priceInWei * BigInt(quantity);
 
-      // Encode the mint function call with proof
+      // Use mintAllowlist function (no proof needed - contract checks allowlist mapping)
       const data = encodeFunctionData({
-        abi: NFT_CONTRACT_ABI,
-        functionName: "mint",
-        args: [BigInt(quantity), proof as `0x${string}`[]],
+        abi: NFT_COLLECTION_ABI,
+        functionName: "mintAllowlist",
+        args: [BigInt(quantity)],
       });
 
-      // Calculate gas limit
       const baseGasLimit = 200000;
       const perNftGas = 80000;
       const gasLimit = customGasLimit || (baseGasLimit + (perNftGas * quantity));
 
-      // Build transaction params
       const txParams = {
         from: address,
         to: contractAddress,
@@ -411,7 +382,6 @@ export function useContractMint(contractAddress: string | null) {
         gas: `0x${gasLimit.toString(16)}`,
       };
 
-      // Submit transaction with exponential backoff retry
       const txHash = await submitTransactionWithRetry(provider, txParams, {
         maxRetries: 5,
         baseDelay: 1000,
@@ -427,17 +397,14 @@ export function useContractMint(contractAddress: string | null) {
         },
       });
 
-      // Clear retry message
       setState(prev => ({ ...prev, error: null }));
 
-      // Wait for receipt with RPC failover
       const receipt = await fetchReceiptWithProxy(txHash, network);
 
       if (receipt && receipt.status === "0x0") {
         throw new Error("Mint transaction failed");
       }
 
-      // Record confirmed transaction and minted NFTs
       if (collectionId) {
         const totalPaid = parseFloat(pricePerNft) * quantity;
         await recordTransaction(txHash, collectionId, "mint", quantity, totalPaid, "confirmed");
@@ -463,7 +430,7 @@ export function useContractMint(contractAddress: string | null) {
         errorMessage = "RPC endpoint unavailable. Please check your wallet's network settings or try again in a moment.";
       } else if (error.message?.includes("insufficient funds")) {
         errorMessage = "Insufficient funds for gas + mint price";
-      } else if (error.message?.includes("not on allowlist")) {
+      } else if (error.message?.includes("not on allowlist") || error.message?.includes("Not allowlisted")) {
         errorMessage = "Address not on allowlist for this phase";
       } else if (error.message?.toLowerCase().includes("gas")) {
         errorMessage = "Transaction failed due to gas issues. Please try again or increase gas limit in advanced settings.";
@@ -482,9 +449,9 @@ export function useContractMint(contractAddress: string | null) {
 
       return null;
     }
-  }, [address, isConnected, contractAddress, generateMerkleProof, verifyAllowlist, recordTransaction, recordMintedNFTs, ensureCorrectNetwork]);
+  }, [address, isConnected, contractAddress, recordTransaction, recordMintedNFTs, ensureCorrectNetwork]);
 
-  // Mint public (no proof required)
+  // Mint public - uses mint function
   const mintPublic = useCallback(async (
     quantity: number,
     pricePerNft: string,
@@ -506,7 +473,6 @@ export function useContractMint(contractAddress: string | null) {
       return null;
     }
 
-    // Ensure we're on the correct Monad network
     const networkOk = await ensureCorrectNetwork();
     if (!networkOk) {
       setState(prev => ({ ...prev, error: "Please switch to Monad network" }));
@@ -521,23 +487,20 @@ export function useContractMint(contractAddress: string | null) {
     });
 
     try {
-      // Calculate total price in wei
       const priceInWei = parseEther(pricePerNft);
       const totalValue = priceInWei * BigInt(quantity);
 
-      // Encode the mintPublic function call
+      // Use mint function for public minting
       const data = encodeFunctionData({
-        abi: NFT_CONTRACT_ABI,
-        functionName: "mintPublic",
+        abi: NFT_COLLECTION_ABI,
+        functionName: "mint",
         args: [BigInt(quantity)],
       });
 
-      // Calculate gas limit
       const baseGasLimit = 200000;
       const perNftGas = 80000;
       const gasLimit = customGasLimit || (baseGasLimit + (perNftGas * quantity));
 
-      // Build transaction params
       const txParams = {
         from: address,
         to: contractAddress,
@@ -546,7 +509,6 @@ export function useContractMint(contractAddress: string | null) {
         gas: `0x${gasLimit.toString(16)}`,
       };
 
-      // Submit transaction with exponential backoff retry
       const txHash = await submitTransactionWithRetry(provider, txParams, {
         maxRetries: 5,
         baseDelay: 1000,
@@ -562,17 +524,14 @@ export function useContractMint(contractAddress: string | null) {
         },
       });
 
-      // Clear retry message
       setState(prev => ({ ...prev, error: null }));
 
-      // Wait for receipt with RPC failover
       const receipt = await fetchReceiptWithProxy(txHash, network);
 
       if (receipt && receipt.status === "0x0") {
         throw new Error("Mint transaction failed");
       }
 
-      // Record confirmed transaction and minted NFTs
       if (collectionId) {
         const totalPaid = parseFloat(pricePerNft) * quantity;
         await recordTransaction(txHash, collectionId, "mint", quantity, totalPaid, "confirmed");
@@ -626,7 +585,7 @@ export function useContractMint(contractAddress: string | null) {
     if (!balance) return false;
     const userBalance = parseFloat(balance);
     const totalCost = parseFloat(pricePerNft) * quantity;
-    const estimatedGas = 0.001; // Conservative gas estimate
+    const estimatedGas = 0.001;
     return userBalance >= totalCost + estimatedGas;
   }, [balance]);
 
