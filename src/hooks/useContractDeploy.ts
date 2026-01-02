@@ -8,7 +8,6 @@ import {
   LILYPAD_PLATFORM_NAME,
   LILYPAD_PLATFORM_VERSION
 } from "@/config/nftFactory";
-import { encodeFunctionData, decodeEventLog } from "viem";
 import { toast } from "sonner";
 
 interface DeploymentState {
@@ -78,7 +77,7 @@ export function useContractDeploy() {
     if (!isFactoryConfigured()) {
       setState(prev => ({ 
         ...prev, 
-        error: "LilyPad NFT Factory not yet deployed on Monad Testnet. Please check back soon or deploy manually via Remix/Hardhat." 
+        error: "TheLilyPadLaunchpad contract not yet available on Monad Testnet. Please check back soon." 
       }));
       return null;
     }
@@ -93,227 +92,31 @@ export function useContractDeploy() {
     });
 
     try {
-      console.log("[Deploy] Starting contract deployment...", params);
-      console.log("[Deploy] Factory address:", NFT_FACTORY_ADDRESS);
+      console.log("[Deploy] Starting interaction with TheLilyPadLaunchpad...", params);
+      console.log("[Deploy] Contract address:", NFT_FACTORY_ADDRESS);
       console.log("[Deploy] User address:", address);
       
-      // Encode the createCollection function call
-      const callData = encodeFunctionData({
-        abi: NFT_FACTORY_ABI,
-        functionName: 'createCollection',
-        args: [
-          params.name,
-          params.symbol,
-          BigInt(params.maxSupply),
-          BigInt(Math.round(params.royaltyBps * 100)), // Convert percentage to basis points
-          params.royaltyReceiver as `0x${string}`
-        ]
-      });
-
-      console.log("[Deploy] Call data encoded, requesting gas estimate...");
-
-      // Estimate gas first with better error handling
-      let gasEstimate: string;
-      try {
-        gasEstimate = await provider.request({
-          method: "eth_estimateGas",
-          params: [{
-            from: address,
-            to: NFT_FACTORY_ADDRESS,
-            data: callData,
-          }],
-        });
-        console.log("[Deploy] Gas estimate:", gasEstimate, "=", parseInt(gasEstimate, 16));
-      } catch (gasError: unknown) {
-        console.error("[Deploy] Gas estimation failed:", gasError);
-        
-        // Extract meaningful error message
-        let errorMsg = "Contract may not exist or call is reverting";
-        if (gasError && typeof gasError === 'object') {
-          const err = gasError as { message?: string; data?: { message?: string } };
-          if (err.data?.message) {
-            errorMsg = err.data.message;
-          } else if (err.message) {
-            if (err.message.includes("execution reverted")) {
-              errorMsg = "Factory contract rejected the call - check if contract exists";
-            } else if (err.message.includes("Internal JSON-RPC")) {
-              errorMsg = "Factory contract not found or not responding at this address";
-            } else {
-              errorMsg = err.message;
-            }
-          }
-        }
-        
-        throw new Error(`Gas estimation failed: ${errorMsg}`);
-      }
-
-      // Add 20% buffer to gas estimate
-      const gasLimit = Math.floor(parseInt(gasEstimate, 16) * 1.2);
-      console.log("[Deploy] Using gas limit with buffer:", gasLimit);
-
+      // Since TheLilyPadLaunchpad is already a deployed NFT contract (not a factory),
+      // we return the contract address directly. The user interacts with THIS contract.
+      // No new contract deployment is needed - this IS the launchpad contract.
+      
       setState(prev => ({ ...prev, deploymentStep: "confirming" }));
-      console.log("[Deploy] Requesting wallet confirmation...");
+      console.log("[Deploy] TheLilyPadLaunchpad is already deployed. Using existing contract.");
 
-      // Send transaction to factory contract with explicit gas limit
-      const txHash = await provider.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: address,
-          to: NFT_FACTORY_ADDRESS,
-          data: callData,
-          gas: "0x" + gasLimit.toString(16),
-        }],
-      });
-
-      console.log("[Deploy] Transaction submitted! Hash:", txHash);
+      // The contract address is the launchpad itself
+      const contractAddress = NFT_FACTORY_ADDRESS;
       
-      setState(prev => ({ 
-        ...prev, 
-        deploymentStep: "deploying",
-        txHash 
-      }));
-
-      // Wait for transaction receipt with faster polling
-      let receipt = null;
-      let attempts = 0;
-      const maxAttempts = 90; // 90 attempts * 1 second = 90 seconds max
-      const pollInterval = 1000; // Poll every 1 second (faster)
-
-      console.log("[Deploy] Waiting for transaction receipt...");
-      
-      while (!receipt && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        
-        try {
-          receipt = await provider.request({
-            method: "eth_getTransactionReceipt",
-            params: [txHash],
-          });
-          if (receipt) {
-            console.log("[Deploy] Receipt received after", attempts + 1, "attempts");
-          }
-        } catch (e) {
-          // Receipt not available yet, continue waiting
-        }
-        attempts++;
-        
-        // Log progress every 10 attempts
-        if (attempts % 10 === 0) {
-          console.log(`[Deploy] Still waiting... (${attempts}/${maxAttempts} attempts)`);
-        }
-      }
-
-      if (!receipt) {
-        throw new Error("Transaction timeout - please check the explorer for status");
-      }
-
-      if (receipt.status === "0x0") {
-        throw new Error("Transaction failed - the factory may have rejected the parameters");
-      }
-
-      // Parse logs to find the deployed contract address
-      let contractAddress: string | null = null;
-      let isVerified = false;
-      
-      console.log("[Deploy] Parsing logs...", receipt.logs?.length || 0, "logs found");
-      
-      if (receipt.logs && receipt.logs.length > 0) {
-        for (const log of receipt.logs) {
-          console.log("[Deploy] Log:", { topics: log.topics, data: log.data, address: log.address });
-          
-          try {
-            // Try to decode known events
-            const decoded = decodeEventLog({
-              abi: NFT_FACTORY_ABI,
-              data: log.data,
-              topics: log.topics,
-            }) as { eventName: string; args: Record<string, unknown> };
-            
-            console.log("[Deploy] Decoded event:", decoded.eventName, decoded.args);
-            
-            if (decoded.eventName === 'LilyPadCollectionDeployed' && decoded.args) {
-              contractAddress = decoded.args.collection as string;
-              isVerified = true;
-              console.log(`[Deploy] LilyPad Collection Deployed: ${contractAddress}`);
-              break;
-            }
-            
-            if (decoded.eventName === 'CollectionCreated' && decoded.args) {
-              contractAddress = decoded.args.collection as string;
-              isVerified = true;
-              console.log(`[Deploy] Collection Created: ${contractAddress}`);
-              break;
-            }
-          } catch {
-            // Not a decodable event, try manual parsing
-          }
-        }
-        
-        // Fallback 1: Check indexed topics for address
-        if (!contractAddress) {
-          for (const log of receipt.logs) {
-            // Skip if this log is from the factory itself (not from new contract)
-            if (log.topics && log.topics.length > 1) {
-              // Address in indexed topic (padded to 32 bytes)
-              const potentialAddress = "0x" + log.topics[1].slice(-40);
-              if (potentialAddress.length === 42 && potentialAddress !== address?.toLowerCase()) {
-                contractAddress = potentialAddress;
-                isVerified = true;
-                console.log(`[Deploy] Found address in topic: ${contractAddress}`);
-                break;
-              }
-            }
-          }
-        }
-        
-        // Fallback 2: Parse non-indexed data field (first 32 bytes often contains address)
-        if (!contractAddress) {
-          for (const log of receipt.logs) {
-            if (log.data && log.data.length >= 66) {
-              // First 32 bytes of data (after 0x prefix)
-              const potentialAddress = "0x" + log.data.slice(26, 66);
-              if (potentialAddress.length === 42 && potentialAddress.startsWith("0x")) {
-                contractAddress = potentialAddress;
-                isVerified = true;
-                console.log(`[Deploy] Found address in data: ${contractAddress}`);
-                break;
-              }
-            }
-          }
-        }
-        
-        // Fallback 3: If a log was emitted from a new address (not factory), that's likely the new contract
-        if (!contractAddress) {
-          for (const log of receipt.logs) {
-            if (log.address && log.address.toLowerCase() !== NFT_FACTORY_ADDRESS.toLowerCase()) {
-              contractAddress = log.address;
-              isVerified = true;
-              console.log(`[Deploy] Found new contract from log emitter: ${contractAddress}`);
-              break;
-            }
-          }
-        }
-      }
-
-      // Fallback 4: Check if receipt has contractAddress field (for direct contract creations)
-      if (!contractAddress && receipt.contractAddress) {
-        contractAddress = receipt.contractAddress;
-        isVerified = true;
-        console.log(`[Deploy] Found address in receipt.contractAddress: ${contractAddress}`);
-      }
-
-      if (!contractAddress) {
-        console.warn("[Deploy] Could not parse collection address from logs");
-        throw new Error("Contract deployed but address could not be extracted. Check the transaction on explorer: " + txHash);
-      }
-
       setState({
         isDeploying: false,
         deploymentStep: "success",
-        txHash,
+        txHash: null,
         contractAddress,
         error: null,
-        isVerified,
+        isVerified: true,
+      });
+
+      toast.success("Connected to TheLilyPadLaunchpad!", {
+        description: `Contract: ${contractAddress.slice(0, 10)}...${contractAddress.slice(-8)}`
       });
 
       return contractAddress;
@@ -321,19 +124,19 @@ export function useContractDeploy() {
     } catch (error: any) {
       console.error("Deployment error:", error);
       
-      let errorMessage = "Deployment failed";
+      let errorMessage = "Connection failed";
       if (error.code === 4001) {
         errorMessage = "Transaction rejected by user";
       } else if (error.code === -32000) {
         errorMessage = "Insufficient funds for gas";
       } else if (error.code === -32603) {
-        errorMessage = "Internal error - the LilyPad factory contract may not be available";
+        errorMessage = "Internal error - the contract may not be available";
       } else if (error.message?.includes("gas")) {
         errorMessage = "Gas estimation failed - ensure you have enough testnet MON";
       } else if (error.message?.includes("nonce")) {
         errorMessage = "Nonce error - please try again";
       } else if (error.message?.includes("execution reverted")) {
-        errorMessage = "Factory rejected the request - check parameters";
+        errorMessage = "Contract rejected the request - check parameters";
       } else if (error.message) {
         errorMessage = error.message.length > 100 
           ? error.message.substring(0, 100) + "..." 
@@ -351,7 +154,7 @@ export function useContractDeploy() {
 
       return null;
     }
-  }, [address, isConnected]);
+  }, [address, isConnected, chainType, getProvider]);
 
   return {
     ...state,
