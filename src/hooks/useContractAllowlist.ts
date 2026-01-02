@@ -30,7 +30,8 @@ export function useContractAllowlist(contractAddress: string | null) {
   // Set allowlist for a specific phase on the contract
   const setAllowlist = useCallback(async (
     addresses: string[],
-    phaseId: number
+    phaseId: number,
+    status: boolean = true
   ): Promise<string | null> => {
     const provider = getProvider();
     if (!isConnected || !address || !contractAddress || !provider) {
@@ -58,11 +59,11 @@ export function useContractAllowlist(contractAddress: string | null) {
 
     try {
       // Encode the setAllowlist function call
-      // Args order: (phaseId, addresses) - matches LilyPadNFT.sol
+      // Args order: (phaseId, addresses, status) - matches new LilyPadNFTCollection.sol
       const data = encodeFunctionData({
         abi: NFT_CONTRACT_ABI,
         functionName: "setAllowlist",
-        args: [BigInt(phaseId), addresses as `0x${string}`[]],
+        args: [BigInt(phaseId), addresses as `0x${string}`[], status],
       });
 
       // Send transaction
