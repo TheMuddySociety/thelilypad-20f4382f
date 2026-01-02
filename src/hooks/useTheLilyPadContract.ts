@@ -439,7 +439,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
 
   return {
     ...state,
-    contractAddress: THELILYPAD_CONTRACT_ADDRESS,
+    contractAddress,
     // Read functions
     getPhase,
     getActivePhase,

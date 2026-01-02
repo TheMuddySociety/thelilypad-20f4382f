@@ -260,26 +260,38 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
             </div>
           )}
 
-          {/* Factory Not Available - Show Manual Option */}
-          {isConnected && !isWrongNetwork && !isFactoryAvailable && deploymentStep === "idle" && !showManualInput && (
-            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-              <div className="flex items-center gap-2 text-amber-500 mb-2">
-                <Info className="w-4 h-4" />
-                <span className="text-sm font-medium">Factory Coming Soon</span>
+          {/* Contract Linking Option (recommended) */}
+          {isConnected && !isWrongNetwork && deploymentStep === "idle" && !showManualInput && (
+            <div className="p-4 bg-muted border border-border rounded-lg">
+              <div className="flex items-center gap-2 text-foreground mb-2">
+                <Link2 className="w-4 h-4" />
+                <span className="text-sm font-medium">Link Existing Contract</span>
               </div>
               <p className="text-xs text-muted-foreground mb-3">
-                The NFT Factory contract is not yet deployed on Monad Testnet. 
-                You can deploy your contract manually using Remix or Hardhat, then link it here.
+                Deploy your collection contract externally (e.g. Remix/Hardhat), then paste the deployed contract address here.
               </p>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="w-full gap-2"
                 onClick={() => setShowManualInput(true)}
               >
                 <Link2 className="w-3 h-3" />
                 Link Existing Contract
               </Button>
+            </div>
+          )}
+
+          {/* Factory Not Available (legacy message) */}
+          {isConnected && !isWrongNetwork && !isFactoryAvailable && deploymentStep === "idle" && !showManualInput && (
+            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+              <div className="flex items-center gap-2 text-amber-500 mb-2">
+                <Info className="w-4 h-4" />
+                <span className="text-sm font-medium">Automatic Deploy Unavailable</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Use “Link Existing Contract” after deploying externally.
+              </p>
             </div>
           )}
 
