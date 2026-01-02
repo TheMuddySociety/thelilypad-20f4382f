@@ -204,8 +204,8 @@ export function useTheLilyPadMint() {
 
       const data = encodeFunctionData({
         abi: THELILYPAD_ABI,
-        functionName: "mint",
-        args: [BigInt(quantity), proof],
+        functionName: "mintAllowlist",
+        args: [BigInt(quantity)],
       });
 
       const gasLimit = 200000 + (80000 * quantity);
@@ -307,7 +307,7 @@ export function useTheLilyPadMint() {
 
       const data = encodeFunctionData({
         abi: THELILYPAD_ABI,
-        functionName: "mintPublic",
+        functionName: "mint",
         args: [BigInt(quantity)],
       });
 

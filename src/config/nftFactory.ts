@@ -1,15 +1,15 @@
-// TheLilyPadLaunchpad Contract Configuration for Monad Testnet
-// This is the ONLY contract needed for launching and deploying NFT collections
-// NOTE: This is a deployed NFT contract, not a factory. Users interact directly with this contract.
+// LilyPad Factory Contract Configuration for Monad Testnet
+// Factory deployed at: 0x028240d2Da704C84c9D54765B7ac2793796727B6
+// Implementation deployed at: 0xb02424aC92026E4222d5c367d158236546CFfD31
 
-// Contract address on Monad Testnet - TheLilyPadLaunchpad
-export const NFT_FACTORY_ADDRESS = "0xE9fbe48cc99E3ee6b41DE2BF830df02D1e14b651";
+// Factory contract address - creates new NFT collection clones
+export const NFT_FACTORY_ADDRESS = "0x028240d2Da704C84c9D54765B7ac2793796727B6";
 
-// Same as factory for non-upgradeable contract  
-export const NFT_FACTORY_IMPLEMENTATION = "0xE9fbe48cc99E3ee6b41DE2BF830df02D1e14b651";
+// Implementation address used by factory for cloning
+export const NFT_COLLECTION_IMPLEMENTATION = "0xb02424aC92026E4222d5c367d158236546CFfD31";
 
-// Alias for clarity - this IS the launchpad contract
-export const THELILYPAD_LAUNCHPAD_ADDRESS = "0xE9fbe48cc99E3ee6b41DE2BF830df02D1e14b651";
+// Alias for clarity
+export const THELILYPAD_LAUNCHPAD_ADDRESS = NFT_FACTORY_ADDRESS;
 
 // LilyPad platform constants
 export const LILYPAD_PLATFORM_NAME = "The Lily Pad";
@@ -26,7 +26,6 @@ export const BUYBACK_SPLIT_BPS = 5000; // 50% of platform fee goes to buyback
 // Helper function to validate IPFS CIDs
 export function isValidIPFSCID(cid: string): boolean {
   if (!cid) return false;
-  // CIDv0 starts with Qm and is 46 chars, CIDv1 starts with bafy and varies
   return (cid.startsWith('Qm') && cid.length === 46) || 
          (cid.startsWith('bafy') && cid.length >= 52);
 }
@@ -36,23 +35,91 @@ export function constructTokenURI(ipfsBaseCID: string, tokenId: number): string 
   return `ipfs://${ipfsBaseCID}/${tokenId}.json`;
 }
 
-// TheLilyPadLaunchpad ABI - matches the deployed contract
+// ============================================
+// FACTORY ABI - For creating new collections
+// ============================================
 export const NFT_FACTORY_ABI = [
+  // Create a new collection clone
+  {
+    inputs: [
+      { name: "name", type: "string" },
+      { name: "symbol", type: "string" },
+      { name: "maxSupply", type: "uint256" },
+      { name: "baseURI", type: "string" }
+    ],
+    name: "createCollection",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  // Check if a collection was deployed by this factory
+  {
+    inputs: [{ name: "collection", type: "address" }],
+    name: "isDeployedCollection",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Get all collections created by an address
+  {
+    inputs: [{ name: "creator", type: "address" }],
+    name: "getCreatorCollections",
+    outputs: [{ name: "", type: "address[]" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Get total collection count
+  {
+    inputs: [],
+    name: "getCollectionCount",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Get implementation address
+  {
+    inputs: [],
+    name: "implementation",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Get platform treasury
+  {
+    inputs: [],
+    name: "platformTreasury",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Owner
+  {
+    inputs: [],
+    name: "owner",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Events
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "collection", type: "address" },
+      { indexed: true, name: "creator", type: "address" },
+      { indexed: false, name: "name", type: "string" },
+      { indexed: false, name: "symbol", type: "string" },
+      { indexed: false, name: "maxSupply", type: "uint256" }
+    ],
+    name: "CollectionCreated",
+    type: "event"
+  }
+] as const;
+
+// ============================================
+// COLLECTION ABI - For deployed NFT collections
+// ============================================
+export const NFT_COLLECTION_ABI = [
   // View functions
-  {
-    inputs: [],
-    name: "PLATFORM_NAME",
-    outputs: [{ name: "", type: "string" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [],
-    name: "VERSION",
-    outputs: [{ name: "", type: "string" }],
-    stateMutability: "view",
-    type: "function"
-  },
   {
     inputs: [],
     name: "name",
@@ -83,13 +150,6 @@ export const NFT_FACTORY_ABI = [
   },
   {
     inputs: [],
-    name: "baseURI",
-    outputs: [{ name: "", type: "string" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [],
     name: "owner",
     outputs: [{ name: "", type: "address" }],
     stateMutability: "view",
@@ -104,33 +164,18 @@ export const NFT_FACTORY_ABI = [
   },
   {
     inputs: [],
-    name: "buybackPool",
-    outputs: [{ name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [],
-    name: "activePhase",
+    name: "activePhaseId",
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function"
   },
   {
     inputs: [],
-    name: "royaltyBps",
-    outputs: [{ name: "", type: "uint256" }],
+    name: "paused",
+    outputs: [{ name: "", type: "bool" }],
     stateMutability: "view",
     type: "function"
   },
-  {
-    inputs: [],
-    name: "royaltyReceiver",
-    outputs: [{ name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Check if LilyPad collection
   {
     inputs: [],
     name: "isLilyPadCollection",
@@ -138,56 +183,16 @@ export const NFT_FACTORY_ABI = [
     stateMutability: "pure",
     type: "function"
   },
-  // Get platform info
-  {
-    inputs: [],
-    name: "getPlatformInfo",
-    outputs: [
-      { name: "platform", type: "string" },
-      { name: "version", type: "string" },
-      { name: "treasury", type: "address" },
-      { name: "buyback", type: "address" }
-    ],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Get fee info
-  {
-    inputs: [],
-    name: "getFeeInfo",
-    outputs: [
-      { name: "platformFeeBps", type: "uint256" },
-      { name: "buybackSplitBps", type: "uint256" },
-      { name: "treasury", type: "address" },
-      { name: "buyback", type: "address" }
-    ],
-    stateMutability: "view",
-    type: "function"
-  },
   // Get phase info
   {
     inputs: [{ name: "phaseId", type: "uint256" }],
-    name: "getPhase",
-    outputs: [
-      { name: "price", type: "uint256" },
-      { name: "maxPerWallet", type: "uint256" },
-      { name: "phaseMaxSupply", type: "uint256" },
-      { name: "phaseMinted", type: "uint256" },
-      { name: "isActive", type: "bool" }
-    ],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Get phases mapping
-  {
-    inputs: [{ name: "", type: "uint256" }],
     name: "phases",
     outputs: [
       { name: "price", type: "uint256" },
       { name: "maxPerWallet", type: "uint256" },
       { name: "maxSupply", type: "uint256" },
       { name: "minted", type: "uint256" },
-      { name: "isActive", type: "bool" }
+      { name: "requiresAllowlist", type: "bool" }
     ],
     stateMutability: "view",
     type: "function"
@@ -198,12 +203,12 @@ export const NFT_FACTORY_ABI = [
       { name: "phaseId", type: "uint256" },
       { name: "account", type: "address" }
     ],
-    name: "allowlisted",
+    name: "allowlist",
     outputs: [{ name: "", type: "bool" }],
     stateMutability: "view",
     type: "function"
   },
-  // Get minted per phase per wallet
+  // Get minted count per wallet per phase
   {
     inputs: [
       { name: "phaseId", type: "uint256" },
@@ -211,19 +216,6 @@ export const NFT_FACTORY_ABI = [
     ],
     name: "mintedPerPhase",
     outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Calculate fees
-  {
-    inputs: [{ name: "quantity", type: "uint256" }],
-    name: "calculateFees",
-    outputs: [
-      { name: "totalCost", type: "uint256" },
-      { name: "platformFee", type: "uint256" },
-      { name: "buybackAmount", type: "uint256" },
-      { name: "creatorAmount", type: "uint256" }
-    ],
     stateMutability: "view",
     type: "function"
   },
@@ -251,61 +243,26 @@ export const NFT_FACTORY_ABI = [
     stateMutability: "view",
     type: "function"
   },
-  // Royalty info
-  {
-    inputs: [
-      { name: "tokenId", type: "uint256" },
-      { name: "salePrice", type: "uint256" }
-    ],
-    name: "royaltyInfo",
-    outputs: [
-      { name: "", type: "address" },
-      { name: "", type: "uint256" }
-    ],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Supports interface
-  {
-    inputs: [{ name: "interfaceId", type: "bytes4" }],
-    name: "supportsInterface",
-    outputs: [{ name: "", type: "bool" }],
-    stateMutability: "pure",
-    type: "function"
-  },
 
-  // Write functions - Minting
-  {
-    inputs: [
-      { name: "quantity", type: "uint256" },
-      { name: "proof", type: "bytes32[]" }
-    ],
-    name: "mint",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "quantity", type: "uint256" }],
-    name: "mintPublic",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function"
-  },
-
-  // Write functions - Owner only
+  // ============================================
+  // WRITE FUNCTIONS - Owner only
+  // ============================================
+  
+  // Configure a mint phase
   {
     inputs: [
       { name: "phaseId", type: "uint256" },
       { name: "price", type: "uint256" },
       { name: "maxPerWallet", type: "uint256" },
-      { name: "phaseMaxSupply", type: "uint256" }
+      { name: "maxSupply", type: "uint256" },
+      { name: "requiresAllowlist", type: "bool" }
     ],
     name: "configurePhase",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function"
   },
+  // Set active phase
   {
     inputs: [{ name: "phaseId", type: "uint256" }],
     name: "setActivePhase",
@@ -313,6 +270,7 @@ export const NFT_FACTORY_ABI = [
     stateMutability: "nonpayable",
     type: "function"
   },
+  // Set allowlist for a phase
   {
     inputs: [
       { name: "phaseId", type: "uint256" },
@@ -324,13 +282,38 @@ export const NFT_FACTORY_ABI = [
     stateMutability: "nonpayable",
     type: "function"
   },
+  // Set base URI
   {
-    inputs: [{ name: "_baseURI", type: "string" }],
+    inputs: [{ name: "baseURI_", type: "string" }],
     name: "setBaseURI",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function"
   },
+  // Set max supply
+  {
+    inputs: [{ name: "newMaxSupply", type: "uint256" }],
+    name: "setMaxSupply",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  // Pause/unpause
+  {
+    inputs: [],
+    name: "pause",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "unpause",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  // Withdraw funds
   {
     inputs: [],
     name: "withdraw",
@@ -338,6 +321,7 @@ export const NFT_FACTORY_ABI = [
     stateMutability: "nonpayable",
     type: "function"
   },
+  // Transfer ownership
   {
     inputs: [{ name: "newOwner", type: "address" }],
     name: "transferOwnership",
@@ -346,7 +330,52 @@ export const NFT_FACTORY_ABI = [
     type: "function"
   },
 
-  // ERC721 transfer functions
+  // ============================================
+  // MINT FUNCTIONS
+  // ============================================
+  
+  // Public mint
+  {
+    inputs: [{ name: "quantity", type: "uint256" }],
+    name: "mint",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function"
+  },
+  // Allowlist mint
+  {
+    inputs: [{ name: "quantity", type: "uint256" }],
+    name: "mintAllowlist",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function"
+  },
+  // Owner mint (single)
+  {
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "uri", type: "string" }
+    ],
+    name: "ownerMint",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  // Owner mint batch
+  {
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "uris", type: "string[]" }
+    ],
+    name: "ownerMintBatch",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+
+  // ============================================
+  // ERC721 STANDARD FUNCTIONS
+  // ============================================
   {
     inputs: [
       { name: "from", type: "address" },
@@ -363,18 +392,6 @@ export const NFT_FACTORY_ABI = [
       { name: "from", type: "address" },
       { name: "to", type: "address" },
       { name: "tokenId", type: "uint256" }
-    ],
-    name: "safeTransferFrom",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-      { name: "from", type: "address" },
-      { name: "to", type: "address" },
-      { name: "tokenId", type: "uint256" },
-      { name: "data", type: "bytes" }
     ],
     name: "safeTransferFrom",
     outputs: [],
@@ -418,8 +435,17 @@ export const NFT_FACTORY_ABI = [
     stateMutability: "view",
     type: "function"
   },
+  {
+    inputs: [{ name: "interfaceId", type: "bytes4" }],
+    name: "supportsInterface",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function"
+  },
 
-  // Events
+  // ============================================
+  // EVENTS
+  // ============================================
   {
     anonymous: false,
     inputs: [
@@ -453,21 +479,21 @@ export const NFT_FACTORY_ABI = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, name: "collection", type: "address" },
-      { indexed: false, name: "name", type: "string" },
-      { indexed: false, name: "creator", type: "address" }
+      { indexed: true, name: "phaseId", type: "uint256" },
+      { indexed: false, name: "price", type: "uint256" },
+      { indexed: false, name: "maxPerWallet", type: "uint256" },
+      { indexed: false, name: "maxSupply", type: "uint256" },
+      { indexed: false, name: "requiresAllowlist", type: "bool" }
     ],
-    name: "LilyPadCollectionCreated",
+    name: "PhaseConfigured",
     type: "event"
   },
   {
     anonymous: false,
     inputs: [
-      { indexed: true, name: "phaseId", type: "uint256" },
-      { indexed: false, name: "price", type: "uint256" },
-      { indexed: false, name: "maxPerWallet", type: "uint256" }
+      { indexed: true, name: "phaseId", type: "uint256" }
     ],
-    name: "PhaseConfigured",
+    name: "ActivePhaseChanged",
     type: "event"
   },
   {
@@ -482,14 +508,9 @@ export const NFT_FACTORY_ABI = [
   }
 ] as const;
 
-// Deployment parameters interface
-export interface FactoryDeployParams {
-  name: string;
-  symbol: string;
-  maxSupply: number;
-  royaltyBps: number;
-  royaltyReceiver: string;
-}
+// ============================================
+// TYPE INTERFACES
+// ============================================
 
 // Phase interface
 export interface TheLilyPadPhase {
@@ -497,7 +518,7 @@ export interface TheLilyPadPhase {
   maxPerWallet: bigint;
   maxSupply: bigint;
   minted: bigint;
-  isActive: boolean;
+  requiresAllowlist: boolean;
 }
 
 // Platform info interface
@@ -505,7 +526,7 @@ export interface LilyPadPlatformInfo {
   platform: string;
   version: string;
   treasury: string;
-  buyback: string;
+  factory: string;
 }
 
 // Fee info interface
@@ -516,10 +537,97 @@ export interface LilyPadFeeInfo {
   buyback: string;
 }
 
+// Factory deploy params
+export interface FactoryDeployParams {
+  name: string;
+  symbol: string;
+  maxSupply: number;
+  baseURI: string;
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
 // Check if factory is configured (not zero address)
 export function isFactoryConfigured(): boolean {
   return NFT_FACTORY_ADDRESS.toLowerCase() !== "0x0000000000000000000000000000000000000000";
 }
+
+// Alias for backwards compatibility
+export function isTheLilyPadConfigured(): boolean {
+  return isFactoryConfigured();
+}
+
+// Legacy ABI for upgradeable mints (owner safeMint with URI)
+export const UPGRADEABLE_LILYPAD_ABI = [
+  {
+    inputs: [{ name: "initialOwner", type: "address" }],
+    name: "initialize",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "uri", type: "string" }
+    ],
+    name: "safeMint",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    name: "tokenURI",
+    outputs: [{ name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "owner",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "totalSupply",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "owner", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    name: "ownerOf",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "name",
+    outputs: [{ name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "symbol",
+    outputs: [{ name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function"
+  }
+] as const;
 
 // Calculate platform fees for a given mint cost
 export function calculatePlatformFees(mintCost: bigint): {
@@ -533,187 +641,3 @@ export function calculatePlatformFees(mintCost: bigint): {
   
   return { platformFee, buybackAmount, creatorAmount };
 }
-
-// Helper to check if contract is configured
-export function isTheLilyPadConfigured(): boolean {
-  return NFT_FACTORY_ADDRESS.toLowerCase() !== "0x0000000000000000000000000000000000000000";
-}
-
-// UPGRADEABLE_LILYPAD_ABI - for ERC721 Upgradeable contract with per-token URI storage
-export const UPGRADEABLE_LILYPAD_ABI = [
-  // Initialize function (for UUPS proxy)
-  {
-    inputs: [{ name: "initialOwner", type: "address" }],
-    name: "initialize",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  // SafeMint with URI - owner only, returns tokenId
-  {
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "uri", type: "string" }
-    ],
-    name: "safeMint",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  // Token URI getter
-  {
-    inputs: [{ name: "tokenId", type: "uint256" }],
-    name: "tokenURI",
-    outputs: [{ name: "", type: "string" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Owner getter
-  {
-    inputs: [],
-    name: "owner",
-    outputs: [{ name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Total supply (from ERC721Enumerable)
-  {
-    inputs: [],
-    name: "totalSupply",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Balance of
-  {
-    inputs: [{ name: "owner", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Owner of
-  {
-    inputs: [{ name: "tokenId", type: "uint256" }],
-    name: "ownerOf",
-    outputs: [{ name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Name
-  {
-    inputs: [],
-    name: "name",
-    outputs: [{ name: "", type: "string" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Symbol
-  {
-    inputs: [],
-    name: "symbol",
-    outputs: [{ name: "", type: "string" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Transfer functions
-  {
-    inputs: [
-      { name: "from", type: "address" },
-      { name: "to", type: "address" },
-      { name: "tokenId", type: "uint256" }
-    ],
-    name: "transferFrom",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-      { name: "from", type: "address" },
-      { name: "to", type: "address" },
-      { name: "tokenId", type: "uint256" }
-    ],
-    name: "safeTransferFrom",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  // Approval functions
-  {
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "tokenId", type: "uint256" }
-    ],
-    name: "approve",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-      { name: "operator", type: "address" },
-      { name: "approved", type: "bool" }
-    ],
-    name: "setApprovalForAll",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "tokenId", type: "uint256" }],
-    name: "getApproved",
-    outputs: [{ name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [
-      { name: "owner", type: "address" },
-      { name: "operator", type: "address" }
-    ],
-    name: "isApprovedForAll",
-    outputs: [{ name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Supports interface
-  {
-    inputs: [{ name: "interfaceId", type: "bytes4" }],
-    name: "supportsInterface",
-    outputs: [{ name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  // Events
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, name: "from", type: "address" },
-      { indexed: true, name: "to", type: "address" },
-      { indexed: true, name: "tokenId", type: "uint256" }
-    ],
-    name: "Transfer",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, name: "owner", type: "address" },
-      { indexed: true, name: "approved", type: "address" },
-      { indexed: true, name: "tokenId", type: "uint256" }
-    ],
-    name: "Approval",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, name: "owner", type: "address" },
-      { indexed: true, name: "operator", type: "address" },
-      { indexed: false, name: "approved", type: "bool" }
-    ],
-    name: "ApprovalForAll",
-    type: "event"
-  }
-] as const;

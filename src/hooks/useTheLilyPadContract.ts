@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import { useWallet } from "@/providers/WalletProvider";
-import { THELILYPAD_ABI, THELILYPAD_CONTRACT_ADDRESS, TheLilyPadPhase } from "@/config/theLilyPad";
-import { encodeFunctionData, decodeFunctionResult, formatEther } from "viem";
+import { THELILYPAD_ABI, THELILYPAD_CONTRACT_ADDRESS } from "@/config/theLilyPad";
+import { NFT_COLLECTION_ABI, TheLilyPadPhase } from "@/config/nftFactory";
+import { encodeFunctionData } from "viem";
 import { getMonadChain, NetworkType } from "@/config/alchemy";
 import { toast } from "sonner";
 
@@ -73,6 +74,9 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
     error: null,
   });
 
+  // Use the collection ABI for deployed collections
+  const abi = NFT_COLLECTION_ABI;
+
   // Ensure wallet is on the correct Monad network
   const ensureCorrectNetwork = useCallback(async (): Promise<boolean> => {
     const provider = getProvider();
@@ -97,7 +101,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
   const readContract = useCallback(async (functionName: string, args: readonly unknown[] = []): Promise<any> => {
     try {
       const data = encodeFunctionData({
-        abi: THELILYPAD_ABI,
+        abi,
         functionName: functionName as any,
         args: args as any,
       });
@@ -112,21 +116,21 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
       console.error(`Error reading ${functionName}:`, error);
       throw error;
     }
-  }, [network, contractAddress]);
+  }, [network, contractAddress, abi]);
 
   // Get phase info
   const getPhase = useCallback(async (phaseId: number): Promise<TheLilyPadPhase | null> => {
     try {
-      const result = await readContract('getPhase', [BigInt(phaseId)]);
+      const result = await readContract('phases', [BigInt(phaseId)]);
       
-      // Decode the result manually (5 values)
+      // Decode the result (5 values: price, maxPerWallet, maxSupply, minted, requiresAllowlist)
       const price = BigInt('0x' + result.slice(2, 66));
       const maxPerWallet = BigInt('0x' + result.slice(66, 130));
       const maxSupply = BigInt('0x' + result.slice(130, 194));
       const minted = BigInt('0x' + result.slice(194, 258));
-      const isActive = BigInt('0x' + result.slice(258, 322)) === 1n;
+      const requiresAllowlist = BigInt('0x' + result.slice(258, 322)) === 1n;
 
-      return { price, maxPerWallet, maxSupply, minted, isActive };
+      return { price, maxPerWallet, maxSupply, minted, requiresAllowlist };
     } catch (error) {
       console.error('Error getting phase:', error);
       return null;
@@ -136,7 +140,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
   // Get active phase ID
   const getActivePhase = useCallback(async (): Promise<number> => {
     try {
-      const result = await readContract('activePhase');
+      const result = await readContract('activePhaseId');
       return Number(BigInt(result));
     } catch (error) {
       console.error('Error getting active phase:', error);
@@ -147,7 +151,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
   // Check if address is allowlisted for phase
   const isAllowlisted = useCallback(async (phaseId: number, userAddress: string): Promise<boolean> => {
     try {
-      const result = await readContract('allowlisted', [BigInt(phaseId), userAddress]);
+      const result = await readContract('allowlist', [BigInt(phaseId), userAddress]);
       return BigInt(result) === 1n;
     } catch (error) {
       console.error('Error checking allowlist:', error);
@@ -188,12 +192,13 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
     }
   }, [readContract]);
 
-  // Owner-only: Configure a phase
+  // Owner-only: Configure a phase (5 parameters including requiresAllowlist)
   const configurePhase = useCallback(async (
     phaseId: number,
     priceInEth: string,
     maxPerWallet: number,
-    phaseMaxSupply: number
+    phaseMaxSupply: number,
+    requiresAllowlist: boolean = false
   ): Promise<string | null> => {
     const provider = getProvider();
     if (!isConnected || !address || !provider || chainType !== "evm") {
@@ -213,9 +218,9 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
       const priceInWei = BigInt(Math.floor(parseFloat(priceInEth) * 1e18));
 
       const data = encodeFunctionData({
-        abi: THELILYPAD_ABI,
+        abi,
         functionName: "configurePhase",
-        args: [BigInt(phaseId), priceInWei, BigInt(maxPerWallet), BigInt(phaseMaxSupply)],
+        args: [BigInt(phaseId), priceInWei, BigInt(maxPerWallet), BigInt(phaseMaxSupply), requiresAllowlist],
       });
 
       const txHash = await provider.request({
@@ -240,7 +245,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
       toast.error("Failed to configure phase", { description: errorMessage });
       return null;
     }
-  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork]);
+  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
 
   // Owner-only: Set active phase
   const setActivePhase = useCallback(async (phaseId: number): Promise<string | null> => {
@@ -260,7 +265,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
 
     try {
       const data = encodeFunctionData({
-        abi: THELILYPAD_ABI,
+        abi,
         functionName: "setActivePhase",
         args: [BigInt(phaseId)],
       });
@@ -287,9 +292,9 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
       toast.error("Failed to set active phase", { description: errorMessage });
       return null;
     }
-  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork]);
+  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
 
-  // Owner-only: Set allowlist
+  // Owner-only: Set allowlist (3 parameters: phaseId, addresses, status)
   const setAllowlist = useCallback(async (
     phaseId: number,
     addresses: string[],
@@ -311,7 +316,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
 
     try {
       const data = encodeFunctionData({
-        abi: THELILYPAD_ABI,
+        abi,
         functionName: "setAllowlist",
         args: [BigInt(phaseId), addresses as `0x${string}`[], status],
       });
@@ -341,7 +346,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
       toast.error("Failed to set allowlist", { description: errorMessage });
       return null;
     }
-  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork]);
+  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
 
   // Owner-only: Set base URI
   const setBaseURI = useCallback(async (baseURI: string): Promise<string | null> => {
@@ -361,7 +366,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
 
     try {
       const data = encodeFunctionData({
-        abi: THELILYPAD_ABI,
+        abi,
         functionName: "setBaseURI",
         args: [baseURI],
       });
@@ -388,7 +393,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
       toast.error("Failed to set base URI", { description: errorMessage });
       return null;
     }
-  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork]);
+  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
 
   // Owner-only: Withdraw funds
   const withdraw = useCallback(async (): Promise<string | null> => {
@@ -408,7 +413,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
 
     try {
       const data = encodeFunctionData({
-        abi: THELILYPAD_ABI,
+        abi,
         functionName: "withdraw",
         args: [],
       });
@@ -435,7 +440,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
       toast.error("Failed to withdraw", { description: errorMessage });
       return null;
     }
-  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork]);
+  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
 
   return {
     ...state,
