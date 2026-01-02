@@ -83,6 +83,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isPhantomAvailable, setIsPhantomAvailable] = useState(false);
   const [discoveredWallets, setDiscoveredWallets] = useState<InjectedWalletInfo[]>([]);
   const sdkRef = useRef<BrowserSDK | null>(null);
+  const stateRef = useRef(state);
+  
+  // Keep stateRef in sync
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const getSDK = useCallback(() => {
     if (!sdkRef.current) {
@@ -596,12 +602,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     autoConnect();
   }, [getSDK, fetchEVMBalance, fetchSolanaBalance]);
 
+  // Create stable disconnect ref to avoid closure issues
+  const disconnectRef = useRef(disconnect);
+  useEffect(() => {
+    disconnectRef.current = disconnect;
+  }, [disconnect]);
+
   // Listen for account and chain changes
   useEffect(() => {
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length === 0) {
-        disconnect();
-      } else if (accounts[0] !== state.address && state.chainType === "evm") {
+        // Use ref to avoid stale closure
+        disconnectRef.current();
+      } else if (accounts[0] !== stateRef.current.address && stateRef.current.chainType === "evm") {
         setState(prev => ({ ...prev, address: accounts[0] }));
         fetchEVMBalance(accounts[0]).then(balance => {
           setState(prev => ({ ...prev, balance }));
@@ -623,9 +636,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.setItem("monadNetwork", "testnet");
       }
       
-      // Refresh balance on the new chain
-      if (state.address) {
-        fetchEVMBalance(state.address).then(balance => {
+      // Refresh balance on the new chain using stateRef
+      const currentAddress = stateRef.current.address;
+      if (currentAddress) {
+        fetchEVMBalance(currentAddress).then(balance => {
           setState(prev => ({ ...prev, balance }));
         });
       }
@@ -639,7 +653,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       provider?.removeListener?.("accountsChanged", handleAccountsChanged);
       provider?.removeListener?.("chainChanged", handleChainChanged);
     };
-  }, [state.address, state.chainType, state.walletType, disconnect, fetchEVMBalance]);
+  }, [state.walletType, fetchEVMBalance]);
 
   return (
     <WalletContext.Provider
