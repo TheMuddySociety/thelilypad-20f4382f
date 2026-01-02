@@ -135,7 +135,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Rocket className="w-5 h-5 text-primary" />
