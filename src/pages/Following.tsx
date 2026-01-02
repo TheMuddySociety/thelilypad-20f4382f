@@ -666,8 +666,23 @@ const Following = () => {
 
         {/* Content */}
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-card rounded-xl p-6 border border-border">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="h-16 w-16 rounded-full bg-muted animate-pulse" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-5 bg-muted rounded w-32 animate-pulse" />
+                    <div className="h-4 bg-muted rounded w-20 animate-pulse" />
+                  </div>
+                </div>
+                <div className="h-16 bg-muted rounded mb-4 animate-pulse" />
+                <div className="flex gap-2">
+                  <div className="h-8 bg-muted rounded w-20 animate-pulse" />
+                  <div className="h-8 bg-muted rounded w-24 animate-pulse" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : followedStreamers.length === 0 ? (
           <div className="text-center py-16">

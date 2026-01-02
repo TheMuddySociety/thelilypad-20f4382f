@@ -3,6 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TipButton } from "@/components/TipButton";
 import { FollowButton } from "@/components/FollowButton";
 import { DonorLeaderboard } from "@/components/DonorLeaderboard";
@@ -339,8 +341,21 @@ const Streams: React.FC = () => {
           </div>
           
           {isLoadingStreams ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  <Skeleton className="aspect-video w-full" />
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex gap-3">
+                      <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-full" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           ) : liveStreams.length > 0 ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">

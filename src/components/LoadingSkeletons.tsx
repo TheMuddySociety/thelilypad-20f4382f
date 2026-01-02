@@ -135,24 +135,33 @@ export const ChatMessageSkeleton = () => (
 
 interface GridSkeletonProps {
   count?: number;
-  columns?: number;
+  columns?: 2 | 3 | 4;
   SkeletonComponent?: React.ComponentType;
 }
+
+const gridColsMap = {
+  2: "grid-cols-1 sm:grid-cols-2",
+  3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+  4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+};
 
 export const GridSkeleton = ({ 
   count = 8, 
   columns = 4, 
   SkeletonComponent = NFTCardSkeleton 
 }: GridSkeletonProps) => (
-  <div 
-    className="grid gap-4"
-    style={{ 
-      gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` 
-    }}
-  >
+  <div className={`grid gap-4 ${gridColsMap[columns]}`}>
     {Array.from({ length: count }).map((_, i) => (
       <SkeletonComponent key={i} />
     ))}
+  </div>
+);
+
+// Full page loading skeleton with navbar placeholder
+export const FullPageSkeleton = () => (
+  <div className="min-h-screen bg-background">
+    <div className="h-16 border-b border-border bg-background/95" />
+    <PageSkeleton />
   </div>
 );
 
