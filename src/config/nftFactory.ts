@@ -446,3 +446,109 @@ function encodeVerifyCollection(address: string): string {
   const paddedAddress = address.slice(2).padStart(64, '0');
   return selector + paddedAddress;
 }
+
+// ============= UPGRADEABLE LILYPAD CONTRACT SUPPORT =============
+
+// ABI for the new ERC721 Upgradeable TheLilyPad contract with per-token URI storage
+export const UPGRADEABLE_LILYPAD_ABI = [
+  // Initialize function (for UUPS proxy)
+  {
+    inputs: [{ name: "initialOwner", type: "address" }],
+    name: "initialize",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  // SafeMint with URI - owner only, returns tokenId
+  {
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "uri", type: "string" }
+    ],
+    name: "safeMint",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  // Token URI getter
+  {
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    name: "tokenURI",
+    outputs: [{ name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Owner getter
+  {
+    inputs: [],
+    name: "owner",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Total supply (from ERC721Enumerable)
+  {
+    inputs: [],
+    name: "totalSupply",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Balance of
+  {
+    inputs: [{ name: "owner", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Pause/unpause
+  {
+    inputs: [],
+    name: "pause",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "unpause",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "paused",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  // Transfer event
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "from", type: "address" },
+      { indexed: true, name: "to", type: "address" },
+      { indexed: true, name: "tokenId", type: "uint256" }
+    ],
+    name: "Transfer",
+    type: "event"
+  }
+] as const;
+
+// Helper to construct IPFS token URI from base CID and token ID
+export function constructTokenURI(baseCID: string, tokenId: number): string {
+  // Clean the CID (remove any ipfs:// prefix if present)
+  const cleanCID = baseCID.replace(/^ipfs:\/\//i, '').trim();
+  return `ipfs://${cleanCID}/${tokenId}.json`;
+}
+
+// Validate IPFS CID format (basic validation for CIDv0 and CIDv1)
+export function isValidIPFSCID(cid: string): boolean {
+  if (!cid || typeof cid !== 'string') return false;
+  const cleanCID = cid.replace(/^ipfs:\/\//i, '').trim();
+  // CIDv0 starts with "Qm" and is 46 characters
+  // CIDv1 typically starts with "bafy" for base32 encoded CIDs
+  return /^Qm[a-zA-Z0-9]{44}$/.test(cleanCID) || /^bafy[a-zA-Z0-9]{52,}$/.test(cleanCID);
+}

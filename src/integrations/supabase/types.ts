@@ -539,6 +539,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          ipfs_base_cid: string | null
           is_revealed: boolean
           layers_metadata: Json | null
           media_type: string | null
@@ -571,6 +572,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          ipfs_base_cid?: string | null
           is_revealed?: boolean
           layers_metadata?: Json | null
           media_type?: string | null
@@ -603,6 +605,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          ipfs_base_cid?: string | null
           is_revealed?: boolean
           layers_metadata?: Json | null
           media_type?: string | null

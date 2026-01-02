@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   Rocket, 
   CheckCircle2, 
@@ -24,12 +25,14 @@ import {
   Link2,
   Info,
   Shield,
-  Leaf
+  Leaf,
+  Database
 } from "lucide-react";
 import { useWallet } from "@/providers/WalletProvider";
 import { useContractDeploy, DeployParams } from "@/hooks/useContractDeploy";
 import { toast } from "sonner";
-import { LILYPAD_PLATFORM_NAME, LILYPAD_PLATFORM_VERSION } from "@/config/nftFactory";
+import { LILYPAD_PLATFORM_NAME, LILYPAD_PLATFORM_VERSION, isValidIPFSCID } from "@/config/nftFactory";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ContractDeployModalProps {
   open: boolean;
@@ -68,6 +71,8 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
   const [copied, setCopied] = React.useState(false);
   const [manualAddress, setManualAddress] = React.useState("");
   const [showManualInput, setShowManualInput] = React.useState(false);
+  const [ipfsCID, setIpfsCID] = React.useState("");
+  const [isSavingCID, setIsSavingCID] = React.useState(false);
 
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
 
@@ -92,13 +97,44 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
     }
   };
 
-  const handleManualSubmit = () => {
-    if (manualAddress && manualAddress.startsWith("0x") && manualAddress.length === 42) {
-      onDeploySuccess(manualAddress);
-      toast.success("Contract address linked successfully!");
-      onOpenChange(false);
-    } else {
+  const handleManualSubmit = async () => {
+    if (!manualAddress || !manualAddress.startsWith("0x") || manualAddress.length !== 42) {
       toast.error("Please enter a valid contract address (0x...)");
+      return;
+    }
+
+    setIsSavingCID(true);
+    
+    try {
+      // Save IPFS CID if provided
+      if (ipfsCID.trim()) {
+        if (!isValidIPFSCID(ipfsCID.trim())) {
+          toast.error("Invalid IPFS CID format. Should start with 'Qm' or 'bafy'.");
+          setIsSavingCID(false);
+          return;
+        }
+        
+        const { error: updateError } = await supabase
+          .from("collections")
+          .update({ ipfs_base_cid: ipfsCID.trim() })
+          .eq("id", collection.id);
+          
+        if (updateError) {
+          console.error("Failed to save IPFS CID:", updateError);
+          toast.error("Failed to save IPFS CID");
+          setIsSavingCID(false);
+          return;
+        }
+      }
+      
+      onDeploySuccess(manualAddress);
+      toast.success("Contract linked successfully!" + (ipfsCID.trim() ? " IPFS CID saved." : ""));
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error saving:", error);
+      toast.error("An error occurred");
+    } finally {
+      setIsSavingCID(false);
     }
   };
 
@@ -115,6 +151,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
       resetState();
       setShowManualInput(false);
       setManualAddress("");
+      setIpfsCID("");
       onOpenChange(false);
     }
   };
@@ -248,20 +285,52 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
 
           {/* Manual Contract Address Input */}
           {showManualInput && deploymentStep === "idle" && (
-            <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+            <div className="p-4 bg-muted/50 rounded-lg space-y-4">
               <div className="flex items-center gap-2 text-foreground">
                 <Link2 className="w-4 h-4" />
                 <span className="text-sm font-medium">Link Existing Contract</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Enter the address of your deployed NFT contract on {currentChain.name}
-              </p>
-              <Input
-                placeholder="0x..."
-                value={manualAddress}
-                onChange={(e) => setManualAddress(e.target.value)}
-                className="font-mono text-sm"
-              />
+              
+              {/* Contract Address */}
+              <div className="space-y-2">
+                <Label htmlFor="contract-address" className="text-xs text-muted-foreground">
+                  Contract Address *
+                </Label>
+                <Input
+                  id="contract-address"
+                  placeholder="0x..."
+                  value={manualAddress}
+                  onChange={(e) => setManualAddress(e.target.value)}
+                  className="font-mono text-sm"
+                />
+              </div>
+              
+              {/* IPFS CID Input */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="ipfs-cid" className="text-xs text-muted-foreground">
+                    IPFS Metadata CID
+                  </Label>
+                  <Badge variant="outline" className="text-xs">Optional</Badge>
+                </div>
+                <Input
+                  id="ipfs-cid"
+                  placeholder="bafybeierqu2ycthbpbok7dofkxubhuwvddjyzuaheuxzttu4vcbsaqed7m"
+                  value={ipfsCID}
+                  onChange={(e) => setIpfsCID(e.target.value)}
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Base CID from Pinata/IPFS containing your metadata files (0.json, 1.json, etc.)
+                </p>
+                {ipfsCID && !isValidIPFSCID(ipfsCID) && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Invalid CID format. Should start with "Qm" or "bafy"
+                  </p>
+                )}
+              </div>
+              
               <div className="flex gap-2">
                 <Button 
                   variant="outline" 
@@ -270,6 +339,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                   onClick={() => {
                     setShowManualInput(false);
                     setManualAddress("");
+                    setIpfsCID("");
                   }}
                 >
                   Cancel
@@ -278,9 +348,16 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                   size="sm" 
                   className="flex-1"
                   onClick={handleManualSubmit}
-                  disabled={!manualAddress || manualAddress.length !== 42}
+                  disabled={!manualAddress || manualAddress.length !== 42 || isSavingCID}
                 >
-                  Link Contract
+                  {isSavingCID ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Link Contract"
+                  )}
                 </Button>
               </div>
             </div>
