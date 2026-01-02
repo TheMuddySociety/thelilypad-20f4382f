@@ -112,7 +112,7 @@ export function useContractDeploy() {
 
       console.log("[Deploy] Call data encoded, requesting gas estimate...");
 
-      // Estimate gas first
+      // Estimate gas first with better error handling
       let gasEstimate: string;
       try {
         gasEstimate = await provider.request({
@@ -124,9 +124,27 @@ export function useContractDeploy() {
           }],
         });
         console.log("[Deploy] Gas estimate:", gasEstimate, "=", parseInt(gasEstimate, 16));
-      } catch (gasError: any) {
+      } catch (gasError: unknown) {
         console.error("[Deploy] Gas estimation failed:", gasError);
-        throw new Error(`Gas estimation failed: ${gasError?.message || "Contract may be invalid or you lack funds"}`);
+        
+        // Extract meaningful error message
+        let errorMsg = "Contract may not exist or call is reverting";
+        if (gasError && typeof gasError === 'object') {
+          const err = gasError as { message?: string; data?: { message?: string } };
+          if (err.data?.message) {
+            errorMsg = err.data.message;
+          } else if (err.message) {
+            if (err.message.includes("execution reverted")) {
+              errorMsg = "Factory contract rejected the call - check if contract exists";
+            } else if (err.message.includes("Internal JSON-RPC")) {
+              errorMsg = "Factory contract not found or not responding at this address";
+            } else {
+              errorMsg = err.message;
+            }
+          }
+        }
+        
+        throw new Error(`Gas estimation failed: ${errorMsg}`);
       }
 
       // Add 20% buffer to gas estimate
