@@ -1722,33 +1722,6 @@ export default function CollectionDetail() {
                   </p>
                 )}
 
-                {/* Test Mint Quick Action - for debugging */}
-                {isConnected && collection?.contract_address && activePhase?.isActive && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-2 border-dashed border-muted-foreground/50 text-muted-foreground hover:text-foreground hover:border-primary"
-                    onClick={handleTestMint}
-                    disabled={isMinting || isSwitchingNetwork}
-                  >
-                    <FlaskConical className="w-4 h-4" />
-                    Test Mint (1) — No Gas Overrides
-                  </Button>
-                )}
-
-                {/* FORCE MINT - Always visible when contract deployed, bypasses ALL phase checks */}
-                {isConnected && collection?.contract_address && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={handleForceMint}
-                    disabled={isMinting || isSwitchingNetwork}
-                  >
-                    <Zap className="w-4 h-4" />
-                    {isMinting ? "Minting..." : "⚡ FORCE MINT (1) — Bypass Checks"}
-                  </Button>
-                )}
 
                 {/* SYNC PHASES - Read on-chain phase status and update DB */}
                 {isConnected && collection?.contract_address && (
