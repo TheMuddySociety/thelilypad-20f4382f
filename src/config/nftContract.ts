@@ -312,7 +312,8 @@ export const NFT_CONTRACT_ABI = [
   {
     inputs: [
       { name: "phaseId", type: "uint256" },
-      { name: "addresses", type: "address[]" }
+      { name: "addresses", type: "address[]" },
+      { name: "status", type: "bool" }
     ],
     name: "setAllowlist",
     outputs: [],
