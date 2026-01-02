@@ -1,8 +1,8 @@
-// TheLilyPad Contract Configuration for Monad Testnet
-// Deployed at: 0x979C95F379B905a1Cb394FEC130d260BaCFC230d
+// TheLilyPadLaunchpad Contract Configuration for Monad Testnet
+// Deployed at: 0xE9fbe48cc99E3ee6b41DE2BF830df02D1e14b651
 
 // Contract address on Monad Testnet
-export const THELILYPAD_CONTRACT_ADDRESS = "0x979C95F379B905a1Cb394FEC130d260BaCFC230d";
+export const THELILYPAD_CONTRACT_ADDRESS = "0xE9fbe48cc99E3ee6b41DE2BF830df02D1e14b651";
 
 // Platform constants (from contract)
 export const LILYPAD_PLATFORM_NAME = "LilyPad";
