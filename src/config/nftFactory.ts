@@ -1,11 +1,11 @@
 // NFT Factory Contract Configuration for Monad Testnet
-// TheLilyPadFactory - deploys new NFT collections with platform identification
+// TheLilyPadLaunchpad - deploys new NFT collections with platform identification
 
-// Factory contract address on Monad Testnet (ERC1967 Proxy)
-export const NFT_FACTORY_ADDRESS = "0xfE52dDa06aC1a66c34753280Ab71F36A722c2346";
+// Factory contract address on Monad Testnet (TheLilyPadLaunchpad)
+export const NFT_FACTORY_ADDRESS = "0xE9fbe48cc99E3ee6b41DE2BF830df02D1e14b651";
 
-// Implementation address (for reference)
-export const NFT_FACTORY_IMPLEMENTATION = "0x9B35097Ff8d28c073e2aC9c7e2816A83B65C4C7e";
+// Implementation address (for reference) - same as proxy for non-upgradeable
+export const NFT_FACTORY_IMPLEMENTATION = "0xE9fbe48cc99E3ee6b41DE2BF830df02D1e14b651";
 
 // LilyPad platform constants
 export const LILYPAD_PLATFORM_NAME = "The Lily Pad";
