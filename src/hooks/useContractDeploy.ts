@@ -193,56 +193,100 @@ export function useContractDeploy() {
         throw new Error("Transaction failed - the factory may have rejected the parameters");
       }
 
-      // Parse logs to find the LilyPadCollectionDeployed or CollectionCreated event
+      // Parse logs to find the deployed contract address
       let contractAddress: string | null = null;
       let isVerified = false;
       
+      console.log("[Deploy] Parsing logs...", receipt.logs?.length || 0, "logs found");
+      
       if (receipt.logs && receipt.logs.length > 0) {
         for (const log of receipt.logs) {
+          console.log("[Deploy] Log:", { topics: log.topics, data: log.data, address: log.address });
+          
           try {
-            // Try to decode the LilyPadCollectionDeployed event first
+            // Try to decode known events
             const decoded = decodeEventLog({
               abi: NFT_FACTORY_ABI,
               data: log.data,
               topics: log.topics,
             }) as { eventName: string; args: Record<string, unknown> };
             
+            console.log("[Deploy] Decoded event:", decoded.eventName, decoded.args);
+            
             if (decoded.eventName === 'LilyPadCollectionDeployed' && decoded.args) {
               contractAddress = decoded.args.collection as string;
-              isVerified = true; // LilyPad verified collection
-              console.log(`LilyPad Collection Deployed: ${contractAddress}`);
+              isVerified = true;
+              console.log(`[Deploy] LilyPad Collection Deployed: ${contractAddress}`);
               break;
             }
             
-            // Fallback to CollectionCreated for backwards compatibility
             if (decoded.eventName === 'CollectionCreated' && decoded.args) {
               contractAddress = decoded.args.collection as string;
               isVerified = true;
+              console.log(`[Deploy] Collection Created: ${contractAddress}`);
               break;
             }
           } catch {
-            // Not the event we're looking for, continue
+            // Not a decodable event, try manual parsing
+          }
+        }
+        
+        // Fallback 1: Check indexed topics for address
+        if (!contractAddress) {
+          for (const log of receipt.logs) {
+            // Skip if this log is from the factory itself (not from new contract)
+            if (log.topics && log.topics.length > 1) {
+              // Address in indexed topic (padded to 32 bytes)
+              const potentialAddress = "0x" + log.topics[1].slice(-40);
+              if (potentialAddress.length === 42 && potentialAddress !== address?.toLowerCase()) {
+                contractAddress = potentialAddress;
+                isVerified = true;
+                console.log(`[Deploy] Found address in topic: ${contractAddress}`);
+                break;
+              }
+            }
+          }
+        }
+        
+        // Fallback 2: Parse non-indexed data field (first 32 bytes often contains address)
+        if (!contractAddress) {
+          for (const log of receipt.logs) {
+            if (log.data && log.data.length >= 66) {
+              // First 32 bytes of data (after 0x prefix)
+              const potentialAddress = "0x" + log.data.slice(26, 66);
+              if (potentialAddress.length === 42 && potentialAddress.startsWith("0x")) {
+                contractAddress = potentialAddress;
+                isVerified = true;
+                console.log(`[Deploy] Found address in data: ${contractAddress}`);
+                break;
+              }
+            }
+          }
+        }
+        
+        // Fallback 3: If a log was emitted from a new address (not factory), that's likely the new contract
+        if (!contractAddress) {
+          for (const log of receipt.logs) {
+            if (log.address && log.address.toLowerCase() !== NFT_FACTORY_ADDRESS.toLowerCase()) {
+              contractAddress = log.address;
+              isVerified = true;
+              console.log(`[Deploy] Found new contract from log emitter: ${contractAddress}`);
+              break;
+            }
           }
         }
       }
 
-      // Fallback: If we couldn't parse the event, check if there's a created contract
-      // Some factories return the address in the first log topic
-      if (!contractAddress && receipt.logs && receipt.logs.length > 0) {
-        const firstLog = receipt.logs[0];
-        if (firstLog.topics && firstLog.topics.length > 1) {
-          // The collection address might be in the first indexed topic
-          const potentialAddress = "0x" + firstLog.topics[1].slice(26);
-          if (potentialAddress.length === 42) {
-            contractAddress = potentialAddress;
-          }
-        }
+      // Fallback 4: Check if receipt has contractAddress field (for direct contract creations)
+      if (!contractAddress && receipt.contractAddress) {
+        contractAddress = receipt.contractAddress;
+        isVerified = true;
+        console.log(`[Deploy] Found address in receipt.contractAddress: ${contractAddress}`);
       }
 
       if (!contractAddress) {
-        // Last resort: return a placeholder indicating success but address needs manual lookup
-        console.warn("Could not parse collection address from logs, transaction succeeded");
-        contractAddress = "pending-verification";
+        console.warn("[Deploy] Could not parse collection address from logs");
+        throw new Error("Contract deployed but address could not be extracted. Check the transaction on explorer: " + txHash);
       }
 
       setState({
