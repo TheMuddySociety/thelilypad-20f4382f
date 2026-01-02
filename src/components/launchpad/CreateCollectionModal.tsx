@@ -363,28 +363,71 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     };
   };
 
-  // Save draft function - instant local save (no uploads)
-  const performSave = useCallback((showToast = false) => {
-    if (!name && layers.length === 0 && oneOfOneArtworks.length === 0 && !editionArtwork && !phases.some(p => p.enabled && p.id !== "public")) {
+  // Save draft function - uploads images to storage to avoid localStorage limits
+  const performSave = useCallback(async (showToast = false) => {
+    if (!name && layers.length === 0 && oneOfOneArtworks.length === 0 && !editionArtwork && musicTracks.length === 0 && !phases.some(p => p.enabled && p.id !== "public")) {
       if (showToast) toast.error("Nothing to save");
       return false;
+    }
+    
+    // Check if user is authenticated for storage uploads
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    
+    if (!userId) {
+      // Fall back to localStorage-only save without images (for unauthenticated users)
+      try {
+        setIsSaving(true);
+        
+        const draftData: DraftData = {
+          name,
+          symbol,
+          description,
+          totalSupply,
+          royaltyPercent,
+          layers: layers.map(l => ({ ...l, traits: l.traits.map(t => ({ ...t, imageUrl: undefined })) })), // Strip images
+          traitRules,
+          phases,
+          currentStep,
+          savedAt: Date.now(),
+          socialTwitter,
+          socialDiscord,
+          socialWebsite,
+          socialTelegram,
+          collectionType,
+        };
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(draftData));
+        setLastSavedAt(new Date());
+        setIsSaving(false);
+        setShowSaveIndicator(true);
+        
+        if (showToast) {
+          toast.warning("Draft saved without images", {
+            description: "Sign in to save artwork with your draft",
+          });
+        }
+        
+        setTimeout(() => setShowSaveIndicator(false), 2000);
+        return true;
+      } catch (e) {
+        console.error("Failed to save draft:", e);
+        setIsSaving(false);
+        if (showToast) toast.error("Failed to save draft");
+        return false;
+      }
     }
     
     try {
       setIsSaving(true);
       
-      // Save artwork previews directly (data URLs or existing URLs)
-      const savedOneOfOneArtworks: SavedArtwork[] = oneOfOneArtworks.map(artwork => ({
-        id: artwork.id,
-        name: artwork.name,
-        description: artwork.metadata?.description,
-        attributes: artwork.metadata?.traits?.map(t => ({ trait_type: t.trait_type, value: t.value })),
-        imageUrl: artwork.preview,
-      }));
+      if (showToast) {
+        toast.loading("Saving draft...", { id: "draft-save" });
+      }
       
-      const savedEditionArtwork = editionArtwork
-        ? { imageUrl: editionArtwork.preview, editionType }
-        : undefined;
+      // Upload images to storage to avoid localStorage size limits
+      const { coverImageUrl, bannerImageUrl, layersWithUrls, savedOneOfOneArtworks, savedEditionArtwork } = 
+        await uploadDraftImages(userId);
       
       const draftData: DraftData = {
         name,
@@ -392,13 +435,13 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         description,
         totalSupply,
         royaltyPercent,
-        layers, // Keep data URLs as-is for instant save
+        layers: layersWithUrls,
         traitRules,
         phases,
         currentStep,
         savedAt: Date.now(),
-        imageUrl: imagePreview || undefined,
-        bannerUrl: bannerPreview || undefined,
+        imageUrl: coverImageUrl,
+        bannerUrl: bannerImageUrl,
         socialTwitter,
         socialDiscord,
         socialWebsite,
@@ -417,11 +460,11 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         description,
         totalSupply,
         royalty: royaltyPercent,
-        layers,
+        layers: layersWithUrls,
         phases,
         currentStep,
         savedAt: new Date().toISOString(),
-        imageUrl: imagePreview || undefined,
+        imageUrl: coverImageUrl,
         oneOfOneArtworks: savedOneOfOneArtworks,
       }));
       
@@ -431,6 +474,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       
       if (showToast) {
         toast.success("Draft saved!", {
+          id: "draft-save",
           description: savedOneOfOneArtworks.length > 0 ? `${savedOneOfOneArtworks.length} artworks saved` : undefined,
         });
       }
@@ -442,14 +486,19 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     } catch (e) {
       console.error("Failed to save draft:", e);
       setIsSaving(false);
-      if (showToast) toast.error("Failed to save draft");
+      if (showToast) {
+        toast.error("Failed to save draft", {
+          id: "draft-save",
+          description: e instanceof Error ? e.message : "Please try again",
+        });
+      }
       return false;
     }
-  }, [name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, imagePreview, bannerPreview, oneOfOneArtworks, editionArtwork, editionType, socialTwitter, socialDiscord, socialWebsite, socialTelegram, collectionType]);
+  }, [name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, imagePreview, bannerPreview, oneOfOneArtworks, editionArtwork, editionType, musicTracks, socialTwitter, socialDiscord, socialWebsite, socialTelegram, collectionType, uploadDraftImages]);
 
   // Manual save handler
-  const handleManualSave = () => {
-    performSave(true);
+  const handleManualSave = async () => {
+    await performSave(true);
   };
 
   // Load draft on mount and show recovery dialog
