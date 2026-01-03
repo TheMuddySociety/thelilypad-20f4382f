@@ -186,6 +186,20 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.log("Connected on chain ID:", chainId);
       }
 
+      // Auto-detect and sync network based on wallet's current chain (for EVM)
+      let detectedNetwork: NetworkType = state.network;
+      if (chainType === "evm" && chainId) {
+        if (chainId === 143) {
+          detectedNetwork = "mainnet";
+          localStorage.setItem("monadNetwork", "mainnet");
+          console.log("Auto-detected Monad Mainnet from wallet");
+        } else if (chainId === 10143) {
+          detectedNetwork = "testnet";
+          localStorage.setItem("monadNetwork", "testnet");
+          console.log("Auto-detected Monad Testnet from wallet");
+        }
+      }
+
       setState(prev => ({
         ...prev,
         address,
@@ -193,6 +207,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isConnecting: false,
         balance,
         chainId,
+        network: detectedNetwork,
         walletType: "phantom",
         chainType,
         authProvider: result.authProvider || (provider as string) || "injected",
@@ -203,13 +218,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem("chainType", chainType);
       localStorage.setItem("authProvider", result.authProvider || (provider as string) || "injected");
       
-      toast.success("Wallet connected");
+      const networkLabel = detectedNetwork === "mainnet" ? "Mainnet" : "Testnet";
+      toast.success(`Wallet connected on ${networkLabel}`);
     } catch (error: any) {
       console.error("SDK connect error:", error);
       setState(prev => ({ ...prev, isConnecting: false }));
       throw error;
     }
-  }, [getSDK, fetchEVMBalance, fetchSolanaBalance]);
+  }, [getSDK, fetchEVMBalance, fetchSolanaBalance, state.network]);
 
   // Connect EVM (MetaMask or fallback)
   const connectEVM = useCallback(async (walletType: WalletType) => {
@@ -232,8 +248,24 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     try {
       const accounts = await provider.request({ method: "eth_requestAccounts" });
-      const chainId = await provider.request({ method: "eth_chainId" });
+      const chainIdHex = await provider.request({ method: "eth_chainId" });
       const address = accounts[0];
+      const parsedChainId = parseInt(chainIdHex, 16);
+      
+      // Auto-detect and sync network based on wallet's current chain
+      let detectedNetwork: NetworkType = state.network;
+      if (parsedChainId === 143) {
+        detectedNetwork = "mainnet";
+        localStorage.setItem("monadNetwork", "mainnet");
+        console.log("Auto-detected Monad Mainnet from wallet");
+      } else if (parsedChainId === 10143) {
+        detectedNetwork = "testnet";
+        localStorage.setItem("monadNetwork", "testnet");
+        console.log("Auto-detected Monad Testnet from wallet");
+      } else {
+        console.log("Connected on non-Monad chain:", parsedChainId);
+      }
+      
       const balance = await fetchEVMBalance(address);
 
       setState(prev => ({
@@ -242,7 +274,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isConnected: true,
         isConnecting: false,
         balance,
-        chainId: parseInt(chainId, 16),
+        chainId: parsedChainId,
+        network: detectedNetwork,
         walletType,
         chainType: "evm",
         authProvider: "injected",
@@ -252,13 +285,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem("walletType", walletType);
       localStorage.setItem("chainType", "evm");
       
-      toast.success("Wallet connected");
+      const networkLabel = detectedNetwork === "mainnet" ? "Mainnet" : "Testnet";
+      toast.success(`Wallet connected on ${networkLabel}`);
     } catch (error: any) {
       console.error("EVM connect error:", error);
       toast.error(error.message || "Failed to connect");
       setState(prev => ({ ...prev, isConnecting: false }));
     }
-  }, [isPhantomAvailable, connectWithSDK, fetchEVMBalance]);
+  }, [isPhantomAvailable, connectWithSDK, fetchEVMBalance, state.network]);
 
   // Connect Solana
   const connectSolana = useCallback(async () => {
