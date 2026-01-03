@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
 import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
 import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
+import { PhaseConfigManager } from "@/components/launchpad/PhaseConfigManager";
 import { LaunchChecklist } from "@/components/launchpad/LaunchChecklist";
 import { RevealManager } from "@/components/launchpad/RevealManager";
 import { TransactionHistory } from "@/components/TransactionHistory";
@@ -1143,6 +1144,18 @@ export default function CollectionDetail() {
 
           {/* Right Column - Mint Card */}
           <div className="space-y-6">
+            {/* Phase Configuration Card - For creators after deployment */}
+            {isCreator && collection.contract_address && (
+              <PhaseConfigManager
+                contractAddress={collection.contract_address}
+                phases={phases}
+                onConfigured={() => {
+                  fetchCollection();
+                  syncPhases();
+                }}
+              />
+            )}
+
             {/* Live Supply Card */}
             <Card className={`border-primary/50 ${isLivePolling ? 'ring-1 ring-primary/30' : ''}`}>
               <CardHeader className="pb-3">
