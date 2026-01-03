@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp, Ticket, Package, LogOut, LogIn, Vote, Music } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
@@ -119,14 +120,14 @@ export const Navbar: React.FC = () => {
                   <div className="space-y-1">
                     {primaryLinks.map((link, index) => (
                       <SheetClose asChild key={link.label}>
-                        <a
-                          href={link.href}
+                        <Link
+                          to={link.href}
                           className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
                           style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
                         >
                           <link.icon className="w-5 h-5 text-muted-foreground" />
                           {link.label}
-                        </a>
+                        </Link>
                       </SheetClose>
                     ))}
                   </div>
@@ -161,14 +162,14 @@ export const Navbar: React.FC = () => {
                       
                       return (
                         <SheetClose asChild key={link.label}>
-                          <a
-                            href={link.href}
+                          <Link
+                            to={link.href}
                             className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
                             style={{ animationDelay: `${(primaryLinks.length + index + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
                           >
                             <link.icon className="w-5 h-5 text-muted-foreground" />
                             {link.label}
-                          </a>
+                          </Link>
                         </SheetClose>
                       );
                     })}
@@ -184,14 +185,14 @@ export const Navbar: React.FC = () => {
                     </p>
                     {accountLinks.map((link, index) => (
                       <SheetClose asChild key={link.label}>
-                        <a
-                          href={link.href}
+                        <Link
+                          to={link.href}
                           className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
                           style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + index + 2) * 50 + 50}ms`, animationFillMode: 'both' }}
                         >
                           <link.icon className="w-5 h-5 text-muted-foreground" />
                           {link.label}
-                        </a>
+                        </Link>
                       </SheetClose>
                     ))}
                   </div>
@@ -207,14 +208,14 @@ export const Navbar: React.FC = () => {
                       </p>
                       {adminLinks.map((link, index) => (
                         <SheetClose asChild key={link.label}>
-                          <a
-                            href={link.href}
+                          <Link
+                            to={link.href}
                             className="flex items-center gap-3 px-4 py-3 rounded-lg text-primary hover:bg-primary/10 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
                             style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + accountLinks.length + index + 3) * 50 + 50}ms`, animationFillMode: 'both' }}
                           >
                             <link.icon className="w-5 h-5" />
                             {link.label}
-                          </a>
+                          </Link>
                         </SheetClose>
                       ))}
                     </div>
@@ -231,10 +232,10 @@ export const Navbar: React.FC = () => {
             </Sheet>
 
             {/* Logo - Next to hamburger */}
-            <a href="/" className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2">
               <LilyPadLogo size={32} className="sm:w-9 sm:h-9" />
               <span className="font-bold text-base sm:text-lg hidden xs:block">The Lily Pad</span>
-            </a>
+            </Link>
           </div>
 
           {/* Right side - Wallet & Notifications */}
