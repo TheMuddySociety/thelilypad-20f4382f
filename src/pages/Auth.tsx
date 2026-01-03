@@ -214,11 +214,11 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left side - Hero Image (Desktop) */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-emerald-50 to-emerald-100">
+      <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-emerald-50 to-emerald-100 items-center justify-center p-8">
         <img 
           src={authBranding} 
           alt="The Lily Pad" 
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
         />
       </div>
       
