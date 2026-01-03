@@ -25,6 +25,8 @@ import { toast } from "sonner";
 import { useSEO } from "@/hooks/useSEO";
 import { CreateStickerPackModal } from "@/components/stickers/CreateStickerPackModal";
 import { ManageStickerPackModal } from "@/components/stickers/ManageStickerPackModal";
+import { useFeatureUnlock } from "@/hooks/useFeatureLocks";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ShopItem {
   id: string;
@@ -40,8 +42,6 @@ interface ShopItem {
   created_at: string;
 }
 
-const REQUIRED_FOLLOWERS = 100;
-
 export default function CreatorStickerPacks() {
   const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null>(null);
@@ -52,8 +52,13 @@ export default function CreatorStickerPacks() {
   const [selectedPack, setSelectedPack] = useState<ShopItem | null>(null);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
-  const isUnlocked = followerCount >= REQUIRED_FOLLOWERS;
-  const progress = Math.min((followerCount / REQUIRED_FOLLOWERS) * 100, 100);
+  const { 
+    isUnlocked, 
+    isLoading: featureLockLoading, 
+    requiredFollowers,
+    isFeatureEnabled,
+    progress 
+  } = useFeatureUnlock("sticker_packs", followerCount);
 
   useSEO({
     title: "My Sticker Packs | The Lily Pad",
@@ -189,13 +194,23 @@ export default function CreatorStickerPacks() {
     exclusive: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   };
 
-  if (isLoading) {
+  if (isLoading || featureLockLoading) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
         <main className="container mx-auto px-4 pt-24 pb-12">
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="flex items-center gap-4 mb-8">
+            <Skeleton className="w-14 h-14 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+          </div>
+          <Skeleton className="h-32 w-full mb-8" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-24 w-full" />
+            ))}
           </div>
         </main>
       </div>
@@ -227,7 +242,7 @@ export default function CreatorStickerPacks() {
         </div>
 
         {/* Unlock Progress */}
-        {!isUnlocked && (
+        {!isUnlocked && isFeatureEnabled && (
           <Card className="mb-8 border-amber-500/30 bg-amber-500/5">
             <CardContent className="pt-6">
               <div className="flex items-start gap-4">
@@ -237,14 +252,14 @@ export default function CreatorStickerPacks() {
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold mb-1">Feature Locked</h3>
                   <p className="text-muted-foreground mb-4">
-                    You need {REQUIRED_FOLLOWERS} subscribers to unlock sticker pack creation. 
+                    You need {requiredFollowers} subscribers to unlock sticker pack creation. 
                     Keep growing your channel!
                   </p>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="flex items-center gap-2">
                         <Users className="w-4 h-4" />
-                        {followerCount} / {REQUIRED_FOLLOWERS} subscribers
+                        {followerCount} / {requiredFollowers} subscribers
                       </span>
                       <span className="font-medium">{Math.round(progress)}%</span>
                     </div>
@@ -403,12 +418,12 @@ export default function CreatorStickerPacks() {
         )}
 
         {/* Locked State - Show preview */}
-        {!isUnlocked && (
+        {!isUnlocked && isFeatureEnabled && (
           <div className="text-center py-12 border border-dashed rounded-lg bg-muted/20">
             <Lock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">Sticker Pack Creation Locked</h3>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Reach {REQUIRED_FOLLOWERS} subscribers to unlock the ability to create and sell your own sticker packs. 
+              Reach {requiredFollowers} subscribers to unlock the ability to create and sell your own sticker packs. 
               Share your stream and grow your community!
             </p>
           </div>

@@ -16,6 +16,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useFeatureUnlock } from "@/hooks/useFeatureLocks";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ChannelEmote {
   id: string;
@@ -37,8 +39,13 @@ export default function ChannelEmotes() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const REQUIRED_FOLLOWERS = 50;
-  const isUnlocked = followerCount >= REQUIRED_FOLLOWERS;
+  const { 
+    isUnlocked, 
+    isLoading: featureLockLoading, 
+    requiredFollowers,
+    isFeatureEnabled,
+    progress 
+  } = useFeatureUnlock("channel_emotes", followerCount);
 
   useEffect(() => {
     checkAuth();
@@ -190,6 +197,23 @@ export default function ChannelEmotes() {
     setFilePreview(null);
   };
 
+  if (featureLockLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-between mb-8">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+          </div>
+          <Skeleton className="h-40 w-full" />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -296,7 +320,7 @@ export default function ChannelEmotes() {
           )}
         </div>
 
-        {!isUnlocked && (
+        {!isUnlocked && isFeatureEnabled && (
           <Card className="mb-8">
             <CardContent className="py-8 text-center">
               <Smile className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -304,18 +328,18 @@ export default function ChannelEmotes() {
                 Unlock Channel Emotes
               </h2>
               <p className="text-muted-foreground mb-4">
-                Reach {REQUIRED_FOLLOWERS} followers to create custom emotes for your subscribers
+                Reach {requiredFollowers} followers to create custom emotes for your subscribers
               </p>
               <div className="max-w-xs mx-auto">
                 <div className="flex justify-between text-sm mb-1">
                   <span>{followerCount} followers</span>
-                  <span>{REQUIRED_FOLLOWERS} needed</span>
+                  <span>{requiredFollowers} needed</span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary transition-all"
                     style={{
-                      width: `${Math.min((followerCount / REQUIRED_FOLLOWERS) * 100, 100)}%`,
+                      width: `${Math.min(progress, 100)}%`,
                     }}
                   />
                 </div>

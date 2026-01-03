@@ -36,7 +36,8 @@ import {
   Sticker,
   Package,
   Ticket,
-  Gift
+  Gift,
+  Lock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { FeaturedCollectionsManager } from '@/components/admin/FeaturedCollectionsManager';
@@ -47,6 +48,7 @@ import { RewardsAllocationManager } from '@/components/admin/RewardsAllocationMa
 import { RewardDistributionHistory } from '@/components/admin/RewardDistributionHistory';
 import RaffleManager from '@/components/admin/RaffleManager';
 import BlindBoxManager from '@/components/admin/BlindBoxManager';
+import { FeatureLocksManager } from '@/components/admin/FeatureLocksManager';
 
 interface AdminUser {
   id: string;
@@ -542,6 +544,10 @@ const AdminDashboard: React.FC = () => {
               <TabsTrigger value="moderation" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
                 <ShieldCheck className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Moderation</span>
+              </TabsTrigger>
+              <TabsTrigger value="feature-locks" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+                <Lock className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Locks</span>
               </TabsTrigger>
             </TabsList>
           </ScrollArea>
@@ -1141,6 +1147,11 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Feature Locks Tab */}
+          <TabsContent value="feature-locks">
+            <FeatureLocksManager />
           </TabsContent>
         </Tabs>
 

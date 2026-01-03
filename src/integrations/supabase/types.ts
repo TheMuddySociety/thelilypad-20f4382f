@@ -719,6 +719,42 @@ export type Database = {
           },
         ]
       }
+      feature_locks: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          feature_key: string
+          feature_name: string
+          id: string
+          is_enabled: boolean | null
+          required_followers: number | null
+          required_subscribers: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          feature_key: string
+          feature_name: string
+          id?: string
+          is_enabled?: boolean | null
+          required_followers?: number | null
+          required_subscribers?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          feature_key?: string
+          feature_name?: string
+          id?: string
+          is_enabled?: boolean | null
+          required_followers?: number | null
+          required_subscribers?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       featured_collections: {
         Row: {
           collection_id: string
