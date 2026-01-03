@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { NFT_FACTORY_ABI } from "@/config/nftFactory";
+import { NFT_COLLECTION_ABI } from "@/config/nftFactory";
 import { useWallet } from "@/providers/WalletProvider";
 import { formatEther } from "viem";
 
@@ -34,7 +34,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
     const rpcUrl = currentChain.rpcUrls.default.http[0];
     
     // Find the function in ABI
-    const func = NFT_FACTORY_ABI.find(
+    const func = NFT_COLLECTION_ABI.find(
       (item) => item.type === "function" && item.name === functionName
     );
     if (!func || func.type !== "function") {
@@ -44,7 +44,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
     // Encode function call
     const { encodeFunctionData, decodeFunctionResult } = await import("viem");
     const data = encodeFunctionData({
-      abi: NFT_FACTORY_ABI,
+      abi: NFT_COLLECTION_ABI,
       functionName: functionName as any,
       args: args as any,
     });
@@ -68,7 +68,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
 
     // Decode result
     const decoded = decodeFunctionResult({
-      abi: NFT_FACTORY_ABI,
+      abi: NFT_COLLECTION_ABI,
       functionName: functionName as any,
       data: result.result,
     });
@@ -89,7 +89,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
       console.log("[Phase Sync] Starting on-chain phase sync for:", contractAddress);
       
       const rpcUrl = currentChain.rpcUrls.default.http[0];
-      const activePhaseId = await callContract("activePhase");
+      const activePhaseId = await callContract("activePhaseId");
       console.log("[Phase Sync] Active phase ID:", Number(activePhaseId));
 
       // 2. Get total supply from contract
@@ -102,7 +102,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
       // Try to read phases 0-3 (allowlist and public phases)
       for (let phaseId = 0; phaseId <= 3; phaseId++) {
         try {
-          const phaseData = await callContract("getPhase", [BigInt(phaseId)]);
+          const phaseData = await callContract("phases", [BigInt(phaseId)]);
           
           // NFT_FACTORY_ABI getPhase returns: [price, maxPerWallet, phaseMaxSupply, phaseMinted, isActive]
           // Note: No requiresAllowlist in this contract version
