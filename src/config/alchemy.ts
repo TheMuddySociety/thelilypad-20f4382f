@@ -6,6 +6,7 @@ export type NetworkType = "mainnet" | "testnet";
 
 // RPC endpoints with rate limits (ordered by reliability)
 export const MONAD_TESTNET_RPCS = [
+  "https://monad-testnet.blockvision.org/v1/37hH1sm8QDkbsAYrBsU9EjXwZ0o", // BlockVision (primary)
   "https://testnet-rpc.monad.xyz",
   "https://rpc.ankr.com/monad_testnet",
 ];
