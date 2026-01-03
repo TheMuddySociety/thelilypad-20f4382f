@@ -67,6 +67,18 @@ export function useVerifyTheLilyPad(network: NetworkType = 'testnet') {
           data: isLilyPadData,
         }, 'latest']);
 
+        // Handle null/undefined results
+        if (!isLilyPadResult || isLilyPadResult === '0x') {
+          setIsVerifying(false);
+          return {
+            isLilyPadCollection: false,
+            platformName: null,
+            version: null,
+            treasury: null,
+            buyback: null,
+          };
+        }
+
         const isLilyPad = BigInt(isLilyPadResult) === 1n;
 
         if (isLilyPad) {
@@ -93,6 +105,18 @@ export function useVerifyTheLilyPad(network: NetworkType = 'testnet') {
           to: contractAddress,
           data: isLilyPadData,
         }, 'latest']);
+
+        // Handle null/undefined results
+        if (!result || result === '0x') {
+          setIsVerifying(false);
+          return {
+            isLilyPadCollection: false,
+            platformName: null,
+            version: null,
+            treasury: null,
+            buyback: null,
+          };
+        }
 
         const isLilyPad = BigInt(result) === 1n;
 
