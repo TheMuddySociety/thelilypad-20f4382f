@@ -1,5 +1,4 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import { LivepeerPlayer } from '@/components/LivepeerPlayer';
 import { WebRTCViewer } from '@/components/streaming/WebRTCViewer';
 import { LiveChat } from '@/components/LiveChat';
 import { Navbar } from '@/components/Navbar';
@@ -14,14 +13,9 @@ import { useStreamPresence } from '@/hooks/useStreamPresence';
 
 const Watch = () => {
   const { playbackId } = useParams<{ playbackId: string }>();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
-
-  // Check if this is a WebRTC room (via query param or ID format)
-  const isWebRTC = searchParams.get('type') === 'webrtc' || 
-    (playbackId && playbackId.length === 36 && playbackId.includes('-')); // UUID format indicates room ID
 
   // Track viewer presence for real-time viewer count
   const { viewerCount, isConnected } = useStreamPresence(playbackId);
@@ -104,19 +98,10 @@ const Watch = () => {
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Video Player */}
           <div className="lg:col-span-3">
-            {isWebRTC ? (
-              <WebRTCViewer
-                roomId={playbackId}
-                className="w-full aspect-video rounded-xl overflow-hidden"
-              />
-            ) : (
-              <LivepeerPlayer
-                playbackId={playbackId}
-                isLive={true}
-                autoPlay={true}
-                className="w-full rounded-xl overflow-hidden"
-              />
-            )}
+            <WebRTCViewer
+              roomId={playbackId}
+              className="w-full aspect-video rounded-xl overflow-hidden"
+            />
             
             {/* Stream Info Below Player */}
             <div className="mt-4 p-4 bg-card rounded-xl border border-border">
@@ -130,7 +115,7 @@ const Watch = () => {
                     </Badge>
                   </div>
                   <p className="text-muted-foreground text-sm">
-                    {isWebRTC ? 'Browser Stream' : 'HLS Stream'} • ID: {playbackId.slice(0, 12)}...
+                    Browser Stream • ID: {playbackId.slice(0, 12)}...
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
