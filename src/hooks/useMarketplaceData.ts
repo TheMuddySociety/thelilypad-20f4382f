@@ -1,0 +1,226 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useMultiTableSubscription } from "./useRealtimeSubscription";
+
+const ITEMS_PER_PAGE = 12;
+
+export interface Collection {
+  id: string;
+  name: string;
+  image_url: string | null;
+  creator_address: string;
+  total_supply: number;
+  minted: number;
+  status: string;
+  phases: unknown;
+  royalty_percent: number;
+  created_at: string;
+  contract_address: string | null;
+}
+
+export interface ShopItem {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  price_mon: number;
+  category: string;
+  tier: string;
+  total_sales: number;
+  creator_id: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface NFTListing {
+  id: string;
+  nft_id: string;
+  seller_id: string;
+  seller_address: string;
+  price: number;
+  currency: string;
+  created_at: string;
+  expires_at: string | null;
+  nft: {
+    id: string;
+    token_id: number;
+    name: string | null;
+    image_url: string | null;
+    collection_id: string | null;
+    owner_address: string;
+    collection?: {
+      name: string;
+      contract_address: string | null;
+    };
+  };
+}
+
+interface MarketplaceData {
+  collections: Collection[];
+  stickerPacks: ShopItem[];
+  nftListings: NFTListing[];
+  hotCollectionMints: Map<string, number>;
+  totalCollections: number;
+}
+
+async function fetchMarketplaceData(): Promise<MarketplaceData> {
+  // Fetch collections count
+  const { count: collectionCount } = await supabase
+    .from("collections")
+    .select("*", { count: "exact", head: true })
+    .is("deleted_at", null);
+
+  // Fetch first page of collections
+  const { data: collectionsData, error: collectionsError } = await supabase
+    .from("collections")
+    .select("*")
+    .is("deleted_at", null)
+    .order("status", { ascending: true })
+    .order("created_at", { ascending: false })
+    .range(0, ITEMS_PER_PAGE - 1);
+
+  if (collectionsError) {
+    console.error("Error fetching collections:", collectionsError);
+  }
+
+  // Sort to prioritize live status
+  const sortedCollections = (collectionsData || []).sort((a, b) => {
+    if (a.status === "live" && b.status !== "live") return -1;
+    if (a.status !== "live" && b.status === "live") return 1;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
+  // Fetch recent mints (last 24 hours) to determine "hot" collections
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: recentMints, error: mintsError } = await supabase
+    .from("minted_nfts")
+    .select("collection_id")
+    .gte("minted_at", twentyFourHoursAgo);
+
+  let hotMints = new Map<string, number>();
+  if (!mintsError && recentMints) {
+    const mintCounts = recentMints.reduce((acc, mint) => {
+      if (mint.collection_id) {
+        acc[mint.collection_id] = (acc[mint.collection_id] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    hotMints = new Map(
+      Object.entries(mintCounts).filter(([_, count]) => count >= 3)
+    );
+  }
+
+  // Fetch sticker packs
+  const { data: stickersData, error: stickersError } = await supabase
+    .from("shop_items")
+    .select("*")
+    .eq("category", "sticker_pack")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+
+  if (stickersError) {
+    console.error("Error fetching sticker packs:", stickersError);
+  }
+
+  // Fetch active NFT listings
+  const { data: listingsData, error: listingsError } = await supabase
+    .from("nft_listings")
+    .select(`
+      *,
+      nft:minted_nfts(
+        id,
+        token_id,
+        name,
+        image_url,
+        collection_id,
+        owner_address,
+        collection:collections(name, contract_address)
+      )
+    `)
+    .eq("status", "active")
+    .order("created_at", { ascending: false });
+
+  if (listingsError) {
+    console.error("Error fetching listings:", listingsError);
+  }
+
+  // Transform listings data
+  const transformedListings = (listingsData || [])
+    .map((listing) => ({
+      ...listing,
+      nft: listing.nft
+        ? {
+            ...listing.nft,
+            collection: listing.nft.collection as { name: string; contract_address: string | null } | undefined,
+          }
+        : null,
+    }))
+    .filter((listing) => listing.nft !== null) as NFTListing[];
+
+  return {
+    collections: sortedCollections,
+    stickerPacks: stickersData || [],
+    nftListings: transformedListings,
+    hotCollectionMints: hotMints,
+    totalCollections: collectionCount || 0,
+  };
+}
+
+export function useMarketplaceData() {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["marketplace-data"],
+    queryFn: fetchMarketplaceData,
+    staleTime: 30 * 1000, // 30 seconds
+    refetchOnWindowFocus: false,
+  });
+
+  // Realtime subscriptions for automatic updates
+  useMultiTableSubscription(
+    [
+      { table: "collections", event: "*" },
+      { table: "nft_listings", event: "*" },
+      { table: "shop_items", event: "*" },
+      { table: "minted_nfts", event: "INSERT" },
+    ],
+    () => {
+      queryClient.invalidateQueries({ queryKey: ["marketplace-data"] });
+    },
+    true
+  );
+
+  const refetch = useCallback(() => {
+    return query.refetch();
+  }, [query]);
+
+  return {
+    collections: query.data?.collections ?? [],
+    stickerPacks: query.data?.stickerPacks ?? [],
+    nftListings: query.data?.nftListings ?? [],
+    hotCollectionMints: query.data?.hotCollectionMints ?? new Map(),
+    totalCollections: query.data?.totalCollections ?? 0,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch,
+  };
+}
+
+// Helper function to get price from phases
+export function getCollectionPrice(collection: Collection): string {
+  const phases = collection.phases as any[];
+  if (!phases || phases.length === 0) return "TBA";
+  const publicPhase = phases.find((p) => p.id === "public") || phases[0];
+  return publicPhase?.price ? `${publicPhase.price} MON` : "Free";
+}
+
+// Helper to check if collection is "new" (created in last 7 days and live)
+export function isCollectionNew(collection: Collection): boolean {
+  return (
+    collection.status === "live" &&
+    new Date(collection.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000
+  );
+}
