@@ -373,9 +373,33 @@ export function useContractMint(contractAddress: string | null) {
         args: [BigInt(quantity), proof],
       });
 
-      const baseGasLimit = 200000;
-      const perNftGas = 80000;
-      const gasLimit = customGasLimit || (baseGasLimit + (perNftGas * quantity));
+      // Dynamic Gas Estimation
+      let gasLimit = BigInt(200000 + (80000 * quantity)); // Default fallback
+      
+      if (customGasLimit) {
+         gasLimit = BigInt(customGasLimit);
+      } else {
+        try {
+          const estimatedGas = await provider.request({
+            method: "eth_estimateGas",
+            params: [{
+              from: address,
+              to: contractAddress,
+              data,
+              value: `0x${totalValue.toString(16)}`,
+            }],
+          });
+          
+          // Add 20% buffer for safety
+          const estimatedGasBigInt = BigInt(estimatedGas);
+          gasLimit = (estimatedGasBigInt * 120n) / 100n;
+          console.log(`Gas estimated: ${estimatedGasBigInt}, using buffered limit: ${gasLimit}`);
+        } catch (gasError) {
+          console.warn("Gas estimation failed, using fallback:", gasError);
+          // Increase fallback slightly if estimation fails to be safer
+          gasLimit = BigInt(300000 + (100000 * quantity)); 
+        }
+      }
 
       const txParams = {
         from: address,
@@ -500,9 +524,33 @@ export function useContractMint(contractAddress: string | null) {
         args: [BigInt(quantity)],
       });
 
-      const baseGasLimit = 200000;
-      const perNftGas = 80000;
-      const gasLimit = customGasLimit || (baseGasLimit + (perNftGas * quantity));
+      // Dynamic Gas Estimation
+      let gasLimit = BigInt(200000 + (80000 * quantity)); // Default fallback
+      
+      if (customGasLimit) {
+         gasLimit = BigInt(customGasLimit);
+      } else {
+        try {
+          const estimatedGas = await provider.request({
+            method: "eth_estimateGas",
+            params: [{
+              from: address,
+              to: contractAddress,
+              data,
+              value: `0x${totalValue.toString(16)}`,
+            }],
+          });
+          
+          // Add 20% buffer for safety
+          const estimatedGasBigInt = BigInt(estimatedGas);
+          gasLimit = (estimatedGasBigInt * 120n) / 100n;
+          console.log(`Gas estimated: ${estimatedGasBigInt}, using buffered limit: ${gasLimit}`);
+        } catch (gasError) {
+          console.warn("Gas estimation failed, using fallback:", gasError);
+          // Increase fallback slightly if estimation fails
+          gasLimit = BigInt(300000 + (100000 * quantity)); 
+        }
+      }
 
       const txParams = {
         from: address,
