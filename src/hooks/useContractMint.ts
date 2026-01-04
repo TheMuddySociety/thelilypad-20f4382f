@@ -323,7 +323,7 @@ export function useContractMint(contractAddress: string | null) {
       .eq("tx_hash", txHash);
   }, []);
 
-  // Mint with allowlist - uses mintAllowlist function
+  // Mint with allowlist - uses mint function with Merkle proof
   const mintWithAllowlist = useCallback(async (
     quantity: number,
     pricePerNft: string,
@@ -363,11 +363,14 @@ export function useContractMint(contractAddress: string | null) {
       const priceInWei = parseEther(pricePerNft);
       const totalValue = priceInWei * BigInt(quantity);
 
-      // Use mintAllowlist function (no proof needed - contract checks allowlist mapping)
+      // Generate Merkle proof for allowlist verification
+      const proof = generateMerkleProof(address, allowlistAddresses) as `0x${string}`[];
+
+      // Use mint function with proof for allowlist minting
       const data = encodeFunctionData({
         abi: NFT_COLLECTION_ABI,
-        functionName: "mintAllowlist",
-        args: [BigInt(quantity)],
+        functionName: "mint",
+        args: [BigInt(quantity), proof],
       });
 
       const baseGasLimit = 200000;
@@ -451,7 +454,7 @@ export function useContractMint(contractAddress: string | null) {
     }
   }, [address, isConnected, contractAddress, recordTransaction, recordMintedNFTs, ensureCorrectNetwork]);
 
-  // Mint public - uses mint function
+  // Mint public - uses mintPublic function
   const mintPublic = useCallback(async (
     quantity: number,
     pricePerNft: string,
@@ -490,10 +493,10 @@ export function useContractMint(contractAddress: string | null) {
       const priceInWei = parseEther(pricePerNft);
       const totalValue = priceInWei * BigInt(quantity);
 
-      // Use mint function for public minting
+      // Use mintPublic function for public minting
       const data = encodeFunctionData({
         abi: NFT_COLLECTION_ABI,
-        functionName: "mint",
+        functionName: "mintPublic",
         args: [BigInt(quantity)],
       });
 
