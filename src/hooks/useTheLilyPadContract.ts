@@ -81,9 +81,9 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
   const ensureCorrectNetwork = useCallback(async (): Promise<boolean> => {
     const provider = getProvider();
     if (!provider || chainType !== "evm") return false;
-    
+
     const targetChain = getMonadChain(network);
-    
+
     if (chainId !== targetChain.id) {
       try {
         await switchToMonad();
@@ -122,7 +122,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
   const getPhase = useCallback(async (phaseId: number): Promise<TheLilyPadPhase | null> => {
     try {
       const result = await readContract('phases', [BigInt(phaseId)]);
-      
+
       // Decode the result (5 values: price, maxPerWallet, maxSupply, minted, requiresAllowlist)
       const price = BigInt('0x' + result.slice(2, 66));
       const maxPerWallet = BigInt('0x' + result.slice(66, 130));
@@ -223,13 +223,31 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
         args: [BigInt(phaseId), priceInWei, BigInt(maxPerWallet), BigInt(phaseMaxSupply), requiresAllowlist],
       });
 
+      // Dynamic Gas Estimation with Fallback
+      let gasLimit = 300000n; // Fallback
+      try {
+        const estimatedGas = await provider.request({
+          method: "eth_estimateGas",
+          params: [{
+            from: address,
+            to: contractAddress,
+            data,
+            // Only include value if needed, for configurePhase it's 0
+          }],
+        });
+        gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+        console.log(`Gas estimated for configurePhase: ${estimatedGas}, using: ${gasLimit}`);
+      } catch (err) {
+        console.warn("Gas estimation failed for configurePhase, using fallback:", err);
+      }
+
       const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [{
           from: address,
           to: contractAddress,
           data,
-          gas: "0x30D40", // 200,000
+          gas: `0x${gasLimit.toString(16)}`,
         }],
       });
 
@@ -270,13 +288,30 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
         args: [BigInt(phaseId)],
       });
 
+      // Dynamic Gas Estimation with Fallback
+      let gasLimit = 150000n; // Fallback
+      try {
+        const estimatedGas = await provider.request({
+          method: "eth_estimateGas",
+          params: [{
+            from: address,
+            to: contractAddress,
+            data,
+          }],
+        });
+        gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+        console.log(`Gas estimated for setActivePhase: ${estimatedGas}, using: ${gasLimit}`);
+      } catch (err) {
+        console.warn("Gas estimation failed for setActivePhase, using fallback:", err);
+      }
+
       const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [{
           from: address,
           to: contractAddress,
           data,
-          gas: "0x1E848", // 125,000
+          gas: `0x${gasLimit.toString(16)}`,
         }],
       });
 
@@ -321,8 +356,22 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
         args: [BigInt(phaseId), addresses as `0x${string}`[], status],
       });
 
-      // Gas scales with address count
-      const gasLimit = 50000 + (addresses.length * 25000);
+      // Dynamic Gas Estimation with Fallback
+      let gasLimit = BigInt(100000 + (addresses.length * 30000)); // Safer fallback
+      try {
+        const estimatedGas = await provider.request({
+          method: "eth_estimateGas",
+          params: [{
+            from: address,
+            to: contractAddress,
+            data,
+          }],
+        });
+        gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+        console.log(`Gas estimated for setAllowlist: ${estimatedGas}, using: ${gasLimit}`);
+      } catch (err) {
+        console.warn("Gas estimation failed for setAllowlist, using fallback:", err);
+      }
 
       const txHash = await provider.request({
         method: "eth_sendTransaction",
@@ -371,13 +420,30 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
         args: [baseURI],
       });
 
+      // Dynamic Gas Estimation with Fallback
+      let gasLimit = 300000n; // Fallback
+      try {
+        const estimatedGas = await provider.request({
+          method: "eth_estimateGas",
+          params: [{
+            from: address,
+            to: contractAddress,
+            data,
+          }],
+        });
+        gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+        console.log(`Gas estimated for setBaseURI: ${estimatedGas}, using: ${gasLimit}`);
+      } catch (err) {
+        console.warn("Gas estimation failed for setBaseURI, using fallback:", err);
+      }
+
       const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [{
           from: address,
           to: contractAddress,
           data,
-          gas: "0x30D40", // 200,000
+          gas: `0x${gasLimit.toString(16)}`,
         }],
       });
 
@@ -418,13 +484,30 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
         args: [],
       });
 
+      // Dynamic Gas Estimation with Fallback
+      let gasLimit = 150000n; // Fallback
+      try {
+        const estimatedGas = await provider.request({
+          method: "eth_estimateGas",
+          params: [{
+            from: address,
+            to: contractAddress,
+            data,
+          }],
+        });
+        gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+        console.log(`Gas estimated for withdraw: ${estimatedGas}, using: ${gasLimit}`);
+      } catch (err) {
+        console.warn("Gas estimation failed for withdraw, using fallback:", err);
+      }
+
       const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [{
           from: address,
           to: contractAddress,
           data,
-          gas: "0x1E848", // 125,000
+          gas: `0x${gasLimit.toString(16)}`,
         }],
       });
 

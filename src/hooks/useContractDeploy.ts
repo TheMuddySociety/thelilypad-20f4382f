@@ -111,9 +111,9 @@ export function useContractDeploy() {
   const ensureCorrectNetwork = useCallback(async (): Promise<boolean> => {
     const provider = getProvider();
     if (!provider || chainType !== "evm") return false;
-    
+
     const targetChain = getMonadChain(network);
-    
+
     if (chainId !== targetChain.id) {
       try {
         await switchToMonad();
@@ -184,20 +184,37 @@ export function useContractDeploy() {
         setState((prev) => ({ ...prev, deploymentStep: "confirming" }));
 
         // Send transaction to factory
+        // Dynamic Gas Estimation
+        let gasLimit = BigInt(5000000); // Default fallback (original hardcoded value)
+        try {
+          const estimatedGas = await provider.request({
+            method: "eth_estimateGas",
+            params: [{
+              from: address,
+              to: NFT_FACTORY_ADDRESS,
+              data,
+            }],
+          });
+          gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+          console.log(`Gas estimated for deployment: ${estimatedGas}, using: ${gasLimit}`);
+        } catch (gasError) {
+          console.warn("Gas estimation failed for deployment, using fallback:", gasError);
+        }
+
         const txHash = await provider.request({
           method: "eth_sendTransaction",
           params: [{
             from: address,
             to: NFT_FACTORY_ADDRESS,
             data,
-            gas: "0x4C4B40", // 5,000,000 gas for clone deployment
+            gas: `0x${gasLimit.toString(16)}`,
           }],
         });
 
-        setState((prev) => ({ 
-          ...prev, 
+        setState((prev) => ({
+          ...prev,
           deploymentStep: "deploying",
-          txHash 
+          txHash
         }));
 
         toast.info("Transaction submitted", {
@@ -217,7 +234,7 @@ export function useContractDeploy() {
 
         // Parse CollectionCreated event to get deployed address
         let deployedAddress: string | null = null;
-        
+
         // CollectionCreated event signature
         const eventSignature = "0x" + "CollectionCreated(address,address,string,string,uint256)"
           .split('')
@@ -282,11 +299,11 @@ export function useContractDeploy() {
             error: null,
             isVerified: true,
           });
-          
+
           toast.warning("Contract deployed!", {
             description: "Check the explorer to find your contract address in the transaction logs.",
           });
-          
+
           return "pending-verification";
         }
 
@@ -307,7 +324,7 @@ export function useContractDeploy() {
 
       } catch (error: any) {
         console.error("Deployment error:", error);
-        
+
         let errorMessage = "Deployment failed";
         if (error.code === 4001) {
           errorMessage = "Transaction rejected by user";
