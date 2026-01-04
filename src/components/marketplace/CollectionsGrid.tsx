@@ -1,6 +1,6 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Rocket, Shield } from "lucide-react";
+import { Rocket, Shield, Loader2 } from "lucide-react";
 import { CollectionCard } from "./CollectionCard";
 import { MarketplaceCardSkeleton } from "@/components/LoadingSkeletons";
 import { EmptyState } from "@/components/common";
@@ -12,7 +12,8 @@ interface CollectionsGridProps {
   hasMore: boolean;
   verifiedOnly: boolean;
   isLoading: boolean;
-  loadMoreRef?: React.RefObject<HTMLDivElement>;
+  isFetchingMore?: boolean;
+  loadMoreRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
@@ -21,6 +22,7 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
   hasMore,
   verifiedOnly,
   isLoading,
+  isFetchingMore = false,
   loadMoreRef,
 }) => {
   if (isLoading) {
@@ -84,7 +86,21 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
       
       {/* Load more trigger */}
       {loadMoreRef && hasMore && (
-        <div ref={loadMoreRef} className="h-10" />
+        <div ref={loadMoreRef} className="flex justify-center py-8">
+          {isFetchingMore && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Loading more collections...</span>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* End of list indicator */}
+      {!hasMore && collections.length > 12 && (
+        <div className="text-center py-8 text-muted-foreground text-sm">
+          You've reached the end of the collections
+        </div>
       )}
     </section>
   );

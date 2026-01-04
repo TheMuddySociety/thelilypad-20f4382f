@@ -1,6 +1,5 @@
-import React, { useState, useCallback, useMemo, useRef } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { Navbar } from "@/components/Navbar";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
@@ -11,7 +10,6 @@ import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHi
 import { BackToTop } from "@/components/BackToTop";
 import { useWallet } from "@/providers/WalletProvider";
 import { useSEO } from "@/hooks/useSEO";
-import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { 
   useMarketplaceData, 
   isCollectionNew, 
@@ -27,6 +25,7 @@ import {
   CollectionsGrid,
   ListingsGrid,
   StickerPacksGrid,
+  HomepageFeaturedCollections,
 } from "@/components/marketplace";
 import frognadBanner from "@/assets/frognad-banner.png";
 
@@ -38,7 +37,7 @@ export default function Marketplace() {
   const [showNewOnly, setShowNewOnly] = useState(false);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
 
-  // Use the custom hook for data fetching
+  // Use the custom hook for data fetching with infinite scroll
   const {
     collections,
     stickerPacks,
@@ -46,11 +45,10 @@ export default function Marketplace() {
     hotCollectionMints,
     totalCollections,
     isLoading,
+    isFetchingMore,
+    hasMore,
+    loadMoreRef,
   } = useMarketplaceData();
-
-  // Infinite scroll for collections
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  const hasMoreCollections = collections.length < totalCollections;
 
   useSEO({
     title: "Lily Marketplace | The Lily Pad",
@@ -104,7 +102,8 @@ export default function Marketplace() {
     });
   }, []);
 
-  const canLoadMore = hasMoreCollections && !verifiedOnly && !showHotOnly && !showNewOnly;
+  // Only enable infinite scroll when no filters are applied
+  const canLoadMore = hasMore && !verifiedOnly && !showHotOnly && !showNewOnly;
 
   return (
     <div className="min-h-screen bg-background">
@@ -135,6 +134,11 @@ export default function Marketplace() {
               The Lily Pad own platform NFT collection coming soon.
             </p>
           </div>
+        </div>
+
+        {/* Homepage Featured Collections - Admin curated (up to 5) */}
+        <div className="mb-8">
+          <HomepageFeaturedCollections />
         </div>
 
         {/* Stats */}
@@ -184,7 +188,7 @@ export default function Marketplace() {
             />
           )}
 
-          {/* Collections Section */}
+          {/* Collections Section with Infinite Scroll */}
           {showCollections && (
             <CollectionsGrid
               collections={filteredCollections}
@@ -192,6 +196,7 @@ export default function Marketplace() {
               hasMore={canLoadMore}
               verifiedOnly={verifiedOnly}
               isLoading={isLoading}
+              isFetchingMore={isFetchingMore}
               loadMoreRef={loadMoreRef}
             />
           )}

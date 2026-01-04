@@ -25,7 +25,7 @@ interface FeaturedCollection {
 }
 
 interface FeaturedCollectionsSlideshowProps {
-  featureType: "monthly" | "weekly";
+  featureType: "monthly" | "weekly" | "homepage";
   title: string;
   subtitle: string;
   icon: React.ReactNode;
