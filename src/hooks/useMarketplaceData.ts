@@ -1,7 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMultiTableSubscription } from "./useRealtimeSubscription";
+import { useInfiniteScroll } from "./useInfiniteScroll";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -56,41 +57,13 @@ export interface NFTListing {
   };
 }
 
-interface MarketplaceData {
-  collections: Collection[];
+interface MarketplaceBaseData {
   stickerPacks: ShopItem[];
   nftListings: NFTListing[];
   hotCollectionMints: Map<string, number>;
-  totalCollections: number;
 }
 
-async function fetchMarketplaceData(): Promise<MarketplaceData> {
-  // Fetch collections count
-  const { count: collectionCount } = await supabase
-    .from("collections")
-    .select("*", { count: "exact", head: true })
-    .is("deleted_at", null);
-
-  // Fetch first page of collections
-  const { data: collectionsData, error: collectionsError } = await supabase
-    .from("collections")
-    .select("*")
-    .is("deleted_at", null)
-    .order("status", { ascending: true })
-    .order("created_at", { ascending: false })
-    .range(0, ITEMS_PER_PAGE - 1);
-
-  if (collectionsError) {
-    console.error("Error fetching collections:", collectionsError);
-  }
-
-  // Sort to prioritize live status
-  const sortedCollections = (collectionsData || []).sort((a, b) => {
-    if (a.status === "live" && b.status !== "live") return -1;
-    if (a.status !== "live" && b.status === "live") return 1;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
-
+async function fetchBaseMarketplaceData(): Promise<MarketplaceBaseData> {
   // Fetch recent mints (last 24 hours) to determine "hot" collections
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: recentMints, error: mintsError } = await supabase
@@ -160,23 +133,76 @@ async function fetchMarketplaceData(): Promise<MarketplaceData> {
     .filter((listing) => listing.nft !== null) as NFTListing[];
 
   return {
-    collections: sortedCollections,
     stickerPacks: stickersData || [],
     nftListings: transformedListings,
     hotCollectionMints: hotMints,
-    totalCollections: collectionCount || 0,
+  };
+}
+
+async function fetchCollectionsPage(pageParam: number): Promise<{ collections: Collection[]; nextPage: number | undefined }> {
+  const { data: collectionsData, error: collectionsError } = await supabase
+    .from("collections")
+    .select("*")
+    .is("deleted_at", null)
+    .in("status", ["active", "minting", "soldout", "live"])
+    .order("created_at", { ascending: false })
+    .range(pageParam * ITEMS_PER_PAGE, (pageParam + 1) * ITEMS_PER_PAGE - 1);
+
+  if (collectionsError) {
+    console.error("Error fetching collections:", collectionsError);
+    throw collectionsError;
+  }
+
+  // Sort to prioritize live status
+  const sortedCollections = (collectionsData || []).sort((a, b) => {
+    if (a.status === "live" && b.status !== "live") return -1;
+    if (a.status !== "live" && b.status === "live") return 1;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
+  return {
+    collections: sortedCollections,
+    nextPage: collectionsData && collectionsData.length === ITEMS_PER_PAGE ? pageParam + 1 : undefined,
   };
 }
 
 export function useMarketplaceData() {
   const queryClient = useQueryClient();
 
-  const query = useQuery({
-    queryKey: ["marketplace-data"],
-    queryFn: fetchMarketplaceData,
-    staleTime: 30 * 1000, // 30 seconds
+  // Base data query (stickers, listings, hot collections)
+  const baseQuery = useQuery({
+    queryKey: ["marketplace-base-data"],
+    queryFn: fetchBaseMarketplaceData,
+    staleTime: 30 * 1000,
     refetchOnWindowFocus: false,
   });
+
+  // Infinite collections query
+  const collectionsQuery = useInfiniteQuery({
+    queryKey: ["marketplace-collections"],
+    queryFn: ({ pageParam = 0 }) => fetchCollectionsPage(pageParam),
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 0,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Flatten all collection pages
+  const allCollections = collectionsQuery.data?.pages.flatMap(page => page.collections) || [];
+
+  // Load more function
+  const loadMore = useCallback(() => {
+    if (collectionsQuery.hasNextPage && !collectionsQuery.isFetchingNextPage) {
+      collectionsQuery.fetchNextPage();
+    }
+  }, [collectionsQuery]);
+
+  // Infinite scroll hook
+  const { loadMoreRef } = useInfiniteScroll(
+    loadMore,
+    collectionsQuery.hasNextPage || false,
+    collectionsQuery.isFetchingNextPage
+  );
 
   // Realtime subscriptions for automatic updates
   useMultiTableSubscription(
@@ -187,24 +213,29 @@ export function useMarketplaceData() {
       { table: "minted_nfts", event: "INSERT" },
     ],
     () => {
-      queryClient.invalidateQueries({ queryKey: ["marketplace-data"] });
+      queryClient.invalidateQueries({ queryKey: ["marketplace-base-data"] });
+      queryClient.invalidateQueries({ queryKey: ["marketplace-collections"] });
     },
     true
   );
 
   const refetch = useCallback(() => {
-    return query.refetch();
-  }, [query]);
+    baseQuery.refetch();
+    return collectionsQuery.refetch();
+  }, [baseQuery, collectionsQuery]);
 
   return {
-    collections: query.data?.collections ?? [],
-    stickerPacks: query.data?.stickerPacks ?? [],
-    nftListings: query.data?.nftListings ?? [],
-    hotCollectionMints: query.data?.hotCollectionMints ?? new Map(),
-    totalCollections: query.data?.totalCollections ?? 0,
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
+    collections: allCollections,
+    stickerPacks: baseQuery.data?.stickerPacks ?? [],
+    nftListings: baseQuery.data?.nftListings ?? [],
+    hotCollectionMints: baseQuery.data?.hotCollectionMints ?? new Map(),
+    totalCollections: allCollections.length,
+    isLoading: baseQuery.isLoading || collectionsQuery.isLoading,
+    isFetchingMore: collectionsQuery.isFetchingNextPage,
+    isError: baseQuery.isError || collectionsQuery.isError,
+    error: baseQuery.error || collectionsQuery.error,
+    hasMore: collectionsQuery.hasNextPage || false,
+    loadMoreRef,
     refetch,
   };
 }

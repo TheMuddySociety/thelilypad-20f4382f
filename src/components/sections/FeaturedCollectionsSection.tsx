@@ -1,7 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Crown, Calendar } from "lucide-react";
+import { Crown, Calendar, Home } from "lucide-react";
 import { FeaturedCollectionsSlideshow } from "./FeaturedCollectionsSlideshow";
+import { HomepageFeaturedCollections } from "./HomepageFeaturedCollections";
 
 export const FeaturedCollectionsSection: React.FC = () => {
   return (
@@ -24,6 +25,11 @@ export const FeaturedCollectionsSection: React.FC = () => {
             Hand-picked NFT collections chosen by The Lily Pad team
           </p>
         </motion.div>
+
+        {/* Homepage Featured Carousel - Admin curated (up to 5) */}
+        <div className="mb-8">
+          <HomepageFeaturedCollections />
+        </div>
 
         {/* Slideshows Container */}
         <div className="space-y-8">
