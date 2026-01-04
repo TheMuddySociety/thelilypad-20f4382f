@@ -163,7 +163,7 @@ export function useTheLilyPadMint() {
     await supabase.from("minted_nfts").insert(nftsToInsert);
   }, [address]);
 
-  // Mint with allowlist (requires proof - uses mint function)
+  // Mint with allowlist (requires Merkle proof - uses mint function)
   const mintWithAllowlist = useCallback(async (
     quantity: number,
     pricePerNft: string,
@@ -202,10 +202,11 @@ export function useTheLilyPadMint() {
       const priceInWei = parseEther(pricePerNft);
       const totalValue = priceInWei * BigInt(quantity);
 
+      // Use mint function with proof for allowlist minting
       const data = encodeFunctionData({
         abi: THELILYPAD_ABI,
-        functionName: "mintAllowlist",
-        args: [BigInt(quantity)],
+        functionName: "mint",
+        args: [BigInt(quantity), proof],
       });
 
       const gasLimit = 200000 + (80000 * quantity);
@@ -267,7 +268,7 @@ export function useTheLilyPadMint() {
     }
   }, [address, isConnected, chainType, network, getProvider, ensureCorrectNetwork, recordTransaction, recordMintedNFTs]);
 
-  // Mint public (no proof required)
+  // Mint public (no proof required - uses mintPublic function)
   const mintPublic = useCallback(async (
     quantity: number,
     pricePerNft: string,
@@ -305,9 +306,10 @@ export function useTheLilyPadMint() {
       const priceInWei = parseEther(pricePerNft);
       const totalValue = priceInWei * BigInt(quantity);
 
+      // Use mintPublic function for public minting
       const data = encodeFunctionData({
         abi: THELILYPAD_ABI,
-        functionName: "mint",
+        functionName: "mintPublic",
         args: [BigInt(quantity)],
       });
 

@@ -334,18 +334,21 @@ export const NFT_COLLECTION_ABI = [
   // MINT FUNCTIONS
   // ============================================
   
-  // Public mint
+  // Public mint (no proof required)
   {
     inputs: [{ name: "quantity", type: "uint256" }],
-    name: "mint",
+    name: "mintPublic",
     outputs: [],
     stateMutability: "payable",
     type: "function"
   },
-  // Allowlist mint
+  // Allowlist mint (requires Merkle proof)
   {
-    inputs: [{ name: "quantity", type: "uint256" }],
-    name: "mintAllowlist",
+    inputs: [
+      { name: "quantity", type: "uint256" },
+      { name: "proof", type: "bytes32[]" }
+    ],
+    name: "mint",
     outputs: [],
     stateMutability: "payable",
     type: "function"
