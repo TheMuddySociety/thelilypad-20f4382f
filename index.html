@@ -20,6 +20,12 @@
   </head>
 
   <body>
+    <script>
+      // Polyfills for Solana/Metaplex libraries
+      window.global = window;
+      window.process = { env: {} };
+      window.Buffer = window.Buffer || { isBuffer: () => false };
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
