@@ -21,10 +21,8 @@
 
   <body>
     <script>
-      // Polyfills for Solana/Metaplex libraries
+      // Minimal polyfill for some web3 libs expecting Node-style globals
       window.global = window;
-      window.process = { env: {} };
-      window.Buffer = window.Buffer || { isBuffer: () => false };
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
