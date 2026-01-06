@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { 
   NetworkType, 
   getRpcUrls, 
@@ -41,33 +41,82 @@ const lastSuccessfulRpc: Record<NetworkType, string | null> = {
   testnet: null,
 };
 
+// Cache health check results globally to prevent duplicate checks
+const healthCheckCache: Record<NetworkType, { results: RpcHealthStatus[]; timestamp: number }> = {
+  mainnet: { results: [], timestamp: 0 },
+  testnet: { results: [], timestamp: 0 },
+};
+
+// Health check interval - 2 minutes for better performance
+const HEALTH_CHECK_INTERVAL = 120000;
+// Cache validity - results valid for 90 seconds
+const CACHE_VALIDITY = 90000;
+
 export const useRpcFailover = (network: NetworkType): UseRpcFailoverReturn => {
-  const rpcs = getRpcUrls(network);
+  const rpcs = useMemo(() => getRpcUrls(network), [network]);
   const preferredRpc = getPreferredRpcUrl(network);
   
-  const [state, setState] = useState<RpcFailoverState>({
+  const [state, setState] = useState<RpcFailoverState>(() => ({
     currentRpc: lastSuccessfulRpc[network] || preferredRpc || rpcs[0],
     isFailingOver: false,
     failedRpcs: globalFailedRpcs[network],
     lastHealthCheck: null,
-  });
+  }));
   
-  const [healthStatuses, setHealthStatuses] = useState<RpcHealthStatus[]>([]);
+  const [healthStatuses, setHealthStatuses] = useState<RpcHealthStatus[]>(
+    healthCheckCache[network].results
+  );
   const [isHealthy, setIsHealthy] = useState(true);
   
   const failoverInProgress = useRef(false);
   const healthCheckInterval = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef = useRef(true);
 
-  // Check health of all RPCs using eth_chainId (universally supported)
+  // Check health of RPCs - only check current + preferred, not all
   const checkHealth = useCallback(async () => {
-    const results = await Promise.all(rpcs.map(url => checkRpcHealth(url, 5000, network)));
-    setHealthStatuses(results);
+    // Check if cache is still valid
+    const cache = healthCheckCache[network];
+    const now = Date.now();
+    
+    if (cache.results.length > 0 && now - cache.timestamp < CACHE_VALIDITY) {
+      setHealthStatuses(cache.results);
+      const currentHealth = cache.results.find(r => r.url === state.currentRpc);
+      setIsHealthy(currentHealth?.healthy ?? true);
+      return;
+    }
+
+    // Only check a subset of RPCs for performance (current, preferred, and 2 backups)
+    const rpcsToCheck = new Set<string>();
+    rpcsToCheck.add(state.currentRpc);
+    if (preferredRpc) rpcsToCheck.add(preferredRpc);
+    // Add first 2 RPCs from the list as fallbacks
+    rpcs.slice(0, 2).forEach(r => rpcsToCheck.add(r));
+    
+    const checkPromises = Array.from(rpcsToCheck).map(url => 
+      checkRpcHealth(url, 5000, network)
+    );
+    
+    const results = await Promise.all(checkPromises);
+    
+    if (!mountedRef.current) return;
+    
+    // Merge with cached results for RPCs we didn't check
+    const resultMap = new Map(results.map(r => [r.url, r]));
+    const mergedResults = rpcs.map(url => 
+      resultMap.get(url) || cache.results.find(r => r.url === url) || {
+        url,
+        healthy: true, // Assume healthy if not checked
+        latency: null,
+      }
+    );
+    
+    // Update cache
+    healthCheckCache[network] = { results: mergedResults, timestamp: now };
+    setHealthStatuses(mergedResults);
     
     // Update failed RPCs based on health check
-    // Only mark as failed if it's a real connection failure, not just "method not found"
     const newFailedRpcs = new Set<string>();
     results.forEach(result => {
-      // Only add to failed list for actual connection/timeout errors
       const isHardFailure = !result.healthy && (
         result.error === 'Timeout' ||
         result.error?.includes('HTTP') ||
@@ -96,7 +145,7 @@ export const useRpcFailover = (network: NetworkType): UseRpcFailoverReturn => {
     if (currentHealth && !currentHealth.healthy && !failoverInProgress.current) {
       await failover();
     }
-  }, [network, rpcs, state.currentRpc]);
+  }, [network, rpcs, state.currentRpc, preferredRpc]);
 
   // Find next healthy RPC
   const findHealthyRpc = useCallback(async (): Promise<string | null> => {
@@ -108,7 +157,6 @@ export const useRpcFailover = (network: NetworkType): UseRpcFailoverReturn => {
       if (health.healthy) {
         return rpcUrl;
       } else {
-        // Only add to failed list for hard failures
         const isHardFailure = health.error === 'Timeout' ||
           health.error?.includes('HTTP') ||
           health.error?.includes('fetch') ||
@@ -125,7 +173,6 @@ export const useRpcFailover = (network: NetworkType): UseRpcFailoverReturn => {
       console.log("All RPCs marked as failed, resetting and retrying...");
       globalFailedRpcs[network].clear();
       
-      // Try all RPCs again
       for (const rpcUrl of rpcs) {
         const health = await checkRpcHealth(rpcUrl, 3000, network);
         if (health.healthy) {
@@ -147,7 +194,6 @@ export const useRpcFailover = (network: NetworkType): UseRpcFailoverReturn => {
     setState(prev => ({ ...prev, isFailingOver: true }));
     
     try {
-      // Mark current RPC as failed
       globalFailedRpcs[network].add(state.currentRpc);
       
       const newRpc = await findHealthyRpc();
@@ -196,7 +242,6 @@ export const useRpcFailover = (network: NetworkType): UseRpcFailoverReturn => {
       try {
         const result = await operation(currentRpcUrl);
         
-        // Mark RPC as successful
         globalFailedRpcs[network].delete(currentRpcUrl);
         lastSuccessfulRpc[network] = currentRpcUrl;
         
@@ -208,7 +253,6 @@ export const useRpcFailover = (network: NetworkType): UseRpcFailoverReturn => {
       } catch (error: any) {
         lastError = error;
         
-        // Check if this is an RPC-related error
         const isRpcError = 
           error.name === 'TypeError' ||
           error.message?.includes('network') ||
@@ -236,7 +280,6 @@ export const useRpcFailover = (network: NetworkType): UseRpcFailoverReturn => {
           }
         }
         
-        // Non-RPC error or no healthy RPC found
         throw error;
       }
     }
@@ -247,19 +290,26 @@ export const useRpcFailover = (network: NetworkType): UseRpcFailoverReturn => {
   // Reset failed RPCs
   const resetFailedRpcs = useCallback(() => {
     globalFailedRpcs[network].clear();
+    healthCheckCache[network] = { results: [], timestamp: 0 };
     setState(prev => ({
       ...prev,
       failedRpcs: new Set(),
     }));
   }, [network]);
 
-  // Periodic health check
+  // Periodic health check - less frequent
   useEffect(() => {
-    checkHealth();
+    mountedRef.current = true;
     
-    healthCheckInterval.current = setInterval(checkHealth, 30000);
+    // Initial check after a short delay
+    const initialTimeout = setTimeout(checkHealth, 1000);
+    
+    // Periodic checks every 2 minutes
+    healthCheckInterval.current = setInterval(checkHealth, HEALTH_CHECK_INTERVAL);
     
     return () => {
+      mountedRef.current = false;
+      clearTimeout(initialTimeout);
       if (healthCheckInterval.current) {
         clearInterval(healthCheckInterval.current);
       }
