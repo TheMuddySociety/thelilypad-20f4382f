@@ -37,6 +37,7 @@ import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
+import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
 
 interface DraftCollection {
   name: string;
@@ -443,6 +444,9 @@ export default function Launchpad() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Featured Collections */}
+        <HomepageFeaturedCollections />
 
         {/* Recent Sales */}
         <div className="mb-8">
