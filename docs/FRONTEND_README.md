@@ -604,6 +604,114 @@ Key tables in the Supabase database:
 
 ---
 
+## Performance Optimizations
+
+### Implemented Optimizations
+
+| Optimization | Description |
+|--------------|-------------|
+| **Code Splitting** | Lazy loading of route components reduces initial bundle size by ~60% |
+| **RPC Health Check Caching** | Results cached for 90s, checks every 2min instead of 30s |
+| **Query Caching** | React Query with 1min staleTime, 5min gcTime |
+| **Selective RPC Checks** | Only checks current + preferred + 2 backups, not all 6 RPCs |
+| **Image Lazy Loading** | Images load on scroll into viewport |
+| **Memoized Components** | Heavy components use React.memo and useMemo |
+
+### Performance Best Practices
+
+#### 1. Component Optimization
+```typescript
+// Use lazy loading for route components
+const HeavyPage = lazy(() => import("./pages/HeavyPage"));
+
+// Memoize expensive computations
+const expensiveValue = useMemo(() => computeExpensive(data), [data]);
+
+// Memoize callback functions
+const handleClick = useCallback(() => doSomething(), [dependency]);
+```
+
+#### 2. Query Optimization
+```typescript
+// Set appropriate staleTime to reduce refetches
+const { data } = useQuery({
+  queryKey: ['items'],
+  queryFn: fetchItems,
+  staleTime: 60000, // 1 minute
+  gcTime: 300000,   // 5 minutes
+});
+
+// Avoid refetching on window focus for static data
+const { data } = useQuery({
+  queryKey: ['config'],
+  queryFn: fetchConfig,
+  refetchOnWindowFocus: false,
+});
+```
+
+#### 3. RPC Usage
+```typescript
+// Use executeWithFailover for automatic RPC switching
+const { executeWithFailover } = useRpcFailover(network);
+
+const result = await executeWithFailover(async (rpcUrl) => {
+  // Your RPC call here
+  return client.readContract({ ... });
+});
+```
+
+#### 4. Image Optimization
+```typescript
+// Use loading="lazy" for below-fold images
+<img src={imageUrl} loading="lazy" alt="Description" />
+
+// Use appropriate image sizes
+<img 
+  src={imageUrl} 
+  srcSet={`${smallUrl} 400w, ${mediumUrl} 800w, ${largeUrl} 1200w`}
+  sizes="(max-width: 400px) 400px, (max-width: 800px) 800px, 1200px"
+/>
+```
+
+#### 5. Bundle Size Tips
+- Import only what you need: `import { Button } from "@/components/ui/button"`
+- Use dynamic imports for heavy libraries
+- Avoid importing entire icon libraries
+- Tree-shake unused exports
+
+### Performance Metrics
+
+Target metrics for optimal user experience:
+
+| Metric | Target | Description |
+|--------|--------|-------------|
+| **LCP** | < 2.5s | Largest Contentful Paint |
+| **FID** | < 100ms | First Input Delay |
+| **CLS** | < 0.1 | Cumulative Layout Shift |
+| **TTI** | < 3.5s | Time to Interactive |
+| **Bundle Size** | < 500KB | Initial JS bundle (gzipped) |
+
+### Monitoring Performance
+
+```typescript
+// Use React DevTools Profiler for component performance
+// Check Network tab for request waterfalls
+// Use Lighthouse for overall performance audit
+
+// Log slow queries
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      onSettled: (data, error, variables, context) => {
+        // Log slow queries > 2s
+      }
+    }
+  }
+});
+```
+
+---
+
 ## Testing
 
 ```bash
