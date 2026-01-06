@@ -18,11 +18,17 @@ const MAINNET_RPCS: RpcEndpoint[] = [
   { url: 'https://rpc1.monad.xyz', name: 'Alchemy', rateLimit: 15, weight: 90 },
   { url: 'https://rpc3.monad.xyz', name: 'Ankr', rateLimit: 30, weight: 80 },
   { url: 'https://rpc-mainnet.monadinfra.com', name: 'MF', rateLimit: 20, weight: 70 },
+  { url: 'https://monad-mainnet.api.onfinality.io/public', name: 'OnFinality', rateLimit: 10, weight: 60 },
+  { url: 'https://monad-rpc.synergynodes.com', name: 'SynergyNodes', rateLimit: 10, weight: 50 },
 ];
 
 const TESTNET_RPCS: RpcEndpoint[] = [
   { url: 'https://testnet-rpc.monad.xyz', name: 'Monad Testnet', rateLimit: 25, weight: 100 },
-  { url: 'https://rpc.ankr.com/monad_testnet', name: 'Ankr Testnet', rateLimit: 30, weight: 80 },
+  { url: 'https://rpc.ankr.com/monad_testnet', name: 'Ankr Testnet', rateLimit: 30, weight: 85 },
+  { url: 'https://monad-testnet.drpc.org', name: 'dRPC Testnet', rateLimit: 20, weight: 80 },
+  { url: 'https://rpc-testnet.monadinfra.com', name: 'MF Testnet', rateLimit: 20, weight: 75 },
+  { url: 'https://monad-testnet.api.onfinality.io/public', name: 'OnFinality Testnet', rateLimit: 15, weight: 70 },
+  { url: 'https://monad-testnet.blockvision.org/v1/37hH1sm8QDkbsAYrBsU9EjXwZ0o', name: 'BlockVision', rateLimit: 25, weight: 90 },
 ];
 
 // In-memory cache for RPC health status
@@ -60,15 +66,15 @@ function initHealthCache(rpcs: RpcEndpoint[]) {
 function isRateLimited(rpc: RpcEndpoint): boolean {
   const status = healthCache.get(rpc.url);
   if (!status) return false;
-  
+
   const now = Date.now();
-  
+
   // Reset window if expired
   if (now - status.windowStart >= RATE_LIMIT_WINDOW) {
     status.requestCount = 0;
     status.windowStart = now;
   }
-  
+
   return status.requestCount >= rpc.rateLimit;
 }
 
@@ -93,7 +99,7 @@ function updateHealthStatus(rpcUrl: string, healthy: boolean, latency: number) {
     status.healthy = healthy;
     status.latency = latency;
     status.lastCheck = Date.now();
-    
+
     if (healthy) {
       status.consecutiveFailures = 0;
     } else {
@@ -106,7 +112,7 @@ function updateHealthStatus(rpcUrl: string, healthy: boolean, latency: number) {
 function getBestRpc(network: 'mainnet' | 'testnet'): RpcEndpoint | null {
   const rpcs = network === 'mainnet' ? MAINNET_RPCS : TESTNET_RPCS;
   initHealthCache(rpcs);
-  
+
   // Sort by: healthy status, rate limit availability, weight, then latency
   const available = rpcs
     .map(rpc => {
@@ -128,7 +134,7 @@ function getBestRpc(network: 'mainnet' | 'testnet'): RpcEndpoint | null {
       return !isRateLimited(item.rpc);
     })
     .sort((a, b) => b.score - a.score);
-  
+
   if (available.length === 0) {
     // All RPCs are rate limited or failed, reset and try first one
     console.log('All RPCs unavailable, resetting health cache...');
@@ -141,28 +147,28 @@ function getBestRpc(network: 'mainnet' | 'testnet'): RpcEndpoint | null {
     }
     return rpcs[0];
   }
-  
+
   return available[0].rpc;
 }
 
 function calculateScore(rpc: RpcEndpoint, status: HealthStatus): number {
   let score = rpc.weight;
-  
+
   // Penalty for unhealthy
   if (!status.healthy) score -= 50;
-  
+
   // Penalty for failures
   score -= status.consecutiveFailures * 10;
-  
+
   // Bonus for low latency
   if (status.latency > 0 && status.latency < 200) score += 20;
   else if (status.latency > 500) score -= 10;
-  
+
   // Penalty for high request count (approaching rate limit)
   const usageRatio = status.requestCount / rpc.rateLimit;
   if (usageRatio > 0.8) score -= 30;
   else if (usageRatio > 0.5) score -= 10;
-  
+
   return score;
 }
 
@@ -174,13 +180,13 @@ async function proxyRpcRequest(
 ): Promise<{ result: any; rpcUsed: string; latency: number }> {
   let lastError: Error | null = null;
   const triedRpcs = new Set<string>();
-  
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const rpc = getBestRpc(network);
     if (!rpc) {
       throw new Error('No RPC endpoints available');
     }
-    
+
     // Skip if already tried this RPC
     if (triedRpcs.has(rpc.url)) {
       // Force get a different RPC
@@ -189,71 +195,71 @@ async function proxyRpcRequest(
       if (!untried) break;
       continue;
     }
-    
+
     triedRpcs.add(rpc.url);
     incrementRequestCount(rpc.url);
-    
+
     const startTime = Date.now();
-    
+
     try {
       console.log(`Attempt ${attempt + 1}: Using RPC ${rpc.name} (${rpc.url})`);
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
+
       const response = await fetch(rpc.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
       const latency = Date.now() - startTime;
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
-      
+
       // Check for RPC-level errors
       if (data.error) {
         // Some errors are not RPC failures (e.g., invalid params)
         const isRpcFailure = data.error.code === -32603 || // Internal error
-                            data.error.code === -32000 || // Server error
-                            data.error.message?.includes('rate') ||
-                            data.error.message?.includes('limit');
-        
+          data.error.code === -32000 || // Server error
+          data.error.message?.includes('rate') ||
+          data.error.message?.includes('limit');
+
         if (isRpcFailure) {
           throw new Error(`RPC error: ${data.error.message}`);
         }
-        
+
         // Non-RPC error, return as-is
         updateHealthStatus(rpc.url, true, latency);
         return { result: data, rpcUsed: rpc.url, latency };
       }
-      
+
       // Success
       updateHealthStatus(rpc.url, true, latency);
       console.log(`Success: ${rpc.name} responded in ${latency}ms`);
-      
+
       return { result: data, rpcUsed: rpc.url, latency };
-      
+
     } catch (error: any) {
       const latency = Date.now() - startTime;
       lastError = error;
-      
+
       console.error(`RPC ${rpc.name} failed:`, error.message);
       updateHealthStatus(rpc.url, false, latency);
-      
+
       // Small delay before retry
       if (attempt < maxRetries - 1) {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
   }
-  
+
   throw lastError || new Error('All RPC attempts failed');
 }
 
@@ -261,14 +267,14 @@ async function proxyRpcRequest(
 async function checkAllHealth(network: 'mainnet' | 'testnet'): Promise<any[]> {
   const rpcs = network === 'mainnet' ? MAINNET_RPCS : TESTNET_RPCS;
   initHealthCache(rpcs);
-  
+
   const results = await Promise.all(
     rpcs.map(async (rpc) => {
       const startTime = Date.now();
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
+
         const response = await fetch(rpc.url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -280,10 +286,10 @@ async function checkAllHealth(network: 'mainnet' | 'testnet'): Promise<any[]> {
           }),
           signal: controller.signal,
         });
-        
+
         clearTimeout(timeoutId);
         const latency = Date.now() - startTime;
-        
+
         if (!response.ok) {
           updateHealthStatus(rpc.url, false, latency);
           return {
@@ -294,9 +300,9 @@ async function checkAllHealth(network: 'mainnet' | 'testnet'): Promise<any[]> {
             error: `HTTP ${response.status}`,
           };
         }
-        
+
         const data = await response.json();
-        
+
         if (data.error) {
           updateHealthStatus(rpc.url, false, latency);
           return {
@@ -307,11 +313,11 @@ async function checkAllHealth(network: 'mainnet' | 'testnet'): Promise<any[]> {
             error: data.error.message,
           };
         }
-        
+
         // Validate chain ID
         const chainId = parseInt(data.result, 16);
         const expectedChainId = network === 'mainnet' ? 143 : 10143;
-        
+
         if (chainId !== expectedChainId) {
           updateHealthStatus(rpc.url, false, latency);
           return {
@@ -322,7 +328,7 @@ async function checkAllHealth(network: 'mainnet' | 'testnet'): Promise<any[]> {
             error: `Wrong chain: ${chainId}`,
           };
         }
-        
+
         updateHealthStatus(rpc.url, true, latency);
         return {
           url: rpc.url,
@@ -331,7 +337,7 @@ async function checkAllHealth(network: 'mainnet' | 'testnet'): Promise<any[]> {
           latency,
           chainId,
         };
-        
+
       } catch (error: any) {
         const latency = Date.now() - startTime;
         updateHealthStatus(rpc.url, false, latency);
@@ -345,7 +351,7 @@ async function checkAllHealth(network: 'mainnet' | 'testnet'): Promise<any[]> {
       }
     })
   );
-  
+
   return results;
 }
 
@@ -353,7 +359,7 @@ async function checkAllHealth(network: 'mainnet' | 'testnet'): Promise<any[]> {
 function getCachedHealth(network: 'mainnet' | 'testnet'): any[] {
   const rpcs = network === 'mainnet' ? MAINNET_RPCS : TESTNET_RPCS;
   initHealthCache(rpcs);
-  
+
   return rpcs.map(rpc => {
     const status = healthCache.get(rpc.url)!;
     return {
@@ -374,15 +380,15 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-  
+
   try {
     const url = new URL(req.url);
     const network = (url.searchParams.get('network') || 'mainnet') as 'mainnet' | 'testnet';
-    
+
     // Health check endpoint
     if (url.pathname.endsWith('/health')) {
       const refresh = url.searchParams.get('refresh') === 'true';
-      
+
       let healthData;
       if (refresh) {
         console.log(`Refreshing health check for ${network}...`);
@@ -390,7 +396,7 @@ serve(async (req) => {
       } else {
         healthData = getCachedHealth(network);
       }
-      
+
       return new Response(JSON.stringify({
         network,
         endpoints: healthData,
@@ -399,15 +405,15 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     // Best RPC endpoint
     if (url.pathname.endsWith('/best')) {
       const rpcs = network === 'mainnet' ? MAINNET_RPCS : TESTNET_RPCS;
       initHealthCache(rpcs);
-      
+
       const best = getBestRpc(network);
       const status = best ? healthCache.get(best.url) : null;
-      
+
       return new Response(JSON.stringify({
         network,
         rpc: best ? {
@@ -421,7 +427,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     // Main proxy endpoint
     if (req.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -429,13 +435,13 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     const body = await req.json();
-    
+
     console.log(`Proxying RPC request to ${network}:`, body.method);
-    
+
     const { result, rpcUsed, latency } = await proxyRpcRequest(network, body);
-    
+
     // Add metadata headers
     const responseHeaders = {
       ...corsHeaders,
@@ -443,14 +449,14 @@ serve(async (req) => {
       'X-RPC-Used': new URL(rpcUsed).hostname,
       'X-RPC-Latency': latency.toString(),
     };
-    
+
     return new Response(JSON.stringify(result), {
       headers: responseHeaders,
     });
-    
+
   } catch (error: any) {
     console.error('RPC Proxy error:', error);
-    
+
     return new Response(JSON.stringify({
       jsonrpc: '2.0',
       id: null,

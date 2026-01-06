@@ -22,23 +22,14 @@ const rpcProxyCall = async (
   method: string,
   params: any[]
 ): Promise<any> => {
-  const response = await fetch(`${RPC_PROXY_URL}?network=${network}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: Date.now(),
-      method,
-      params,
-    }),
+  const { data, error } = await supabase.functions.invoke(`rpc-proxy?network=${network}`, {
+    body: { method, params },
   });
 
-  if (!response.ok) {
-    throw new Error(`RPC Proxy error: HTTP ${response.status}`);
+  if (error) {
+    throw new Error(`RPC Proxy error: ${error.message}`);
   }
 
-  const data = await response.json();
-  
   if (data.error) {
     throw new Error(data.error.message || 'RPC error');
   }
@@ -57,7 +48,7 @@ const fetchReceiptWithProxy = async (
   while (attempts < maxAttempts) {
     try {
       const result = await rpcProxyCall(network, 'eth_getTransactionReceipt', [txHash]);
-      
+
       if (result) {
         return result;
       }
@@ -96,10 +87,10 @@ export function useUpgradeableMint(contractAddress: string | null) {
   const ensureCorrectNetwork = useCallback(async (): Promise<boolean> => {
     const provider = getProvider();
     if (!provider || chainType !== "evm") return false;
-    
+
     const targetChain = getMonadChain(network);
     const currentChainId = chainId;
-    
+
     if (currentChainId !== targetChain.id) {
       try {
         await switchToMonad();
@@ -186,7 +177,7 @@ export function useUpgradeableMint(contractAddress: string | null) {
       // Record to database if collection ID provided
       if (collectionId) {
         const { data: { user } } = await supabase.auth.getUser();
-        
+
         if (user) {
           // Record transaction
           await supabase.from("nft_transactions").insert({
@@ -236,7 +227,7 @@ export function useUpgradeableMint(contractAddress: string | null) {
 
     } catch (error: any) {
       console.error("Mint error:", error);
-      
+
       let errorMessage = "Minting failed";
       if (error.code === 4001) {
         errorMessage = "Transaction rejected by user";
@@ -269,11 +260,11 @@ export function useUpgradeableMint(contractAddress: string | null) {
     collectionName?: string
   ): Promise<string[]> => {
     const txHashes: string[] = [];
-    
+
     for (let i = 0; i < quantity; i++) {
       const tokenId = startTokenId + i;
       const txHash = await mint(recipientAddress, ipfsBaseCID, tokenId, collectionId, collectionName);
-      
+
       if (txHash) {
         txHashes.push(txHash);
       } else {
@@ -281,7 +272,7 @@ export function useUpgradeableMint(contractAddress: string | null) {
         break;
       }
     }
-    
+
     return txHashes;
   }, [mint]);
 

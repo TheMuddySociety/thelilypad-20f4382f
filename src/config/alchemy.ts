@@ -8,7 +8,10 @@ export type NetworkType = "mainnet" | "testnet";
 export const MONAD_TESTNET_RPCS = [
   "https://monad-testnet.blockvision.org/v1/37hH1sm8QDkbsAYrBsU9EjXwZ0o", // BlockVision (primary)
   "https://testnet-rpc.monad.xyz",
+  "https://monad-testnet.drpc.org",
+  "https://rpc-testnet.monadinfra.com",
   "https://rpc.ankr.com/monad_testnet",
+  "https://monad-testnet.api.onfinality.io/public",
 ];
 
 export const MONAD_MAINNET_RPCS = [
@@ -16,6 +19,8 @@ export const MONAD_MAINNET_RPCS = [
   "https://rpc1.monad.xyz",       // Alchemy - 15 rps
   "https://rpc3.monad.xyz",       // Ankr - 300 per 10s
   "https://rpc-mainnet.monadinfra.com", // MF - historical state support
+  "https://monad-mainnet.api.onfinality.io/public",
+  "https://monad-rpc.synergynodes.com",
 ];
 
 // Primary RPC URLs (for backwards compatibility)
@@ -37,7 +42,7 @@ const EXPECTED_CHAIN_IDS: Record<NetworkType, number> = {
 };
 
 export const checkRpcHealth = async (
-  rpcUrl: string, 
+  rpcUrl: string,
   timeout = 5000,
   network: NetworkType = 'mainnet'
 ): Promise<RpcHealthStatus> => {
@@ -45,7 +50,7 @@ export const checkRpcHealth = async (
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
-    
+
     // Use eth_chainId - universally supported and validates we're on correct network
     const response = await fetch(rpcUrl, {
       method: 'POST',
@@ -58,48 +63,48 @@ export const checkRpcHealth = async (
       }),
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
     const latency = Date.now() - startTime;
-    
+
     if (!response.ok) {
       return { url: rpcUrl, healthy: false, latency, error: `HTTP ${response.status}` };
     }
-    
+
     const data = await response.json();
-    
+
     if (data.error) {
       // Some RPCs might not support eth_chainId, fallback to eth_blockNumber
       return await checkRpcHealthFallback(rpcUrl, timeout - latency, latency);
     }
-    
+
     // Validate chain ID matches expected network
     const chainId = parseInt(data.result, 16);
     const expectedChainId = EXPECTED_CHAIN_IDS[network];
-    
+
     if (chainId !== expectedChainId) {
-      return { 
-        url: rpcUrl, 
-        healthy: false, 
-        latency, 
-        error: `Wrong chain: ${chainId} (expected ${expectedChainId})` 
+      return {
+        url: rpcUrl,
+        healthy: false,
+        latency,
+        error: `Wrong chain: ${chainId} (expected ${expectedChainId})`
       };
     }
-    
+
     return { url: rpcUrl, healthy: true, latency };
   } catch (error: unknown) {
-    return { 
-      url: rpcUrl, 
-      healthy: false, 
-      latency: null, 
-      error: isAbortError(error) ? 'Timeout' : getErrorMessage(error) 
+    return {
+      url: rpcUrl,
+      healthy: false,
+      latency: null,
+      error: isAbortError(error) ? 'Timeout' : getErrorMessage(error)
     };
   }
 };
 
 // Fallback health check using eth_blockNumber
 const checkRpcHealthFallback = async (
-  rpcUrl: string, 
+  rpcUrl: string,
   timeout: number,
   existingLatency: number
 ): Promise<RpcHealthStatus> => {
@@ -107,7 +112,7 @@ const checkRpcHealthFallback = async (
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), Math.max(timeout, 2000));
-    
+
     const response = await fetch(rpcUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,31 +124,31 @@ const checkRpcHealthFallback = async (
       }),
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
     const totalLatency = existingLatency + (Date.now() - startTime);
-    
+
     if (!response.ok) {
       return { url: rpcUrl, healthy: false, latency: totalLatency, error: `HTTP ${response.status}` };
     }
-    
+
     const data = await response.json();
     if (data.error) {
       return { url: rpcUrl, healthy: false, latency: totalLatency, error: data.error.message };
     }
-    
+
     // Check if we got a valid block number
     if (data.result && typeof data.result === 'string' && data.result.startsWith('0x')) {
       return { url: rpcUrl, healthy: true, latency: totalLatency };
     }
-    
+
     return { url: rpcUrl, healthy: false, latency: totalLatency, error: 'Invalid response' };
   } catch (error: unknown) {
-    return { 
-      url: rpcUrl, 
-      healthy: false, 
-      latency: null, 
-      error: isAbortError(error) ? 'Timeout' : getErrorMessage(error) 
+    return {
+      url: rpcUrl,
+      healthy: false,
+      latency: null,
+      error: isAbortError(error) ? 'Timeout' : getErrorMessage(error)
     };
   }
 };
@@ -158,7 +163,7 @@ export const getBestRpc = async (network: NetworkType): Promise<string | null> =
   const healthyRpcs = healthResults
     .filter(r => r.healthy && r.latency !== null)
     .sort((a, b) => (a.latency || Infinity) - (b.latency || Infinity));
-  
+
   return healthyRpcs.length > 0 ? healthyRpcs[0].url : null;
 };
 
@@ -213,7 +218,7 @@ export const monadTestnet = defineChain({
 });
 
 // Get chain config based on network type
-export const getMonadChain = (network: NetworkType) => 
+export const getMonadChain = (network: NetworkType) =>
   network === "mainnet" ? monadMainnet : monadTestnet;
 
 // Get preferred RPC from localStorage
@@ -235,11 +240,11 @@ export const getRpcUrl = (network: NetworkType = "testnet"): string => {
 export const getRpcUrls = (network: NetworkType = "testnet"): string[] => {
   const rpcs = network === "mainnet" ? MONAD_MAINNET_RPCS : MONAD_TESTNET_RPCS;
   const preferred = getPreferredRpcUrl(network);
-  
+
   if (preferred && rpcs.includes(preferred)) {
     // Move preferred to front of the list
     return [preferred, ...rpcs.filter(r => r !== preferred)];
   }
-  
+
   return rpcs;
 };

@@ -22,22 +22,14 @@ const rpcProxyCall = async (
   method: string,
   params: any[]
 ): Promise<any> => {
-  const response = await fetch(`${RPC_PROXY_URL}?network=${network}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: Date.now(),
-      method,
-      params,
-    }),
+  const { data, error } = await supabase.functions.invoke(`rpc-proxy?network=${network}`, {
+    body: { method, params },
   });
 
-  if (!response.ok) {
-    throw new Error(`RPC Proxy error: HTTP ${response.status}`);
+  if (error) {
+    throw new Error(`RPC Proxy error: ${error.message}`);
   }
 
-  const data = await response.json();
   if (data.error) {
     throw new Error(data.error.message || 'RPC error');
   }
@@ -90,9 +82,9 @@ export function useTheLilyPadMint() {
   const ensureCorrectNetwork = useCallback(async (): Promise<boolean> => {
     const provider = getProvider();
     if (!provider || chainType !== "evm") return false;
-    
+
     const targetChain = getMonadChain(network);
-    
+
     if (chainId !== targetChain.id) {
       try {
         await switchToMonad();
@@ -177,7 +169,7 @@ export function useTheLilyPadMint() {
       setState(prev => ({ ...prev, error: "Wallet not connected" }));
       return null;
     }
-    
+
     if (chainType !== "evm") {
       const errorMsg = "Please switch to an EVM wallet to mint NFTs.";
       setState(prev => ({ ...prev, error: errorMsg }));
@@ -245,7 +237,7 @@ export function useTheLilyPadMint() {
 
     } catch (error: any) {
       console.error("Mint error:", error);
-      
+
       let errorMessage = "Minting failed";
       if (error.code === 4001) {
         errorMessage = "Transaction rejected by user";
@@ -281,7 +273,7 @@ export function useTheLilyPadMint() {
       setState(prev => ({ ...prev, error: "Wallet not connected" }));
       return null;
     }
-    
+
     if (chainType !== "evm") {
       const errorMsg = "Please switch to an EVM wallet to mint NFTs.";
       setState(prev => ({ ...prev, error: errorMsg }));
@@ -349,7 +341,7 @@ export function useTheLilyPadMint() {
 
     } catch (error: any) {
       console.error("Mint public error:", error);
-      
+
       let errorMessage = "Minting failed";
       if (error.code === 4001) {
         errorMessage = "Transaction rejected by user";

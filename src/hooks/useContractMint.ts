@@ -28,27 +28,12 @@ const rpcProxyCall = async (
   method: string,
   params: any[]
 ): Promise<any> => {
-  const response = await fetch(`${RPC_PROXY_URL}?network=${network}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: Date.now(),
-      method,
-      params,
-    }),
+  const { data, error } = await supabase.functions.invoke(`rpc-proxy?network=${network}`, {
+    body: { method, params },
   });
 
-  if (!response.ok) {
-    throw new Error(`RPC Proxy error: HTTP ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  const rpcUsed = response.headers.get('X-RPC-Used');
-  const latency = response.headers.get('X-RPC-Latency');
-  if (rpcUsed) {
-    console.log(`RPC Proxy: ${method} via ${rpcUsed} (${latency}ms)`);
+  if (error) {
+    throw new Error(`RPC Proxy error: ${error.message}`);
   }
 
   if (data.error) {

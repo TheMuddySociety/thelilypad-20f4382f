@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { THELILYPAD_ABI, THELILYPAD_CONTRACT_ADDRESS } from "@/config/theLilyPad";
 import { encodeFunctionData } from "viem";
 import { NetworkType } from "@/config/alchemy";
+import { supabase } from "@/integrations/supabase/client";
 
 // RPC Proxy base URL
 const RPC_PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rpc-proxy`;
@@ -12,22 +13,14 @@ const rpcProxyCall = async (
   method: string,
   params: any[]
 ): Promise<any> => {
-  const response = await fetch(`${RPC_PROXY_URL}?network=${network}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: Date.now(),
-      method,
-      params,
-    }),
+  const { data, error } = await supabase.functions.invoke(`rpc-proxy?network=${network}`, {
+    body: { method, params },
   });
 
-  if (!response.ok) {
-    throw new Error(`RPC Proxy error: HTTP ${response.status}`);
+  if (error) {
+    throw new Error(`RPC Proxy error: ${error.message}`);
   }
 
-  const data = await response.json();
   if (data.error) {
     throw new Error(data.error.message || 'RPC error');
   }

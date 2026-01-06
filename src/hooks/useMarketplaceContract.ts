@@ -11,8 +11,10 @@ export function useMarketplaceContract() {
     const { address } = useWallet();
 
     const rpcProxyCall = async (method: string, params: any[]) => {
-        const { data, error } = await supabase.functions.invoke("rpc-proxy", {
+        const network = (localStorage.getItem("monadNetwork") || "testnet") as any;
+        const { data, error } = await supabase.functions.invoke(`rpc-proxy?network=${network}`, {
             body: { method, params },
+            headers: { "x-network": network }, // Use header as backup
         });
         if (error) throw error;
         return data.result;
