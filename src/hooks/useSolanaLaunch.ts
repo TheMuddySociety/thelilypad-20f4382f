@@ -1,25 +1,22 @@
 import { useState, useCallback } from 'react';
-import { publicKey, signerIdentity, Signer, createNoopSigner } from '@metaplex-foundation/umi';
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
+import { publicKey, signerIdentity, Signer, generateSigner, some, percentAmount } from '@metaplex-foundation/umi';
+import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import {
-    createCollection,
-    fetchCollection,
-    mintV1 as mintCore,
+    createCollection as createCoreCollection,
 } from '@metaplex-foundation/mpl-core';
 import {
     createNft,
-    mintV1 as mintTokenMetadata,
+    TokenStandard,
 } from '@metaplex-foundation/mpl-token-metadata';
 import {
     createTree,
-    mintToCollectionV1 as mintBubblegum,
 } from '@metaplex-foundation/mpl-bubblegum';
 import { useWallet } from '@/providers/WalletProvider';
-import { initializeUmi, SolanaStandard, getSolanaRpcUrl } from '@/config/solana';
+import { initializeUmi, SolanaStandard } from '@/config/solana';
 import { toast } from 'sonner';
 
 export const useSolanaLaunch = () => {
-    const { address, network, getSolanaProvider } = useWallet();
+    const { network, getSolanaProvider } = useWallet();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -31,26 +28,15 @@ export const useSolanaLaunch = () => {
 
         const umi = initializeUmi(network);
 
-        // Create a Umi signer from the Phantom provider
-        const umiSigner: Signer = {
-            publicKey: publicKey(provider.publicKey.toString()),
-            signMessage: async (message: Uint8Array) => {
-                const result = await provider.signMessage(message, "utf8");
-                return result.signature;
-            },
-            signTransaction: async (transaction) => {
-                // This is a simplified version; in a real app, you'd convert between Umi and web3.js formats
-                // For brevity in this hook, we assume Umi's transaction format can be signed 
-                // or that we're using a helper that handles it.
-                // NOTE: Metaplex provides @metaplex-foundation/umi-signer-wallet-adapters for this.
-                return provider.signTransaction(transaction);
-            },
-            signAllTransactions: async (transactions) => {
-                return provider.signAllTransactions(transactions);
-            },
+        // Wrap the Phantom provider to match the expected wallet adapter interface
+        const wallet = {
+            publicKey: provider.publicKey,
+            signTransaction: provider.signTransaction.bind(provider),
+            signAllTransactions: provider.signAllTransactions.bind(provider),
+            signMessage: provider.signMessage ? provider.signMessage.bind(provider) : undefined,
         };
 
-        return umi.use(signerIdentity(umiSigner));
+        return umi.use(walletAdapterIdentity(wallet));
     }, [getSolanaProvider, network]);
 
     const deploySolanaCollection = useCallback(async (
@@ -67,10 +53,14 @@ export const useSolanaLaunch = () => {
         try {
             const umi = await getUmi();
             let result;
+            const collectionSigner = generateSigner(umi);
+
+            toast.loading(`Deploying ${metadata.name} on Solana...`, { id: 'sol-deploy' });
 
             switch (standard) {
                 case 'core':
-                    result = await createCollection(umi, {
+                    result = await createCoreCollection(umi, {
+                        collection: collectionSigner,
                         name: metadata.name,
                         uri: metadata.uri,
                     }).sendAndConfirm(umi);
@@ -78,36 +68,53 @@ export const useSolanaLaunch = () => {
 
                 case 'token-metadata':
                     result = await createNft(umi, {
+                        mint: collectionSigner,
                         name: metadata.name,
                         symbol: metadata.symbol,
                         uri: metadata.uri,
-                        sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
+                        sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
                         isCollection: true,
                     }).sendAndConfirm(umi);
                     break;
 
                 case 'bubblegum':
-                    // cNFTs require a Merkle Tree first
-                    // This is a simplified implementation
-                    toast.info("Creating Merkle Tree for cNFTs...");
-                    result = await createTree(umi, {
-                        merkleTree: createNoopSigner(publicKey(umi.identity.publicKey)), // Placeholder
+                    // cNFTs require a Merkle Tree first.
+                    const merkleTree = generateSigner(umi);
+                    toast.info("Creating Merkle Tree for cNFTs...", { id: 'sol-deploy' });
+
+                    await (await createTree(umi, {
+                        merkleTree,
                         maxDepth: 14,
                         maxBufferSize: 64,
+                        public: false,
+                    })).sendAndConfirm(umi);
+
+                    // Now create the collection NFT that will lead the tree
+                    const bubblegumCollection = generateSigner(umi);
+                    result = await createNft(umi, {
+                        mint: bubblegumCollection,
+                        name: metadata.name,
+                        symbol: metadata.symbol,
+                        uri: metadata.uri,
+                        sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
+                        isCollection: true,
                     }).sendAndConfirm(umi);
                     break;
 
                 default:
-                    throw new Error(`Standard ${standard} not implemented yet`);
+                    throw new Error(`Standard ${standard} not fully implemented in this preview`);
             }
 
-            toast.success(`Solana ${standard} collection deployed!`);
-            return result;
+            toast.success(`Successfully deployed to Solana!`, { id: 'sol-deploy' });
+            return {
+                signature: result?.signature,
+                address: collectionSigner.publicKey.toString()
+            };
         } catch (err: any) {
             console.error("Solana deployment error:", err);
             const msg = err.message || "Failed to deploy to Solana";
             setError(msg);
-            toast.error(msg);
+            toast.error(msg, { id: 'sol-deploy' });
             throw err;
         } finally {
             setIsLoading(false);

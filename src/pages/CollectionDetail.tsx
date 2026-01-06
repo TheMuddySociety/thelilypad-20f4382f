@@ -43,6 +43,8 @@ import { useContractMint } from "@/hooks/useContractMint";
 import { useGasEstimation } from "@/hooks/useGasEstimation";
 import { useOnChainPhaseSync } from "@/hooks/useOnChainPhaseSync";
 import { useTheLilyPadContract } from "@/hooks/useTheLilyPadContract";
+import { useSolanaMint } from "@/hooks/useSolanaMint";
+import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import {
   ArrowLeft,
   ExternalLink,
@@ -101,6 +103,8 @@ interface Collection {
   social_website: string | null;
   social_telegram: string | null;
   collection_type?: string;
+  blockchain?: 'monad' | 'solana';
+  solana_standard?: string;
   layers_metadata?: unknown;
   artworks_metadata?: unknown;
 }
@@ -173,11 +177,14 @@ export default function CollectionDetail() {
     isLoading: isContractLoading,
   } = useTheLilyPadContract(collection?.contract_address || null);
 
+  const solanaMint = useSolanaMint();
+
   const [isInitializing, setIsInitializing] = useState(false);
 
   const isTestnet = network === "testnet";
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
   const isCreator = currentUserId && collection?.creator_id === currentUserId;
+  const isSolana = collection?.blockchain === 'solana';
 
   useSEO({
     title: collection?.name ? `${collection.name} | The Lily Pad` : "NFT Collection | The Lily Pad",
@@ -217,7 +224,7 @@ export default function CollectionDetail() {
         console.error("Error fetching collection:", error);
         toast.error("Failed to load collection");
       } else if (data) {
-        setCollection(data);
+        setCollection(data as unknown as Collection);
         // Set active phase from phases data (prefer the one marked active)
         const phases = data.phases as unknown as Phase[] | null;
         if (phases && Array.isArray(phases) && phases.length > 0) {
@@ -540,8 +547,23 @@ export default function CollectionDetail() {
 
     let txHash: string | null = null;
 
-    // Use appropriate mint function based on phase type
-    if (activePhase.requiresAllowlist) {
+    // Use appropriate mint function based on on-chain standard
+    if (isSolana) {
+      try {
+        const solResult = await solanaMint.mintNFT(
+          (collection.solana_standard as any) || 'core',
+          collection.contract_address!,
+          {
+            name: `${collection.name} #${collection.minted + 1}`,
+            uri: collection.image_url || '',
+          }
+        );
+        txHash = solResult.signature;
+      } catch (err) {
+        // Error already handled by hook (toast)
+        return;
+      }
+    } else if (activePhase.requiresAllowlist) {
       // Check if user is on allowlist
       if (address && !verifyAllowlist(address, allowlistAddresses)) {
         toast.error("Not on allowlist", {
@@ -549,9 +571,9 @@ export default function CollectionDetail() {
         });
         return;
       }
-      txHash = await mintWithAllowlist(mintAmount, activePhase.price, allowlistAddresses, collection.id, collection.name, collection.image_url, customGasLimit ? parseInt(customGasLimit) : undefined);
+      txHash = await mintWithAllowlist(mintAmount, activePhase.price, allowlistAddresses, collection.id, collection.name, collection.image_url);
     } else {
-      txHash = await mintPublic(mintAmount, activePhase.price, collection.id, collection.name, collection.image_url, customGasLimit ? parseInt(customGasLimit) : undefined);
+      txHash = await mintPublic(mintAmount, activePhase.price, collection.id, collection.name, collection.image_url);
     }
 
     if (txHash) {
@@ -595,16 +617,26 @@ export default function CollectionDetail() {
     let txHash: string | null = null;
 
     try {
-      if (activePhase.requiresAllowlist) {
+      if (isSolana) {
+        const solResult = await solanaMint.mintNFT(
+          (collection.solana_standard as any) || 'core',
+          collection.contract_address!,
+          {
+            name: `${collection.name} #${collection.minted + 1}`,
+            uri: collection.image_url || '',
+          }
+        );
+        txHash = solResult.signature;
+      } else if (activePhase.requiresAllowlist) {
         if (address && !verifyAllowlist(address, allowlistAddresses)) {
           toast.error("Not on allowlist");
           return;
         }
         // Force mintAmount=1, no custom gas override
-        txHash = await mintWithAllowlist(1, activePhase.price, allowlistAddresses, collection.id, collection.name, collection.image_url, undefined);
+        txHash = await mintWithAllowlist(1, activePhase.price, allowlistAddresses, collection.id, collection.name, collection.image_url);
       } else {
         // Force mintAmount=1, no custom gas override
-        txHash = await mintPublic(1, activePhase.price, collection.id, collection.name, collection.image_url, undefined);
+        txHash = await mintPublic(1, activePhase.price, collection.id, collection.name, collection.image_url);
       }
 
       if (txHash) {
@@ -641,7 +673,13 @@ export default function CollectionDetail() {
 
     try {
       // Always use public mint for force mint - simplest path
-      const txHash = await mintPublic(1, price, collection.id, collection.name, collection.image_url, undefined);
+      const txHash = isSolana
+        ? (await solanaMint.mintNFT(
+          (collection.solana_standard as any) || 'core',
+          collection.contract_address!,
+          { name: `${collection.name} #FORCE`, uri: collection.image_url || '' }
+        )).signature
+        : await mintPublic(1, price, collection.id, collection.name, collection.image_url);
 
       if (txHash) {
         toast.success("Force Mint Submitted!", {

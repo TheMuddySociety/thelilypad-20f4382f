@@ -204,7 +204,7 @@ export function useContractMint(contractAddress: string | null) {
     try {
       const priceInWei = parseEther(pricePerNft);
       const totalValue = priceInWei * BigInt(quantity);
-      const data = encodeFunctionData({ abi: NFT_COLLECTION_ABI, functionName, args });
+      const data = encodeFunctionData({ abi: NFT_COLLECTION_ABI, functionName, args: args as any });
 
       // Calculate Preset Gas Limit (350k base + 80k per unit)
       // Monad Best Practice: Bypassing estimation for common operations speeds up UX
@@ -268,11 +268,17 @@ export function useContractMint(contractAddress: string | null) {
     return parseFloat(balance) >= (parseFloat(pricePerNft) * quantity) + 0.001;
   }, [balance]);
 
+  const verifyAllowlist = useCallback((userAddress: string, allowlistAddresses: string[]): boolean => {
+    if (!userAddress || !allowlistAddresses) return false;
+    return allowlistAddresses.some(addr => addr.toLowerCase() === userAddress.toLowerCase());
+  }, []);
+
   return {
     ...state,
     mintWithAllowlist,
     mintPublic,
+    verifyAllowlist,
     canAffordMint,
     resetState,
   };
-}
+};

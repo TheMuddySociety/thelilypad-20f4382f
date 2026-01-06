@@ -75,6 +75,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ModalWalkthrough } from "@/components/walkthrough/LaunchpadWalkthrough";
 import { useModalWalkthrough } from "@/hooks/useLaunchpadWalkthrough";
 import { SolanaStandard, SOLANA_STANDARDS } from "@/config/solana";
+import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 
 interface CreateCollectionModalProps {
   open: boolean;
@@ -161,6 +162,7 @@ interface DraftData {
 
 export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated }: CreateCollectionModalProps) {
   const { address } = useWallet();
+  const solanaLaunch = useSolanaLaunch();
   const modalWalkthrough = useModalWalkthrough();
   const [currentStep, setCurrentStep] = useState(1);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -1003,6 +1005,23 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         }
       }
 
+      let solanaAddress = null;
+      if (blockchain === 'solana') {
+        try {
+          const solanaResult = await solanaLaunch.deploySolanaCollection(solanaStandard, {
+            name,
+            symbol,
+            uri: finalImageUrl || '', // In a real app, this should be a metadata JSON URI
+            sellerFeeBasisPoints: parseFloat(royaltyPercent) * 100,
+          });
+          solanaAddress = solanaResult.address;
+        } catch (err) {
+          // Error handled in hook (toast shown)
+          setIsDeploying(false);
+          return;
+        }
+      }
+
       // Format phases for storage
       const enabledPhasesData = phases.filter(p => p.enabled).map(p => ({
         id: p.id,
@@ -1025,6 +1044,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         .insert([{
           creator_id: user.id,
           creator_address: address || `0x${user.id.replace(/-/g, '').slice(0, 40)}`,
+          contract_address: solanaAddress,
           name,
           symbol,
           description,
