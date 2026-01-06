@@ -1890,6 +1890,7 @@ export type Database = {
       shop_bundle_purchases: {
         Row: {
           bundle_id: string
+          currency: string | null
           id: string
           price_paid: number
           purchased_at: string
@@ -1898,6 +1899,7 @@ export type Database = {
         }
         Insert: {
           bundle_id: string
+          currency?: string | null
           id?: string
           price_paid: number
           purchased_at?: string
@@ -1906,6 +1908,7 @@ export type Database = {
         }
         Update: {
           bundle_id?: string
+          currency?: string | null
           id?: string
           price_paid?: number
           purchased_at?: string
@@ -1925,8 +1928,10 @@ export type Database = {
       shop_bundles: {
         Row: {
           bundle_price: number
+          bundle_price_sol: number | null
           created_at: string
           created_by: string | null
+          currency: string | null
           description: string | null
           discount_percent: number
           expires_at: string | null
@@ -1941,8 +1946,10 @@ export type Database = {
         }
         Insert: {
           bundle_price?: number
+          bundle_price_sol?: number | null
           created_at?: string
           created_by?: string | null
+          currency?: string | null
           description?: string | null
           discount_percent?: number
           expires_at?: string | null
@@ -1957,8 +1964,10 @@ export type Database = {
         }
         Update: {
           bundle_price?: number
+          bundle_price_sol?: number | null
           created_at?: string
           created_by?: string | null
+          currency?: string | null
           description?: string | null
           discount_percent?: number
           expires_at?: string | null
@@ -2014,12 +2023,14 @@ export type Database = {
           created_at: string
           creator_id: string
           creator_type: string
+          currency: string | null
           description: string | null
           id: string
           image_url: string | null
           is_active: boolean
           name: string
           price_mon: number
+          price_sol: number | null
           required_collection_id: string | null
           tier: string
           total_sales: number
@@ -2030,12 +2041,14 @@ export type Database = {
           created_at?: string
           creator_id: string
           creator_type?: string
+          currency?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           name: string
           price_mon?: number
+          price_sol?: number | null
           required_collection_id?: string | null
           tier?: string
           total_sales?: number
@@ -2046,12 +2059,14 @@ export type Database = {
           created_at?: string
           creator_id?: string
           creator_type?: string
+          currency?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           name?: string
           price_mon?: number
+          price_sol?: number | null
           required_collection_id?: string | null
           tier?: string
           total_sales?: number
@@ -2071,6 +2086,7 @@ export type Database = {
         Row: {
           creator_claimed: boolean
           creator_claimed_at: string | null
+          currency: string | null
           id: string
           item_id: string
           price_paid: number
@@ -2081,6 +2097,7 @@ export type Database = {
         Insert: {
           creator_claimed?: boolean
           creator_claimed_at?: string | null
+          currency?: string | null
           id?: string
           item_id: string
           price_paid: number
@@ -2091,6 +2108,7 @@ export type Database = {
         Update: {
           creator_claimed?: boolean
           creator_claimed_at?: string | null
+          currency?: string | null
           id?: string
           item_id?: string
           price_paid?: number
@@ -2280,12 +2298,14 @@ export type Database = {
           is_verified: boolean
           payout_wallet_address: string | null
           playlist_ids: string[] | null
+          preferred_currency: string | null
           schedule: Json | null
           social_discord: string | null
           social_instagram: string | null
           social_tiktok: string | null
           social_twitter: string | null
           social_youtube: string | null
+          sol_wallet_address: string | null
           updated_at: string
           user_id: string
         }
@@ -2300,12 +2320,14 @@ export type Database = {
           is_verified?: boolean
           payout_wallet_address?: string | null
           playlist_ids?: string[] | null
+          preferred_currency?: string | null
           schedule?: Json | null
           social_discord?: string | null
           social_instagram?: string | null
           social_tiktok?: string | null
           social_twitter?: string | null
           social_youtube?: string | null
+          sol_wallet_address?: string | null
           updated_at?: string
           user_id: string
         }
@@ -2320,12 +2342,14 @@ export type Database = {
           is_verified?: boolean
           payout_wallet_address?: string | null
           playlist_ids?: string[] | null
+          preferred_currency?: string | null
           schedule?: Json | null
           social_discord?: string | null
           social_instagram?: string | null
           social_tiktok?: string | null
           social_twitter?: string | null
           social_youtube?: string | null
+          sol_wallet_address?: string | null
           updated_at?: string
           user_id?: string
         }

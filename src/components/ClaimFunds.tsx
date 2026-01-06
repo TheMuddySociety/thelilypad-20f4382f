@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Wallet, 
   DollarSign, 
@@ -14,41 +15,45 @@ import {
   CheckCircle,
   Loader2,
   TrendingUp,
-  Settings
+  Settings,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
+import { useCreatorCurrency, CurrencyType } from "@/hooks/useCreatorCurrency";
 
-interface ClaimableEarnings {
-  donations: {
-    amount: number;
-    count: number;
-    ids: string[];
-  };
-  nftSales: {
-    amount: number;
-    count: number;
-    ids: string[];
-  };
-  shopSales: {
-    amount: number;
-    count: number;
-    purchaseIds: string[];
-  };
+interface CurrencyEarnings {
+  amount: number;
+  count: number;
+  ids: string[];
 }
 
+interface ClaimableEarnings {
+  donations: { mon: CurrencyEarnings; sol: CurrencyEarnings };
+  nftSales: { mon: CurrencyEarnings; sol: CurrencyEarnings };
+  shopSales: { mon: CurrencyEarnings; sol: CurrencyEarnings };
+}
+
+const emptyEarnings: CurrencyEarnings = { amount: 0, count: 0, ids: [] };
+
 export const ClaimFunds: React.FC = () => {
-  const { address, isConnected } = useWallet();
+  const { address, isConnected, chainType } = useWallet();
   const [earnings, setEarnings] = useState<ClaimableEarnings>({
-    donations: { amount: 0, count: 0, ids: [] },
-    nftSales: { amount: 0, count: 0, ids: [] },
-    shopSales: { amount: 0, count: 0, purchaseIds: [] },
+    donations: { mon: { ...emptyEarnings }, sol: { ...emptyEarnings } },
+    nftSales: { mon: { ...emptyEarnings }, sol: { ...emptyEarnings } },
+    shopSales: { mon: { ...emptyEarnings }, sol: { ...emptyEarnings } },
   });
   const [isLoading, setIsLoading] = useState(true);
   const [claimingType, setClaimingType] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [payoutWalletAddress, setPayoutWalletAddress] = useState<string | null>(null);
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("MON");
+  
+  const { 
+    payoutWalletAddress, 
+    solWalletAddress, 
+    preferredCurrency 
+  } = useCreatorCurrency(userId || undefined);
 
   useEffect(() => {
     const getUser = async () => {
@@ -64,27 +69,6 @@ export const ClaimFunds: React.FC = () => {
       return;
     }
     fetchEarnings();
-    fetchPayoutWallet();
-  }, [userId]);
-
-  const fetchPayoutWallet = async () => {
-    if (!userId) return;
-    
-    const { data: profile } = await supabase
-      .from("streamer_profiles")
-      .select("payout_wallet_address")
-      .eq("user_id", userId)
-      .maybeSingle();
-    
-    setPayoutWalletAddress(profile?.payout_wallet_address ?? null);
-  };
-
-  useEffect(() => {
-    if (!userId) {
-      setIsLoading(false);
-      return;
-    }
-    fetchEarnings();
   }, [userId]);
 
   const fetchEarnings = async () => {
@@ -92,30 +76,30 @@ export const ClaimFunds: React.FC = () => {
     
     setIsLoading(true);
     try {
-      // Fetch unclaimed donations
+      // Fetch unclaimed donations (grouped by currency)
       const { data: donationsData, error: donationsError } = await supabase
         .from("earnings")
-        .select("id, amount")
+        .select("id, amount, currency")
         .eq("user_id", userId)
         .eq("is_claimed", false);
 
       if (donationsError) throw donationsError;
 
-      const donationTotal = (donationsData || []).reduce((sum, d) => sum + Number(d.amount), 0);
-      const donationIds = (donationsData || []).map(d => d.id);
+      const donationsMon = (donationsData || []).filter(d => d.currency !== "SOL");
+      const donationsSol = (donationsData || []).filter(d => d.currency === "SOL");
 
       // Fetch unclaimed NFT sales
       const { data: nftSalesData, error: nftSalesError } = await supabase
         .from("nft_listings")
-        .select("id, price")
+        .select("id, price, currency")
         .eq("seller_id", userId)
         .eq("status", "sold")
         .eq("seller_claimed", false);
 
       if (nftSalesError) throw nftSalesError;
 
-      const nftSalesTotal = (nftSalesData || []).reduce((sum, s) => sum + Number(s.price), 0);
-      const nftSalesIds = (nftSalesData || []).map(s => s.id);
+      const nftSalesMon = (nftSalesData || []).filter(s => s.currency !== "SOL");
+      const nftSalesSol = (nftSalesData || []).filter(s => s.currency === "SOL");
 
       // Fetch unclaimed shop sales (stickers, emotes)
       const { data: shopItemsData, error: shopItemsError } = await supabase
@@ -127,28 +111,63 @@ export const ClaimFunds: React.FC = () => {
 
       const shopItemIds = (shopItemsData || []).map(item => item.id);
       
-      let shopSalesTotal = 0;
-      let shopSalesCount = 0;
-      let shopPurchaseIds: string[] = [];
+      let shopMon: CurrencyEarnings = { ...emptyEarnings };
+      let shopSol: CurrencyEarnings = { ...emptyEarnings };
 
       if (shopItemIds.length > 0) {
         const { data: purchasesData, error: purchasesError } = await supabase
           .from("shop_purchases")
-          .select("id, price_paid, item_id")
+          .select("id, price_paid, item_id, currency")
           .in("item_id", shopItemIds)
           .eq("creator_claimed", false);
 
         if (purchasesError) throw purchasesError;
 
-        shopSalesTotal = (purchasesData || []).reduce((sum, p) => sum + Number(p.price_paid), 0);
-        shopSalesCount = (purchasesData || []).length;
-        shopPurchaseIds = (purchasesData || []).map(p => p.id);
+        const purchasesMon = (purchasesData || []).filter(p => p.currency !== "SOL");
+        const purchasesSol = (purchasesData || []).filter(p => p.currency === "SOL");
+
+        shopMon = {
+          amount: purchasesMon.reduce((sum, p) => sum + Number(p.price_paid), 0),
+          count: purchasesMon.length,
+          ids: purchasesMon.map(p => p.id)
+        };
+
+        shopSol = {
+          amount: purchasesSol.reduce((sum, p) => sum + Number(p.price_paid), 0),
+          count: purchasesSol.length,
+          ids: purchasesSol.map(p => p.id)
+        };
       }
 
       setEarnings({
-        donations: { amount: donationTotal, count: donationsData?.length || 0, ids: donationIds },
-        nftSales: { amount: nftSalesTotal, count: nftSalesData?.length || 0, ids: nftSalesIds },
-        shopSales: { amount: shopSalesTotal, count: shopSalesCount, purchaseIds: shopPurchaseIds },
+        donations: {
+          mon: {
+            amount: donationsMon.reduce((sum, d) => sum + Number(d.amount), 0),
+            count: donationsMon.length,
+            ids: donationsMon.map(d => d.id)
+          },
+          sol: {
+            amount: donationsSol.reduce((sum, d) => sum + Number(d.amount), 0),
+            count: donationsSol.length,
+            ids: donationsSol.map(d => d.id)
+          }
+        },
+        nftSales: {
+          mon: {
+            amount: nftSalesMon.reduce((sum, s) => sum + Number(s.price), 0),
+            count: nftSalesMon.length,
+            ids: nftSalesMon.map(s => s.id)
+          },
+          sol: {
+            amount: nftSalesSol.reduce((sum, s) => sum + Number(s.price), 0),
+            count: nftSalesSol.length,
+            ids: nftSalesSol.map(s => s.id)
+          }
+        },
+        shopSales: {
+          mon: shopMon,
+          sol: shopSol
+        }
       });
     } catch (error) {
       console.error("Error fetching earnings:", error);
@@ -157,44 +176,60 @@ export const ClaimFunds: React.FC = () => {
     setIsLoading(false);
   };
 
-  const handleClaim = async (type: "donations" | "nftSales" | "shopSales") => {
+  const getCurrencyKey = (currency: CurrencyType): "mon" | "sol" => {
+    return currency === "SOL" ? "sol" : "mon";
+  };
+
+  const handleClaim = async (type: "donations" | "nftSales" | "shopSales", currency: CurrencyType) => {
     if (!isConnected || !address) {
       toast.error("Please connect your wallet to claim funds");
       return;
     }
 
-    setClaimingType(type);
+    // Check wallet type matches currency
+    if (currency === "SOL" && chainType !== "solana") {
+      toast.error("Please connect a Solana wallet to claim SOL");
+      return;
+    }
+    if (currency === "MON" && chainType === "solana") {
+      toast.error("Please connect an EVM wallet to claim MON");
+      return;
+    }
+
+    const key = getCurrencyKey(currency);
+    setClaimingType(`${type}-${currency}`);
 
     try {
-      if (type === "donations" && earnings.donations.ids.length > 0) {
+      const earningsData = earnings[type][key];
+      
+      if (type === "donations" && earningsData.ids.length > 0) {
         const { error } = await supabase
           .from("earnings")
           .update({ is_claimed: true, claimed_at: new Date().toISOString() })
-          .in("id", earnings.donations.ids);
+          .in("id", earningsData.ids);
         
         if (error) throw error;
-        toast.success(`Claimed ${earnings.donations.amount.toFixed(4)} MON from donations!`);
+        toast.success(`Claimed ${earningsData.amount.toFixed(4)} ${currency} from donations!`);
       } 
-      else if (type === "nftSales" && earnings.nftSales.ids.length > 0) {
+      else if (type === "nftSales" && earningsData.ids.length > 0) {
         const { error } = await supabase
           .from("nft_listings")
           .update({ seller_claimed: true, seller_claimed_at: new Date().toISOString() })
-          .in("id", earnings.nftSales.ids);
+          .in("id", earningsData.ids);
         
         if (error) throw error;
-        toast.success(`Claimed ${earnings.nftSales.amount.toFixed(4)} MON from NFT sales!`);
+        toast.success(`Claimed ${earningsData.amount.toFixed(4)} ${currency} from NFT sales!`);
       }
-      else if (type === "shopSales" && earnings.shopSales.purchaseIds.length > 0) {
+      else if (type === "shopSales" && earningsData.ids.length > 0) {
         const { error } = await supabase
           .from("shop_purchases")
           .update({ creator_claimed: true, creator_claimed_at: new Date().toISOString() })
-          .in("id", earnings.shopSales.purchaseIds);
+          .in("id", earningsData.ids);
         
         if (error) throw error;
-        toast.success(`Claimed ${earnings.shopSales.amount.toFixed(4)} MON from shop sales!`);
+        toast.success(`Claimed ${earningsData.amount.toFixed(4)} ${currency} from shop sales!`);
       }
 
-      // Refresh earnings
       await fetchEarnings();
     } catch (error) {
       console.error("Error claiming funds:", error);
@@ -204,46 +239,57 @@ export const ClaimFunds: React.FC = () => {
     setClaimingType(null);
   };
 
-  const handleClaimAll = async () => {
+  const handleClaimAll = async (currency: CurrencyType) => {
     if (!isConnected || !address) {
       toast.error("Please connect your wallet to claim funds");
       return;
     }
 
-    setClaimingType("all");
+    if (currency === "SOL" && chainType !== "solana") {
+      toast.error("Please connect a Solana wallet to claim SOL");
+      return;
+    }
+    if (currency === "MON" && chainType === "solana") {
+      toast.error("Please connect an EVM wallet to claim MON");
+      return;
+    }
+
+    const key = getCurrencyKey(currency);
+    setClaimingType(`all-${currency}`);
 
     try {
       const promises = [];
 
-      if (earnings.donations.ids.length > 0) {
+      if (earnings.donations[key].ids.length > 0) {
         promises.push(
           supabase
             .from("earnings")
             .update({ is_claimed: true, claimed_at: new Date().toISOString() })
-            .in("id", earnings.donations.ids)
+            .in("id", earnings.donations[key].ids)
         );
       }
 
-      if (earnings.nftSales.ids.length > 0) {
+      if (earnings.nftSales[key].ids.length > 0) {
         promises.push(
           supabase
             .from("nft_listings")
             .update({ seller_claimed: true, seller_claimed_at: new Date().toISOString() })
-            .in("id", earnings.nftSales.ids)
+            .in("id", earnings.nftSales[key].ids)
         );
       }
 
-      if (earnings.shopSales.purchaseIds.length > 0) {
+      if (earnings.shopSales[key].ids.length > 0) {
         promises.push(
           supabase
             .from("shop_purchases")
             .update({ creator_claimed: true, creator_claimed_at: new Date().toISOString() })
-            .in("id", earnings.shopSales.purchaseIds)
+            .in("id", earnings.shopSales[key].ids)
         );
       }
 
       await Promise.all(promises);
-      toast.success(`Successfully claimed ${totalClaimable.toFixed(4)} MON!`);
+      const total = getTotalClaimable(currency);
+      toast.success(`Successfully claimed ${total.toFixed(4)} ${currency}!`);
       await fetchEarnings();
     } catch (error) {
       console.error("Error claiming all funds:", error);
@@ -253,7 +299,13 @@ export const ClaimFunds: React.FC = () => {
     setClaimingType(null);
   };
 
-  const totalClaimable = earnings.donations.amount + earnings.nftSales.amount + earnings.shopSales.amount;
+  const getTotalClaimable = (currency: CurrencyType) => {
+    const key = getCurrencyKey(currency);
+    return earnings.donations[key].amount + earnings.nftSales[key].amount + earnings.shopSales[key].amount;
+  };
+
+  const totalMon = getTotalClaimable("MON");
+  const totalSol = getTotalClaimable("SOL");
 
   if (isLoading) {
     return (
@@ -292,70 +344,61 @@ export const ClaimFunds: React.FC = () => {
     );
   }
 
-  const earningCategories = [
-    {
-      id: "donations" as const,
-      label: "Stream Donations",
-      icon: Gift,
-      amount: earnings.donations.amount,
-      count: earnings.donations.count,
-      color: "text-pink-500",
-      bgColor: "bg-pink-500/10",
-      borderColor: "border-pink-500/30",
-    },
-    {
-      id: "nftSales" as const,
-      label: "NFT Sales",
-      icon: ImageIcon,
-      amount: earnings.nftSales.amount,
-      count: earnings.nftSales.count,
-      color: "text-purple-500",
-      bgColor: "bg-purple-500/10",
-      borderColor: "border-purple-500/30",
-    },
-    {
-      id: "shopSales" as const,
-      label: "Stickers & Emotes",
-      icon: Sparkles,
-      amount: earnings.shopSales.amount,
-      count: earnings.shopSales.count,
-      color: "text-amber-500",
-      bgColor: "bg-amber-500/10",
-      borderColor: "border-amber-500/30",
-    },
-  ];
+  const renderEarningsForCurrency = (currency: CurrencyType) => {
+    const key = getCurrencyKey(currency);
+    const total = getTotalClaimable(currency);
+    const symbol = currency === "SOL" ? "◎" : "⟠";
+    const walletAddress = currency === "SOL" ? solWalletAddress : payoutWalletAddress;
+    const isCorrectWallet = currency === "SOL" ? chainType === "solana" : chainType !== "solana";
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Wallet className="w-5 h-5 text-primary" />
-          Claim Funds
-          {totalClaimable > 0 && (
-            <Badge className="ml-auto bg-green-500/20 text-green-500 border-green-500/30">
-              <TrendingUp className="w-3 h-3 mr-1" />
-              Funds Available
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    const earningCategories = [
+      {
+        id: "donations" as const,
+        label: "Stream Donations",
+        icon: Gift,
+        data: earnings.donations[key],
+        color: "text-pink-500",
+        bgColor: "bg-pink-500/10",
+        borderColor: "border-pink-500/30",
+      },
+      {
+        id: "nftSales" as const,
+        label: "NFT Sales",
+        icon: ImageIcon,
+        data: earnings.nftSales[key],
+        color: "text-purple-500",
+        bgColor: "bg-purple-500/10",
+        borderColor: "border-purple-500/30",
+      },
+      {
+        id: "shopSales" as const,
+        label: "Stickers & Emotes",
+        icon: Sparkles,
+        data: earnings.shopSales[key],
+        color: "text-amber-500",
+        bgColor: "bg-amber-500/10",
+        borderColor: "border-amber-500/30",
+      },
+    ];
+
+    return (
+      <div className="space-y-4">
         {/* Total Claimable */}
-        <div className="p-4 rounded-xl bg-gradient-to-br from-primary/10 via-primary/5 to-purple-500/10 border border-primary/30">
+        <div className={`p-4 rounded-xl bg-gradient-to-br ${currency === "SOL" ? "from-purple-500/10 via-purple-500/5 to-indigo-500/10 border-purple-500/30" : "from-primary/10 via-primary/5 to-purple-500/10 border-primary/30"} border`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Total Claimable</p>
-              <p className="text-3xl font-bold text-primary">
-                {totalClaimable.toFixed(4)} <span className="text-lg">MON</span>
+              <p className={`text-3xl font-bold ${currency === "SOL" ? "text-purple-500" : "text-primary"}`}>
+                {symbol} {total.toFixed(4)} <span className="text-lg">{currency}</span>
               </p>
             </div>
-            {totalClaimable > 0 && (
+            {total > 0 && (
               <Button
-                onClick={handleClaimAll}
-                disabled={claimingType !== null || !isConnected}
-                className="bg-primary hover:bg-primary/90"
+                onClick={() => handleClaimAll(currency)}
+                disabled={claimingType !== null || !isConnected || !isCorrectWallet}
+                className={currency === "SOL" ? "bg-purple-500 hover:bg-purple-600" : "bg-primary hover:bg-primary/90"}
               >
-                {claimingType === "all" ? (
+                {claimingType === `all-${currency}` ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <CheckCircle className="w-4 h-4 mr-2" />
@@ -364,15 +407,16 @@ export const ClaimFunds: React.FC = () => {
               </Button>
             )}
           </div>
-          {/* Payout Wallet Info */}
-          <div className="mt-3 pt-3 border-t border-primary/20">
+          
+          {/* Wallet Info */}
+          <div className="mt-3 pt-3 border-t border-current/20">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Payout to:</span>
-              {payoutWalletAddress ? (
-                <span className="font-mono text-primary">
-                  {payoutWalletAddress.slice(0, 6)}...{payoutWalletAddress.slice(-4)}
+              {walletAddress ? (
+                <span className="font-mono text-foreground">
+                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                 </span>
-              ) : isConnected && address ? (
+              ) : isConnected && isCorrectWallet && address ? (
                 <span className="font-mono text-muted-foreground">
                   {address.slice(0, 6)}...{address.slice(-4)} (connected)
                 </span>
@@ -388,6 +432,18 @@ export const ClaimFunds: React.FC = () => {
               </a>
             </div>
           </div>
+
+          {/* Wrong wallet warning */}
+          {isConnected && !isCorrectWallet && total > 0 && (
+            <div className="mt-3 p-2 rounded bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+              <p className="text-xs text-amber-500">
+                {currency === "SOL" 
+                  ? "Connect a Solana wallet to claim SOL" 
+                  : "Connect an EVM wallet to claim MON"}
+              </p>
+            </div>
+          )}
         </div>
 
         <Separator />
@@ -396,7 +452,7 @@ export const ClaimFunds: React.FC = () => {
         <div className="space-y-3">
           {earningCategories.map((category) => {
             const Icon = category.icon;
-            const hasClaimable = category.amount > 0;
+            const hasClaimable = category.data.amount > 0;
 
             return (
               <div
@@ -411,7 +467,7 @@ export const ClaimFunds: React.FC = () => {
                     <div>
                       <p className="font-medium">{category.label}</p>
                       <p className="text-sm text-muted-foreground">
-                        {category.count} {category.count === 1 ? "transaction" : "transactions"}
+                        {category.data.count} {category.data.count === 1 ? "transaction" : "transactions"}
                       </p>
                     </div>
                   </div>
@@ -419,18 +475,18 @@ export const ClaimFunds: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <div className="text-right">
                       <p className={`font-bold ${hasClaimable ? category.color : "text-muted-foreground"}`}>
-                        {category.amount.toFixed(4)} MON
+                        {symbol} {category.data.amount.toFixed(4)} {currency}
                       </p>
                     </div>
                     {hasClaimable && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleClaim(category.id)}
-                        disabled={claimingType !== null}
+                        onClick={() => handleClaim(category.id, currency)}
+                        disabled={claimingType !== null || !isCorrectWallet}
                         className={`border-2 ${category.borderColor} hover:${category.bgColor}`}
                       >
-                        {claimingType === category.id ? (
+                        {claimingType === `${category.id}-${currency}` ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
                           <>
@@ -447,21 +503,59 @@ export const ClaimFunds: React.FC = () => {
           })}
         </div>
 
-        {totalClaimable === 0 && (
+        {total === 0 && (
           <div className="text-center py-4 text-muted-foreground">
             <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No unclaimed funds at the moment</p>
-            <p className="text-xs mt-1">Earnings from sales and donations will appear here</p>
+            <p className="text-sm">No unclaimed {currency} funds at the moment</p>
           </div>
         )}
+      </div>
+    );
+  };
 
-        {!isConnected && totalClaimable > 0 && (
-          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
-            <p className="text-sm text-amber-500">
-              Connect your wallet to claim your funds
-            </p>
-          </div>
-        )}
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Wallet className="w-5 h-5 text-primary" />
+          Claim Funds
+          {(totalMon > 0 || totalSol > 0) && (
+            <Badge className="ml-auto bg-green-500/20 text-green-500 border-green-500/30">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              Funds Available
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Tabs value={selectedCurrency} onValueChange={(v) => setSelectedCurrency(v as CurrencyType)}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="MON" className="flex items-center gap-2">
+              <span>⟠</span> MON
+              {totalMon > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+                  {totalMon.toFixed(2)}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="SOL" className="flex items-center gap-2">
+              <span>◎</span> SOL
+              {totalSol > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+                  {totalSol.toFixed(2)}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="MON" className="mt-4">
+            {renderEarningsForCurrency("MON")}
+          </TabsContent>
+          
+          <TabsContent value="SOL" className="mt-4">
+            {renderEarningsForCurrency("SOL")}
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
