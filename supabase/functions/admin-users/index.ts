@@ -14,10 +14,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
+
     // Create admin client
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-    
+
     // Verify the requesting user is an admin
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -29,7 +29,7 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    
+
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Invalid token" }), {
         status: 401,
@@ -68,11 +68,11 @@ serve(async (req) => {
 
         // Get roles and ban status for each user
         const userIds = users.map(u => u.id);
-        
+
         const [rolesResult, bansResult, profilesResult] = await Promise.all([
           supabaseAdmin.from("user_roles").select("*").in("user_id", userIds),
           supabaseAdmin.from("banned_users").select("*").in("user_id", userIds),
-          supabaseAdmin.from("streamer_profiles").select("user_id, display_name, avatar_url").in("user_id", userIds)
+          supabaseAdmin.from("streamer_profiles").select("user_id, display_name, avatar_url, is_verified").in("user_id", userIds)
         ]);
 
         const rolesMap = new Map(rolesResult.data?.map(r => [r.user_id, r]) || []);
@@ -97,7 +97,7 @@ serve(async (req) => {
 
       case "assign_role": {
         const { userId, role } = params;
-        
+
         if (!userId || !role) {
           return new Response(JSON.stringify({ error: "Missing userId or role" }), {
             status: 400,
@@ -107,7 +107,7 @@ serve(async (req) => {
 
         // Delete existing role first
         await supabaseAdmin.from("user_roles").delete().eq("user_id", userId);
-        
+
         // Insert new role if not 'user' (default)
         if (role !== "user") {
           const { error } = await supabaseAdmin.from("user_roles").insert({
@@ -125,7 +125,7 @@ serve(async (req) => {
 
       case "ban": {
         const { userId, reason, expiresAt } = params;
-        
+
         if (!userId) {
           return new Response(JSON.stringify({ error: "Missing userId" }), {
             status: 400,
@@ -149,7 +149,7 @@ serve(async (req) => {
 
       case "unban": {
         const { userId } = params;
-        
+
         if (!userId) {
           return new Response(JSON.stringify({ error: "Missing userId" }), {
             status: 400,

@@ -17,12 +17,14 @@ import { ClipAnalytics } from "@/components/ClipAnalytics";
 import { PublicBadgeShowcase } from "@/components/PublicBadgeShowcase";
 import { useSEO } from "@/hooks/useSEO";
 import { motion } from "framer-motion";
-import { 
+import {
   User, ArrowLeft, Calendar, Clock, CheckCircle,
   Twitter, Youtube, MessageCircle, Instagram, Music2,
   Users, Video, Eye, Sparkles, ExternalLink, Play, ImageIcon, Scissors, Film, Pencil, Trash2, Layers
 } from "lucide-react";
 import { StreamerPlaylistDisplay } from "@/components/streaming/StreamerPlaylistDisplay";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
+
 
 interface ScheduleItem {
   day: string;
@@ -152,7 +154,7 @@ const StreamerProfile = () => {
         if (profileData?.schedule) {
           try {
             const rawSchedule = profileData.schedule as unknown;
-            parsedSchedule = Array.isArray(rawSchedule) 
+            parsedSchedule = Array.isArray(rawSchedule)
               ? (rawSchedule as ScheduleItem[])
               : [];
           } catch {
@@ -160,9 +162,9 @@ const StreamerProfile = () => {
           }
         }
 
-        setProfile(profileData ? { 
-          ...profileData, 
-          schedule: parsedSchedule, 
+        setProfile(profileData ? {
+          ...profileData,
+          schedule: parsedSchedule,
           banner_url: (profileData as any).banner_url || null,
           playlist_ids: Array.isArray((profileData as any).playlist_ids) ? (profileData as any).playlist_ids : null
         } : null);
@@ -183,7 +185,7 @@ const StreamerProfile = () => {
         const totalStreams = streams?.length || 0;
         const totalViews = streams?.reduce((sum, s) => sum + (s.total_views || 0), 0) || 0;
         const liveStream = streams?.find(s => s.is_live);
-        
+
         // Get past broadcasts (not live, limit to 6)
         const pastStreams = streams?.filter(s => !s.is_live).slice(0, 6) || [];
         setRecentStreams(pastStreams);
@@ -195,7 +197,7 @@ const StreamerProfile = () => {
           .eq('user_id', streamerId)
           .order('created_at', { ascending: false })
           .limit(6);
-        
+
         setClips(clipsData || []);
 
         // Fetch collections
@@ -205,7 +207,7 @@ const StreamerProfile = () => {
           .eq('creator_id', streamerId)
           .order('created_at', { ascending: false })
           .limit(6);
-        
+
         setCollections(collectionsData || []);
 
         setStats({
@@ -271,7 +273,7 @@ const StreamerProfile = () => {
     try {
       const { error } = await supabase.from('clips').delete().eq('id', clipId);
       if (error) throw error;
-      
+
       setClips(prev => prev.filter(c => c.id !== clipId));
       toast({
         title: "Clip deleted",
@@ -360,8 +362,8 @@ const StreamerProfile = () => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={() => navigate(-1)}
               className="gap-2 hover:bg-muted/50"
             >
@@ -387,7 +389,7 @@ const StreamerProfile = () => {
                     src={profile.banner_url}
                     alt="Profile banner"
                     className={`w-full h-[120%] object-cover transition-opacity duration-300 ${bannerLoaded ? 'opacity-100' : 'opacity-0'}`}
-                    style={{ 
+                    style={{
                       transform: `translateY(${scrollY * 0.3}px)`,
                       filter: `blur(${Math.min(scrollY * 0.02, 8)}px)`,
                       willChange: 'transform, filter'
@@ -403,7 +405,7 @@ const StreamerProfile = () => {
                   <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
                 </>
               )}
-              
+
               <CardContent className={`p-8 md:p-10 relative ${profile?.banner_url ? '-mt-20 md:-mt-28' : ''}`}>
                 <div className="flex flex-col lg:flex-row items-center gap-8">
                   {/* Avatar Section */}
@@ -433,7 +435,7 @@ const StreamerProfile = () => {
                       </motion.div>
                     )}
                   </div>
-                  
+
                   {/* Profile Info */}
                   <div className="flex-1 text-center lg:text-left">
                     <div className="flex items-center justify-center lg:justify-start gap-3 mb-3 flex-wrap">
@@ -441,15 +443,13 @@ const StreamerProfile = () => {
                         {profile?.display_name || streamerId?.slice(0, 8) || 'Unknown Streamer'}
                       </h1>
                       {profile?.is_verified && (
-                        <div className="p-1 rounded-full bg-primary/20">
-                          <CheckCircle className="h-6 w-6 text-primary" />
-                        </div>
+                        <VerifiedBadge size={24} />
                       )}
                       {streamerId && (
                         <PublicBadgeShowcase userId={streamerId} compact />
                       )}
                     </div>
-                    
+
                     {profile?.bio && (
                       <p className="text-muted-foreground text-lg max-w-2xl mb-4 leading-relaxed">
                         {profile.bio}
@@ -460,9 +460,9 @@ const StreamerProfile = () => {
                     {profile?.categories && profile.categories.length > 0 && (
                       <div className="flex items-center justify-center lg:justify-start gap-2 mb-5 flex-wrap">
                         {profile.categories.map((category, idx) => (
-                          <Badge 
-                            key={idx} 
-                            variant="secondary" 
+                          <Badge
+                            key={idx}
+                            variant="secondary"
                             className="bg-muted/50 hover:bg-muted transition-colors"
                           >
                             <Sparkles className="h-3 w-3 mr-1" />
@@ -471,7 +471,7 @@ const StreamerProfile = () => {
                         ))}
                       </div>
                     )}
-                    
+
                     {/* Social Links */}
                     {socialLinks.length > 0 && (
                       <div className="flex items-center justify-center lg:justify-start gap-2 mb-6">
@@ -497,8 +497,8 @@ const StreamerProfile = () => {
                     {/* Action Buttons */}
                     <div className="flex items-center justify-center lg:justify-start gap-3">
                       {streamerId && (
-                        <FollowButton 
-                          streamerId={streamerId} 
+                        <FollowButton
+                          streamerId={streamerId}
                           onFollowChange={(following) => {
                             setStats(prev => ({
                               ...prev,
@@ -508,7 +508,7 @@ const StreamerProfile = () => {
                         />
                       )}
                       {streamerId && (
-                        <TipButton 
+                        <TipButton
                           streamerId={streamerId}
                           streamerAddress={streamerId}
                           streamerName={profile?.display_name || 'Streamer'}
@@ -558,8 +558,8 @@ const StreamerProfile = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.25 }}
             >
-              <PublicBadgeShowcase 
-                userId={streamerId} 
+              <PublicBadgeShowcase
+                userId={streamerId}
                 displayName={profile?.display_name || undefined}
               />
             </motion.div>
@@ -642,8 +642,8 @@ const StreamerProfile = () => {
                   {collections.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {collections.map((collection, index) => {
-                        const mintProgress = collection.total_supply > 0 
-                          ? (collection.minted / collection.total_supply) * 100 
+                        const mintProgress = collection.total_supply > 0
+                          ? (collection.minted / collection.total_supply) * 100
                           : 0;
                         const statusConfig = {
                           live: { label: 'LIVE', bg: 'bg-green-500', text: 'text-white' },
@@ -651,7 +651,7 @@ const StreamerProfile = () => {
                           ended: { label: 'ENDED', bg: 'bg-muted', text: 'text-muted-foreground' },
                         };
                         const status = statusConfig[collection.status as keyof typeof statusConfig] || statusConfig.upcoming;
-                        
+
                         return (
                           <motion.div
                             key={collection.id}
@@ -664,8 +664,8 @@ const StreamerProfile = () => {
                                 {/* Collection Image */}
                                 <div className="relative aspect-[16/9] overflow-hidden bg-muted/50">
                                   {collection.image_url ? (
-                                    <img 
-                                      src={collection.image_url} 
+                                    <img
+                                      src={collection.image_url}
                                       alt={collection.name}
                                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                     />
@@ -674,7 +674,7 @@ const StreamerProfile = () => {
                                       <Layers className="h-12 w-12 text-purple-500/50" />
                                     </div>
                                   )}
-                                  
+
                                   {/* Status Badge */}
                                   <div className="absolute top-2 right-2">
                                     <Badge className={`${status.bg} ${status.text} text-xs font-semibold px-2 py-0.5`}>
@@ -682,17 +682,17 @@ const StreamerProfile = () => {
                                     </Badge>
                                   </div>
                                 </div>
-                                
+
                                 {/* Collection Info */}
                                 <CardContent className="p-4">
                                   <h3 className="font-semibold text-base mb-2 line-clamp-1 group-hover:text-purple-500 transition-colors">
                                     {collection.name}
                                   </h3>
-                                  
+
                                   {/* Mint Progress */}
                                   <div className="space-y-2">
                                     <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                      <div 
+                                      <div
                                         className="h-full bg-gradient-to-r from-purple-500 to-primary rounded-full transition-all duration-500"
                                         style={{ width: `${mintProgress}%` }}
                                       />
@@ -752,7 +752,7 @@ const StreamerProfile = () => {
                       {profile.schedule
                         .sort((a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day))
                         .map((item, index) => (
-                          <motion.div 
+                          <motion.div
                             key={index}
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -790,8 +790,8 @@ const StreamerProfile = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <DonorLeaderboard 
-                streamerId={streamerId} 
+              <DonorLeaderboard
+                streamerId={streamerId}
                 limit={5}
                 title="Top Supporters"
               />
@@ -824,8 +824,8 @@ const StreamerProfile = () => {
                       >
                         <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/50 border border-border/50">
                           {stream.thumbnail_url ? (
-                            <img 
-                              src={stream.thumbnail_url} 
+                            <img
+                              src={stream.thumbnail_url}
                               alt={stream.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
@@ -834,17 +834,17 @@ const StreamerProfile = () => {
                               <ImageIcon className="h-10 w-10 text-muted-foreground/50" />
                             </div>
                           )}
-                          
+
                           {/* Overlay */}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                          
+
                           {/* Duration badge */}
                           {stream.duration_seconds && (
                             <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/70 text-white text-xs font-medium">
                               {formatDuration(stream.duration_seconds)}
                             </div>
                           )}
-                          
+
                           {/* Play icon overlay */}
                           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <div className="p-3 rounded-full bg-primary/90 text-primary-foreground">
@@ -852,7 +852,7 @@ const StreamerProfile = () => {
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="mt-3 space-y-1">
                           <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors">
                             {stream.title}
@@ -922,8 +922,8 @@ const StreamerProfile = () => {
                           >
                             <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/50 border border-border/50">
                               {clip.thumbnail_url ? (
-                                <img 
-                                  src={clip.thumbnail_url} 
+                                <img
+                                  src={clip.thumbnail_url}
                                   alt={clip.title}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                 />
@@ -932,20 +932,20 @@ const StreamerProfile = () => {
                                   <Film className="h-10 w-10 text-primary/50" />
                                 </div>
                               )}
-                              
+
                               {/* Gradient overlay */}
                               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                              
+
                               {/* Duration badge */}
                               <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-primary/90 text-primary-foreground text-xs font-medium">
                                 {formatDuration(clip.duration_seconds)}
                               </div>
-                              
+
                               {/* Clip icon badge */}
                               <div className="absolute top-2 left-2 p-1.5 rounded-lg bg-black/50 backdrop-blur-sm">
                                 <Scissors className="h-3.5 w-3.5 text-white" />
                               </div>
-                              
+
                               {/* Play icon overlay */}
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <div className="p-3 rounded-full bg-primary/90 text-primary-foreground shadow-lg">
@@ -954,7 +954,7 @@ const StreamerProfile = () => {
                               </div>
                             </div>
                           </a>
-                          
+
                           <div className="mt-3 space-y-1">
                             <div className="flex items-start justify-between gap-2">
                               <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors flex-1">

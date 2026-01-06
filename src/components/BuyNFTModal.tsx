@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { parseEther } from "viem";
 import { useVolumeTracking } from "@/hooks/useVolumeTracking";
+import { useMarketplaceContract } from "@/hooks/useMarketplaceContract";
 import { getErrorMessage } from "@/lib/errorUtils";
 
 interface Listing {
@@ -49,8 +50,9 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
   const [buyStatus, setBuyStatus] = useState<'idle' | 'confirming' | 'processing' | 'tracking' | 'success' | 'error'>('idle');
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
-  const { trackSale, isTracking } = useVolumeTracking();
+
+  const { buyItem } = useMarketplaceContract();
+  const { trackSale } = useVolumeTracking();
 
   const handleBuy = async () => {
     if (!listing || !window.ethereum) {
@@ -79,28 +81,12 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
         throw new Error("You cannot buy your own NFT");
       }
 
-      const contractAddress = listing.nft.collection?.contract_address;
-      if (!contractAddress) {
-        throw new Error("Contract address not found");
-      }
+      // In a real indexed marketplace, the contract_listing_id would be used
+      // For this demo, we'll try to use a static listing ID for now or a simulation
+      const listingId = 1; // Placeholder for demo
 
-      // In a real marketplace, you'd use a marketplace contract
-      // For now, we'll simulate by just sending the payment and updating the database
-      // The actual transfer would happen through a smart contract
-
-      // Send payment to seller
-      const priceInWei = parseEther(listing.price.toString());
-      
       setBuyStatus('processing');
-
-      const paymentTxHash = await window.ethereum.request({
-        method: 'eth_sendTransaction',
-        params: [{
-          from: buyerAddress,
-          to: listing.seller_address,
-          value: `0x${priceInWei.toString(16)}`,
-        }],
-      }) as string;
+      const paymentTxHash = await buyItem(listingId, listing.price);
 
       setTxHash(paymentTxHash);
 
@@ -114,7 +100,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
         });
       }
 
-      // Update the listing status
+      // Update the listing status in Supabase
       const { error: updateError } = await supabase
         .from('nft_listings')
         .update({
@@ -161,7 +147,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
           listing.nft.collection_id || '',
           user.id
         );
-        
+
         if (trackingResult) {
           console.log('Volume tracked:', {
             platformFee: trackingResult.platform_fee,
@@ -248,7 +234,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
               <span className="text-muted-foreground">Price</span>
               <span className="text-2xl font-bold">{listing.price} {listing.currency}</span>
             </div>
-            
+
             {/* Fee Disclaimer */}
             <div className="flex items-start gap-2 mt-3 pt-3 border-t border-border/50">
               <Info className="w-3 h-3 mt-0.5 shrink-0 text-muted-foreground" />

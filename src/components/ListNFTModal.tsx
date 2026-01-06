@@ -19,6 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+import { useMarketplaceContract } from "@/hooks/useMarketplaceContract";
+
 interface MintedNFT {
   id: string;
   token_id: number;
@@ -27,6 +29,9 @@ interface MintedNFT {
   collection_id: string | null;
   owner_address: string;
   owner_id: string;
+  collection?: {
+    contract_address: string | null;
+  };
 }
 
 interface ListNFTModalProps {
@@ -40,8 +45,9 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
   const [price, setPrice] = useState("");
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(addDays(new Date(), 7));
   const [isListing, setIsListing] = useState(false);
-  const [listingStatus, setListingStatus] = useState<'idle' | 'listing' | 'success' | 'error'>('idle');
+  const [listingStatus, setListingStatus] = useState<'idle' | 'approving' | 'listing' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const { listItem, setApprovalForAll, checkApproval } = useMarketplaceContract();
 
   const handleList = async () => {
     if (!nft || !price || parseFloat(price) <= 0) {
@@ -49,8 +55,13 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
       return;
     }
 
+    const nftAddress = nft.collection?.contract_address;
+    if (!nftAddress) {
+      setError("NFT contract address not found");
+      return;
+    }
+
     setIsListing(true);
-    setListingStatus('listing');
     setError(null);
 
     try {
@@ -59,19 +70,37 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
         throw new Error("You must be logged in to list an NFT");
       }
 
-      // Check if NFT is already listed
-      const { data: existingListing } = await supabase
-        .from('nft_listings')
-        .select('id')
-        .eq('nft_id', nft.id)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (existingListing) {
-        throw new Error("This NFT is already listed for sale");
+      // 1. Approval Step
+      setListingStatus('approving');
+      const isApproved = await checkApproval(nftAddress, ""); // operator is hardcoded in hook
+      if (!isApproved) {
+        const approveTx = await setApprovalForAll(nftAddress, true);
+        // Wait for approval receipt
+        let receipt = null;
+        while (!receipt) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          receipt = await window.ethereum?.request({
+            method: 'eth_getTransactionReceipt',
+            params: [approveTx],
+          });
+        }
       }
 
-      // Create the listing
+      // 2. Listing Step on Contract
+      setListingStatus('listing');
+      const listTx = await listItem(nftAddress, nft.token_id, parseFloat(price));
+
+      // Wait for listing receipt
+      let listReceipt = null;
+      while (!listReceipt) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        listReceipt = await window.ethereum?.request({
+          method: 'eth_getTransactionReceipt',
+          params: [listTx],
+        });
+      }
+
+      // 3. Supabase Record
       const { error: insertError } = await supabase
         .from('nft_listings')
         .insert({
@@ -81,6 +110,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
           price: parseFloat(price),
           currency: 'MON',
           expires_at: expiresAt?.toISOString() || null,
+          tx_hash: listTx,
         });
 
       if (insertError) throw insertError;

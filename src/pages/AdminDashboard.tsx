@@ -17,11 +17,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import FrogLoader from '@/components/FrogLoader';
 import { toast } from '@/hooks/use-toast';
-import { 
-  Users, 
-  Layers, 
-  ShieldCheck, 
-  Video, 
+import {
+  Users,
+  Layers,
+  ShieldCheck,
+  Video,
   Search,
   Trash2,
   Eye,
@@ -65,6 +65,7 @@ interface AdminUser {
   profile: {
     display_name: string | null;
     avatar_url: string | null;
+    is_verified?: boolean;
   } | null;
 }
 
@@ -286,8 +287,8 @@ const AdminDashboard: React.FC = () => {
 
     try {
       const response = await supabase.functions.invoke('admin-users', {
-        body: { 
-          action: 'ban', 
+        body: {
+          action: 'ban',
           userId: selectedUser.id,
           reason: banReason.trim() || null
         }
@@ -299,7 +300,7 @@ const AdminDashboard: React.FC = () => {
         title: 'User Banned',
         description: `${selectedUser.email} has been banned.`
       });
-      
+
       setBanModalOpen(false);
       setBanReason('');
       setSelectedUser(null);
@@ -326,7 +327,7 @@ const AdminDashboard: React.FC = () => {
         title: 'User Unbanned',
         description: `${user.email} has been unbanned.`
       });
-      
+
       fetchUsers();
     } catch (error) {
       console.error('Error unbanning user:', error);
@@ -338,13 +339,43 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleToggleVerification = async (user: AdminUser) => {
+    try {
+      const newStatus = !user.profile?.is_verified;
+      const { error } = await supabase
+        .from('streamer_profiles')
+        .update({ is_verified: newStatus })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: newStatus ? 'User Verified' : 'Verification Removed',
+        description: `${user.profile?.display_name || user.email} status updated.`
+      });
+
+      setUsers(prev => prev.map(u =>
+        u.id === user.id
+          ? { ...u, profile: u.profile ? { ...u.profile, is_verified: newStatus } : null }
+          : u
+      ));
+    } catch (error) {
+      console.error('Error toggling verification:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update verification status',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const handleAssignRole = async () => {
     if (!selectedUser) return;
 
     try {
       const response = await supabase.functions.invoke('admin-users', {
-        body: { 
-          action: 'assign_role', 
+        body: {
+          action: 'assign_role',
           userId: selectedUser.id,
           role: selectedRole
         }
@@ -356,7 +387,7 @@ const AdminDashboard: React.FC = () => {
         title: 'Role Updated',
         description: `${selectedUser.email} is now a ${selectedRole}.`
       });
-      
+
       setRoleModalOpen(false);
       setSelectedUser(null);
       fetchUsers();
@@ -398,7 +429,7 @@ const AdminDashboard: React.FC = () => {
     u.profile?.display_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredCollections = collections.filter(c => 
+  const filteredCollections = collections.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.symbol.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -593,6 +624,15 @@ const AdminDashboard: React.FC = () => {
                             >
                               <UserCog className="w-4 h-4" />
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleToggleVerification(user)}
+                              title={user.profile?.is_verified ? "Remove Verification" : "Verify User"}
+                            >
+                              <ShieldCheck className={`w-4 h-4 ${user.profile?.is_verified ? 'text-[#00FFA3]' : 'text-muted-foreground opacity-50'}`} />
+                            </Button>
                             {user.is_banned ? (
                               <Button
                                 variant="ghost"
@@ -690,6 +730,14 @@ const AdminDashboard: React.FC = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleToggleVerification(user)}
+                                  title={user.profile?.is_verified ? "Remove Verification" : "Verify User"}
+                                >
+                                  <ShieldCheck className={`w-4 h-4 ${user.profile?.is_verified ? 'text-[#00FFA3]' : 'text-muted-foreground opacity-50'}`} />
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -1040,11 +1088,11 @@ const AdminDashboard: React.FC = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          <Badge 
+                          <Badge
                             variant={
-                              item.status === 'approved' ? 'default' : 
-                              item.status === 'rejected' ? 'destructive' : 
-                              'secondary'
+                              item.status === 'approved' ? 'default' :
+                                item.status === 'rejected' ? 'destructive' :
+                                  'secondary'
                             }
                             className="text-xs"
                           >
@@ -1099,11 +1147,11 @@ const AdminDashboard: React.FC = () => {
                               )}
                             </TableCell>
                             <TableCell>
-                              <Badge 
+                              <Badge
                                 variant={
-                                  item.status === 'approved' ? 'default' : 
-                                  item.status === 'rejected' ? 'destructive' : 
-                                  'secondary'
+                                  item.status === 'approved' ? 'default' :
+                                    item.status === 'rejected' ? 'destructive' :
+                                      'secondary'
                                 }
                               >
                                 {item.status}
