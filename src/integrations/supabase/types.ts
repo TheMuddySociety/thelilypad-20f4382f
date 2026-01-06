@@ -530,6 +530,7 @@ export type Database = {
         Row: {
           artworks_metadata: Json | null
           banner_url: string | null
+          chain: string
           collection_type: string
           contract_address: string | null
           created_at: string
@@ -563,6 +564,7 @@ export type Database = {
         Insert: {
           artworks_metadata?: Json | null
           banner_url?: string | null
+          chain?: string
           collection_type?: string
           contract_address?: string | null
           created_at?: string
@@ -596,6 +598,7 @@ export type Database = {
         Update: {
           artworks_metadata?: Json | null
           banner_url?: string | null
+          chain?: string
           collection_type?: string
           contract_address?: string | null
           created_at?: string

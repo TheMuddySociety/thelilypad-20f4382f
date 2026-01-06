@@ -25,7 +25,7 @@ import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
-import { useWallet } from "@/providers/WalletProvider";
+import { useWallet, ChainType } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import lilypadLogo from "@/assets/lilypad-logo.png";
 import { toast } from "sonner";
@@ -38,6 +38,7 @@ import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
+import { ChainSelector, ChainBadge } from "@/components/ChainSelector";
 
 interface DraftCollection {
   name: string;
@@ -74,6 +75,7 @@ interface Collection {
   social_twitter: string | null;
   social_discord: string | null;
   social_website: string | null;
+  chain: string;
 }
 
 const statusColors = {
@@ -90,7 +92,7 @@ const statusIcons = {
 
 export default function Launchpad() {
   const navigate = useNavigate();
-  const { network, currentChain } = useWallet();
+  const { network, currentChain, chainType } = useWallet();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -100,6 +102,7 @@ export default function Launchpad() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedChain, setSelectedChain] = useState<ChainType>(chainType || "evm");
 
   // Get current user
   useEffect(() => {
@@ -211,9 +214,13 @@ export default function Launchpad() {
   const fetchCollections = async () => {
     setIsLoading(true);
     try {
+      // Map chain type to database chain value
+      const chainValue = selectedChain === "solana" ? "solana" : "monad";
+      
       const { data, error } = await supabase
         .from("collections")
         .select("*")
+        .eq("chain", chainValue)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
@@ -232,7 +239,7 @@ export default function Launchpad() {
   useEffect(() => {
     fetchCollections();
     loadDraft();
-  }, []);
+  }, [selectedChain]);
 
   // Reload draft when modal closes
   useEffect(() => {
@@ -340,22 +347,29 @@ export default function Launchpad() {
               className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-contain bg-primary/10 p-2"
             />
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <h1 className="text-3xl sm:text-4xl font-bold">Lily Launchpad</h1>
-                <Badge 
-                  variant="outline" 
-                  className={isTestnet 
-                    ? "bg-amber-500/10 text-amber-500 border-amber-500/30" 
-                    : "bg-primary/10 text-primary border-primary/30"
-                  }
-                >
-                  {isTestnet ? (
-                    <FlaskConical className="w-3 h-3 mr-1" />
-                  ) : (
-                    <Globe className="w-3 h-3 mr-1" />
-                  )}
-                  {currentChain.name}
-                </Badge>
+                <ChainSelector 
+                  selectedChain={selectedChain} 
+                  onChainChange={setSelectedChain}
+                  showBadge={true}
+                />
+                {selectedChain === "evm" && (
+                  <Badge 
+                    variant="outline" 
+                    className={isTestnet 
+                      ? "bg-amber-500/10 text-amber-500 border-amber-500/30" 
+                      : "bg-primary/10 text-primary border-primary/30"
+                    }
+                  >
+                    {isTestnet ? (
+                      <FlaskConical className="w-3 h-3 mr-1" />
+                    ) : (
+                      <Globe className="w-3 h-3 mr-1" />
+                    )}
+                    {isTestnet ? "Testnet" : "Mainnet"}
+                  </Badge>
+                )}
                 {/* Help button to restart walkthrough */}
                 <Button
                   variant="ghost"
@@ -371,7 +385,7 @@ export default function Launchpad() {
                 </Button>
               </div>
               <p className="text-muted-foreground">
-                Launch your NFT collection on {currentChain.name}
+                Launch your NFT collection on {selectedChain === "solana" ? "Solana" : currentChain.name}
               </p>
             </div>
           </div>
