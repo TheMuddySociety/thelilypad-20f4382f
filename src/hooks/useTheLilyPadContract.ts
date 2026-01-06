@@ -54,7 +54,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
   const abi = NFT_COLLECTION_ABI;
 
   // Initialize Public Client
-  const getPublicClient = useCallback(() => {
+  const getPublicClient = useCallback((): any => {
     return createPublicClient({
       chain: currentChain,
       transport: http()
@@ -94,9 +94,9 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
       ];
 
       const results = await client.multicall({
-        contracts: contracts as any,
+        contracts: contracts,
         multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11'
-      });
+      } as any);
 
       return {
         activePhaseId: results[0]?.status === 'success' ? Number(results[0].result as bigint) : 0,
@@ -116,10 +116,10 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
     try {
       const result = await client.readContract({
         address: contractAddress,
-        abi,
-        functionName: functionName as any,
-        args: args as any,
-      });
+        abi: abi as readonly unknown[],
+        functionName,
+        args,
+      } as any);
       return result;
     } catch (error) {
       console.error(`Error reading ${functionName}:`, error);
@@ -185,7 +185,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
 
     setState({ isLoading: true, error: null });
     try {
-      const data = encodeFunctionData({ abi, functionName: functionName as any, args });
+      const data = encodeFunctionData({ abi: abi as readonly unknown[], functionName, args } as any);
 
       let gasLimit = fallbackGas;
       try {

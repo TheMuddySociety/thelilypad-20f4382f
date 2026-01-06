@@ -72,7 +72,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
 
       // 1. Approval Step
       setListingStatus('approving');
-      const isApproved = await checkApproval(nftAddress, ""); // operator is hardcoded in hook
+      const isApproved = await checkApproval(nftAddress);
       if (!isApproved) {
         const approveTx = await setApprovalForAll(nftAddress, true);
         // Wait for approval receipt

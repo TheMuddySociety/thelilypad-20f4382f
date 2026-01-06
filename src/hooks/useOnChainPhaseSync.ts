@@ -97,10 +97,9 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
       // 2. Execute multicall
       console.log("[Phase Sync] Executing multicall for 7 static reads...");
       const results = await client.multicall({
-        contracts: contracts as any,
-        // Official Multicall3 address on Monad
+        contracts: contracts,
         multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11'
-      });
+      } as any);
 
       // 3. Extract Global State
       const activePhaseId = results[0]?.status === 'success' ? (results[0].result as bigint) : 0n;
