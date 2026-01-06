@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, ExternalLink, Share2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import confetti from "canvas-confetti";
+import { toast } from "sonner";
 
 interface NFTAttribute {
   trait_type: string;

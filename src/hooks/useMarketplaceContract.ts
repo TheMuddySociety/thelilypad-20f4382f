@@ -93,13 +93,13 @@ export function useMarketplaceContract() {
         if (!address) return false;
         const client = createPublicClient({ chain: currentChain, transport: http() });
         try {
-            const isApproved = await client.readContract({
+            const isApproved = await (client as any).readContract({
                 address: nftAddress as `0x${string}`,
                 abi: NFT_ABI,
                 functionName: 'isApprovedForAll',
                 args: [address as `0x${string}`, MARKETPLACE_ADDRESS as `0x${string}`]
             });
-            return isApproved;
+            return !!isApproved;
         } catch (error) {
             console.error("Error checking approval:", error);
             return false;
