@@ -11,9 +11,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, Calendar, Plus, Trash2, Edit, Sparkles, Search, Eye } from "lucide-react";
+import { Crown, Calendar, Plus, Trash2, Edit, Sparkles, Search, Eye, Home, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { FeaturedCollectionsSlideshow } from "@/components/sections/FeaturedCollectionsSlideshow";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+const MAX_HOMEPAGE_FEATURED = 5;
 
 interface Collection {
   id: string;
@@ -261,8 +264,11 @@ export const FeaturedCollectionsManager: React.FC = () => {
       f.collection?.symbol.toLowerCase().includes(collectionSearchTerm.toLowerCase())
   );
 
+  const homepageFeatured = filteredFeatured.filter((f) => f.feature_type === "homepage");
   const monthlyFeatured = filteredFeatured.filter((f) => f.feature_type === "monthly");
   const weeklyFeatured = filteredFeatured.filter((f) => f.feature_type === "weekly");
+
+  const canAddHomepage = homepageFeatured.filter(f => f.is_active).length < MAX_HOMEPAGE_FEATURED;
 
   const filteredAvailableCollections = availableCollections.filter(
     (c) =>
@@ -320,6 +326,98 @@ export const FeaturedCollectionsManager: React.FC = () => {
               onChange={(e) => setCollectionSearchTerm(e.target.value)}
               className="pl-10"
             />
+          </div>
+
+          {/* Homepage Featured (Marketplace & Landing) */}
+          <div>
+            <h3 className="font-semibold text-lg flex items-center gap-2 mb-4">
+              <Home className="w-5 h-5 text-primary" />
+              Homepage Featured ({homepageFeatured.filter(f => f.is_active).length}/{MAX_HOMEPAGE_FEATURED})
+            </h3>
+            {!canAddHomepage && (
+              <Alert className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Maximum of {MAX_HOMEPAGE_FEATURED} active homepage featured collections reached. Deactivate one to add another.
+                </AlertDescription>
+              </Alert>
+            )}
+            {homepageFeatured.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No homepage featured collections</p>
+            ) : (
+              <ScrollArea className="h-[200px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Collection</TableHead>
+                      <TableHead>Date Range</TableHead>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {homepageFeatured.map((featured) => (
+                      <TableRow key={featured.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            {featured.collection?.image_url ? (
+                              <img
+                                src={featured.collection.image_url}
+                                alt={featured.collection.name}
+                                className="w-10 h-10 rounded-lg object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xs font-bold">
+                                {featured.collection?.symbol?.slice(0, 2) || "?"}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium">{featured.collection?.name || "Deleted"}</p>
+                              <p className="text-xs text-muted-foreground">{featured.collection?.symbol}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
+                            {format(new Date(featured.start_date), "MMM d")} -{" "}
+                            {format(new Date(featured.end_date), "MMM d, yyyy")}
+                          </span>
+                        </TableCell>
+                        <TableCell>{featured.display_order}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={featured.is_active ? "default" : "outline"}
+                            className="cursor-pointer"
+                            onClick={() => toggleActive(featured)}
+                          >
+                            {featured.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditModal(featured)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(featured.id)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )}
           </div>
 
           {/* Monthly Featured */}
@@ -550,6 +648,12 @@ export const FeaturedCollectionsManager: React.FC = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="homepage" disabled={!canAddHomepage && featureType !== "homepage"}>
+                    <div className="flex items-center gap-2">
+                      <Home className="w-4 h-4 text-primary" />
+                      Homepage Featured (Max {MAX_HOMEPAGE_FEATURED})
+                    </div>
+                  </SelectItem>
                   <SelectItem value="monthly">
                     <div className="flex items-center gap-2">
                       <Crown className="w-4 h-4 text-amber-500" />
