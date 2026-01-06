@@ -1,51 +1,32 @@
 import { useState, useCallback } from "react";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
-import { THELILYPAD_ABI, THELILYPAD_CONTRACT_ADDRESS } from "@/config/theLilyPad";
+import { THELILYPAD_CONTRACT_ADDRESS } from "@/config/theLilyPad";
 import { NFT_COLLECTION_ABI, TheLilyPadPhase } from "@/config/nftFactory";
-import { encodeFunctionData } from "viem";
+import { encodeFunctionData, createPublicClient, http, formatEther } from "viem";
 import { getMonadChain, NetworkType } from "@/config/alchemy";
 import { toast } from "sonner";
 
-// RPC Proxy base URL
+// RPC Proxy base URL (unused for reads now, we use publicClient directly for speed)
+// But kept for potential write-throughs if needed.
 const RPC_PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rpc-proxy`;
 
-// Make RPC call through the proxy
-const rpcProxyCall = async (
-  network: NetworkType,
-  method: string,
-  params: any[]
-): Promise<any> => {
-  const { data, error } = await supabase.functions.invoke(`rpc-proxy?network=${network}`, {
-    body: { method, params },
-  });
-
-  if (error) {
-    throw new Error(`RPC Proxy error: ${error.message}`);
-  }
-
-  if (data.error) {
-    throw new Error(data.error.message || 'RPC error');
-  }
-
-  return data.result;
-};
-
-// Fetch transaction receipt
+// Fetch transaction receipt through proxy to leverage server-side polling / health checks
 const fetchReceiptWithProxy = async (
   txHash: string,
   network: NetworkType,
   maxAttempts = 60
 ): Promise<any> => {
   let attempts = 0;
-
   while (attempts < maxAttempts) {
     try {
-      const result = await rpcProxyCall(network, 'eth_getTransactionReceipt', [txHash]);
-      if (result) {
-        // Monad Asynchronous Execution Tip
+      const { data, error } = await supabase.functions.invoke(`rpc-proxy?network=${network}`, {
+        body: { method: 'eth_getTransactionReceipt', params: [txHash] },
+      });
+      if (data?.result) {
+        // Monad Asynchronous Execution Tip: Wait for indexing
         await new Promise(resolve => setTimeout(resolve, 400));
-        return result;
+        return data.result;
       }
       await new Promise(resolve => setTimeout(resolve, 2000));
       attempts++;
@@ -54,7 +35,6 @@ const fetchReceiptWithProxy = async (
       attempts++;
     }
   }
-
   return null;
 };
 
@@ -64,23 +44,28 @@ interface ContractState {
 }
 
 export function useTheLilyPadContract(targetContractAddress?: string | null) {
-  const { address, isConnected, network, switchToMonad, chainId, chainType, getProvider } = useWallet();
-  const contractAddress = targetContractAddress || THELILYPAD_CONTRACT_ADDRESS;
+  const { address, isConnected, network, switchToMonad, chainId, chainType, getProvider, currentChain } = useWallet();
+  const contractAddress = (targetContractAddress || THELILYPAD_CONTRACT_ADDRESS) as `0x${string}`;
   const [state, setState] = useState<ContractState>({
     isLoading: false,
     error: null,
   });
 
-  // Use the collection ABI for deployed collections
   const abi = NFT_COLLECTION_ABI;
+
+  // Initialize Public Client
+  const getPublicClient = useCallback(() => {
+    return createPublicClient({
+      chain: currentChain,
+      transport: http()
+    });
+  }, [currentChain]);
 
   // Ensure wallet is on the correct Monad network
   const ensureCorrectNetwork = useCallback(async (): Promise<boolean> => {
     const provider = getProvider();
     if (!provider || chainType !== "evm") return false;
-
     const targetChain = getMonadChain(network);
-
     if (chainId !== targetChain.id) {
       try {
         await switchToMonad();
@@ -94,39 +79,59 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
     return true;
   }, [network, chainId, switchToMonad, chainType, getProvider]);
 
-  // Read contract data
-  const readContract = useCallback(async (functionName: string, args: readonly unknown[] = []): Promise<any> => {
+  /**
+   * Batch read global contract state.
+   * Optimized for Monad to reduce round trips.
+   */
+  const getCollectionState = useCallback(async () => {
+    const client = getPublicClient();
     try {
-      const data = encodeFunctionData({
+      const contracts = [
+        { address: contractAddress, abi, functionName: 'activePhaseId' },
+        { address: contractAddress, abi, functionName: 'paused' },
+        { address: contractAddress, abi, functionName: 'totalSupply' },
+        { address: contractAddress, abi, functionName: 'maxSupply' },
+      ];
+
+      const results = await client.multicall({
+        contracts: contracts as any,
+        multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11'
+      });
+
+      return {
+        activePhaseId: results[0]?.status === 'success' ? Number(results[0].result as bigint) : 0,
+        isPaused: results[1]?.status === 'success' ? (results[1].result as boolean) : false,
+        totalSupply: results[2]?.status === 'success' ? Number(results[2].result as bigint) : 0,
+        maxSupply: results[3]?.status === 'success' ? Number(results[3].result as bigint) : 0,
+      };
+    } catch (error) {
+      console.error("Error batch reading collection state:", error);
+      return null;
+    }
+  }, [contractAddress, abi, getPublicClient]);
+
+  // Legacy/Single read functions updated to use public client for better types
+  const readContract = useCallback(async (functionName: string, args: readonly unknown[] = []): Promise<any> => {
+    const client = getPublicClient();
+    try {
+      const result = await client.readContract({
+        address: contractAddress,
         abi,
         functionName: functionName as any,
         args: args as any,
       });
-
-      const result = await rpcProxyCall(network, 'eth_call', [{
-        to: contractAddress,
-        data,
-      }, 'latest']);
-
       return result;
     } catch (error) {
       console.error(`Error reading ${functionName}:`, error);
       throw error;
     }
-  }, [network, contractAddress, abi]);
+  }, [contractAddress, abi, getPublicClient]);
 
   // Get phase info
   const getPhase = useCallback(async (phaseId: number): Promise<TheLilyPadPhase | null> => {
     try {
-      const result = await readContract('phases', [BigInt(phaseId)]);
-
-      // Decode the result (5 values: price, maxPerWallet, maxSupply, minted, requiresAllowlist)
-      const price = BigInt('0x' + result.slice(2, 66));
-      const maxPerWallet = BigInt('0x' + result.slice(66, 130));
-      const maxSupply = BigInt('0x' + result.slice(130, 194));
-      const minted = BigInt('0x' + result.slice(194, 258));
-      const requiresAllowlist = BigInt('0x' + result.slice(258, 322)) === 1n;
-
+      const result = await readContract('phases', [BigInt(phaseId)]) as [bigint, bigint, bigint, bigint, boolean];
+      const [price, maxPerWallet, maxSupply, minted, requiresAllowlist] = result;
       return { price, maxPerWallet, maxSupply, minted, requiresAllowlist };
     } catch (error) {
       console.error('Error getting phase:', error);
@@ -134,405 +139,124 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
     }
   }, [readContract]);
 
-  // Get active phase ID
+  // Individual wrappers (maintained for compatibility)
   const getActivePhase = useCallback(async (): Promise<number> => {
     try {
       const result = await readContract('activePhaseId');
-      return Number(BigInt(result));
-    } catch (error) {
-      console.error('Error getting active phase:', error);
-      return 0;
-    }
+      return Number(result);
+    } catch { return 0; }
   }, [readContract]);
 
-  // Check if address is allowlisted for phase
-  const isAllowlisted = useCallback(async (phaseId: number, userAddress: string): Promise<boolean> => {
-    try {
-      const result = await readContract('allowlist', [BigInt(phaseId), userAddress]);
-      return BigInt(result) === 1n;
-    } catch (error) {
-      console.error('Error checking allowlist:', error);
-      return false;
-    }
-  }, [readContract]);
-
-  // Get minted count for address in phase
-  const getMintedPerPhase = useCallback(async (phaseId: number, userAddress: string): Promise<number> => {
-    try {
-      const result = await readContract('mintedPerPhase', [BigInt(phaseId), userAddress]);
-      return Number(BigInt(result));
-    } catch (error) {
-      console.error('Error getting minted per phase:', error);
-      return 0;
-    }
-  }, [readContract]);
-
-  // Get total supply
   const getTotalSupply = useCallback(async (): Promise<number> => {
     try {
       const result = await readContract('totalSupply');
-      return Number(BigInt(result));
-    } catch (error) {
-      console.error('Error getting total supply:', error);
-      return 0;
-    }
+      return Number(result);
+    } catch { return 0; }
   }, [readContract]);
 
-  // Get max supply
   const getMaxSupply = useCallback(async (): Promise<number> => {
     try {
       const result = await readContract('maxSupply');
-      return Number(BigInt(result));
-    } catch (error) {
-      console.error('Error getting max supply:', error);
-      return 0;
-    }
+      return Number(result);
+    } catch { return 0; }
   }, [readContract]);
 
-  // Owner-only: Configure a phase (5 parameters including requiresAllowlist)
+  const isAllowlisted = useCallback(async (phaseId: number, userAddress: string): Promise<boolean> => {
+    try {
+      const result = await readContract('allowlist', [BigInt(phaseId), userAddress]);
+      return !!result;
+    } catch { return false; }
+  }, [readContract]);
+
+  const getMintedPerPhase = useCallback(async (phaseId: number, userAddress: string): Promise<number> => {
+    try {
+      const result = await readContract('mintedPerPhase', [BigInt(phaseId), userAddress]);
+      return Number(result);
+    } catch { return 0; }
+  }, [readContract]);
+
+  // Transaction methods (maintained with dynamic gas estimation + 5% buffer)
+  const executeWriteWithGas = async (functionName: string, args: any[], fallbackGas: bigint) => {
+    const provider = getProvider();
+    if (!isConnected || !address || !provider) throw new Error("Wallet not connected");
+
+    const networkOk = await ensureCorrectNetwork();
+    if (!networkOk) throw new Error("Network switch failed");
+
+    setState({ isLoading: true, error: null });
+    try {
+      const data = encodeFunctionData({ abi, functionName: functionName as any, args });
+
+      let gasLimit = fallbackGas;
+      try {
+        const estimatedGas = await provider.request({
+          method: "eth_estimateGas",
+          params: [{ from: address, to: contractAddress, data }],
+        });
+        gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer
+      } catch (err) {
+        console.warn(`Gas estimation failed for ${functionName}, using fallback:`, err);
+      }
+
+      const txHash = await provider.request({
+        method: "eth_sendTransaction",
+        params: [{ from: address, to: contractAddress, data, gas: `0x${gasLimit.toString(16)}` }],
+      });
+
+      await fetchReceiptWithProxy(txHash, network);
+      setState({ isLoading: false, error: null });
+      return txHash;
+    } catch (error: any) {
+      const errorMessage = error.code === 4001 ? "Transaction rejected" : error.message;
+      setState({ isLoading: false, error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  };
+
   const configurePhase = useCallback(async (
-    phaseId: number,
-    priceInEth: string,
-    maxPerWallet: number,
-    phaseMaxSupply: number,
-    requiresAllowlist: boolean = false
-  ): Promise<string | null> => {
-    const provider = getProvider();
-    if (!isConnected || !address || !provider || chainType !== "evm") {
-      toast.error("Please connect an EVM wallet");
-      return null;
-    }
+    phaseId: number, priceInEth: string, maxPerWallet: number, phaseMaxSupply: number, requiresAllowlist = false
+  ) => {
+    const priceInWei = BigInt(Math.floor(parseFloat(priceInEth) * 1e18));
+    return executeWriteWithGas("configurePhase", [BigInt(phaseId), priceInWei, BigInt(maxPerWallet), BigInt(phaseMaxSupply), requiresAllowlist], 300000n)
+      .then(tx => { toast.success("Phase configured successfully"); return tx; })
+      .catch(err => { toast.error("Failed to configure phase", { description: err.message }); return null; });
+  }, [address, isConnected, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
 
-    const networkOk = await ensureCorrectNetwork();
-    if (!networkOk) {
-      toast.error("Please switch to Monad network");
-      return null;
-    }
+  const setActivePhase = useCallback(async (phaseId: number) => {
+    return executeWriteWithGas("setActivePhase", [BigInt(phaseId)], 150000n)
+      .then(tx => { toast.success(`Phase ${phaseId} activated`); return tx; })
+      .catch(err => { toast.error("Failed to set active phase", { description: err.message }); return null; });
+  }, [address, isConnected, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
 
-    setState({ isLoading: true, error: null });
+  const setAllowlist = useCallback(async (phaseId: number, addresses: string[], status: boolean) => {
+    const fallbackGas = BigInt(100000 + (addresses.length * 30000));
+    return executeWriteWithGas("setAllowlist", [BigInt(phaseId), addresses as `0x${string}`[], status], fallbackGas)
+      .then(tx => { toast.success(`Allowlist updated for ${addresses.length} addresses`); return tx; })
+      .catch(err => { toast.error("Failed to set allowlist", { description: err.message }); return null; });
+  }, [address, isConnected, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
 
-    try {
-      const priceInWei = BigInt(Math.floor(parseFloat(priceInEth) * 1e18));
+  const setBaseURI = useCallback(async (baseURI: string) => {
+    return executeWriteWithGas("setBaseURI", [baseURI], 300000n)
+      .then(tx => { toast.success("Base URI updated"); return tx; })
+      .catch(err => { toast.error("Failed to set base URI", { description: err.message }); return null; });
+  }, [address, isConnected, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
 
-      const data = encodeFunctionData({
-        abi,
-        functionName: "configurePhase",
-        args: [BigInt(phaseId), priceInWei, BigInt(maxPerWallet), BigInt(phaseMaxSupply), requiresAllowlist],
-      });
-
-      // Dynamic Gas Estimation with Fallback
-      let gasLimit = 300000n; // Fallback
-      try {
-        const estimatedGas = await provider.request({
-          method: "eth_estimateGas",
-          params: [{
-            from: address,
-            to: contractAddress,
-            data,
-            // Only include value if needed, for configurePhase it's 0
-          }],
-        });
-        gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer (Monad charges based on limit)
-        console.log(`Gas estimated for configurePhase: ${estimatedGas}, using: ${gasLimit}`);
-      } catch (err) {
-        console.warn("Gas estimation failed for configurePhase, using fallback:", err);
-      }
-
-      const txHash = await provider.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: address,
-          to: contractAddress,
-          data,
-          gas: `0x${gasLimit.toString(16)}`,
-        }],
-      });
-
-      await fetchReceiptWithProxy(txHash, network);
-
-      setState({ isLoading: false, error: null });
-      toast.success("Phase configured successfully");
-      return txHash;
-
-    } catch (error: any) {
-      const errorMessage = error.code === 4001 ? "Transaction rejected" : error.message;
-      setState({ isLoading: false, error: errorMessage });
-      toast.error("Failed to configure phase", { description: errorMessage });
-      return null;
-    }
-  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
-
-  // Owner-only: Set active phase
-  const setActivePhase = useCallback(async (phaseId: number): Promise<string | null> => {
-    const provider = getProvider();
-    if (!isConnected || !address || !provider || chainType !== "evm") {
-      toast.error("Please connect an EVM wallet");
-      return null;
-    }
-
-    const networkOk = await ensureCorrectNetwork();
-    if (!networkOk) {
-      toast.error("Please switch to Monad network");
-      return null;
-    }
-
-    setState({ isLoading: true, error: null });
-
-    try {
-      const data = encodeFunctionData({
-        abi,
-        functionName: "setActivePhase",
-        args: [BigInt(phaseId)],
-      });
-
-      // Dynamic Gas Estimation with Fallback
-      let gasLimit = 150000n; // Fallback
-      try {
-        const estimatedGas = await provider.request({
-          method: "eth_estimateGas",
-          params: [{
-            from: address,
-            to: contractAddress,
-            data,
-          }],
-        });
-        gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer (Monad charges based on limit)
-        console.log(`Gas estimated for setActivePhase: ${estimatedGas}, using: ${gasLimit}`);
-      } catch (err) {
-        console.warn("Gas estimation failed for setActivePhase, using fallback:", err);
-      }
-
-      const txHash = await provider.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: address,
-          to: contractAddress,
-          data,
-          gas: `0x${gasLimit.toString(16)}`,
-        }],
-      });
-
-      await fetchReceiptWithProxy(txHash, network);
-
-      setState({ isLoading: false, error: null });
-      toast.success(`Phase ${phaseId} activated`);
-      return txHash;
-
-    } catch (error: any) {
-      const errorMessage = error.code === 4001 ? "Transaction rejected" : error.message;
-      setState({ isLoading: false, error: errorMessage });
-      toast.error("Failed to set active phase", { description: errorMessage });
-      return null;
-    }
-  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
-
-  // Owner-only: Set allowlist (3 parameters: phaseId, addresses, status)
-  const setAllowlist = useCallback(async (
-    phaseId: number,
-    addresses: string[],
-    status: boolean
-  ): Promise<string | null> => {
-    const provider = getProvider();
-    if (!isConnected || !address || !provider || chainType !== "evm") {
-      toast.error("Please connect an EVM wallet");
-      return null;
-    }
-
-    const networkOk = await ensureCorrectNetwork();
-    if (!networkOk) {
-      toast.error("Please switch to Monad network");
-      return null;
-    }
-
-    setState({ isLoading: true, error: null });
-
-    try {
-      const data = encodeFunctionData({
-        abi,
-        functionName: "setAllowlist",
-        args: [BigInt(phaseId), addresses as `0x${string}`[], status],
-      });
-
-      // Dynamic Gas Estimation with Fallback
-      let gasLimit = BigInt(100000 + (addresses.length * 30000)); // Safer fallback
-      try {
-        const estimatedGas = await provider.request({
-          method: "eth_estimateGas",
-          params: [{
-            from: address,
-            to: contractAddress,
-            data,
-          }],
-        });
-        gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer (Monad charges based on limit)
-        console.log(`Gas estimated for setAllowlist: ${estimatedGas}, using: ${gasLimit}`);
-      } catch (err) {
-        console.warn("Gas estimation failed for setAllowlist, using fallback:", err);
-      }
-
-      const txHash = await provider.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: address,
-          to: contractAddress,
-          data,
-          gas: `0x${gasLimit.toString(16)}`,
-        }],
-      });
-
-      await fetchReceiptWithProxy(txHash, network);
-
-      setState({ isLoading: false, error: null });
-      toast.success(`Allowlist updated for ${addresses.length} addresses`);
-      return txHash;
-
-    } catch (error: any) {
-      const errorMessage = error.code === 4001 ? "Transaction rejected" : error.message;
-      setState({ isLoading: false, error: errorMessage });
-      toast.error("Failed to set allowlist", { description: errorMessage });
-      return null;
-    }
-  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
-
-  // Owner-only: Set base URI
-  const setBaseURI = useCallback(async (baseURI: string): Promise<string | null> => {
-    const provider = getProvider();
-    if (!isConnected || !address || !provider || chainType !== "evm") {
-      toast.error("Please connect an EVM wallet");
-      return null;
-    }
-
-    const networkOk = await ensureCorrectNetwork();
-    if (!networkOk) {
-      toast.error("Please switch to Monad network");
-      return null;
-    }
-
-    setState({ isLoading: true, error: null });
-
-    try {
-      const data = encodeFunctionData({
-        abi,
-        functionName: "setBaseURI",
-        args: [baseURI],
-      });
-
-      // Dynamic Gas Estimation with Fallback
-      let gasLimit = 300000n; // Fallback
-      try {
-        const estimatedGas = await provider.request({
-          method: "eth_estimateGas",
-          params: [{
-            from: address,
-            to: contractAddress,
-            data,
-          }],
-        });
-        gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer (Monad charges based on limit)
-        console.log(`Gas estimated for setBaseURI: ${estimatedGas}, using: ${gasLimit}`);
-      } catch (err) {
-        console.warn("Gas estimation failed for setBaseURI, using fallback:", err);
-      }
-
-      const txHash = await provider.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: address,
-          to: contractAddress,
-          data,
-          gas: `0x${gasLimit.toString(16)}`,
-        }],
-      });
-
-      await fetchReceiptWithProxy(txHash, network);
-
-      setState({ isLoading: false, error: null });
-      toast.success("Base URI updated");
-      return txHash;
-
-    } catch (error: any) {
-      const errorMessage = error.code === 4001 ? "Transaction rejected" : error.message;
-      setState({ isLoading: false, error: errorMessage });
-      toast.error("Failed to set base URI", { description: errorMessage });
-      return null;
-    }
-  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
-
-  // Owner-only: Withdraw funds
-  const withdraw = useCallback(async (): Promise<string | null> => {
-    const provider = getProvider();
-    if (!isConnected || !address || !provider || chainType !== "evm") {
-      toast.error("Please connect an EVM wallet");
-      return null;
-    }
-
-    const networkOk = await ensureCorrectNetwork();
-    if (!networkOk) {
-      toast.error("Please switch to Monad network");
-      return null;
-    }
-
-    setState({ isLoading: true, error: null });
-
-    try {
-      const data = encodeFunctionData({
-        abi,
-        functionName: "withdraw",
-        args: [],
-      });
-
-      // Dynamic Gas Estimation with Fallback
-      let gasLimit = 150000n; // Fallback
-      try {
-        const estimatedGas = await provider.request({
-          method: "eth_estimateGas",
-          params: [{
-            from: address,
-            to: contractAddress,
-            data,
-          }],
-        });
-        gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer (Monad charges based on limit)
-        console.log(`Gas estimated for withdraw: ${estimatedGas}, using: ${gasLimit}`);
-      } catch (err) {
-        console.warn("Gas estimation failed for withdraw, using fallback:", err);
-      }
-
-      const txHash = await provider.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: address,
-          to: contractAddress,
-          data,
-          gas: `0x${gasLimit.toString(16)}`,
-        }],
-      });
-
-      await fetchReceiptWithProxy(txHash, network);
-
-      setState({ isLoading: false, error: null });
-      toast.success("Funds withdrawn successfully");
-      return txHash;
-
-    } catch (error: any) {
-      const errorMessage = error.code === 4001 ? "Transaction rejected" : error.message;
-      setState({ isLoading: false, error: errorMessage });
-      toast.error("Failed to withdraw", { description: errorMessage });
-      return null;
-    }
-  }, [address, isConnected, chainType, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
+  const withdraw = useCallback(async () => {
+    return executeWriteWithGas("withdraw", [], 150000n)
+      .then(tx => { toast.success("Funds withdrawn successfully"); return tx; })
+      .catch(err => { toast.error("Failed to withdraw", { description: err.message }); return null; });
+  }, [address, isConnected, network, contractAddress, getProvider, ensureCorrectNetwork, abi]);
 
   return {
     ...state,
     contractAddress,
-    // Read functions
+    getCollectionState,
     getPhase,
     getActivePhase,
     isAllowlisted,
     getMintedPerPhase,
     getTotalSupply,
     getMaxSupply,
-    // Write functions (owner only)
     configurePhase,
     setActivePhase,
     setAllowlist,
