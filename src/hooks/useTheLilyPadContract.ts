@@ -228,7 +228,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
             // Only include value if needed, for configurePhase it's 0
           }],
         });
-        gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+        gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer (Monad charges based on limit)
         console.log(`Gas estimated for configurePhase: ${estimatedGas}, using: ${gasLimit}`);
       } catch (err) {
         console.warn("Gas estimation failed for configurePhase, using fallback:", err);
@@ -292,7 +292,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
             data,
           }],
         });
-        gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+        gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer (Monad charges based on limit)
         console.log(`Gas estimated for setActivePhase: ${estimatedGas}, using: ${gasLimit}`);
       } catch (err) {
         console.warn("Gas estimation failed for setActivePhase, using fallback:", err);
@@ -360,7 +360,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
             data,
           }],
         });
-        gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+        gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer (Monad charges based on limit)
         console.log(`Gas estimated for setAllowlist: ${estimatedGas}, using: ${gasLimit}`);
       } catch (err) {
         console.warn("Gas estimation failed for setAllowlist, using fallback:", err);
@@ -424,7 +424,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
             data,
           }],
         });
-        gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+        gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer (Monad charges based on limit)
         console.log(`Gas estimated for setBaseURI: ${estimatedGas}, using: ${gasLimit}`);
       } catch (err) {
         console.warn("Gas estimation failed for setBaseURI, using fallback:", err);
@@ -488,7 +488,7 @@ export function useTheLilyPadContract(targetContractAddress?: string | null) {
             data,
           }],
         });
-        gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+        gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer (Monad charges based on limit)
         console.log(`Gas estimated for withdraw: ${estimatedGas}, using: ${gasLimit}`);
       } catch (err) {
         console.warn("Gas estimation failed for withdraw, using fallback:", err);

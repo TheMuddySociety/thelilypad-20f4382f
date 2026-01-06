@@ -421,9 +421,9 @@ export function useContractMint(contractAddress: string | null) {
             }],
           });
 
-          // Add 20% buffer for safety
+          // Add 5% buffer for safety (Monad charges based on limit)
           const estimatedGasBigInt = BigInt(estimatedGas);
-          gasLimit = (estimatedGasBigInt * 120n) / 100n;
+          gasLimit = (estimatedGasBigInt * 105n) / 100n;
           console.log(`Gas estimated: ${estimatedGasBigInt}, using buffered limit: ${gasLimit}`);
         } catch (gasError) {
           console.warn("Gas estimation failed, using fallback:", gasError);

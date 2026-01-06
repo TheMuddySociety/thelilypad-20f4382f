@@ -188,7 +188,7 @@ export function useContractDeploy() {
               data,
             }],
           });
-          gasLimit = (BigInt(estimatedGas) * 120n) / 100n; // 20% buffer
+          gasLimit = (BigInt(estimatedGas) * 105n) / 100n; // 5% buffer (Monad charges based on limit)
           console.log(`Gas estimated for deployment: ${estimatedGas}, using: ${gasLimit}`);
         } catch (gasError) {
           console.warn("Gas estimation failed for deployment, using fallback:", gasError);
