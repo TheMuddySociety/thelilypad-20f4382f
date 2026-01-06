@@ -32,7 +32,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
     if (!contractAddress) throw new Error("No contract address");
 
     const rpcUrl = currentChain.rpcUrls.default.http[0];
-    
+
     // Find the function in ABI
     const func = NFT_COLLECTION_ABI.find(
       (item) => item.type === "function" && item.name === functionName
@@ -87,7 +87,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
 
     try {
       console.log("[Phase Sync] Starting on-chain phase sync for:", contractAddress);
-      
+
       const rpcUrl = currentChain.rpcUrls.default.http[0];
       const activePhaseId = await callContract("activePhaseId");
       console.log("[Phase Sync] Active phase ID:", Number(activePhaseId));
@@ -98,16 +98,16 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
 
       // 3. Read phase data for phases 0, 1, 2 (common phase IDs)
       const phases: OnChainPhase[] = [];
-      
+
       // Try to read phases 0-3 (allowlist and public phases)
       for (let phaseId = 0; phaseId <= 3; phaseId++) {
         try {
           const phaseData = await callContract("phases", [BigInt(phaseId)]);
-          
+
           // NFT_FACTORY_ABI getPhase returns: [price, maxPerWallet, phaseMaxSupply, phaseMinted, isActive]
           // Note: No requiresAllowlist in this contract version
           const [price, maxPerWallet, supply, minted, isActive] = phaseData as [bigint, bigint, bigint, bigint, boolean];
-          
+
           // Only include phases that have been configured (supply > 0 or it's the active phase)
           if (Number(supply) > 0 || phaseId === Number(activePhaseId)) {
             phases.push({
@@ -136,7 +136,11 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
         .maybeSingle();
 
       if (fetchError) {
-        throw new Error(`Failed to fetch collection: ${fetchError.message}`);
+        throw new Error(`Failed to fetch collection data for sync: ${fetchError.message}`);
+      }
+
+      if (!collection) {
+        throw new Error("Collection record not found in database during sync.");
       }
 
       // Map on-chain phases to DB format
@@ -145,7 +149,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
         // Try to match by ID or name
         const phaseIdMatch = phase.id === "public" ? 1 : phase.id === "allowlist" ? 0 : parseInt(phase.id) || 0;
         const onChainPhase = phases.find(p => p.phaseId === phaseIdMatch);
-        
+
         if (onChainPhase) {
           return {
             ...phase,
@@ -155,12 +159,12 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
             // price: onChainPhase.price,
           };
         }
-        
+
         // If no match, check if this phase should be active based on activePhaseId
-        const isThisPhaseActive = 
+        const isThisPhaseActive =
           (phase.id === "public" && Number(activePhaseId) === 1) ||
           (phase.id === "allowlist" && Number(activePhaseId) === 0);
-        
+
         return {
           ...phase,
           isActive: isThisPhaseActive,
@@ -189,7 +193,7 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
 
       setLastSyncResult(result);
       console.log("[Phase Sync] Sync complete:", result);
-      
+
       toast.success("Phase Synced!", {
         description: `Active phase: ${Number(activePhaseId)}, Minted: ${Number(totalSupply)}`,
       });
