@@ -88,42 +88,52 @@ export function useOnChainPhaseSync(contractAddress: string | null, collectionId
     try {
       console.log("[Phase Sync] Starting on-chain phase sync for:", contractAddress);
 
-      const rpcUrl = currentChain.rpcUrls.default.http[0];
-      const activePhaseId = await callContract("activePhaseId");
-      console.log("[Phase Sync] Active phase ID:", Number(activePhaseId));
+      // 1. Get global contract state
+      const [activePhaseId, isPaused, totalSupply] = await Promise.all([
+        callContract("activePhaseId"),
+        callContract("paused").catch(() => false),
+        callContract("totalSupply")
+      ]);
 
-      // 2. Get total supply from contract
-      const totalSupply = await callContract("totalSupply");
-      console.log("[Phase Sync] Total supply:", Number(totalSupply));
+      console.log("[Phase Sync] Global state:", {
+        activePhaseId: Number(activePhaseId),
+        isPaused,
+        totalSupply: Number(totalSupply)
+      });
 
-      // 3. Read phase data for phases 0, 1, 2 (common phase IDs)
+      // 2. Read phase data for phases 0-3 (common phase IDs)
       const phases: OnChainPhase[] = [];
 
-      // Try to read phases 0-3 (allowlist and public phases)
       for (let phaseId = 0; phaseId <= 3; phaseId++) {
         try {
           const phaseData = await callContract("phases", [BigInt(phaseId)]);
 
-          // NFT_FACTORY_ABI getPhase returns: [price, maxPerWallet, phaseMaxSupply, phaseMinted, isActive]
-          // Note: No requiresAllowlist in this contract version
-          const [price, maxPerWallet, supply, minted, isActive] = phaseData as [bigint, bigint, bigint, bigint, boolean];
+          // Contract phases items: [price, maxPerWallet, maxSupply, minted, requiresAllowlist]
+          const [price, maxPerWallet, supply, minted, requiresAllowlist] = phaseData as [bigint, bigint, bigint, bigint, boolean];
+
+          // Determine if this specific phase is the one currently active
+          const isActive = !isPaused && Number(activePhaseId) === phaseId;
 
           // Only include phases that have been configured (supply > 0 or it's the active phase)
-          if (Number(supply) > 0 || phaseId === Number(activePhaseId)) {
+          if (Number(supply) > 0 || isActive) {
             phases.push({
               phaseId,
               price: formatEther(price),
               maxPerWallet: Number(maxPerWallet),
               supply: Number(supply),
               minted: Number(minted),
-              requiresAllowlist: false, // This contract version doesn't track this on-chain
+              requiresAllowlist,
               isActive,
             });
-            console.log(`[Phase Sync] Phase ${phaseId}:`, { price: formatEther(price), supply: Number(supply), isActive });
+            console.log(`[Phase Sync] Phase ${phaseId}:`, {
+              price: formatEther(price),
+              supply: Number(supply),
+              isActive,
+              requiresAllowlist
+            });
           }
         } catch (err) {
-          // Phase doesn't exist or error reading it - skip
-          console.log(`[Phase Sync] Phase ${phaseId} not configured or error:`, err);
+          console.log(`[Phase Sync] Phase ${phaseId} skip:`, err);
         }
       }
 

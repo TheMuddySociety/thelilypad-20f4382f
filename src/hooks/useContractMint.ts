@@ -408,13 +408,32 @@ export function useContractMint(contractAddress: string | null) {
         gasLimit = BigInt(customGasLimit);
       } else {
         try {
+          // Attempt to estimate gas; this also simulates execution and reveals reverts early
           const estimatedGas = await provider.request({
             method: "eth_estimateGas",
             params: [{ from: address, to: contractAddress, data, value: `0x${totalValue.toString(16)}` }],
           });
           gasLimit = (BigInt(estimatedGas) * 105n) / 100n;
-        } catch (e) {
+        } catch (e: any) {
+          console.warn("Gas estimation failed, transaction might revert:", e);
+
+          // Try to decode common revert reasons from error message
+          const msg = e.message?.toLowerCase() || '';
+          if (msg.includes('insufficient') || msg.includes('funds')) {
+            throw new Error("Insufficient funds for this mint (price + gas)");
+          } else if (msg.includes('allowlist') || msg.includes('not on list')) {
+            throw new Error("You are not on the allowlist for this phase");
+          } else if (msg.includes('active') || msg.includes('started')) {
+            throw new Error("This mint phase is not currently active on-chain");
+          } else if (msg.includes('limit') || msg.includes('max')) {
+            throw new Error("You have reached the maximum mint limit for this phase");
+          } else if (msg.includes('supply') || msg.includes('sold out')) {
+            throw new Error("This phase or collection is sold out");
+          }
+
+          // If it's a generic revert but we're debugging, use a fallback but warn
           gasLimit = BigInt(300000 + (100000 * quantity));
+          console.warn(`Used fallback gas limit: ${gasLimit.toString()}`);
         }
       }
 
@@ -509,13 +528,30 @@ export function useContractMint(contractAddress: string | null) {
         gasLimit = BigInt(customGasLimit);
       } else {
         try {
+          // Attempt to estimate gas; this also simulates execution and reveals reverts early
           const estimatedGas = await provider.request({
             method: "eth_estimateGas",
             params: [{ from: address, to: contractAddress, data, value: `0x${totalValue.toString(16)}` }],
           });
           gasLimit = (BigInt(estimatedGas) * 105n) / 100n;
-        } catch (e) {
+        } catch (e: any) {
+          console.warn("Gas estimation failed, transaction might revert:", e);
+
+          // Try to decode common revert reasons from error message
+          const msg = e.message?.toLowerCase() || '';
+          if (msg.includes('insufficient') || msg.includes('funds')) {
+            throw new Error("Insufficient funds for this mint (price + gas)");
+          } else if (msg.includes('active') || msg.includes('started')) {
+            throw new Error("Public mint phase is not currently active on-chain");
+          } else if (msg.includes('limit') || msg.includes('max')) {
+            throw new Error("You have reached the maximum mint limit for this phase");
+          } else if (msg.includes('supply') || msg.includes('sold out')) {
+            throw new Error("This phase or collection is sold out");
+          }
+
+          // If it's a generic revert but we're debugging, use a fallback but warn
           gasLimit = BigInt(300000 + (100000 * quantity));
+          console.warn(`Used fallback gas limit: ${gasLimit.toString()}`);
         }
       }
 
