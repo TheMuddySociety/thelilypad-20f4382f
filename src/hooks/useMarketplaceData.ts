@@ -6,6 +6,8 @@ import { useInfiniteScroll } from "./useInfiniteScroll";
 
 const ITEMS_PER_PAGE = 12;
 
+export type ChainFilter = "monad" | "solana" | "all";
+
 export interface Collection {
   id: string;
   name: string;
@@ -18,6 +20,7 @@ export interface Collection {
   royalty_percent: number;
   created_at: string;
   contract_address: string | null;
+  chain: string;
 }
 
 export interface ShopItem {
@@ -139,14 +142,23 @@ async function fetchBaseMarketplaceData(): Promise<MarketplaceBaseData> {
   };
 }
 
-async function fetchCollectionsPage(pageParam: number): Promise<{ collections: Collection[]; nextPage: number | undefined }> {
-  const { data: collectionsData, error: collectionsError } = await supabase
+async function fetchCollectionsPage(pageParam: number, chain: ChainFilter): Promise<{ collections: Collection[]; nextPage: number | undefined }> {
+  let query = supabase
     .from("collections")
     .select("*")
     .is("deleted_at", null)
     .in("status", ["active", "minting", "soldout", "live"])
-    .order("created_at", { ascending: false })
-    .range(pageParam * ITEMS_PER_PAGE, (pageParam + 1) * ITEMS_PER_PAGE - 1);
+    .order("created_at", { ascending: false });
+
+  // Filter by chain if not "all"
+  if (chain !== "all") {
+    query = query.eq("chain", chain);
+  }
+
+  const { data: collectionsData, error: collectionsError } = await query.range(
+    pageParam * ITEMS_PER_PAGE,
+    (pageParam + 1) * ITEMS_PER_PAGE - 1
+  );
 
   if (collectionsError) {
     console.error("Error fetching collections:", collectionsError);
@@ -166,7 +178,7 @@ async function fetchCollectionsPage(pageParam: number): Promise<{ collections: C
   };
 }
 
-export function useMarketplaceData() {
+export function useMarketplaceData(chain: ChainFilter = "all") {
   const queryClient = useQueryClient();
 
   // Base data query (stickers, listings, hot collections)
@@ -177,10 +189,10 @@ export function useMarketplaceData() {
     refetchOnWindowFocus: false,
   });
 
-  // Infinite collections query
+  // Infinite collections query with chain filter
   const collectionsQuery = useInfiniteQuery({
-    queryKey: ["marketplace-collections"],
-    queryFn: ({ pageParam = 0 }) => fetchCollectionsPage(pageParam),
+    queryKey: ["marketplace-collections", chain],
+    queryFn: ({ pageParam = 0 }) => fetchCollectionsPage(pageParam, chain),
     getNextPageParam: (lastPage) => lastPage.nextPage,
     initialPageParam: 0,
     staleTime: 30 * 1000,

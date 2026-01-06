@@ -8,12 +8,13 @@ import { Sparkles } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
 import { BackToTop } from "@/components/BackToTop";
-import { useWallet } from "@/providers/WalletProvider";
+import { useWallet, ChainType } from "@/providers/WalletProvider";
 import { useSEO } from "@/hooks/useSEO";
 import { 
   useMarketplaceData, 
   isCollectionNew, 
-  type NFTListing 
+  type NFTListing,
+  type ChainFilter,
 } from "@/hooks/useMarketplaceData";
 import { 
   PageHeader, 
@@ -27,17 +28,21 @@ import {
   StickerPacksGrid,
   HomepageFeaturedCollections,
 } from "@/components/marketplace";
+import { ChainSelector } from "@/components/ChainSelector";
 import frognadBanner from "@/assets/frognad-banner.png";
 
 export default function Marketplace() {
-  const { currentChain } = useWallet();
+  const { currentChain, chainType } = useWallet();
   const [activeFilter, setActiveFilter] = useState("all");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [showHotOnly, setShowHotOnly] = useState(false);
   const [showNewOnly, setShowNewOnly] = useState(false);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
+  const [selectedChain, setSelectedChain] = useState<ChainFilter>(
+    chainType === "solana" ? "solana" : "monad"
+  );
 
-  // Use the custom hook for data fetching with infinite scroll
+  // Use the custom hook for data fetching with infinite scroll and chain filter
   const {
     collections,
     stickerPacks,
@@ -48,11 +53,11 @@ export default function Marketplace() {
     isFetchingMore,
     hasMore,
     loadMoreRef,
-  } = useMarketplaceData();
+  } = useMarketplaceData(selectedChain);
 
   useSEO({
     title: "Lily Marketplace | The Lily Pad",
-    description: "Browse NFT collections, listings, and sticker packs on Lily Marketplace. Discover unique digital collectibles on Monad."
+    description: "Browse NFT collections, listings, and sticker packs on Lily Marketplace. Discover unique digital collectibles on Monad and Solana."
   });
 
   // Filter collections
@@ -111,11 +116,18 @@ export default function Marketplace() {
       
       <main className="container mx-auto px-4 pt-24 pb-12">
         {/* Header */}
-        <PageHeader
-          logo={<LilyPadLogo size={56} />}
-          title="Lily Marketplace"
-          subtitle={`Browse collections and sticker packs on ${currentChain.name}`}
-        />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+          <PageHeader
+            logo={<LilyPadLogo size={56} />}
+            title="Lily Marketplace"
+            subtitle={`Browse collections and sticker packs on ${selectedChain === "solana" ? "Solana" : currentChain.name}`}
+          />
+          <ChainSelector 
+            selectedChain={selectedChain === "solana" ? "solana" : "evm"} 
+            onChainChange={(chain) => setSelectedChain(chain === "solana" ? "solana" : "monad")}
+            showBadge={true}
+          />
+        </div>
 
         {/* Platform NFT Collection Coming Soon Banner */}
         <div className="relative mb-8 rounded-xl overflow-hidden">
