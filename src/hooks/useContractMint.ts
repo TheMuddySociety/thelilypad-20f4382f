@@ -56,6 +56,9 @@ const fetchReceiptWithProxy = async (
       const result = await rpcProxyCall(network, 'eth_getTransactionReceipt', [txHash]);
 
       if (result) {
+        // Monad Asynchronous Execution Tip: wait a tiny bit after receipt 
+        // to ensure deterministic state is indexed by all local views
+        await new Promise(resolve => setTimeout(resolve, 400));
         return result;
       }
 
@@ -171,7 +174,18 @@ const submitTransactionWithRetry = async (
 };
 
 export function useContractMint(contractAddress: string | null) {
-  const { address, isConnected, balance, network, switchToMonad, chainId, chainType, getProvider } = useWallet();
+  const {
+    address,
+    isConnected,
+    balance,
+    network,
+    switchToMonad,
+    chainId,
+    chainType,
+    getProvider,
+    isNewAccount,
+    lastFundedAt
+  } = useWallet();
   const [state, setState] = useState<MintState>({
     isMinting: false,
     txHash: null,
@@ -587,9 +601,9 @@ export function useContractMint(contractAddress: string | null) {
             }],
           });
 
-          // Add 20% buffer for safety
+          // Add 5% buffer for safety (Monad charges based on limit)
           const estimatedGasBigInt = BigInt(estimatedGas);
-          gasLimit = (estimatedGasBigInt * 120n) / 100n;
+          gasLimit = (estimatedGasBigInt * 105n) / 100n;
           console.log(`Gas estimated: ${estimatedGasBigInt}, using buffered limit: ${gasLimit}`);
         } catch (gasError) {
           console.warn("Gas estimation failed, using fallback:", gasError);

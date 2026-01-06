@@ -20,6 +20,8 @@ interface WalletState {
   walletType: WalletType | null;
   chainType: ChainType;
   authProvider?: string;
+  isNewAccount?: boolean;
+  lastFundedAt?: number | null;
 }
 
 interface WalletContextType extends WalletState {
@@ -78,13 +80,15 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     network: (localStorage.getItem("monadNetwork") as NetworkType) || "testnet",
     walletType: localStorage.getItem("walletType") as WalletType | null,
     chainType: (localStorage.getItem("chainType") as ChainType) || "evm",
+    isNewAccount: false,
+    lastFundedAt: null,
   }));
 
   const [isPhantomAvailable, setIsPhantomAvailable] = useState(false);
   const [discoveredWallets, setDiscoveredWallets] = useState<InjectedWalletInfo[]>([]);
   const sdkRef = useRef<BrowserSDK | null>(null);
   const stateRef = useRef(state);
-  
+
   // Keep stateRef in sync
   useEffect(() => {
     stateRef.current = state;
@@ -121,10 +125,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Fetch Solana balance
   const fetchSolanaBalance = useCallback(async (address: string) => {
     try {
-      const rpcUrl = state.network === "mainnet" 
+      const rpcUrl = state.network === "mainnet"
         ? "https://api.mainnet-beta.solana.com"
         : "https://api.devnet.solana.com";
-      
+
       const response = await fetch(rpcUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -135,7 +139,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           params: [address],
         }),
       });
-      
+
       const data = await response.json();
       return data.result?.value !== undefined ? formatSolanaBalance(data.result.value) : null;
     } catch (error) {
@@ -151,7 +155,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     try {
       const result: ConnectResult = await sdk.connect({ provider: provider || "injected" });
-      
+
       let address: string | null = null;
       for (const addr of result.addresses) {
         if (chainType === "solana" && addr.addressType === AddressType.solana) {
@@ -165,14 +169,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (!address) throw new Error(`No ${chainType} address found`);
 
-      const balance = chainType === "evm" 
-        ? await fetchEVMBalance(address) 
+      const balance = chainType === "evm"
+        ? await fetchEVMBalance(address)
         : await fetchSolanaBalance(address);
 
       let chainId: number | null = null;
       if (chainType === "evm") {
-        try { 
-          chainId = await sdk.ethereum.getChainId(); 
+        try {
+          chainId = await sdk.ethereum.getChainId();
         } catch (e) {
           // Fallback to provider request
           try {
@@ -181,7 +185,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               const chainIdHex = await provider.request({ method: "eth_chainId" });
               chainId = parseInt(chainIdHex, 16);
             }
-          } catch {}
+          } catch { }
         }
         console.log("Connected on chain ID:", chainId);
       }
@@ -217,7 +221,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem("walletType", "phantom");
       localStorage.setItem("chainType", chainType);
       localStorage.setItem("authProvider", result.authProvider || (provider as string) || "injected");
-      
+
       const networkLabel = detectedNetwork === "mainnet" ? "Mainnet" : "Testnet";
       toast.success(`Wallet connected on ${networkLabel}`);
     } catch (error: any) {
@@ -251,7 +255,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const chainIdHex = await provider.request({ method: "eth_chainId" });
       const address = accounts[0];
       const parsedChainId = parseInt(chainIdHex, 16);
-      
+
       // Auto-detect and sync network based on wallet's current chain
       let detectedNetwork: NetworkType = state.network;
       if (parsedChainId === 143) {
@@ -265,7 +269,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else {
         console.log("Connected on non-Monad chain:", parsedChainId);
       }
-      
+
       const balance = await fetchEVMBalance(address);
 
       setState(prev => ({
@@ -284,7 +288,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem("walletConnected", "true");
       localStorage.setItem("walletType", walletType);
       localStorage.setItem("chainType", "evm");
-      
+
       const networkLabel = detectedNetwork === "mainnet" ? "Mainnet" : "Testnet";
       toast.success(`Wallet connected on ${networkLabel}`);
     } catch (error: any) {
@@ -333,7 +337,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem("walletConnected", "true");
       localStorage.setItem("walletType", "phantom");
       localStorage.setItem("chainType", "solana");
-      
+
       toast.success("Wallet connected");
     } catch (error: any) {
       console.error("Solana connect error:", error);
@@ -362,15 +366,15 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Disconnect
   const disconnect = useCallback(async () => {
     const sdk = getSDK();
-    
+
     try {
       if (sdk.isConnected?.()) await sdk.disconnect();
-    } catch {}
+    } catch { }
 
     if (state.chainType === "solana") {
       try {
         await getSolanaProvider()?.disconnect();
-      } catch {}
+      } catch { }
     }
 
     setState(prev => ({
@@ -389,7 +393,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.removeItem("chainType");
     localStorage.removeItem("authProvider");
     resetPhantomSDK();
-    
+
     toast.success("Wallet disconnected");
   }, [state.chainType, getSDK]);
 
@@ -404,11 +408,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const switchNetwork = useCallback(async (network: NetworkType) => {
     const targetChain = getMonadChain(network);
     const targetChainId = `0x${targetChain.id.toString(16)}`;
-    
+
     // Update local state first
     setState(prev => ({ ...prev, network }));
     localStorage.setItem("monadNetwork", network);
-    
+
     // If connected on EVM, request wallet to switch chains
     if (state.isConnected && state.chainType === "evm") {
       const provider = getEVMProvider(state.walletType);
@@ -418,11 +422,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             method: "wallet_switchEthereumChain",
             params: [{ chainId: targetChainId }],
           });
-          
+
           // Update chainId after successful switch
           const newChainId = await provider.request({ method: "eth_chainId" });
           setState(prev => ({ ...prev, chainId: parseInt(newChainId, 16) }));
-          
+
           // Refresh balance
           if (state.address) {
             const balance = await fetchEVMBalance(state.address);
@@ -492,12 +496,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Switch to Monad network
   const switchToMonad = useCallback(async () => {
     if (state.chainType !== "evm" || !state.isConnected) return;
-    
+
     const provider = getEVMProvider(state.walletType);
     if (!provider) return;
 
     const targetChainId = `0x${currentChain.id.toString(16)}`;
-    
+
     try {
       await provider.request({
         method: "wallet_switchEthereumChain",
@@ -549,7 +553,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const sdk = getSDK();
           await sdk.discoverWallets?.();
           setDiscoveredWallets(sdk.getDiscoveredWallets?.() || []);
-        } catch {}
+        } catch { }
       }
     };
     init();
@@ -576,7 +580,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             if (result?.addresses) {
               let address: string | null = null;
               const chainType = savedChain || "evm";
-              
+
               for (const addr of result.addresses) {
                 if (chainType === "solana" && addr.addressType === AddressType.solana) {
                   address = addr.address;
@@ -588,8 +592,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               }
 
               if (address) {
-                const balance = chainType === "evm" 
-                  ? await fetchEVMBalance(address) 
+                const balance = chainType === "evm"
+                  ? await fetchEVMBalance(address)
                   : await fetchSolanaBalance(address);
 
                 setState(prev => ({
@@ -649,8 +653,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // Use ref to avoid stale closure
         disconnectRef.current();
       } else if (accounts[0] !== stateRef.current.address && stateRef.current.chainType === "evm") {
-        setState(prev => ({ ...prev, address: accounts[0] }));
-        fetchEVMBalance(accounts[0]).then(balance => {
+        const newAddress = accounts[0];
+        setState(prev => ({
+          ...prev,
+          address: newAddress,
+          isNewAccount: false,
+          lastFundedAt: null
+        }));
+        fetchEVMBalance(newAddress).then(balance => {
           setState(prev => ({ ...prev, balance }));
         });
       }
@@ -660,7 +670,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const newChainId = parseInt(chainIdHex, 16);
       console.log("Chain changed to:", newChainId);
       setState(prev => ({ ...prev, chainId: newChainId }));
-      
+
       // Check if the new chain matches mainnet or testnet
       if (newChainId === 143) {
         setState(prev => ({ ...prev, network: "mainnet" }));
@@ -669,12 +679,20 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setState(prev => ({ ...prev, network: "testnet" }));
         localStorage.setItem("monadNetwork", "testnet");
       }
-      
+
       // Refresh balance on the new chain using stateRef
       const currentAddress = stateRef.current.address;
       if (currentAddress) {
         fetchEVMBalance(currentAddress).then(balance => {
-          setState(prev => ({ ...prev, balance }));
+          const prevBalance = stateRef.current.balance;
+          const isNewlyFunded = (prevBalance === "0" || prevBalance === "0.0") && balance !== "0" && balance !== "0.0";
+
+          setState(prev => ({
+            ...prev,
+            balance,
+            isNewAccount: isNewlyFunded,
+            lastFundedAt: isNewlyFunded ? Date.now() : prev.lastFundedAt
+          }));
         });
       }
     };

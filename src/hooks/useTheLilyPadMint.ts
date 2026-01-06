@@ -48,7 +48,11 @@ const fetchReceiptWithProxy = async (
   while (attempts < maxAttempts) {
     try {
       const result = await rpcProxyCall(network, 'eth_getTransactionReceipt', [txHash]);
-      if (result) return result;
+      if (result) {
+        // Monad Asynchronous Execution Tip
+        await new Promise(resolve => setTimeout(resolve, 400));
+        return result;
+      }
       await new Promise(resolve => setTimeout(resolve, 2000));
       attempts++;
     } catch (error) {
@@ -61,7 +65,17 @@ const fetchReceiptWithProxy = async (
 };
 
 export function useTheLilyPadMint() {
-  const { address, isConnected, network, switchToMonad, chainId, chainType, getProvider } = useWallet();
+  const {
+    address,
+    isConnected,
+    network,
+    switchToMonad,
+    chainId,
+    chainType,
+    getProvider,
+    isNewAccount,
+    lastFundedAt
+  } = useWallet();
   const [state, setState] = useState<MintState>({
     isMinting: false,
     txHash: null,

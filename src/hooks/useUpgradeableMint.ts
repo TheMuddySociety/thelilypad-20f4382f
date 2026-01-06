@@ -50,6 +50,8 @@ const fetchReceiptWithProxy = async (
       const result = await rpcProxyCall(network, 'eth_getTransactionReceipt', [txHash]);
 
       if (result) {
+        // Monad Asynchronous Execution Tip
+        await new Promise(resolve => setTimeout(resolve, 400));
         return result;
       }
 
@@ -66,7 +68,17 @@ const fetchReceiptWithProxy = async (
 };
 
 export function useUpgradeableMint(contractAddress: string | null) {
-  const { address, isConnected, network, switchToMonad, chainId, chainType, getProvider } = useWallet();
+  const {
+    address,
+    isConnected,
+    network,
+    switchToMonad,
+    chainId,
+    chainType,
+    getProvider,
+    isNewAccount,
+    lastFundedAt
+  } = useWallet();
   const [state, setState] = useState<MintState>({
     isMinting: false,
     txHash: null,
@@ -131,13 +143,24 @@ export function useUpgradeableMint(contractAddress: string | null) {
       setState(prev => ({ ...prev, error: "Please switch to Monad network" }));
       return null;
     }
-
     setState({
       isMinting: true,
       txHash: null,
       error: null,
       mintedTokenId: null,
     });
+
+    // Check for Monad "New Account Funding Delay"
+    if (isNewAccount && lastFundedAt) {
+      const timeSinceFunding = Date.now() - lastFundedAt;
+      if (timeSinceFunding < 1000) {
+        const waitTime = Math.ceil((1000 - timeSinceFunding) / 100) / 10;
+        toast.info("Monad Synchronization", {
+          description: `New wallet detected. Waiting ${waitTime}s for execution sync...`
+        });
+        await new Promise(resolve => setTimeout(resolve, 1000 - timeSinceFunding));
+      }
+    }
 
     try {
       // Construct the token URI from IPFS CID and token ID
