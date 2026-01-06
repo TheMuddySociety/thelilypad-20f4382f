@@ -7,8 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMonadChain, NetworkType } from "@/config/alchemy";
 import { toast } from "sonner";
 
+export type MintStep = 'idle' | 'waiting_wallet' | 'submitting' | 'processing' | 'syncing' | 'success' | 'error';
+
 interface MintState {
   isMinting: boolean;
+  step: MintStep;
   txHash: string | null;
   error: string | null;
   mintedTokenIds: number[];
@@ -188,6 +191,7 @@ export function useContractMint(contractAddress: string | null) {
   } = useWallet();
   const [state, setState] = useState<MintState>({
     isMinting: false,
+    step: 'idle',
     txHash: null,
     error: null,
     mintedTokenIds: [],
@@ -196,6 +200,7 @@ export function useContractMint(contractAddress: string | null) {
   const resetState = useCallback(() => {
     setState({
       isMinting: false,
+      step: 'idle',
       txHash: null,
       error: null,
       mintedTokenIds: [],
@@ -285,12 +290,10 @@ export function useContractMint(contractAddress: string | null) {
       console.log(`Transaction recorded in DB: ${txHash}`);
     } catch (err: any) {
       console.error("Error recording transaction:", err);
-      // We don't throw here to avoid blocking the whole process, 
-      // but we log it clearly for debugging
     }
   }, []);
 
-  // Record minted NFTs to database with better ID calculation and retry logic
+  // Record minted NFTs to database
   const recordMintedNFTs = useCallback(async (
     txHash: string,
     collectionId: string,
@@ -302,8 +305,6 @@ export function useContractMint(contractAddress: string | null) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !address) return;
 
-      // 1. Get current minted count and update it atomically if possible
-      // For now, we fetch and then update, but we'll be more careful with IDs
       const { data: collection, error: fetchError } = await supabase
         .from("collections")
         .select("minted, name")
@@ -316,7 +317,6 @@ export function useContractMint(contractAddress: string | null) {
       const startTokenId = currentMinted + 1;
       const finalMintedCount = currentMinted + quantity;
 
-      // 2. Prepare NFT objects
       const nftsToInsert = Array.from({ length: quantity }, (_, i) => ({
         collection_id: collectionId,
         owner_id: user.id,
@@ -328,17 +328,9 @@ export function useContractMint(contractAddress: string | null) {
         attributes: [],
       }));
 
-      // 3. Insert NFTs
       const { error: insertError } = await supabase.from("minted_nfts").insert(nftsToInsert);
-      if (insertError) {
-        if (insertError.code === "23505") { // Unique constraint violation (token_id)
-          console.warn("Token ID collision detected, retrying sync with higher Offset...");
-          // In a real app, we'd loop or use a more robust ID system
-        }
-        throw insertError;
-      }
+      if (insertError) throw insertError;
 
-      // 4. Update the collection's minted count
       const { error: updateError } = await supabase
         .from("collections")
         .update({ minted: finalMintedCount })
@@ -346,29 +338,17 @@ export function useContractMint(contractAddress: string | null) {
 
       if (updateError) throw updateError;
 
-      console.log(`Successfully recorded ${quantity} minted NFTs and updated collection count to ${finalMintedCount}`);
+      return Array.from({ length: quantity }, (_, i) => startTokenId + i);
     } catch (err: any) {
       console.error("Error recording minted NFTs:", err);
-      // This is a critical error for the user's view, so we toast it
       toast.error("Database Sync Failed", {
-        description: "Your NFTs were minted on-chain but there was an error updating your profile. Please refresh in a moment."
+        description: "Your NFTs were minted on-chain but there was an error updating your profile."
       });
-      throw err; // Re-throw to handle in the main mint function
+      throw err;
     }
   }, [address]);
 
-  // Update transaction status
-  const updateTransactionStatus = useCallback(async (txHash: string, status: string) => {
-    await supabase
-      .from("nft_transactions")
-      .update({
-        status,
-        confirmed_at: status === "confirmed" ? new Date().toISOString() : null
-      })
-      .eq("tx_hash", txHash);
-  }, []);
-
-  // Mint with allowlist - uses mint function with Merkle proof
+  // Mint with allowlist
   const mintWithAllowlist = useCallback(async (
     quantity: number,
     pricePerNft: string,
@@ -385,9 +365,8 @@ export function useContractMint(contractAddress: string | null) {
     }
 
     if (chainType !== "evm") {
-      const errorMsg = "Please switch to an EVM wallet to mint NFTs. Open the wallet menu and click 'Switch to EVM' or connect with MetaMask.";
+      const errorMsg = "Please switch to an EVM wallet to mint NFTs.";
       setState(prev => ({ ...prev, error: errorMsg }));
-      toast.error("EVM Wallet Required", { description: errorMsg });
       return null;
     }
 
@@ -399,146 +378,87 @@ export function useContractMint(contractAddress: string | null) {
 
     setState({
       isMinting: true,
+      step: 'waiting_wallet',
       txHash: null,
       error: null,
       mintedTokenIds: [],
     });
 
+    // Check for Monad "New Account Funding Delay"
+    if (isNewAccount && lastFundedAt) {
+      const timeSinceFunding = Date.now() - lastFundedAt;
+      if (timeSinceFunding < 1000) {
+        await new Promise(resolve => setTimeout(resolve, 1000 - timeSinceFunding));
+      }
+    }
+
     try {
       const priceInWei = parseEther(pricePerNft);
       const totalValue = priceInWei * BigInt(quantity);
-
-      // Generate Merkle proof for allowlist verification
       const proof = generateMerkleProof(address, allowlistAddresses) as `0x${string}`[];
 
-      // Use mint function with proof for allowlist minting
       const data = encodeFunctionData({
         abi: NFT_COLLECTION_ABI,
         functionName: "mint",
         args: [BigInt(quantity), proof],
       });
 
-      // Dynamic Gas Estimation
-      let gasLimit = BigInt(200000 + (80000 * quantity)); // Default fallback
-
+      let gasLimit = BigInt(200000 + (80000 * quantity));
       if (customGasLimit) {
         gasLimit = BigInt(customGasLimit);
       } else {
         try {
           const estimatedGas = await provider.request({
             method: "eth_estimateGas",
-            params: [{
-              from: address,
-              to: contractAddress,
-              data,
-              value: `0x${totalValue.toString(16)}`,
-            }],
+            params: [{ from: address, to: contractAddress, data, value: `0x${totalValue.toString(16)}` }],
           });
-
-          // Add 5% buffer for safety (Monad charges based on limit)
-          const estimatedGasBigInt = BigInt(estimatedGas);
-          gasLimit = (estimatedGasBigInt * 105n) / 100n;
-          console.log(`Gas estimated: ${estimatedGasBigInt}, using buffered limit: ${gasLimit}`);
-        } catch (gasError) {
-          console.warn("Gas estimation failed, using fallback:", gasError);
-          // Increase fallback slightly if estimation fails to be safer
+          gasLimit = (BigInt(estimatedGas) * 105n) / 100n;
+        } catch (e) {
           gasLimit = BigInt(300000 + (100000 * quantity));
         }
       }
 
-      const txParams = {
+      setState(prev => ({ ...prev, step: 'submitting' }));
+      const txHash = await submitTransactionWithRetry(provider, {
         from: address,
         to: contractAddress,
         data,
         value: `0x${totalValue.toString(16)}`,
         gas: `0x${gasLimit.toString(16)}`,
-      };
-
-      const txHash = await submitTransactionWithRetry(provider, txParams, {
-        maxRetries: 5,
-        baseDelay: 1000,
-        onRetry: (attempt, reason, delay) => {
-          setState(prev => ({
-            ...prev,
-            error: `${reason}, retrying in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/6)...`
-          }));
-          toast.info("Retrying transaction", {
-            description: `${reason} detected, waiting ${Math.round(delay / 1000)}s before retry...`,
-            duration: Math.min(delay, 3000),
-          });
-        },
       });
 
-      setState(prev => ({ ...prev, error: null }));
-
+      setState(prev => ({ ...prev, step: 'processing', txHash }));
       const receipt = await fetchReceiptWithProxy(txHash, network);
 
-      if (receipt && receipt.status === "0x0") {
-        throw new Error("Mint transaction reverted on-chain. This could be due to exceeding limits or incorrect phase state.");
-      }
+      if (receipt && receipt.status === "0x0") throw new Error("Transaction reverted on-chain");
 
-      if (!receipt) {
-        console.warn("Receipt not found within timeout, marking transaction as pending.");
-        if (collectionId) {
-          const totalPaid = parseFloat(pricePerNft) * quantity;
-          await recordTransaction(txHash, collectionId, "mint", quantity, totalPaid, "pending");
-        }
-        setState(prev => ({
-          ...prev,
-          isMinting: false,
-          txHash,
-          error: "Transaction sent but receipt not found yet. It will appear in your profile once confirmed."
-        }));
-        return txHash;
-      }
+      setState(prev => ({ ...prev, step: 'syncing' }));
 
+      let tokenIds: number[] = [];
       if (collectionId) {
         const totalPaid = parseFloat(pricePerNft) * quantity;
         await recordTransaction(txHash, collectionId, "mint", quantity, totalPaid, "confirmed");
-        await recordMintedNFTs(txHash, collectionId, quantity, collectionName, collectionImage);
+        tokenIds = await recordMintedNFTs(txHash, collectionId, quantity, collectionName, collectionImage) || [];
       }
 
       setState({
         isMinting: false,
+        step: 'success',
         txHash,
         error: null,
-        mintedTokenIds: [],
+        mintedTokenIds: tokenIds,
       });
 
       return txHash;
-
     } catch (error: any) {
       console.error("Mint error:", error);
-
-      let errorMessage = "Minting failed";
-      if (error.code === 4001) {
-        errorMessage = "Transaction rejected by user";
-      } else if (error.code === -32080 || error.data?.httpStatus === 403) {
-        errorMessage = "RPC endpoint unavailable. Please check your wallet's network settings or try again in a moment.";
-      } else if (error.message?.includes("insufficient funds")) {
-        errorMessage = "Insufficient funds for gas + mint price";
-      } else if (error.message?.includes("not on allowlist") || error.message?.includes("Not allowlisted")) {
-        errorMessage = "Address not on allowlist for this phase";
-      } else if (error.message?.toLowerCase().includes("gas")) {
-        errorMessage = "Transaction failed due to gas issues. Please try again or increase gas limit in advanced settings.";
-      } else if (error.message?.includes("RPC") || error.message?.includes("HTTP")) {
-        errorMessage = "Network connection issue. Please check your wallet's RPC settings or try again.";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      setState({
-        isMinting: false,
-        txHash: null,
-        error: errorMessage,
-        mintedTokenIds: [],
-      });
-
+      const errorMessage = error.code === 4001 ? "Transaction rejected" : (error.message || "Minting failed");
+      setState({ isMinting: false, step: 'error', txHash: null, error: errorMessage, mintedTokenIds: [] });
       return null;
     }
-  }, [address, isConnected, contractAddress, recordTransaction, recordMintedNFTs, ensureCorrectNetwork]);
+  }, [address, isConnected, contractAddress, recordTransaction, recordMintedNFTs, ensureCorrectNetwork, isNewAccount, lastFundedAt]);
 
-  // Mint public - uses mintPublic function
+  // Mint public
   const mintPublic = useCallback(async (
     quantity: number,
     pricePerNft: string,
@@ -553,13 +473,6 @@ export function useContractMint(contractAddress: string | null) {
       return null;
     }
 
-    if (chainType !== "evm") {
-      const errorMsg = "Please switch to an EVM wallet to mint NFTs. Open the wallet menu and click 'Switch to EVM' or connect with MetaMask.";
-      setState(prev => ({ ...prev, error: errorMsg }));
-      toast.error("EVM Wallet Required", { description: errorMsg });
-      return null;
-    }
-
     const networkOk = await ensureCorrectNetwork();
     if (!networkOk) {
       setState(prev => ({ ...prev, error: "Please switch to Monad network" }));
@@ -568,151 +481,89 @@ export function useContractMint(contractAddress: string | null) {
 
     setState({
       isMinting: true,
+      step: 'waiting_wallet',
       txHash: null,
       error: null,
       mintedTokenIds: [],
     });
 
+    // Check for Monad "New Account Funding Delay"
+    if (isNewAccount && lastFundedAt) {
+      const timeSinceFunding = Date.now() - lastFundedAt;
+      if (timeSinceFunding < 1000) {
+        await new Promise(resolve => setTimeout(resolve, 1000 - timeSinceFunding));
+      }
+    }
+
     try {
       const priceInWei = parseEther(pricePerNft);
       const totalValue = priceInWei * BigInt(quantity);
-
-      // Use mintPublic function for public minting
       const data = encodeFunctionData({
         abi: NFT_COLLECTION_ABI,
         functionName: "mintPublic",
         args: [BigInt(quantity)],
       });
 
-      // Dynamic Gas Estimation
-      let gasLimit = BigInt(200000 + (80000 * quantity)); // Default fallback
-
+      let gasLimit = BigInt(200000 + (80000 * quantity));
       if (customGasLimit) {
         gasLimit = BigInt(customGasLimit);
       } else {
         try {
           const estimatedGas = await provider.request({
             method: "eth_estimateGas",
-            params: [{
-              from: address,
-              to: contractAddress,
-              data,
-              value: `0x${totalValue.toString(16)}`,
-            }],
+            params: [{ from: address, to: contractAddress, data, value: `0x${totalValue.toString(16)}` }],
           });
-
-          // Add 5% buffer for safety (Monad charges based on limit)
-          const estimatedGasBigInt = BigInt(estimatedGas);
-          gasLimit = (estimatedGasBigInt * 105n) / 100n;
-          console.log(`Gas estimated: ${estimatedGasBigInt}, using buffered limit: ${gasLimit}`);
-        } catch (gasError) {
-          console.warn("Gas estimation failed, using fallback:", gasError);
-          // Increase fallback slightly if estimation fails
+          gasLimit = (BigInt(estimatedGas) * 105n) / 100n;
+        } catch (e) {
           gasLimit = BigInt(300000 + (100000 * quantity));
         }
       }
 
-      const txParams = {
+      setState(prev => ({ ...prev, step: 'submitting' }));
+      const txHash = await submitTransactionWithRetry(provider, {
         from: address,
         to: contractAddress,
         data,
         value: `0x${totalValue.toString(16)}`,
         gas: `0x${gasLimit.toString(16)}`,
-      };
-
-      const txHash = await submitTransactionWithRetry(provider, txParams, {
-        maxRetries: 5,
-        baseDelay: 1000,
-        onRetry: (attempt, reason, delay) => {
-          setState(prev => ({
-            ...prev,
-            error: `${reason}, retrying in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/6)...`
-          }));
-          toast.info("Retrying transaction", {
-            description: `${reason} detected, waiting ${Math.round(delay / 1000)}s before retry...`,
-            duration: Math.min(delay, 3000),
-          });
-        },
       });
 
-      setState(prev => ({ ...prev, error: null }));
-
+      setState(prev => ({ ...prev, step: 'processing', txHash }));
       const receipt = await fetchReceiptWithProxy(txHash, network);
 
-      if (receipt && receipt.status === "0x0") {
-        throw new Error("Mint transaction reverted on-chain. This could be due to exceeding limits or incorrect phase state.");
-      }
+      if (receipt && receipt.status === "0x0") throw new Error("Transaction reverted on-chain");
 
-      if (!receipt) {
-        console.warn("Receipt not found within timeout, marking transaction as pending.");
-        if (collectionId) {
-          const totalPaid = parseFloat(pricePerNft) * quantity;
-          await recordTransaction(txHash, collectionId, "mint", quantity, totalPaid, "pending");
-        }
-        setState(prev => ({
-          ...prev,
-          isMinting: false,
-          txHash,
-          error: "Transaction sent but receipt not found yet. It will appear in your profile once confirmed."
-        }));
-        return txHash;
-      }
+      setState(prev => ({ ...prev, step: 'syncing' }));
 
+      let tokenIds: number[] = [];
       if (collectionId) {
         const totalPaid = parseFloat(pricePerNft) * quantity;
         await recordTransaction(txHash, collectionId, "mint", quantity, totalPaid, "confirmed");
-        await recordMintedNFTs(txHash, collectionId, quantity, collectionName, collectionImage);
+        tokenIds = await recordMintedNFTs(txHash, collectionId, quantity, collectionName, collectionImage) || [];
       }
 
       setState({
         isMinting: false,
+        step: 'success',
         txHash,
         error: null,
-        mintedTokenIds: [],
+        mintedTokenIds: tokenIds,
       });
 
       return txHash;
-
     } catch (error: any) {
       console.error("Mint error:", error);
-
-      let errorMessage = "Minting failed";
-      if (error.code === 4001) {
-        errorMessage = "Transaction rejected by user";
-      } else if (error.code === -32080 || error.data?.httpStatus === 403) {
-        errorMessage = "RPC endpoint unavailable. Please check your wallet's network settings or try again in a moment.";
-      } else if (error.message?.includes("insufficient funds")) {
-        errorMessage = "Insufficient funds for gas + mint price";
-      } else if (error.message?.includes("max supply")) {
-        errorMessage = "Max supply reached";
-      } else if (error.message?.includes("max per wallet")) {
-        errorMessage = "Max per wallet limit reached";
-      } else if (error.message?.toLowerCase().includes("gas")) {
-        errorMessage = "Transaction failed due to gas issues. Please try again or increase gas limit in advanced settings.";
-      } else if (error.message?.includes("RPC") || error.message?.includes("HTTP")) {
-        errorMessage = "Network connection issue. Please check your wallet's RPC settings or try again.";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      setState({
-        isMinting: false,
-        txHash: null,
-        error: errorMessage,
-        mintedTokenIds: [],
-      });
-
+      const errorMessage = error.code === 4001 ? "Transaction rejected" : (error.message || "Minting failed");
+      setState({ isMinting: false, step: 'error', txHash: null, error: errorMessage, mintedTokenIds: [] });
       return null;
     }
-  }, [address, isConnected, contractAddress, recordTransaction, recordMintedNFTs, ensureCorrectNetwork]);
+  }, [address, isConnected, contractAddress, recordTransaction, recordMintedNFTs, ensureCorrectNetwork, isNewAccount, lastFundedAt]);
 
-  // Check user's balance to ensure they can afford mint
   const canAffordMint = useCallback((quantity: number, pricePerNft: string): boolean => {
     if (!balance) return false;
     const userBalance = parseFloat(balance);
     const totalCost = parseFloat(pricePerNft) * quantity;
-    const estimatedGas = 0.001;
-    return userBalance >= totalCost + estimatedGas;
+    return userBalance >= totalCost + 0.001;
   }, [balance]);
 
   return {
@@ -723,7 +574,5 @@ export function useContractMint(contractAddress: string | null) {
     verifyAllowlist,
     canAffordMint,
     resetState,
-    recordTransaction,
-    updateTransactionStatus,
   };
 }

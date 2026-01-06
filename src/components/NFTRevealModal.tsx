@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, ExternalLink, Share2, X } from "lucide-react";
+import { Sparkles, ExternalLink, Share2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import confetti from "canvas-confetti";
 
 interface NFTAttribute {
@@ -68,7 +68,7 @@ export function NFTRevealModal({
 
       // Traits reveal - one by one
       setRevealPhase("traits");
-      
+
       for (let i = 0; i < currentNft.attributes.length; i++) {
         await delay(400);
         setRevealedTraitIndex(i);
@@ -90,20 +90,18 @@ export function NFTRevealModal({
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   const triggerConfetti = () => {
-    const duration = 2000;
+    const duration = 2500;
     const animationEnd = Date.now() + duration;
-    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+    const defaults = { startVelocity: 45, spread: 360, ticks: 100, zIndex: 9999 };
 
     const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
     const interval = setInterval(() => {
       const timeLeft = animationEnd - Date.now();
 
-      if (timeLeft <= 0) {
-        return clearInterval(interval);
-      }
+      if (timeLeft <= 0) return clearInterval(interval);
 
-      const particleCount = 50 * (timeLeft / duration);
+      const particleCount = 60 * (timeLeft / duration);
 
       confetti({
         ...defaults,
@@ -120,102 +118,109 @@ export function NFTRevealModal({
     }, 250);
   };
 
-  const handleNextNft = () => {
-    if (currentNftIndex < nfts.length - 1) {
-      setCurrentNftIndex(prev => prev + 1);
-      setRevealPhase("loading");
-      setRevealedTraitIndex(-1);
-    }
-  };
-
-  const handlePrevNft = () => {
-    if (currentNftIndex > 0) {
-      setCurrentNftIndex(prev => prev - 1);
-      setRevealPhase("loading");
-      setRevealedTraitIndex(-1);
-    }
-  };
-
   const getRarityColor = (rarity?: number) => {
-    if (!rarity) return "border-border bg-muted";
-    if (rarity <= 1) return "border-yellow-500/50 bg-yellow-500/10 text-yellow-500";
-    if (rarity <= 5) return "border-purple-500/50 bg-purple-500/10 text-purple-500";
-    if (rarity <= 15) return "border-blue-500/50 bg-blue-500/10 text-blue-500";
-    if (rarity <= 30) return "border-green-500/50 bg-green-500/10 text-green-500";
-    return "border-border bg-muted";
-  };
-
-  const getRarityLabel = (rarity?: number) => {
-    if (!rarity) return null;
-    if (rarity <= 1) return "Legendary";
-    if (rarity <= 5) return "Epic";
-    if (rarity <= 15) return "Rare";
-    if (rarity <= 30) return "Uncommon";
-    return null;
+    if (!rarity) return "border-border bg-muted/30";
+    if (rarity <= 1) return "border-yellow-500/50 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400";
+    if (rarity <= 5) return "border-purple-500/50 bg-purple-500/10 text-purple-600 dark:text-purple-400";
+    if (rarity <= 15) return "border-blue-500/50 bg-blue-500/10 text-blue-600 dark:text-blue-400";
+    if (rarity <= 30) return "border-green-500/50 bg-green-500/10 text-green-600 dark:text-green-400";
+    return "border-border bg-muted/30";
   };
 
   if (!currentNft) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden bg-gradient-to-b from-background to-muted/50 border-primary/20">
-        {/* Close button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute right-4 top-4 z-50"
-          onClick={() => onOpenChange(false)}
+      <DialogContent className="max-w-[480px] p-0 overflow-hidden bg-transparent border-none shadow-none sm:rounded-[2.5rem]">
+        <style dangerouslySetInnerHTML={{
+          __html: `
+          .perspective-1000 { perspective: 1000px; }
+          .backface-hidden { backface-visibility: hidden; }
+          .rotate-y-180 { transform: rotateY(180deg); }
+          .transform-style-3d { transform-style: preserve-3d; }
+          
+          @keyframes shiny {
+            0% { transform: translateX(-200%) translateY(-50%) rotate(-30deg); }
+            100% { transform: translateX(200%) translateY(-50%) rotate(-30deg); }
+          }
+          .animate-shiny {
+            animation: shiny 3s infinite linear;
+          }
+        `}} />
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          className="bg-card/95 backdrop-blur-2xl border border-primary/20 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden"
         >
-          <X className="w-4 h-4" />
-        </Button>
+          {/* Background decoration */}
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-accent/10 rounded-full blur-[80px] pointer-events-none" />
 
-        <div className="p-6 space-y-6">
-          {/* Header */}
-          <div className="text-center">
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-4"
-            >
-              <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-              <span className="text-sm font-medium text-primary">NFT Revealed!</span>
-            </motion.div>
-            
-            {nfts.length > 1 && (
-              <p className="text-sm text-muted-foreground">
-                {currentNftIndex + 1} of {nfts.length} NFTs
-              </p>
-            )}
-          </div>
+          {/* Close button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-6 top-6 z-50 rounded-full hover:bg-muted/50"
+            onClick={() => onOpenChange(false)}
+          >
+            <X className="w-5 h-5" />
+          </Button>
 
-          {/* NFT Image */}
-          <div className="relative aspect-square rounded-xl overflow-hidden bg-muted mx-auto max-w-[280px]">
-            <AnimatePresence mode="wait">
-              {revealPhase === "loading" ? (
-                <motion.div
-                  key="loading"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20"
-                >
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-                    <Sparkles className="absolute inset-0 m-auto w-8 h-8 text-primary animate-pulse" />
+          <div className="relative z-10 space-y-8">
+            {/* Header */}
+            <div className="text-center space-y-1">
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-bold text-primary uppercase tracking-tighter"
+              >
+                <Sparkles className="w-3 h-3" />
+                {revealPhase === "complete" ? "Item Acquired" : "Summoning..."}
+              </motion.div>
+              <h2 className="text-2xl font-black tracking-tight mt-2">{collectionName}</h2>
+              {nfts.length > 1 && (
+                <p className="text-xs text-muted-foreground font-mono">
+                  COLLECTIBLE {currentNftIndex + 1} OF {nfts.length}
+                </p>
+              )}
+            </div>
+
+            {/* 3D Card Visual */}
+            <div className="perspective-1000 py-4 flex justify-center">
+              <motion.div
+                key={currentNftIndex}
+                animate={{
+                  rotateY: revealPhase === "loading" ? 0 : 180,
+                  rotateZ: revealPhase === "loading" ? [0, 2, -2, 0] : 0
+                }}
+                transition={{
+                  rotateY: { type: "spring", stiffness: 100, damping: 20 },
+                  rotateZ: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+                }}
+                className="relative w-64 h-80 transform-style-3d cursor-pointer"
+                onClick={() => {
+                  if (revealPhase === "complete" && nfts.length > 1) {
+                    const next = (currentNftIndex + 1) % nfts.length;
+                    setCurrentNftIndex(next);
+                    setRevealPhase("loading");
+                    setRevealedTraitIndex(-1);
+                  }
+                }}
+              >
+                {/* Card Front (Back of card/Pack) */}
+                <div className="absolute inset-0 backface-hidden bg-gradient-to-br from-primary via-primary/80 to-accent rounded-3xl shadow-2xl border-2 border-white/20 flex flex-col items-center justify-center overflow-hidden">
+                  <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-from)_0%,_transparent_70%)]" />
+                  <Sparkles className="w-16 h-16 text-white animate-pulse mb-4" />
+                  <div className="text-white font-black italic text-xl tracking-tighter">THE LILY PAD</div>
+                  <div className="absolute bottom-6 px-4 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] text-white font-bold tracking-widest uppercase border border-white/10">
+                    Premium Collectible
                   </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="image"
-                  initial={{ opacity: 0, scale: 1.2, filter: "blur(20px)" }}
-                  animate={{ 
-                    opacity: 1, 
-                    scale: 1, 
-                    filter: "blur(0px)",
-                    transition: { duration: 0.8, ease: "easeOut" }
-                  }}
-                  className="w-full h-full"
-                >
+                </div>
+
+                {/* Card Back (Actual NFT) */}
+                <div className="absolute inset-0 backface-hidden rotate-y-180 bg-muted rounded-3xl shadow-2xl border-2 border-primary/20 overflow-hidden">
                   {currentNft.image ? (
                     <img
                       src={currentNft.image}
@@ -223,148 +228,132 @@ export function NFTRevealModal({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center">
-                      <Sparkles className="w-16 h-16 text-primary/50" />
+                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                      <Sparkles className="w-12 h-12 text-primary/30" />
                     </div>
                   )}
+
+                  {/* Shiny overlay */}
+                  <div className="absolute inset-0 pointer-events-none rounded-3xl overflow-hidden">
+                    <div className="absolute inset-0 w-[50%] h-[200%] top-0 left-0 bg-white/30 blur-3xl animate-shiny pointer-events-none" />
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Content & Attributes */}
+            <div className="space-y-6">
+              <div className="text-center space-y-1">
+                <motion.h3
+                  animate={{ opacity: revealPhase === "loading" ? 0.5 : 1 }}
+                  className="text-xl font-bold"
+                >
+                  {revealPhase === "loading" ? "Identifying Metadata..." : currentNft.name}
+                </motion.h3>
+                <Badge variant="outline" className="border-primary/20 text-[10px] font-mono tracking-widest uppercase">
+                  #{currentNft.tokenId}
+                </Badge>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Properties</span>
+                  <span className="text-[10px] font-mono text-primary/70">{currentNft.attributes.length} TOTAL</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {currentNft.attributes.map((attr, index) => {
+                    const isRevealed = revealedTraitIndex >= index;
+                    return (
+                      <motion.div
+                        key={`${attr.trait_type}-${index}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: isRevealed ? 1 : 0.1, y: isRevealed ? 0 : 10 }}
+                        className={`p-3 rounded-2xl border transition-all duration-300 ${getRarityColor(attr.rarity)}`}
+                      >
+                        <p className="text-[9px] font-bold uppercase opacity-60 mb-0.5">{attr.trait_type}</p>
+                        <p className="font-extrabold text-sm truncate">{attr.value}</p>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <AnimatePresence>
+              {revealPhase === "complete" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="pt-4 space-y-4"
+                >
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => window.open(`${explorerUrl}/tx/${txHash}`, "_blank")}
+                      variant="outline"
+                      className="flex-1 rounded-2xl h-12 border-primary/20 hover:bg-primary/5 font-bold"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Explorer
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const url = window.location.href;
+                        navigator.clipboard.writeText(`I just minted a legendary ${collectionName} NFT on The Lily Pad! ${url}`);
+                        toast.success("Share text copied!");
+                      }}
+                      variant="outline"
+                      className="flex-1 rounded-2xl h-12 border-primary/20 hover:bg-primary/5 font-bold"
+                    >
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Share
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {nfts.length > 1 && (
+                      <div className="flex gap-2 flex-grow">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-xl h-12 w-12 border border-primary/10"
+                          onClick={() => {
+                            setCurrentNftIndex(prev => Math.max(0, prev - 1));
+                            setRevealPhase("loading");
+                            setRevealedTraitIndex(-1);
+                          }}
+                          disabled={currentNftIndex === 0}
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-xl h-12 w-12 border border-primary/10"
+                          onClick={() => {
+                            setCurrentNftIndex(prev => Math.min(nfts.length - 1, prev + 1));
+                            setRevealPhase("loading");
+                            setRevealedTraitIndex(-1);
+                          }}
+                          disabled={currentNftIndex === nfts.length - 1}
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </Button>
+                      </div>
+                    )}
+                    <Button
+                      onClick={() => onOpenChange(false)}
+                      className="flex-grow rounded-2xl h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg"
+                    >
+                      Done
+                    </Button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Shimmer overlay during loading */}
-            {revealPhase === "loading" && (
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
-            )}
           </div>
-
-          {/* NFT Name */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ 
-              opacity: revealPhase !== "loading" ? 1 : 0, 
-              y: revealPhase !== "loading" ? 0 : 10 
-            }}
-            transition={{ delay: 0.3 }}
-            className="text-center"
-          >
-            <h3 className="text-xl font-bold">{currentNft.name}</h3>
-            <p className="text-sm text-muted-foreground">{collectionName}</p>
-          </motion.div>
-
-          {/* Traits Reveal */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium text-muted-foreground text-center mb-3">
-              Attributes
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {currentNft.attributes.map((attr, index) => {
-                const isRevealed = revealedTraitIndex >= index;
-                const rarityLabel = getRarityLabel(attr.rarity);
-
-                return (
-                  <motion.div
-                    key={`${attr.trait_type}-${index}`}
-                    initial={{ opacity: 0, scale: 0.8, rotateX: -90 }}
-                    animate={{
-                      opacity: isRevealed ? 1 : 0,
-                      scale: isRevealed ? 1 : 0.8,
-                      rotateX: isRevealed ? 0 : -90,
-                    }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 20,
-                      delay: 0.05
-                    }}
-                    className={`p-3 rounded-lg border-2 text-center ${getRarityColor(attr.rarity)}`}
-                  >
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                      {attr.trait_type}
-                    </p>
-                    <p className="font-semibold text-sm truncate">{attr.value}</p>
-                    {rarityLabel && (
-                      <Badge 
-                        variant="outline" 
-                        className={`mt-1 text-[10px] ${getRarityColor(attr.rarity)}`}
-                      >
-                        {rarityLabel} ({attr.rarity?.toFixed(1)}%)
-                      </Badge>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Actions */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: revealPhase === "complete" ? 1 : 0 }}
-            transition={{ delay: 0.3 }}
-            className="flex flex-col gap-2"
-          >
-            {/* Navigation for multiple NFTs */}
-            {nfts.length > 1 && (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={handlePrevNft}
-                  disabled={currentNftIndex === 0}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={handleNextNft}
-                  disabled={currentNftIndex === nfts.length - 1}
-                >
-                  Next
-                </Button>
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              {explorerUrl && (
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => window.open(`${explorerUrl}/tx/${txHash}`, "_blank")}
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  View TX
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  navigator.clipboard.writeText(`${explorerUrl}/tx/${txHash}`);
-                }}
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </Button>
-            </div>
-
-            <Button onClick={() => onOpenChange(false)} className="w-full">
-              Done
-            </Button>
-          </motion.div>
-        </div>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );
 }
-
-// Shimmer animation style - add to tailwind config or use inline
-const shimmerStyle = `
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-.animate-shimmer {
-  animation: shimmer 1.5s infinite;
-}
-`;

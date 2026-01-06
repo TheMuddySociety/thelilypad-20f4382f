@@ -24,6 +24,7 @@ import { RevealHistory } from "@/components/RevealHistory";
 import { RarityLeaderboard } from "@/components/RarityLeaderboard";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
 import { NFTRevealModal } from "@/components/NFTRevealModal";
+import { MintProcessOverlay } from "@/components/MintProcessOverlay";
 import { MintCountdown } from "@/components/MintCountdown";
 import { RevealCountdown } from "@/components/RevealCountdown";
 import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
@@ -43,10 +44,10 @@ import { useGasEstimation } from "@/hooks/useGasEstimation";
 import { useOnChainPhaseSync } from "@/hooks/useOnChainPhaseSync";
 import { useTheLilyPadContract } from "@/hooks/useTheLilyPadContract";
 import {
-  ArrowLeft, 
-  ExternalLink, 
-  Minus, 
-  Plus, 
+  ArrowLeft,
+  ExternalLink,
+  Minus,
+  Plus,
   Wallet,
   Clock,
   Users,
@@ -142,20 +143,21 @@ export default function CollectionDetail() {
     attributes: Array<{ trait_type: string; value: string; rarity?: number }>;
   }>>([]);
   const [revealTxHash, setRevealTxHash] = useState<string>("");
-  
+
   // Advanced gas override settings
   const [showAdvancedGas, setShowAdvancedGas] = useState(false);
   const [customGasLimit, setCustomGasLimit] = useState<string>("");
 
   // Contract minting hook
-  const { 
-    isMinting, 
-    txHash: mintTxHash, 
-    error: mintError, 
-    mintWithAllowlist, 
-    mintPublic, 
+  const {
+    isMinting,
+    step: mintStep,
+    txHash: mintTxHash,
+    error: mintError,
+    mintWithAllowlist,
+    mintPublic,
     verifyAllowlist,
-    resetState: resetMintState 
+    resetState: resetMintState
   } = useContractMint(collection?.contract_address || null);
 
   // On-chain phase sync hook
@@ -194,7 +196,7 @@ export default function CollectionDetail() {
 
     return () => subscription.unsubscribe();
   }, []);
-  
+
   // Fetch collection from database
   useEffect(() => {
     if (collectionId) {
@@ -250,14 +252,14 @@ export default function CollectionDetail() {
         setAllowlistAddresses([]);
         return;
       }
-      
+
       try {
         const { data } = await supabase
           .from("allowlist_entries")
           .select("wallet_address")
           .eq("collection_id", collectionId)
           .eq("phase_name", activePhase.id);
-        
+
         if (data) {
           setAllowlistAddresses(data.map(e => e.wallet_address));
         }
@@ -265,14 +267,14 @@ export default function CollectionDetail() {
         console.error("Error loading allowlist:", err);
       }
     };
-    
+
     loadAllowlist();
   }, [collectionId, activePhase]);
-  
+
   // Calculate if user has enough balance
   const totalCost = activePhase ? parseFloat(activePhase.price) * mintAmount : 0;
   const userBalance = balance ? parseFloat(balance) : 0;
-  
+
   // Generate leaf for Merkle tree (address only)
   const generateLeaf = useCallback((addr: string): string => {
     return keccak256(encodePacked(['address'], [addr.toLowerCase() as `0x${string}`]));
@@ -307,7 +309,7 @@ export default function CollectionDetail() {
 
   const totalWithGas = totalCost + (gasEstimate?.totalGas || 0);
   const hasInsufficientBalance = isConnected && !isWrongNetwork && totalWithGas > userBalance;
-  
+
   // Live supply from collection
   const liveSupply = collection?.minted || 0;
   const totalSupply = collection?.total_supply || 0;
@@ -317,17 +319,17 @@ export default function CollectionDetail() {
   // Real-time supply polling during active mints
   useEffect(() => {
     if (!collection || !collectionId) return;
-    
+
     // Only poll if collection isn't sold out and has a deployed contract
     const shouldPoll = liveSupply < totalSupply && collection.contract_address;
-    
+
     if (!shouldPoll) {
       setIsLivePolling(false);
       return;
     }
 
     setIsLivePolling(true);
-    
+
     const pollSupply = async () => {
       try {
         const { data, error } = await supabase
@@ -335,7 +337,7 @@ export default function CollectionDetail() {
           .select("minted")
           .eq("id", collectionId)
           .maybeSingle();
-        
+
         if (!error && data && data.minted !== collection.minted) {
           // Update collection with new minted count
           setCollection(prev => prev ? { ...prev, minted: data.minted } : prev);
@@ -348,7 +350,7 @@ export default function CollectionDetail() {
 
     // Poll every 5 seconds
     const interval = setInterval(pollSupply, 5000);
-    
+
     // Initial poll
     pollSupply();
 
@@ -398,7 +400,7 @@ export default function CollectionDetail() {
         .select("minted")
         .eq("id", collectionId)
         .maybeSingle();
-      
+
       if (!error && data) {
         setCollection(prev => prev ? { ...prev, minted: data.minted } : prev);
         setLastUpdated(new Date());
@@ -439,7 +441,7 @@ export default function CollectionDetail() {
 
       toast.info("Step 1/2: Configuring phase...");
       const configTx = await configureContractPhase(0, price, maxPerWallet, supply);
-      
+
       if (!configTx) {
         setIsInitializing(false);
         return;
@@ -447,7 +449,7 @@ export default function CollectionDetail() {
 
       toast.info("Step 2/2: Activating phase...");
       const activateTx = await setContractActivePhase(0);
-      
+
       if (activateTx) {
         toast.success("Contract initialized! Phase 0 is now active.");
         // Sync phases from contract to update DB
@@ -558,7 +560,7 @@ export default function CollectionDetail() {
       setRevealedNfts(mockAttributes);
       setRevealTxHash(txHash);
       setShowRevealModal(true);
-      
+
       // Refresh collection data
       fetchCollection();
     }
@@ -752,16 +754,16 @@ export default function CollectionDetail() {
       <div className="min-h-screen bg-background">
         <Navbar />
         <main className="container mx-auto px-4 pt-24 pb-12">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setIsEditMode(false)}
             className="mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Collection
           </Button>
-          <CollectionEditForm 
+          <CollectionEditForm
             collection={collection}
             onSave={() => {
               setIsEditMode(false);
@@ -777,12 +779,12 @@ export default function CollectionDetail() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       {/* Banner */}
       <div className="relative h-48 sm:h-64 md:h-80 bg-gradient-to-br from-primary/20 to-accent/20">
         {(collection.banner_url || collection.image_url) && (
-          <img 
-            src={collection.banner_url || collection.image_url || ''} 
+          <img
+            src={collection.banner_url || collection.image_url || ''}
             alt={collection.name}
             className="w-full h-full object-cover opacity-30"
           />
@@ -798,8 +800,8 @@ export default function CollectionDetail() {
               <Eye className="w-4 h-4" />
               <span className="text-sm font-medium">Preview Mode - Viewing as a collector would see this page</span>
             </div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => setIsPreviewMode(false)}
               className="border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
@@ -837,25 +839,25 @@ export default function CollectionDetail() {
             <div className="flex items-center gap-2">
               {!collection.contract_address && (
                 <>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setIsPreviewMode(true)}
                   >
                     <Eye className="w-4 h-4 mr-2" />
                     Preview
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setIsEditMode(true)}
                   >
                     <Pencil className="w-4 h-4 mr-2" />
                     Edit Collection
                   </Button>
-                  <Button 
-                    variant="default" 
-                    size="sm" 
+                  <Button
+                    variant="default"
+                    size="sm"
                     onClick={() => setIsDeployModalOpen(true)}
                   >
                     <Rocket className="w-4 h-4 mr-2" />
@@ -864,9 +866,9 @@ export default function CollectionDetail() {
                 </>
               )}
               {collection.contract_address && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => setIsAllowlistModalOpen(true)}
                 >
                   <Users className="w-4 h-4 mr-2" />
@@ -884,8 +886,8 @@ export default function CollectionDetail() {
             <div className="flex items-start gap-6">
               <div className="w-32 h-32 rounded-xl bg-muted border-4 border-background shadow-lg overflow-hidden flex items-center justify-center">
                 {collection.image_url ? (
-                  <img 
-                    src={collection.image_url} 
+                  <img
+                    src={collection.image_url}
                     alt={collection.name}
                     className="w-full h-full object-cover"
                   />
@@ -896,23 +898,23 @@ export default function CollectionDetail() {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h1 className="text-2xl sm:text-3xl font-bold">{collection.name}</h1>
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     className={
-                      collection.status === "live" 
+                      collection.status === "live"
                         ? "bg-green-500/20 text-green-400 border-green-500/30"
                         : collection.status === "upcoming"
-                        ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
-                        : "bg-muted text-muted-foreground border-border"
+                          ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                          : "bg-muted text-muted-foreground border-border"
                     }
                   >
                     <Sparkles className="w-3 h-3 mr-1" />
                     {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
                   </Badge>
-                  <Badge 
-                    variant="outline" 
-                    className={isTestnet 
-                      ? "bg-amber-500/10 text-amber-500 border-amber-500/30" 
+                  <Badge
+                    variant="outline"
+                    className={isTestnet
+                      ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
                       : "bg-primary/10 text-primary border-primary/30"
                     }
                   >
@@ -924,8 +926,8 @@ export default function CollectionDetail() {
                     {currentChain.name}
                   </Badge>
                   {/* LilyPad Verification Badge */}
-                  <LilyPadVerificationBadge 
-                    contractAddress={collection.contract_address} 
+                  <LilyPadVerificationBadge
+                    contractAddress={collection.contract_address}
                     showDetails={true}
                     size="md"
                   />
@@ -940,7 +942,7 @@ export default function CollectionDetail() {
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopyAddress}>
                       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                     </Button>
-                    <a 
+                    <a
                       href={`${currentChain.blockExplorers?.default?.url}/address/${collection.contract_address}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -976,7 +978,7 @@ export default function CollectionDetail() {
             )}
 
             {/* Collection Analytics */}
-            <CollectionAnalytics 
+            <CollectionAnalytics
               collectionId={collection.id}
               totalSupply={collection.total_supply}
               minted={collection.minted}
@@ -992,16 +994,16 @@ export default function CollectionDetail() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">{collection.description || "No description provided."}</p>
-                
+
                 {/* Social Links */}
                 {(collection.social_twitter || collection.social_discord || collection.social_website || collection.social_telegram) && (
                   <>
                     <Separator className="my-4" />
                     <div className="flex flex-wrap gap-2">
                       {collection.social_twitter && (
-                        <a 
-                          href={collection.social_twitter} 
-                          target="_blank" 
+                        <a
+                          href={collection.social_twitter}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/20 text-sm transition-colors"
                         >
@@ -1010,9 +1012,9 @@ export default function CollectionDetail() {
                         </a>
                       )}
                       {collection.social_discord && (
-                        <a 
-                          href={collection.social_discord} 
-                          target="_blank" 
+                        <a
+                          href={collection.social_discord}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#5865F2]/10 hover:bg-[#5865F2]/20 text-sm transition-colors"
                         >
@@ -1021,9 +1023,9 @@ export default function CollectionDetail() {
                         </a>
                       )}
                       {collection.social_website && (
-                        <a 
-                          href={collection.social_website} 
-                          target="_blank" 
+                        <a
+                          href={collection.social_website}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-sm transition-colors"
                         >
@@ -1032,9 +1034,9 @@ export default function CollectionDetail() {
                         </a>
                       )}
                       {collection.social_telegram && (
-                        <a 
-                          href={collection.social_telegram} 
-                          target="_blank" 
+                        <a
+                          href={collection.social_telegram}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0088cc]/10 hover:bg-[#0088cc]/20 text-sm transition-colors"
                         >
@@ -1045,7 +1047,7 @@ export default function CollectionDetail() {
                     </div>
                   </>
                 )}
-                
+
                 <Separator className="my-4" />
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                   <div>
@@ -1085,19 +1087,18 @@ export default function CollectionDetail() {
                 {phases.length > 0 ? phases.map((phase) => {
                   const phaseMinted = phase.minted || 0;
                   const phaseProgress = phase.supply > 0 ? (phaseMinted / phase.supply) * 100 : 0;
-                  const PhaseIcon = phase.requiresAllowlist 
+                  const PhaseIcon = phase.requiresAllowlist
                     ? (phase.id === "team" ? Shield : Users)
                     : Sparkles;
                   const isActive = activePhase?.id === phase.id;
-                  
+
                   return (
-                    <div 
+                    <div
                       key={phase.id}
-                      className={`p-4 rounded-lg border transition-colors cursor-pointer ${
-                        isActive 
-                          ? "border-primary bg-primary/5" 
-                          : "border-border bg-muted/30 hover:border-primary/50"
-                      }`}
+                      className={`p-4 rounded-lg border transition-colors cursor-pointer ${isActive
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-muted/30 hover:border-primary/50"
+                        }`}
                       onClick={() => setActivePhase(phase)}
                     >
                       <div className="flex items-center justify-between mb-3">
@@ -1127,7 +1128,7 @@ export default function CollectionDetail() {
             </Card>
 
             {/* NFT Gallery */}
-            <NFTGallery 
+            <NFTGallery
               collectionId={collection.id}
               collectionName={collection.name}
               collectionImage={collection.image_url}
@@ -1172,9 +1173,9 @@ export default function CollectionDetail() {
                       </div>
                     )}
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-8 w-8"
                     onClick={handleRefreshSupply}
                     disabled={isRefreshing}
@@ -1217,18 +1218,18 @@ export default function CollectionDetail() {
               <CardContent className="space-y-6">
                 {/* Phase Tabs */}
                 {phases.length > 1 && (
-                <Tabs value={activePhase?.id || ""} onValueChange={(v) => {
-                  const phase = phases.find(p => p.id === v);
-                  if (phase) setActivePhase(phase);
-                }}>
-                  <TabsList className="grid grid-cols-2">
-                    {phases.slice(-2).map(phase => (
-                      <TabsTrigger key={phase.id} value={phase.id}>
-                        {phase.name}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
+                  <Tabs value={activePhase?.id || ""} onValueChange={(v) => {
+                    const phase = phases.find(p => p.id === v);
+                    if (phase) setActivePhase(phase);
+                  }}>
+                    <TabsList className="grid grid-cols-2">
+                      {phases.slice(-2).map(phase => (
+                        <TabsTrigger key={phase.id} value={phase.id}>
+                          {phase.name}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </Tabs>
                 )}
 
                 {/* Phase Countdown Timer */}
@@ -1273,45 +1274,45 @@ export default function CollectionDetail() {
 
                 {/* Price Info */}
                 {activePhase && (
-                <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Price per NFT</span>
-                    <span className="font-medium">
-                      {activePhase.price === "0" ? "Free" : `${activePhase.price} MON`}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Max per wallet</span>
-                    <span className="font-medium">{activePhase.maxPerWallet}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Remaining</span>
-                    <span className="font-medium">
-                      {((activePhase.supply || 0) - (activePhase.minted || 0)).toLocaleString()}
-                    </span>
-                  </div>
-                  {/* Allowlist Status */}
-                  {activePhase.requiresAllowlist && (
-                    <div className="flex justify-between text-sm pt-2 border-t border-border">
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        <Shield className="w-3 h-3" />
-                        Allowlist Status
+                  <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Price per NFT</span>
+                      <span className="font-medium">
+                        {activePhase.price === "0" ? "Free" : `${activePhase.price} MON`}
                       </span>
-                      {address && verifyAllowlist(address, allowlistAddresses) ? (
-                        <Badge variant="outline" className="text-green-500 border-green-500/30 bg-green-500/10">
-                          <Check className="w-3 h-3 mr-1" />
-                          Eligible
-                        </Badge>
-                      ) : address ? (
-                        <Badge variant="outline" className="text-destructive border-destructive/30 bg-destructive/10">
-                          Not Eligible
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Connect wallet</span>
-                      )}
                     </div>
-                  )}
-                </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Max per wallet</span>
+                      <span className="font-medium">{activePhase.maxPerWallet}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Remaining</span>
+                      <span className="font-medium">
+                        {((activePhase.supply || 0) - (activePhase.minted || 0)).toLocaleString()}
+                      </span>
+                    </div>
+                    {/* Allowlist Status */}
+                    {activePhase.requiresAllowlist && (
+                      <div className="flex justify-between text-sm pt-2 border-t border-border">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <Shield className="w-3 h-3" />
+                          Allowlist Status
+                        </span>
+                        {address && verifyAllowlist(address, allowlistAddresses) ? (
+                          <Badge variant="outline" className="text-green-500 border-green-500/30 bg-green-500/10">
+                            <Check className="w-3 h-3 mr-1" />
+                            Eligible
+                          </Badge>
+                        ) : address ? (
+                          <Badge variant="outline" className="text-destructive border-destructive/30 bg-destructive/10">
+                            Not Eligible
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Connect wallet</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Mint Error */}
@@ -1326,100 +1327,100 @@ export default function CollectionDetail() {
 
                 {/* Amount Selector */}
                 {activePhase && (
-                <div className="space-y-3">
-                  <label className="text-sm font-medium">Amount</label>
-                  
-                  {/* Quick Select Buttons */}
-                  <div className="flex flex-wrap gap-2">
-                    {[1, 3, 5, 10].filter(n => n <= (activePhase.maxPerWallet || 10)).map((amount) => (
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium">Amount</label>
+
+                    {/* Quick Select Buttons */}
+                    <div className="flex flex-wrap gap-2">
+                      {[1, 3, 5, 10].filter(n => n <= (activePhase.maxPerWallet || 10)).map((amount) => (
+                        <Button
+                          key={amount}
+                          variant={mintAmount === amount ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setMintAmount(amount)}
+                          className="flex-1 min-w-[60px]"
+                        >
+                          {amount}
+                        </Button>
+                      ))}
+                      {(activePhase.maxPerWallet || 10) > 10 && (
+                        <Button
+                          variant={mintAmount === (activePhase.maxPerWallet || 10) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setMintAmount(activePhase.maxPerWallet || 10)}
+                          className="flex-1 min-w-[60px]"
+                        >
+                          Max ({activePhase.maxPerWallet})
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Custom Amount Input */}
+                    <div className="flex items-center gap-3">
                       <Button
-                        key={amount}
-                        variant={mintAmount === amount ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setMintAmount(amount)}
-                        className="flex-1 min-w-[60px]"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setMintAmount(Math.max(1, mintAmount - 1))}
+                        disabled={mintAmount <= 1}
                       >
-                        {amount}
+                        <Minus className="w-4 h-4" />
                       </Button>
-                    ))}
-                    {(activePhase.maxPerWallet || 10) > 10 && (
+                      <Input
+                        type="number"
+                        value={mintAmount}
+                        onChange={(e) => setMintAmount(Math.min(activePhase.maxPerWallet || 10, Math.max(1, parseInt(e.target.value) || 1)))}
+                        className="text-center flex-1"
+                        min={1}
+                        max={activePhase.maxPerWallet || 10}
+                      />
                       <Button
-                        variant={mintAmount === (activePhase.maxPerWallet || 10) ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setMintAmount(activePhase.maxPerWallet || 10)}
-                        className="flex-1 min-w-[60px]"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setMintAmount(Math.min(activePhase.maxPerWallet || 10, mintAmount + 1))}
+                        disabled={mintAmount >= (activePhase.maxPerWallet || 10)}
                       >
-                        Max ({activePhase.maxPerWallet})
+                        <Plus className="w-4 h-4" />
                       </Button>
+                    </div>
+
+                    {/* Supply Warning */}
+                    {isSoldOut && (
+                      <div className="flex items-center gap-2 p-2 bg-destructive/10 rounded-lg border border-destructive/30">
+                        <AlertTriangle className="w-4 h-4 text-destructive" />
+                        <span className="text-xs text-destructive font-medium">
+                          Sold out! No more NFTs available to mint.
+                        </span>
+                      </div>
+                    )}
+
+                    {!isSoldOut && exceedsSupply && (
+                      <div className="flex items-center gap-2 p-2 bg-destructive/10 rounded-lg border border-destructive/30">
+                        <AlertTriangle className="w-4 h-4 text-destructive" />
+                        <span className="text-xs text-destructive">
+                          Only {remainingSupply} NFT{remainingSupply === 1 ? '' : 's'} remaining. Please reduce amount.
+                        </span>
+                      </div>
+                    )}
+
+                    {!isSoldOut && !exceedsSupply && remainingSupply <= 10 && remainingSupply > 0 && (
+                      <div className="flex items-center gap-2 p-2 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                        <AlertTriangle className="w-4 h-4 text-amber-500" />
+                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                          Almost sold out! Only {remainingSupply} NFT{remainingSupply === 1 ? '' : 's'} left.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Bulk Mint Savings Indicator */}
+                    {mintAmount > 1 && !exceedsSupply && !isSoldOut && (
+                      <div className="flex items-center gap-2 p-2 bg-accent/10 rounded-lg border border-accent/30">
+                        <Sparkles className="w-4 h-4 text-accent" />
+                        <span className="text-xs text-accent">
+                          Bulk mint! {mintAmount} NFTs in a single transaction saves gas.
+                        </span>
+                      </div>
                     )}
                   </div>
-                  
-                  {/* Custom Amount Input */}
-                  <div className="flex items-center gap-3">
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => setMintAmount(Math.max(1, mintAmount - 1))}
-                      disabled={mintAmount <= 1}
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <Input 
-                      type="number"
-                      value={mintAmount}
-                      onChange={(e) => setMintAmount(Math.min(activePhase.maxPerWallet || 10, Math.max(1, parseInt(e.target.value) || 1)))}
-                      className="text-center flex-1"
-                      min={1}
-                      max={activePhase.maxPerWallet || 10}
-                    />
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => setMintAmount(Math.min(activePhase.maxPerWallet || 10, mintAmount + 1))}
-                      disabled={mintAmount >= (activePhase.maxPerWallet || 10)}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  
-                  {/* Supply Warning */}
-                  {isSoldOut && (
-                    <div className="flex items-center gap-2 p-2 bg-destructive/10 rounded-lg border border-destructive/30">
-                      <AlertTriangle className="w-4 h-4 text-destructive" />
-                      <span className="text-xs text-destructive font-medium">
-                        Sold out! No more NFTs available to mint.
-                      </span>
-                    </div>
-                  )}
-                  
-                  {!isSoldOut && exceedsSupply && (
-                    <div className="flex items-center gap-2 p-2 bg-destructive/10 rounded-lg border border-destructive/30">
-                      <AlertTriangle className="w-4 h-4 text-destructive" />
-                      <span className="text-xs text-destructive">
-                        Only {remainingSupply} NFT{remainingSupply === 1 ? '' : 's'} remaining. Please reduce amount.
-                      </span>
-                    </div>
-                  )}
-                  
-                  {!isSoldOut && !exceedsSupply && remainingSupply <= 10 && remainingSupply > 0 && (
-                    <div className="flex items-center gap-2 p-2 bg-amber-500/10 rounded-lg border border-amber-500/30">
-                      <AlertTriangle className="w-4 h-4 text-amber-500" />
-                      <span className="text-xs text-amber-600 dark:text-amber-400">
-                        Almost sold out! Only {remainingSupply} NFT{remainingSupply === 1 ? '' : 's'} left.
-                      </span>
-                    </div>
-                  )}
-                  
-                  {/* Bulk Mint Savings Indicator */}
-                  {mintAmount > 1 && !exceedsSupply && !isSoldOut && (
-                    <div className="flex items-center gap-2 p-2 bg-accent/10 rounded-lg border border-accent/30">
-                      <Sparkles className="w-4 h-4 text-accent" />
-                      <span className="text-xs text-accent">
-                        Bulk mint! {mintAmount} NFTs in a single transaction saves gas.
-                      </span>
-                    </div>
-                  )}
-                </div>
                 )}
 
                 <Separator />
@@ -1470,18 +1471,18 @@ export default function CollectionDetail() {
                         <div className="text-xs text-muted-foreground">
                           Gas Limit: {customGasLimit ? parseInt(customGasLimit).toLocaleString() : gasEstimate.gasLimit.toLocaleString()} • Gas Price: {(gasEstimate.gasPrice * 1e9).toFixed(2)} Gwei
                         </div>
-                        
+
                         {/* Network Congestion Indicator */}
                         {(() => {
                           const MONAD_MIN_GWEI = 100; // Monad minimum base_price_per_gas
                           const currentGwei = gasEstimate.gasPrice * 1e9;
                           const congestionRatio = currentGwei / MONAD_MIN_GWEI;
-                          
+
                           let congestionLevel: 'low' | 'moderate' | 'high' | 'very-high';
                           let congestionLabel: string;
                           let congestionColor: string;
                           let barWidth: number;
-                          
+
                           if (congestionRatio <= 1.2) {
                             congestionLevel = 'low';
                             congestionLabel = 'Low';
@@ -1503,7 +1504,7 @@ export default function CollectionDetail() {
                             congestionColor = 'bg-red-500';
                             barWidth = 100;
                           }
-                          
+
                           return (
                             <div className="mt-2 space-y-1.5">
                               <div className="flex items-center justify-between text-xs">
@@ -1514,17 +1515,16 @@ export default function CollectionDetail() {
                                   </span>
                                   Network Congestion
                                 </span>
-                                <span className={`font-medium ${
-                                  congestionLevel === 'low' ? 'text-green-500' :
+                                <span className={`font-medium ${congestionLevel === 'low' ? 'text-green-500' :
                                   congestionLevel === 'moderate' ? 'text-yellow-500' :
-                                  congestionLevel === 'high' ? 'text-orange-500' :
-                                  'text-red-500'
-                                }`}>
+                                    congestionLevel === 'high' ? 'text-orange-500' :
+                                      'text-red-500'
+                                  }`}>
                                   {congestionLabel} ({congestionRatio.toFixed(1)}x min)
                                 </span>
                               </div>
                               <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                                <div 
+                                <div
                                   className={`h-full ${congestionColor} transition-all duration-500`}
                                   style={{ width: `${barWidth}%` }}
                                 />
@@ -1540,7 +1540,7 @@ export default function CollectionDetail() {
                         })()}
                       </>
                     )}
-                    
+
                     {/* Advanced Gas Override Toggle */}
                     <button
                       type="button"
@@ -1550,7 +1550,7 @@ export default function CollectionDetail() {
                       <Fuel className="w-3 h-3" />
                       {showAdvancedGas ? "Hide advanced" : "Advanced gas settings"}
                     </button>
-                    
+
                     {/* Advanced Gas Override Input */}
                     {showAdvancedGas && (
                       <div className="mt-3 p-3 bg-background/50 rounded-lg border border-border space-y-2">
@@ -1627,7 +1627,7 @@ export default function CollectionDetail() {
                       )}
                     </span>
                   </div>
-                  
+
                   {/* Fee Disclaimer */}
                   <div className="flex items-start gap-2 mt-3 pt-3 border-t border-border/50">
                     <Info className="w-3 h-3 mt-0.5 shrink-0 text-muted-foreground" />
@@ -1706,20 +1706,20 @@ export default function CollectionDetail() {
                 )}
 
                 {/* Mint Button */}
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   className="w-full gap-2"
                   onClick={handleMint}
                   disabled={
-                    isMinting || 
-                    isSwitchingNetwork || 
-                    !activePhase || 
+                    isMinting ||
+                    isSwitchingNetwork ||
+                    !activePhase ||
                     !activePhase.isActive ||
                     isSoldOut ||
                     exceedsSupply ||
-                    (activePhase.minted || 0) >= (activePhase.supply || 0) || 
-                    !isConnected || 
-                    isWrongNetwork || 
+                    (activePhase.minted || 0) >= (activePhase.supply || 0) ||
+                    !isConnected ||
+                    isWrongNetwork ||
                     hasInsufficientBalance ||
                     !collection?.contract_address ||
                     (activePhase?.requiresAllowlist && address && !verifyAllowlist(address, allowlistAddresses))
@@ -1890,7 +1890,22 @@ export default function CollectionDetail() {
         txHash={revealTxHash}
         explorerUrl={currentChain.blockExplorers?.default?.url}
       />
-      
+
+      {/* Mint Process Overlay */}
+      <MintProcessOverlay
+        isOpen={isMinting}
+        step={mintStep}
+        txHash={mintTxHash}
+        error={mintError}
+        onClose={resetMintState}
+        onViewNFTs={() => {
+          resetMintState();
+          // Scroll to reveal history or gallery
+          document.getElementById('reveal-history')?.scrollIntoView({ behavior: 'smooth' });
+        }}
+        collectionName={collection.name}
+      />
+
       <BackToTop />
     </div>
   );
