@@ -338,10 +338,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem("walletType", "phantom");
       localStorage.setItem("chainType", "solana");
 
-      toast.success("Wallet connected");
+      toast.success("Wallet connected on Solana");
     } catch (error: any) {
       console.error("Solana connect error:", error);
-      toast.error(error.message || "Failed to connect");
+      const isUserRejected = error.code === 4001 || error.message?.toLowerCase().includes("rejected");
+      toast.error(isUserRejected ? "Connection rejected" : (error.message || "Failed to connect to Solana"));
       setState(prev => ({ ...prev, isConnecting: false }));
     }
   }, [isPhantomAvailable, connectWithSDK, fetchSolanaBalance]);
