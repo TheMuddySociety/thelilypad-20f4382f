@@ -24,11 +24,11 @@ const MAINNET_RPCS: RpcEndpoint[] = [
 
 const TESTNET_RPCS: RpcEndpoint[] = [
   { url: 'https://testnet-rpc.monad.xyz', name: 'Monad Testnet', rateLimit: 25, weight: 100 },
-  { url: 'https://rpc.ankr.com/monad_testnet', name: 'Ankr Testnet', rateLimit: 30, weight: 85 },
-  { url: 'https://monad-testnet.drpc.org', name: 'dRPC Testnet', rateLimit: 20, weight: 80 },
-  { url: 'https://rpc-testnet.monadinfra.com', name: 'MF Testnet', rateLimit: 20, weight: 75 },
+  { url: 'https://monad-testnet.blockvision.org/v1/37hH1sm8QDkbsAYrBsU9EjXwZ0o', name: 'BlockVision', rateLimit: 25, weight: 95 },
+  { url: 'https://monad-testnet.drpc.org', name: 'dRPC Testnet', rateLimit: 20, weight: 85 },
+  { url: 'https://rpc-testnet.monadinfra.com', name: 'MF Testnet', rateLimit: 20, weight: 80 },
+  { url: 'https://rpc.ankr.com/monad_testnet', name: 'Ankr Testnet', rateLimit: 30, weight: 75 },
   { url: 'https://monad-testnet.api.onfinality.io/public', name: 'OnFinality Testnet', rateLimit: 15, weight: 70 },
-  { url: 'https://monad-testnet.blockvision.org/v1/37hH1sm8QDkbsAYrBsU9EjXwZ0o', name: 'BlockVision', rateLimit: 25, weight: 90 },
 ];
 
 // In-memory cache for RPC health status

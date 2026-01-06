@@ -27,11 +27,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 const RPC_LABELS: Record<string, string> = {
-  "https://rpc1.monad.xyz": "Alchemy (Primary)",
-  "https://rpc.monad.xyz": "QuickNode",
+  "https://testnet-rpc.monad.xyz": "Monad Testnet (Primary)",
+  "https://monad-testnet.blockvision.org/v1/37hH1sm8QDkbsAYrBsU9EjXwZ0o": "BlockVision (Faster)",
+  "https://rpc1.monad.xyz": "Alchemy (Mainnet)",
+  "https://rpc.monad.xyz": "QuickNode (Mainnet)",
   "https://rpc3.monad.xyz": "Ankr",
   "https://monad.drpc.org": "dRPC",
-  "https://testnet-rpc.monad.xyz": "Monad Testnet (Primary)",
   "https://rpc.ankr.com/monad_testnet": "Ankr Testnet",
 };
 
@@ -52,9 +53,9 @@ interface RpcSettingsProps {
   size?: "sm" | "default";
 }
 
-export const RpcSettings: React.FC<RpcSettingsProps> = ({ 
+export const RpcSettings: React.FC<RpcSettingsProps> = ({
   variant = "icon",
-  size = "default" 
+  size = "default"
 }) => {
   const { network } = useWallet();
   const { toast } = useToast();
@@ -83,14 +84,14 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
   const checkHealth = async () => {
     setIsChecking(true);
     const statuses: Record<string, RpcHealthStatus> = {};
-    
+
     await Promise.all(
       rpcs.map(async (rpc) => {
         const status = await checkRpcHealth(rpc);
         statuses[rpc] = status;
       })
     );
-    
+
     setHealthStatuses(statuses);
     setIsChecking(false);
   };
@@ -104,16 +105,16 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
   const handleSave = () => {
     const rpcToSave = selectedRpc === "auto" ? null : selectedRpc;
     setPreferredRpc(network, rpcToSave);
-    
+
     toast({
       title: "RPC Preference Saved",
-      description: selectedRpc === "auto" 
-        ? "Using automatic RPC selection with failover" 
+      description: selectedRpc === "auto"
+        ? "Using automatic RPC selection with failover"
         : `Using ${RPC_LABELS[selectedRpc] || selectedRpc}`,
     });
-    
+
     setOpen(false);
-    
+
     // Trigger page reload to apply new RPC settings
     window.location.reload();
   };
@@ -141,7 +142,7 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
 
   const getLatencyBadge = (status?: RpcHealthStatus) => {
     if (!status) return null;
-    
+
     if (!status.healthy) {
       return (
         <Badge variant="destructive" className="text-xs">
@@ -150,12 +151,12 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
         </Badge>
       );
     }
-    
+
     const latency = status.latency || 0;
-    const color = latency < 200 ? "bg-green-500/20 text-green-400" 
-                : latency < 500 ? "bg-yellow-500/20 text-yellow-400" 
-                : "bg-orange-500/20 text-orange-400";
-    
+    const color = latency < 200 ? "bg-green-500/20 text-green-400"
+      : latency < 500 ? "bg-yellow-500/20 text-yellow-400"
+        : "bg-orange-500/20 text-orange-400";
+
     return (
       <Badge className={`text-xs ${color}`}>
         <Wifi className="w-3 h-3 mr-1" />
@@ -185,15 +186,15 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
             Select your preferred RPC endpoint for {network === "mainnet" ? "Monad Mainnet" : "Monad Testnet"}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">
               {isChecking ? "Checking endpoints..." : "Endpoint health"}
             </span>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={checkHealth}
               disabled={isChecking}
             >
@@ -228,9 +229,9 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
             {rpcs.map((rpc) => {
               const status = healthStatuses[rpc];
               const label = RPC_LABELS[rpc] || new URL(rpc).hostname;
-              
+
               return (
-                <div 
+                <div
                   key={rpc}
                   className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors"
                 >
@@ -276,8 +277,8 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
                     {session.user.email}
                   </p>
                 </div>
-                <Button 
-                  variant="destructive" 
+                <Button
+                  variant="destructive"
                   size="sm"
                   onClick={handleSignOut}
                   disabled={isSigningOut}
