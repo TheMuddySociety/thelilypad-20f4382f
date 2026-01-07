@@ -104,6 +104,7 @@ interface Collection {
   social_telegram: string | null;
   collection_type?: string;
   blockchain?: 'monad' | 'solana';
+  chain?: 'monad' | 'solana';
   solana_standard?: string;
   layers_metadata?: unknown;
   artworks_metadata?: unknown;
@@ -184,7 +185,8 @@ export default function CollectionDetail() {
   const isTestnet = network === "testnet";
   const isWrongNetwork = isConnected && chainId !== currentChain.id;
   const isCreator = currentUserId && collection?.creator_id === currentUserId;
-  const isSolana = collection?.blockchain === 'solana';
+  const isSolana = collection?.blockchain === 'solana' || collection?.chain === 'solana';
+  const currency = isSolana ? 'SOL' : 'MON';
 
   useSEO({
     title: collection?.name ? `${collection.name} | The Lily Pad` : "NFT Collection | The Lily Pad",
@@ -1148,7 +1150,7 @@ export default function CollectionDetail() {
                           )}
                         </div>
                         <span className="font-semibold">
-                          {phase.price === "0" ? "Free" : `${phase.price} MON`}
+                          {phase.price === "0" ? "Free" : `${phase.price} ${currency}`}
                         </span>
                       </div>
                       <div className="space-y-2">
@@ -1188,6 +1190,7 @@ export default function CollectionDetail() {
               <PhaseConfigManager
                 contractAddress={collection.contract_address}
                 phases={phases}
+                chain={collection.chain || collection.blockchain || 'monad'}
                 onConfigured={() => {
                   fetchCollection();
                   syncPhases();
@@ -1296,14 +1299,14 @@ export default function CollectionDetail() {
                         <span className="text-sm font-medium">Your Balance</span>
                       </div>
                       <span className={`font-bold ${hasInsufficientBalance ? 'text-destructive' : 'text-primary'}`}>
-                        {userBalance.toFixed(4)} MON
+                        {userBalance.toFixed(4)} {currency}
                       </span>
                     </div>
                     {hasInsufficientBalance && (
                       <div className="mt-2 flex items-center gap-2 text-destructive">
                         <AlertTriangle className="w-3 h-3" />
                         <span className="text-xs">
-                          Insufficient balance. Need {(totalWithGas - userBalance).toFixed(4)} more MON (incl. gas)
+                          Insufficient balance. Need {(totalWithGas - userBalance).toFixed(4)} more {currency} (incl. gas)
                         </span>
                       </div>
                     )}
@@ -1316,7 +1319,7 @@ export default function CollectionDetail() {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Price per NFT</span>
                       <span className="font-medium">
-                        {activePhase.price === "0" ? "Free" : `${activePhase.price} MON`}
+                        {activePhase.price === "0" ? "Free" : `${activePhase.price} ${currency}`}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
@@ -1492,7 +1495,7 @@ export default function CollectionDetail() {
                         </div>
                       ) : gasEstimate ? (
                         <span className="font-medium text-muted-foreground">
-                          ~{gasEstimate.totalGas.toFixed(6)} MON
+                          ~{gasEstimate.totalGas.toFixed(6)} {currency}
                         </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">--</span>
@@ -1638,14 +1641,14 @@ export default function CollectionDetail() {
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm text-muted-foreground">Mint Cost</span>
                     <span className="font-medium">
-                      {totalCostDisplay === "0.00" ? "Free" : `${totalCostDisplay} MON`}
+                      {totalCostDisplay === "0.00" ? "Free" : `${totalCostDisplay} ${currency}`}
                     </span>
                   </div>
                   {gasEstimate && !isEstimatingGas && (
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm text-muted-foreground">+ Gas Fee</span>
                       <span className="font-medium text-muted-foreground">
-                        ~{gasEstimate.totalGas.toFixed(6)} MON
+                        ~{gasEstimate.totalGas.toFixed(6)} {currency}
                       </span>
                     </div>
                   )}
@@ -1661,7 +1664,7 @@ export default function CollectionDetail() {
                       ) : totalWithGas === 0 ? (
                         "Free"
                       ) : (
-                        `~${totalWithGas.toFixed(4)} MON`
+                        `~${totalWithGas.toFixed(4)} ${currency}`
                       )}
                     </span>
                   </div>

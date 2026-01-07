@@ -264,12 +264,13 @@ export default function Launchpad() {
     return Math.round(((step + 1) / 5) * 100);
   };
 
-  // Get price from phases
+  // Get price from phases - chain-aware
   const getPrice = (collection: Collection) => {
     const phases = collection.phases as any[];
     if (!phases || phases.length === 0) return "TBA";
     const publicPhase = phases.find(p => p.id === "public") || phases[0];
-    return publicPhase?.price ? `${publicPhase.price} MON` : "Free";
+    const currency = collection.chain === "solana" ? "SOL" : "MON";
+    return publicPhase?.price ? `${publicPhase.price} ${currency}` : "Free";
   };
 
   // Get phase names
@@ -451,7 +452,7 @@ export default function Launchpad() {
                 <div className="text-2xl font-bold">
                   {stats.totalVolume >= 1000 
                     ? `${(stats.totalVolume / 1000).toFixed(1)}K`
-                    : stats.totalVolume.toLocaleString()} MON
+                    : stats.totalVolume.toLocaleString()} {selectedChain === "solana" ? "SOL" : "MON"}
                 </div>
               )}
               <p className="text-sm text-muted-foreground">Total Volume</p>

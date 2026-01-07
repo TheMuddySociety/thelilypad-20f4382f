@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { useContractAllowlist } from "@/hooks/useContractAllowlist";
 import { useWallet } from "@/providers/WalletProvider";
+import { getCurrencySymbol } from "@/lib/chainUtils";
 
 interface Phase {
   id: string;
@@ -28,19 +29,22 @@ interface Phase {
 interface PhaseConfigManagerProps {
   contractAddress: string;
   phases: Phase[];
+  chain?: 'monad' | 'solana';
   onConfigured?: () => void;
 }
 
 export const PhaseConfigManager: React.FC<PhaseConfigManagerProps> = ({
   contractAddress,
   phases,
+  chain = 'monad',
   onConfigured,
 }) => {
   const { currentChain } = useWallet();
   const { isUpdating, txHash, error, configurePhase, setActivePhase, resetState } = useContractAllowlist(contractAddress);
   const [configuredPhases, setConfiguredPhases] = useState<Set<string>>(new Set());
   const [isConfiguringAll, setIsConfiguringAll] = useState(false);
-
+  
+  const currency = getCurrencySymbol(chain);
   const explorerUrl = currentChain.blockExplorers?.default?.url;
 
   const handleConfigurePhase = async (phase: Phase, phaseIndex: number) => {
@@ -165,7 +169,7 @@ export const PhaseConfigManager: React.FC<PhaseConfigManagerProps> = ({
                     <div>
                       <span className="font-medium">{phase.name}</span>
                       <div className="text-xs text-muted-foreground">
-                        {phase.price === "0" ? "Free" : `${phase.price} MON`} • 
+                        {phase.price === "0" ? "Free" : `${phase.price} ${currency}`} • 
                         Max {phase.maxPerWallet}/wallet • 
                         {phase.supply.toLocaleString()} supply
                       </div>
