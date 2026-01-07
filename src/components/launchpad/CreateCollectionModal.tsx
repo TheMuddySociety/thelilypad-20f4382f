@@ -1056,8 +1056,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
           status: "upcoming",
           collection_type: collectionType,
           phases: JSON.parse(JSON.stringify(enabledPhasesData)),
-          blockchain,
-          solana_standard: blockchain === 'solana' ? solanaStandard : null,
+          chain: blockchain,
           layers_metadata: layers.length > 0 ? JSON.parse(JSON.stringify(layers.map(l => ({
             id: l.id,
             name: l.name,
