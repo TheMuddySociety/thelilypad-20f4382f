@@ -558,12 +558,51 @@ const client = createPublicClient({
 
 ### Solana
 
-```typescript
-import { Connection, clusterApiUrl } from '@solana/web3.js';
-import { createPhantom } from '@phantom/browser-sdk';
+The platform supports Solana NFT deployment via Metaplex standards.
 
-const connection = new Connection(clusterApiUrl('devnet'));
-const phantom = createPhantom();
+#### Configuration (`src/config/solana.ts`)
+
+```typescript
+import { initializeUmi, getSolanaRpcUrl, fetchSolanaAsset } from '@/config/solana';
+
+// RPC Endpoints
+// Devnet: https://api.devnet.solana.com (used for testnet mode)
+// Mainnet: https://api.mainnet-beta.solana.com
+
+// Initialize Umi with Metaplex plugins
+const umi = initializeUmi(network); // 'mainnet' or 'testnet'
+
+// Fetch NFT using DAS API
+const asset = await fetchSolanaAsset('NFT_ADDRESS', 'testnet');
+```
+
+#### Supported Metaplex Standards
+
+| Standard | Use Case | Cost |
+|----------|----------|------|
+| **Core** | Modern collections with low gas | ~0.005 SOL |
+| **Token Metadata** | Maximum marketplace compatibility | ~0.01 SOL |
+| **Bubblegum (cNFT)** | Large 10k+ collections | ~0.0001 SOL/NFT |
+| **Candy Machine v3** | Fair launches with bot protection | ~0.02 SOL |
+| **Inscription** | Fully on-chain, permanent storage | ~0.1+ SOL |
+
+#### Deploying a Solana Collection
+
+```typescript
+import { useSolanaLaunchpad } from '@/hooks/useSolanaLaunchpad';
+
+const { createCollection, isLoading } = useSolanaLaunchpad();
+
+// Create collection on Solana devnet
+const result = await createCollection({
+  name: 'My Collection',
+  symbol: 'MYC',
+  imageUri: 'https://...',
+  royaltyBasisPoints: 500, // 5%
+  standard: 'core', // or 'token-metadata', 'bubblegum', etc.
+});
+
+console.log('Collection address:', result.collectionAddress);
 ```
 
 ### Multi-Currency Support

@@ -6,6 +6,10 @@ import { mplCandyMachine } from '@metaplex-foundation/mpl-candy-machine';
 import { mplInscription } from '@metaplex-foundation/mpl-inscription';
 import { NetworkType } from './alchemy';
 
+// Re-export NetworkType for convenience
+export type { NetworkType } from './alchemy';
+
+// Solana RPC endpoints using devnet for testnet mode
 export const SOLANA_DEVNET_RPC = "https://api.devnet.solana.com";
 export const SOLANA_MAINNET_RPC = "https://api.mainnet-beta.solana.com";
 
@@ -14,10 +18,12 @@ export const getSolanaRpcUrl = (network: NetworkType): string => {
 };
 
 /**
- * Initialize Umi with all Metaplex plugins
+ * Initialize Umi with all Metaplex plugins and proper RPC connection
  */
 export const initializeUmi = (network: NetworkType) => {
     const rpcUrl = getSolanaRpcUrl(network);
+    console.log(`Initializing Umi with Solana ${network === 'mainnet' ? 'Mainnet' : 'Devnet'}: ${rpcUrl}`);
+    
     const umi = createUmi(rpcUrl)
         .use(mplTokenMetadata())
         .use(mplCore())
@@ -26,6 +32,65 @@ export const initializeUmi = (network: NetworkType) => {
         .use(mplInscription());
 
     return umi;
+};
+
+/**
+ * DAS API helper for fetching NFT assets on Solana
+ * Uses the Digital Asset Standard API
+ */
+export const fetchSolanaAsset = async (
+    nftAddress: string,
+    network: NetworkType = 'testnet'
+): Promise<any> => {
+    const rpcUrl = getSolanaRpcUrl(network);
+    
+    const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'getAsset',
+            params: { id: nftAddress },
+        }),
+    });
+
+    const data = await response.json();
+    
+    if (data.error) {
+        throw new Error(data.error.message || 'Failed to fetch asset');
+    }
+    
+    return data.result;
+};
+
+/**
+ * Fetch multiple assets using DAS API
+ */
+export const fetchSolanaAssets = async (
+    nftAddresses: string[],
+    network: NetworkType = 'testnet'
+): Promise<any[]> => {
+    const rpcUrl = getSolanaRpcUrl(network);
+    
+    const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'getAssetBatch',
+            params: { ids: nftAddresses },
+        }),
+    });
+
+    const data = await response.json();
+    
+    if (data.error) {
+        throw new Error(data.error.message || 'Failed to fetch assets');
+    }
+    
+    return data.result || [];
 };
 
 export type SolanaStandard =
