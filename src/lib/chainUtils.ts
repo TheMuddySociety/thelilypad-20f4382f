@@ -1,21 +1,30 @@
 /**
- * Chain-aware utility functions for currency display
+ * Chain-aware utility functions for currency display and blockchain interactions
  */
 
-export type ChainValue = 'monad' | 'solana';
+export type ChainValue = 'monad' | 'solana' | 'solana-devnet' | 'monad-testnet' | string;
 
 /**
  * Get the currency symbol for a given chain
  */
 export const getCurrencySymbol = (chain: ChainValue | string): string => {
-  return chain === 'solana' ? 'SOL' : 'MON';
+  const normalizedChain = chain?.toLowerCase() || "";
+  if (normalizedChain.includes('solana')) return 'SOL';
+  if (normalizedChain.includes('monad')) return 'MON';
+  if (normalizedChain.includes('ethereum') || normalizedChain.includes('eth')) return 'ETH';
+  if (normalizedChain.includes('polygon')) return 'MATIC';
+  return 'MON';
 };
 
 /**
  * Get the currency icon for a given chain
  */
 export const getCurrencyIcon = (chain: ChainValue | string): string => {
-  return chain === 'solana' ? '◎' : '⟠';
+  const normalizedChain = chain?.toLowerCase() || "";
+  if (normalizedChain.includes('solana')) return '◎';
+  if (normalizedChain.includes('monad')) return '⟠';
+  if (normalizedChain.includes('ethereum') || normalizedChain.includes('eth')) return 'Ξ';
+  return '⟠';
 };
 
 /**
@@ -35,10 +44,12 @@ export const formatPriceWithCurrency = (
  * Get the block explorer URL for a chain
  */
 export const getExplorerUrl = (chain: ChainValue | string, network: 'mainnet' | 'testnet' = 'testnet'): string => {
-  if (chain === 'solana') {
-    return network === 'mainnet' 
-      ? 'https://solscan.io' 
-      : 'https://solscan.io?cluster=devnet';
+  const normalizedChain = chain?.toLowerCase() || "";
+  if (normalizedChain.includes('solana')) {
+    const isDevnet = normalizedChain.includes('devnet') || network === 'testnet';
+    return isDevnet 
+      ? 'https://explorer.solana.com?cluster=devnet' 
+      : 'https://explorer.solana.com';
   }
   return network === 'mainnet'
     ? 'https://monadexplorer.com'
@@ -53,12 +64,43 @@ export const getTxExplorerUrl = (
   chain: ChainValue | string, 
   network: 'mainnet' | 'testnet' = 'testnet'
 ): string => {
-  if (chain === 'solana') {
-    const cluster = network === 'mainnet' ? '' : '?cluster=devnet';
-    return `https://solscan.io/tx/${txHash}${cluster}`;
+  const normalizedChain = chain?.toLowerCase() || "";
+  if (normalizedChain.includes('solana')) {
+    const isDevnet = normalizedChain.includes('devnet') || network === 'testnet';
+    const cluster = isDevnet ? '?cluster=devnet' : '';
+    return `https://explorer.solana.com/tx/${txHash}${cluster}`;
   }
   const baseUrl = network === 'mainnet' 
     ? 'https://monadexplorer.com' 
     : 'https://testnet.monadexplorer.com';
   return `${baseUrl}/tx/${txHash}`;
+};
+
+/**
+ * Check if a chain is a Solana chain
+ */
+export const isSolanaChain = (chain: ChainValue | string): boolean => {
+  return chain?.toLowerCase()?.includes('solana') || false;
+};
+
+/**
+ * Check if a chain is a testnet
+ */
+export const isTestnet = (chain: ChainValue | string): boolean => {
+  const normalizedChain = chain?.toLowerCase() || "";
+  return normalizedChain.includes('testnet') || 
+         normalizedChain.includes('devnet') || 
+         normalizedChain.includes('sepolia');
+};
+
+/**
+ * Get the network display name
+ */
+export const getNetworkDisplayName = (chain: ChainValue | string): string => {
+  const normalizedChain = chain?.toLowerCase() || "";
+  if (normalizedChain.includes('solana-devnet') || normalizedChain === 'solana-devnet') return 'Solana Devnet';
+  if (normalizedChain.includes('solana')) return 'Solana';
+  if (normalizedChain.includes('monad-testnet') || normalizedChain === 'monad-testnet') return 'Monad Testnet';
+  if (normalizedChain.includes('monad')) return 'Monad';
+  return chain || 'Unknown';
 };

@@ -14,6 +14,12 @@ const EVM_NETWORKS = [
   "base-mainnet",
 ];
 
+// Solana RPC endpoints
+const SOLANA_RPC = {
+  devnet: "https://api.devnet.solana.com",
+  mainnet: "https://api.mainnet-beta.solana.com",
+};
+
 interface NFTMetadata {
   name?: string;
   description?: string;
@@ -49,20 +55,46 @@ interface AlchemyResponse {
   pageKey?: string;
 }
 
-// Solana NFT response types
-interface SolanaNFT {
-  mint: string;
-  name?: string;
-  description?: string;
-  image?: string;
-  collection?: {
-    name?: string;
+// DAS API response types for Solana
+interface DASAsset {
+  id: string;
+  content?: {
+    json_uri?: string;
+    metadata?: {
+      name?: string;
+      description?: string;
+      symbol?: string;
+      image?: string;
+      attributes?: Array<{ trait_type: string; value: string | number }>;
+    };
+    files?: Array<{ uri?: string; cdn_uri?: string; mime?: string }>;
+    links?: {
+      image?: string;
+    };
   };
+  ownership?: {
+    owner?: string;
+  };
+  grouping?: Array<{
+    group_key: string;
+    group_value: string;
+  }>;
+  authorities?: Array<{
+    address: string;
+    scopes: string[];
+  }>;
 }
 
-interface SolanaResponse {
-  nfts: SolanaNFT[];
-  pageKey?: string;
+interface DASResponse {
+  result?: DASAsset | DASAsset[] | {
+    items?: DASAsset[];
+    total?: number;
+    page?: number;
+  };
+  error?: {
+    code: number;
+    message: string;
+  };
 }
 
 async function fetchEVMNFTs(
@@ -112,51 +144,166 @@ async function fetchEVMNFTs(
   };
 }
 
-async function fetchSolanaNFTs(
-  apiKey: string,
-  walletAddress: string,
-  pageKey?: string
-) {
-  const baseUrl = `https://solana-mainnet.g.alchemy.com/nft/v2/${apiKey}/getNFTsForOwner`;
+// Fetch a single Solana NFT using DAS API
+async function fetchSolanaAsset(
+  assetAddress: string,
+  isDevnet: boolean = true
+): Promise<DASAsset | null> {
+  const rpcUrl = isDevnet ? SOLANA_RPC.devnet : SOLANA_RPC.mainnet;
   
-  const params = new URLSearchParams({
-    owner: walletAddress,
-    pageSize: "20",
-  });
+  console.log(`Fetching Solana asset ${assetAddress} from ${rpcUrl}`);
 
-  if (pageKey) {
-    params.append("pageKey", pageKey);
-  }
-
-  console.log(`Fetching Solana NFTs for ${walletAddress}`);
-
-  const response = await fetch(`${baseUrl}?${params.toString()}`, {
-    method: "GET",
-    headers: { "Accept": "application/json" },
+  const response = await fetch(rpcUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "getAsset",
+      params: {
+        id: assetAddress,
+      },
+    }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("Solana API error:", response.status, errorText);
-    throw new Error(`Alchemy Solana API error: ${response.status} - ${errorText}`);
+    console.error("Solana DAS API error:", response.status, errorText);
+    throw new Error(`Solana DAS API error: ${response.status} - ${errorText}`);
   }
 
-  const data: SolanaResponse = await response.json();
+  const data: DASResponse = await response.json();
 
-  const nfts = (data.nfts || []).map((nft) => ({
-    tokenId: nft.mint,
-    contractAddress: nft.mint,
-    name: nft.name || `Solana NFT`,
-    description: nft.description || "",
-    image: nft.image || "",
-    collection: nft.collection?.name || "Solana Collection",
-    attributes: [],
-  }));
+  if (data.error) {
+    console.error("DAS API returned error:", data.error);
+    throw new Error(`DAS API error: ${data.error.message}`);
+  }
+
+  return data.result as DASAsset | null;
+}
+
+// Fetch NFTs owned by a wallet using DAS API
+async function fetchSolanaAssetsByOwner(
+  ownerAddress: string,
+  isDevnet: boolean = true,
+  page: number = 1,
+  limit: number = 20
+) {
+  const rpcUrl = isDevnet ? SOLANA_RPC.devnet : SOLANA_RPC.mainnet;
+  
+  console.log(`Fetching Solana assets for owner ${ownerAddress} from ${rpcUrl}`);
+
+  const response = await fetch(rpcUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "getAssetsByOwner",
+      params: {
+        ownerAddress,
+        page,
+        limit,
+        displayOptions: {
+          showCollectionMetadata: true,
+        },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Solana DAS API error:", response.status, errorText);
+    throw new Error(`Solana DAS API error: ${response.status} - ${errorText}`);
+  }
+
+  const data: DASResponse = await response.json();
+
+  if (data.error) {
+    console.error("DAS API returned error:", data.error);
+    throw new Error(`DAS API error: ${data.error.message}`);
+  }
+
+  const result = data.result as { items?: DASAsset[]; total?: number };
+  const assets = result?.items || [];
+
+  // Transform to common NFT format
+  const nfts = assets.map((asset) => {
+    const metadata = asset.content?.metadata;
+    const imageUrl = metadata?.image || 
+                     asset.content?.links?.image || 
+                     asset.content?.files?.find(f => f.mime?.startsWith('image/'))?.cdn_uri ||
+                     asset.content?.files?.find(f => f.mime?.startsWith('image/'))?.uri || 
+                     "";
+    
+    // Find collection from grouping
+    const collectionGroup = asset.grouping?.find(g => g.group_key === "collection");
+    
+    return {
+      tokenId: asset.id,
+      contractAddress: asset.id,
+      name: metadata?.name || `Solana NFT`,
+      description: metadata?.description || "",
+      image: imageUrl,
+      collection: collectionGroup?.group_value || "Solana Collection",
+      attributes: (metadata?.attributes || []).map(attr => ({
+        trait_type: attr.trait_type,
+        value: String(attr.value),
+      })),
+    };
+  });
 
   return {
     nfts,
-    totalCount: nfts.length,
-    pageKey: data.pageKey,
+    totalCount: result?.total || nfts.length,
+    hasMore: nfts.length === limit,
+    page,
+  };
+}
+
+// Fetch collection info using DAS API
+async function fetchSolanaCollection(
+  collectionAddress: string,
+  isDevnet: boolean = true
+) {
+  const rpcUrl = isDevnet ? SOLANA_RPC.devnet : SOLANA_RPC.mainnet;
+  
+  console.log(`Fetching Solana collection ${collectionAddress} from ${rpcUrl}`);
+
+  const response = await fetch(rpcUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "getAsset",
+      params: {
+        id: collectionAddress,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Solana DAS API error: ${response.status} - ${errorText}`);
+  }
+
+  const data: DASResponse = await response.json();
+
+  if (data.error) {
+    throw new Error(`DAS API error: ${data.error.message}`);
+  }
+
+  const asset = data.result as DASAsset;
+  const metadata = asset?.content?.metadata;
+
+  return {
+    address: collectionAddress,
+    name: metadata?.name || "Unknown Collection",
+    symbol: metadata?.symbol || "",
+    description: metadata?.description || "",
+    image: metadata?.image || asset?.content?.links?.image || "",
+    updateAuthority: asset?.authorities?.find(a => a.scopes.includes("full"))?.address || "",
   };
 }
 
@@ -167,8 +314,58 @@ serve(async (req) => {
   }
 
   try {
-    const { walletAddress, network = "eth-mainnet", pageKey } = await req.json();
+    const { 
+      walletAddress, 
+      network = "eth-mainnet", 
+      pageKey,
+      // Solana specific params
+      assetAddress,
+      collectionAddress,
+      isDevnet = true,
+      page = 1,
+    } = await req.json();
 
+    // Handle single asset fetch (Solana)
+    if (assetAddress && (network === "solana-mainnet" || network === "solana-devnet")) {
+      console.log(`Fetching single Solana asset: ${assetAddress}`);
+      const asset = await fetchSolanaAsset(assetAddress, network === "solana-devnet");
+      
+      if (!asset) {
+        return new Response(
+          JSON.stringify({ error: "Asset not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const metadata = asset.content?.metadata;
+      return new Response(
+        JSON.stringify({
+          asset: {
+            tokenId: asset.id,
+            contractAddress: asset.id,
+            name: metadata?.name || "Solana NFT",
+            description: metadata?.description || "",
+            image: metadata?.image || asset.content?.links?.image || "",
+            owner: asset.ownership?.owner || "",
+            attributes: metadata?.attributes || [],
+          },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Handle collection fetch (Solana)
+    if (collectionAddress && (network === "solana-mainnet" || network === "solana-devnet")) {
+      console.log(`Fetching Solana collection: ${collectionAddress}`);
+      const collection = await fetchSolanaCollection(collectionAddress, network === "solana-devnet");
+      
+      return new Response(
+        JSON.stringify({ collection }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Handle wallet NFTs fetch
     if (!walletAddress) {
       return new Response(
         JSON.stringify({ error: "Wallet address is required" }),
@@ -176,22 +373,26 @@ serve(async (req) => {
       );
     }
 
-    const ALCHEMY_API_KEY = Deno.env.get("ALCHEMY_API_KEY");
-    if (!ALCHEMY_API_KEY) {
-      console.error("ALCHEMY_API_KEY is not configured");
-      return new Response(
-        JSON.stringify({ error: "Alchemy API key not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     console.log(`Fetching NFTs for ${walletAddress} on ${network}`);
 
     let result;
     
-    if (network === "solana-mainnet") {
-      result = await fetchSolanaNFTs(ALCHEMY_API_KEY, walletAddress, pageKey);
+    if (network === "solana-mainnet" || network === "solana-devnet") {
+      // Use DAS API for Solana
+      result = await fetchSolanaAssetsByOwner(
+        walletAddress, 
+        network === "solana-devnet",
+        page
+      );
     } else if (EVM_NETWORKS.includes(network)) {
+      const ALCHEMY_API_KEY = Deno.env.get("ALCHEMY_API_KEY");
+      if (!ALCHEMY_API_KEY) {
+        console.error("ALCHEMY_API_KEY is not configured");
+        return new Response(
+          JSON.stringify({ error: "Alchemy API key not configured" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       result = await fetchEVMNFTs(ALCHEMY_API_KEY, walletAddress, network, pageKey);
     } else {
       return new Response(
