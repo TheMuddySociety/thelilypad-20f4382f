@@ -78,6 +78,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrencySymbol, getExplorerUrl, isSolanaChain, getNetworkDisplayName, isTestnet as isChainTestnet } from "@/lib/chainUtils";
 
 interface Collection {
   id: string;
@@ -182,11 +183,18 @@ export default function CollectionDetail() {
 
   const [isInitializing, setIsInitializing] = useState(false);
 
+  // Determine chain from collection data
+  const collectionChain = collection?.chain || collection?.blockchain || 'monad';
+  const isSolana = isSolanaChain(collectionChain);
+  const currency = getCurrencySymbol(collectionChain);
+  const collectionNetwork = getNetworkDisplayName(collectionChain);
+  const isCollectionTestnet = isChainTestnet(collectionChain);
+  const collectionExplorerUrl = getExplorerUrl(collectionChain, isCollectionTestnet ? 'testnet' : 'mainnet');
+  
+  // For EVM chains, check if on wrong network
   const isTestnet = network === "testnet";
-  const isWrongNetwork = isConnected && chainId !== currentChain.id;
+  const isWrongNetwork = !isSolana && isConnected && chainId !== currentChain.id;
   const isCreator = currentUserId && collection?.creator_id === currentUserId;
-  const isSolana = collection?.blockchain === 'solana' || collection?.chain === 'solana';
-  const currency = isSolana ? 'SOL' : 'MON';
 
   useSEO({
     title: collection?.name ? `${collection.name} | The Lily Pad` : "NFT Collection | The Lily Pad",
@@ -953,17 +961,17 @@ export default function CollectionDetail() {
                   </Badge>
                   <Badge
                     variant="outline"
-                    className={isTestnet
+                    className={isCollectionTestnet
                       ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
                       : "bg-primary/10 text-primary border-primary/30"
                     }
                   >
-                    {isTestnet ? (
+                    {isCollectionTestnet ? (
                       <FlaskConical className="w-3 h-3 mr-1" />
                     ) : (
                       <Globe className="w-3 h-3 mr-1" />
                     )}
-                    {currentChain.name}
+                    {collectionNetwork}
                   </Badge>
                   {/* LilyPad Verification Badge */}
                   <LilyPadVerificationBadge
@@ -983,7 +991,7 @@ export default function CollectionDetail() {
                       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                     </Button>
                     <a
-                      href={`${currentChain.blockExplorers?.default?.url}/address/${collection.contract_address}`}
+                      href={`${collectionExplorerUrl}/address/${collection.contract_address}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:underline"
@@ -1105,12 +1113,12 @@ export default function CollectionDetail() {
                   <div>
                     <span className="text-muted-foreground">Network</span>
                     <p className="font-medium flex items-center gap-1">
-                      {isTestnet ? (
+                      {isCollectionTestnet ? (
                         <FlaskConical className="w-3 h-3 text-amber-500" />
                       ) : (
                         <Globe className="w-3 h-3 text-primary" />
                       )}
-                      {currentChain.name}
+                      {collectionNetwork}
                     </p>
                   </div>
                 </div>
