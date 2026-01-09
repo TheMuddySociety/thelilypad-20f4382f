@@ -205,7 +205,7 @@ export function VolumeLeaderboard() {
                   {/* Volume */}
                   <div className="text-right">
                     <p className="font-bold text-primary">
-                      {formatVolume(entry.total_weighted_volume)} MON
+                      {formatVolume(entry.total_weighted_volume)} SOL
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Raw: {formatVolume(entry.total_volume)}

@@ -5,7 +5,7 @@ const valueProps = [
   {
     icon: Shield,
     title: "Creator First",
-    description: "Tools built to grow and protect creators on Monad.",
+    description: "Tools built to grow and protect creators on Solana.",
     gradient: "from-primary/20 to-primary/5",
   },
   {
@@ -32,7 +32,7 @@ export const ValuePropsSection: React.FC = () => {
             Why <span className="gradient-text">The Lily Pad</span>?
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Everything you need to create, launch, and grow your NFT empire on Monad.
+            Everything you need to create, launch, and grow your NFT empire on Solana.
           </p>
         </div>
         

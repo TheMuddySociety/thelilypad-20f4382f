@@ -82,7 +82,7 @@ export default function BuybackProgram() {
     {
       icon: Coins,
       title: "Volume Rewards",
-      description: "Top volume movers receive MON token rewards distributed from the buyback pool.",
+      description: "Top volume movers receive SOL token rewards distributed from the buyback pool.",
       color: "text-primary",
       bgColor: "bg-primary/10",
     },
@@ -128,7 +128,7 @@ export default function BuybackProgram() {
     {
       step: 4,
       title: "Earn Rewards",
-      description: "Top volume movers receive MON rewards from the accumulated buyback pool.",
+      description: "Top volume movers receive SOL rewards from the accumulated buyback pool.",
     },
   ];
 
@@ -147,7 +147,7 @@ export default function BuybackProgram() {
             Trade NFTs. <span className="text-primary">Earn Rewards.</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            The Lily Pad Buyback Program rewards top volume traders with MON tokens. 
+            The Lily Pad Buyback Program rewards top volume traders with SOL tokens. 
             Trade NFTs from enrolled collections and climb the leaderboard.
           </p>
           <div className="flex items-center justify-center gap-4">

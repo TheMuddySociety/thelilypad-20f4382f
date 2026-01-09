@@ -113,7 +113,7 @@ export function RewardCalculator() {
           <div className="space-y-2">
             <Label htmlFor="volume" className="flex items-center gap-1">
               Your Trading Volume
-              <span className="text-muted-foreground text-xs">(MON)</span>
+              <span className="text-muted-foreground text-xs">(SOL)</span>
             </Label>
             <Input
               id="volume"
@@ -128,7 +128,7 @@ export function RewardCalculator() {
           <div className="space-y-2">
             <Label htmlFor="pool" className="flex items-center gap-1">
               Reward Pool Size
-              <span className="text-muted-foreground text-xs">(MON)</span>
+              <span className="text-muted-foreground text-xs">(SOL)</span>
             </Label>
             <Input
               id="pool"
@@ -182,7 +182,7 @@ export function RewardCalculator() {
                   </div>
                   <div className="w-24 text-right flex-shrink-0">
                     <div className="font-semibold text-sm">
-                      {tier.reward.toLocaleString(undefined, { maximumFractionDigits: 2 })} MON
+                      {tier.reward.toLocaleString(undefined, { maximumFractionDigits: 2 })} SOL
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {tier.percentage}%
@@ -235,7 +235,7 @@ export function RewardCalculator() {
                   <div className="text-2xl font-bold text-primary">
                     {calculations.estimatedReward.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </div>
-                  <div className="text-xs text-muted-foreground">MON</div>
+                  <div className="text-xs text-muted-foreground">SOL</div>
                 </div>
                 <div className="bg-background rounded-lg p-3 border border-border/50">
                   <div className="text-xs text-muted-foreground mb-1">Pool Share</div>
@@ -248,15 +248,15 @@ export function RewardCalculator() {
 
               <div className="text-xs text-muted-foreground border-t border-border/50 pt-3">
                 <div className="flex items-center justify-between mb-1">
-                  <span>Return per MON traded:</span>
+                  <span>Return per SOL traded:</span>
                   <span className="font-medium text-foreground">
-                    {calculations.rewardPerVolume.toFixed(4)} MON
+                    {calculations.rewardPerVolume.toFixed(4)} SOL
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Weighted volume:</span>
                   <span className="font-medium text-foreground">
-                    {calculations.weightedVolume.toLocaleString()} MON
+                    {calculations.weightedVolume.toLocaleString()} SOL
                   </span>
                 </div>
               </div>

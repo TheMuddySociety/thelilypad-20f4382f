@@ -225,7 +225,7 @@ export function PersonalVolumeStats() {
             <div className="text-xl font-bold text-primary">
               {formatVolume(stats.weightedVolume)}
             </div>
-            <div className="text-xs text-muted-foreground">MON</div>
+            <div className="text-xs text-muted-foreground">SOL</div>
           </div>
           <div className="bg-muted/30 rounded-lg p-3">
             <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
@@ -294,7 +294,7 @@ export function PersonalVolumeStats() {
                     </span>
                   </div>
                   <span className="font-medium">
-                    {formatVolume(Number(trade.weighted_volume))} MON
+                    {formatVolume(Number(trade.weighted_volume))} SOL
                   </span>
                 </div>
               ))}

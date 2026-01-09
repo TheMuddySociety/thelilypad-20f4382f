@@ -190,7 +190,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
   // Collection type
   const [collectionType, setCollectionType] = useState<CollectionType>("generative");
-  const [blockchain, setBlockchain] = useState<'monad' | 'solana'>('monad');
+  const [blockchain, setBlockchain] = useState<'monad' | 'solana'>('solana');
   const [solanaStandard, setSolanaStandard] = useState<SolanaStandard>('core');
 
   // Art generation (Generative)

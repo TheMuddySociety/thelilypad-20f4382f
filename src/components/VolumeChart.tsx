@@ -199,7 +199,7 @@ export function VolumeChart() {
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-muted/30 rounded-lg p-3">
             <div className="text-xs text-muted-foreground mb-1">Total Volume</div>
-            <div className="text-lg font-bold">{formatVolume(stats.totalVolume)} MON</div>
+            <div className="text-lg font-bold">{formatVolume(stats.totalVolume)} SOL</div>
           </div>
           <div className="bg-muted/30 rounded-lg p-3">
             <div className="text-xs text-muted-foreground mb-1">Total Trades</div>
@@ -247,7 +247,7 @@ export function VolumeChart() {
                       borderRadius: '8px',
                       fontSize: '12px',
                     }}
-                    formatter={(value: number) => [`${formatVolume(value)} MON`, 'Volume']}
+                    formatter={(value: number) => [`${formatVolume(value)} SOL`, 'Volume']}
                     labelFormatter={(label) => label}
                   />
                   <Area
@@ -283,7 +283,7 @@ export function VolumeChart() {
                       borderRadius: '8px',
                       fontSize: '12px',
                     }}
-                    formatter={(value: number) => [`${formatVolume(value)} MON`, 'Volume']}
+                    formatter={(value: number) => [`${formatVolume(value)} SOL`, 'Volume']}
                   />
                   <Bar
                     dataKey="weightedVolume"

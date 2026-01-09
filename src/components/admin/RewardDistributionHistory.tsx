@@ -265,7 +265,7 @@ export function RewardDistributionHistory() {
         'User ID',
         'Display Name',
         'Rank',
-        'Reward Amount (MON)',
+        'Reward Amount (SOL)',
         'Weighted Volume',
         'Status',
         'Claimed At',
@@ -443,7 +443,7 @@ export function RewardDistributionHistory() {
               Total Distributed {hasActiveFilters && '(Filtered)'}
             </div>
             <p className="text-2xl font-bold text-primary">
-              {totals.totalDistributed.toFixed(2)} MON
+              {totals.totalDistributed.toFixed(2)} SOL
             </p>
           </div>
           <div className="p-4 rounded-lg bg-muted/50 border">
@@ -452,7 +452,7 @@ export function RewardDistributionHistory() {
               Total Claimed {hasActiveFilters && '(Filtered)'}
             </div>
             <p className="text-2xl font-bold text-green-500">
-              {totals.totalClaimed.toFixed(2)} MON
+              {totals.totalClaimed.toFixed(2)} SOL
             </p>
           </div>
           <div className="p-4 rounded-lg bg-muted/50 border">
@@ -523,13 +523,13 @@ export function RewardDistributionHistory() {
                         </TableCell>
                         <TableCell>
                           <span className="font-semibold text-primary">
-                            {period.total_distributed.toFixed(2)} MON
+                            {period.total_distributed.toFixed(2)} SOL
                           </span>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="gap-1">
                             <TrendingUp className="w-3 h-3" />
-                            {period.top_reward.toFixed(2)} MON
+                            {period.top_reward.toFixed(2)} SOL
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -586,7 +586,7 @@ export function RewardDistributionHistory() {
             <DialogDescription>
               {selectedPeriod && formatPeriod(selectedPeriod.period_start, selectedPeriod.period_end)}
               {" • "}
-              {selectedPeriod?.total_distributed.toFixed(2)} MON distributed
+              {selectedPeriod?.total_distributed.toFixed(2)} SOL distributed
             </DialogDescription>
           </DialogHeader>
 
@@ -626,7 +626,7 @@ export function RewardDistributionHistory() {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-primary">
-                        {Number(recipient.reward_amount).toFixed(2)} MON
+                        {Number(recipient.reward_amount).toFixed(2)} SOL
                       </p>
                       {recipient.is_claimed ? (
                         <p className="text-xs text-green-500 flex items-center gap-1 justify-end">

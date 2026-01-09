@@ -142,7 +142,7 @@ const LiveBuybackStats = () => {
       icon: Coins,
       label: "Pool Balance",
       value: Number(poolBalance),
-      suffix: " MON",
+      suffix: " SOL",
       decimals: 4,
       color: "text-primary",
       bgColor: "from-primary/20 to-primary/5",
@@ -152,7 +152,7 @@ const LiveBuybackStats = () => {
       icon: Activity,
       label: "24h Volume",
       value: recentVolume || 0,
-      suffix: " MON",
+      suffix: " SOL",
       decimals: 2,
       color: "text-green-500",
       bgColor: "from-green-500/20 to-green-500/5",
@@ -162,7 +162,7 @@ const LiveBuybackStats = () => {
       icon: TrendingUp,
       label: "Accumulated",
       value: Number(accumulatedVolume),
-      suffix: " MON",
+      suffix: " SOL",
       decimals: 2,
       color: "text-amber-500",
       bgColor: "from-amber-500/20 to-amber-500/5",
@@ -234,9 +234,9 @@ const LiveBuybackStats = () => {
                 <span className="text-xs text-amber-500 font-medium animate-pulse">Almost there!</span>
               )}
             </div>
-            <span className="text-sm text-muted-foreground">
-              <AnimatedCounter value={accumulatedVolume} decimals={2} /> / {threshold} MON
-            </span>
+          <span className="text-sm text-muted-foreground">
+            <AnimatedCounter value={accumulatedVolume} decimals={2} /> / {threshold} SOL
+          </span>
           </div>
           <div className={`relative ${progress >= 80 ? 'animate-pulse' : ''}`}>
             <Progress 

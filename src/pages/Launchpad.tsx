@@ -102,7 +102,7 @@ export default function Launchpad() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedChain, setSelectedChain] = useState<ChainType>(chainType || "evm");
+  const [selectedChain, setSelectedChain] = useState<ChainType>("solana");
 
   // Get current user
   useEffect(() => {
@@ -124,7 +124,7 @@ export default function Launchpad() {
 
   useSEO({
     title: "NFT Launchpad | The Lily Pad",
-    description: "Launch your NFT collection on Monad. Create generative art, set mint phases, manage allowlists, and deploy with no-code tools."
+    description: "Launch your NFT collection on Solana. Create generative art, set mint phases, manage allowlists, and deploy with no-code tools."
   });
 
   const loadDraft = () => {
@@ -214,13 +214,15 @@ export default function Launchpad() {
   const fetchCollections = async () => {
     setIsLoading(true);
     try {
-      // Map chain type to database chain value
-      const chainValue = selectedChain === "solana" ? "solana" : "monad";
+      // Map chain type to database chain value - support devnet variants
+      const chainValues = selectedChain === "solana" 
+        ? ["solana", "solana-devnet", "solana-mainnet"] 
+        : ["monad", "monad-testnet", "monad-mainnet"];
       
       const { data, error } = await supabase
         .from("collections")
         .select("*")
-        .eq("chain", chainValue)
+        .in("chain", chainValues)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
@@ -452,7 +454,7 @@ export default function Launchpad() {
                 <div className="text-2xl font-bold">
                   {stats.totalVolume >= 1000 
                     ? `${(stats.totalVolume / 1000).toFixed(1)}K`
-                    : stats.totalVolume.toLocaleString()} {selectedChain === "solana" ? "SOL" : "MON"}
+                    : stats.totalVolume.toLocaleString()} SOL
                 </div>
               )}
               <p className="text-sm text-muted-foreground">Total Volume</p>

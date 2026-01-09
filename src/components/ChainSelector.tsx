@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check, Clock } from "lucide-react";
 import { useWallet, ChainType } from "@/providers/WalletProvider";
 
 interface ChainOption {
@@ -14,11 +14,12 @@ interface ChainOption {
   name: string;
   icon: string;
   color: string;
+  comingSoon?: boolean;
 }
 
 const CHAIN_OPTIONS: ChainOption[] = [
-  { id: "evm", name: "Monad", icon: "⬡", color: "bg-primary/10 text-primary border-primary/30" },
   { id: "solana", name: "Solana", icon: "◎", color: "bg-purple-500/10 text-purple-400 border-purple-500/30" },
+  { id: "evm", name: "Monad", icon: "⬡", color: "bg-primary/10 text-primary border-primary/30", comingSoon: true },
 ];
 
 interface ChainSelectorProps {
@@ -51,18 +52,25 @@ export function ChainSelector({
           <ChevronDown className="w-4 h-4 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[160px]">
+      <DropdownMenuContent align="start" className="w-[200px]">
         {CHAIN_OPTIONS.map((option) => (
           <DropdownMenuItem
             key={option.id}
-            onClick={() => onChainChange(option.id)}
-            className="flex items-center justify-between cursor-pointer"
+            onClick={() => !option.comingSoon && onChainChange(option.id)}
+            className={`flex items-center justify-between cursor-pointer ${option.comingSoon ? 'opacity-60 cursor-not-allowed' : ''}`}
+            disabled={option.comingSoon}
           >
             <div className="flex items-center gap-2">
               <span className="text-lg">{option.icon}</span>
               <span>{option.name}</span>
+              {option.comingSoon && (
+                <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/30">
+                  <Clock className="w-2.5 h-2.5 mr-0.5" />
+                  Soon
+                </Badge>
+              )}
             </div>
-            {selectedChain === option.id && <Check className="w-4 h-4 text-primary" />}
+            {selectedChain === option.id && !option.comingSoon && <Check className="w-4 h-4 text-primary" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -77,6 +85,9 @@ export function ChainBadge({ chain }: { chain: ChainType }) {
     <Badge variant="outline" className={option.color}>
       <span className="mr-1">{option.icon}</span>
       {option.name}
+      {option.comingSoon && (
+        <span className="ml-1 text-[10px] text-amber-500">(Coming Soon)</span>
+      )}
     </Badge>
   );
 }
