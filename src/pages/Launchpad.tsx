@@ -151,23 +151,23 @@ export default function Launchpad() {
     setIsDeleting(true);
     const collectionToDelete = collections.find(c => c.id === collectionId);
     const collectionName = collectionToDelete?.name || "Collection";
-    
+
     try {
       const scheduledDeleteAt = addDays(new Date(), 7);
-      
+
       const { error } = await supabase
         .from("collections")
-        .update({ 
+        .update({
           deleted_at: new Date().toISOString(),
           scheduled_permanent_delete_at: scheduledDeleteAt.toISOString()
         })
         .eq("id", collectionId);
-      
+
       if (error) throw error;
-      
+
       setDeleteCollectionId(null);
       await fetchCollections();
-      
+
       toast.success(`"${collectionName}" moved to trash`, {
         description: "Will be permanently deleted in 7 days",
         action: {
@@ -187,7 +187,7 @@ export default function Launchpad() {
     try {
       const { error } = await supabase
         .from("collections")
-        .update({ 
+        .update({
           deleted_at: null,
           scheduled_permanent_delete_at: null
         })
@@ -214,11 +214,8 @@ export default function Launchpad() {
   const fetchCollections = async () => {
     setIsLoading(true);
     try {
-      // Map chain type to database chain value - support devnet variants
-      const chainValues = selectedChain === "solana" 
-        ? ["solana", "solana-devnet", "solana-mainnet"] 
-        : ["monad", "monad-testnet", "monad-mainnet"];
-      
+      const chainValues = ["solana", "solana-devnet", "solana-mainnet"];
+
       const { data, error } = await supabase
         .from("collections")
         .select("*")
@@ -271,7 +268,7 @@ export default function Launchpad() {
     const phases = collection.phases as any[];
     if (!phases || phases.length === 0) return "TBA";
     const publicPhase = phases.find(p => p.id === "public") || phases[0];
-    const currency = collection.chain === "solana" ? "SOL" : "MON";
+    const currency = "SOL";
     return publicPhase?.price ? `${publicPhase.price} ${currency}` : "Free";
   };
 
@@ -319,7 +316,7 @@ export default function Launchpad() {
   const getHealthStatus = (collection: Collection) => {
     const progress = getCollectionProgress(collection);
     const isDeployed = !!collection.contract_address;
-    
+
     if (isDeployed && collection.status === "live") {
       return { status: "healthy", label: "Live & Active", color: "text-green-500" };
     }
@@ -339,40 +336,33 @@ export default function Launchpad() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <LaunchpadWalkthrough walkthrough={walkthrough} />
-      
+
       <main className="container mx-auto px-4 pt-24 pb-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8" data-walkthrough="header">
           <div className="flex items-center gap-4">
-            <img 
-              src={lilypadLogo} 
-              alt="Lily Launchpad" 
+            <img
+              src={lilypadLogo}
+              alt="Lily Launchpad"
               className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-contain bg-primary/10 p-2"
             />
             <div>
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <h1 className="text-3xl sm:text-4xl font-bold">Lily Launchpad</h1>
-                <ChainSelector 
-                  selectedChain={selectedChain} 
-                  onChainChange={setSelectedChain}
-                  showBadge={true}
-                />
-                {selectedChain === "evm" && (
-                  <Badge 
-                    variant="outline" 
-                    className={isTestnet 
-                      ? "bg-amber-500/10 text-amber-500 border-amber-500/30" 
-                      : "bg-primary/10 text-primary border-primary/30"
-                    }
-                  >
-                    {isTestnet ? (
-                      <FlaskConical className="w-3 h-3 mr-1" />
-                    ) : (
-                      <Globe className="w-3 h-3 mr-1" />
-                    )}
-                    {isTestnet ? "Testnet" : "Mainnet"}
-                  </Badge>
-                )}
+                <Badge
+                  variant="outline"
+                  className={isTestnet
+                    ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                    : "bg-primary/10 text-primary border-primary/30"
+                  }
+                >
+                  {isTestnet ? (
+                    <FlaskConical className="w-3 h-3 mr-1" />
+                  ) : (
+                    <Globe className="w-3 h-3 mr-1" />
+                  )}
+                  {isTestnet ? "Solana Devnet" : "Solana Mainnet"}
+                </Badge>
                 {/* Help button to restart walkthrough */}
                 <Button
                   variant="ghost"
@@ -388,13 +378,13 @@ export default function Launchpad() {
                 </Button>
               </div>
               <p className="text-muted-foreground">
-                Launch your NFT collection on {selectedChain === "solana" ? "Solana" : currentChain.name}
+                Launch your NFT collection on Solana
               </p>
             </div>
           </div>
-          <Button 
-            onClick={() => setIsCreateModalOpen(true)} 
-            size="lg" 
+          <Button
+            onClick={() => setIsCreateModalOpen(true)}
+            size="lg"
             className="gap-2"
             data-walkthrough="create-button"
           >
@@ -436,9 +426,9 @@ export default function Launchpad() {
                 <Skeleton className="h-8 w-20 mb-1" />
               ) : (
                 <div className="text-2xl font-bold">
-                  {stats.nftsMinted >= 1000000 
+                  {stats.nftsMinted >= 1000000
                     ? `${(stats.nftsMinted / 1000000).toFixed(1)}M`
-                    : stats.nftsMinted >= 1000 
+                    : stats.nftsMinted >= 1000
                       ? `${(stats.nftsMinted / 1000).toFixed(1)}K`
                       : stats.nftsMinted.toLocaleString()}
                 </div>
@@ -452,7 +442,7 @@ export default function Launchpad() {
                 <Skeleton className="h-8 w-24 mb-1" />
               ) : (
                 <div className="text-2xl font-bold">
-                  {stats.totalVolume >= 1000 
+                  {stats.totalVolume >= 1000
                     ? `${(stats.totalVolume / 1000).toFixed(1)}K`
                     : stats.totalVolume.toLocaleString()} SOL
                 </div>
@@ -528,19 +518,19 @@ export default function Launchpad() {
             {draft ? (
               <Card className="border-primary/30 bg-primary/5">
                 <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        {draft.imageUrl ? (
-                          <img 
-                            src={draft.imageUrl} 
-                            alt={draft.name || "Draft"} 
-                            className="w-12 h-12 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
-                            <ImageIcon className="w-6 h-6 text-primary" />
-                          </div>
-                        )}
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      {draft.imageUrl ? (
+                        <img
+                          src={draft.imageUrl}
+                          alt={draft.name || "Draft"}
+                          className="w-12 h-12 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
+                          <ImageIcon className="w-6 h-6 text-primary" />
+                        </div>
+                      )}
                       <div>
                         <CardTitle className="text-lg">{draft.name || "Untitled Collection"}</CardTitle>
                         <CardDescription>
@@ -562,7 +552,7 @@ export default function Launchpad() {
                         <span className="font-medium">{getProgress(draft.currentStep)}% - {getStepLabel(draft.currentStep)}</span>
                       </div>
                       <div className="w-full bg-muted rounded-full h-2">
-                        <div 
+                        <div
                           className="bg-primary h-2 rounded-full transition-all"
                           style={{ width: `${getProgress(draft.currentStep)}%` }}
                         />
@@ -599,8 +589,8 @@ export default function Launchpad() {
                         <FileEdit className="w-4 h-4" />
                         Continue Editing
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={deleteDraft}
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
@@ -641,10 +631,10 @@ export default function Launchpad() {
                   const canEdit = isOwner && !isDeployed;
                   const progress = getCollectionProgress(collection);
                   const health = getHealthStatus(collection);
-                  
+
                   return (
-                    <Card 
-                      key={collection.id} 
+                    <Card
+                      key={collection.id}
                       className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer ${canEdit ? 'border-amber-500/30' : ''}`}
                       onClick={() => navigate(`/launchpad/${collection.id}`)}
                     >
@@ -663,8 +653,8 @@ export default function Launchpad() {
                         <div className="absolute top-3 right-3 flex gap-2">
                           {canEdit && (
                             <>
-                              <Badge 
-                                variant="outline" 
+                              <Badge
+                                variant="outline"
                                 className="bg-amber-500/20 text-amber-400 border-amber-500/30"
                               >
                                 <Pencil className="w-3 h-3 mr-1" />
@@ -684,8 +674,8 @@ export default function Launchpad() {
                             </>
                           )}
                           {isOwner && isDeployed && (
-                            <Badge 
-                              variant="outline" 
+                            <Badge
+                              variant="outline"
                               className="bg-green-500/20 text-green-400 border-green-500/30"
                             >
                               <Lock className="w-3 h-3 mr-1" />
@@ -693,8 +683,8 @@ export default function Launchpad() {
                             </Badge>
                           )}
                         </div>
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={`absolute top-3 left-3 ${statusColors[collection.status as keyof typeof statusColors]}`}
                         >
                           <StatusIcon className="w-3 h-3 mr-1" />
@@ -714,8 +704,8 @@ export default function Launchpad() {
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger>
-                                  <Badge 
-                                    variant="outline" 
+                                  <Badge
+                                    variant="outline"
                                     className={`text-[10px] px-1.5 ${health.color} border-current/30 bg-current/10`}
                                   >
                                     {progress.percentage}%
@@ -748,10 +738,9 @@ export default function Launchpad() {
                                   <TooltipProvider key={step.name}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <div 
-                                          className={`flex-1 h-1 rounded-full transition-colors ${
-                                            step.complete ? 'bg-primary' : 'bg-muted'
-                                          }`}
+                                        <div
+                                          className={`flex-1 h-1 rounded-full transition-colors ${step.complete ? 'bg-primary' : 'bg-muted'
+                                            }`}
                                         />
                                       </TooltipTrigger>
                                       <TooltipContent>
@@ -778,7 +767,7 @@ export default function Launchpad() {
                             )}
                           </div>
                         )}
-                        
+
                         {/* Mint Progress (for deployed collections) */}
                         {isDeployed && (
                           <>
@@ -787,20 +776,20 @@ export default function Launchpad() {
                               <span className="font-medium">{collection.minted} / {collection.total_supply}</span>
                             </div>
                             <div className="w-full bg-muted rounded-full h-2">
-                              <div 
+                              <div
                                 className="bg-primary h-2 rounded-full transition-all"
                                 style={{ width: `${collection.total_supply > 0 ? (collection.minted / collection.total_supply) * 100 : 0}%` }}
                               />
                             </div>
                           </>
                         )}
-                        
+
                         {/* Price and Phases */}
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Price</span>
                           <span className="font-medium">{getPrice(collection)}</span>
                         </div>
-                        
+
                         {/* Phases */}
                         <div className="flex flex-wrap gap-1">
                           {getPhaseNames(collection).map((phase) => (
@@ -832,8 +821,8 @@ export default function Launchpad() {
         )}
       </main>
 
-      <CreateCollectionModal 
-        open={isCreateModalOpen} 
+      <CreateCollectionModal
+        open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         onCollectionCreated={fetchCollections}
       />
@@ -847,7 +836,7 @@ export default function Launchpad() {
               Delete Collection?
             </AlertDialogTitle>
           </AlertDialogHeader>
-          
+
           {/* Collection Preview Card */}
           {(() => {
             const collectionToDelete = collections.find(c => c.id === deleteCollectionId);
@@ -856,10 +845,10 @@ export default function Launchpad() {
               <div className="flex gap-4 p-4 bg-muted/50 rounded-lg border">
                 <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
                   {collectionToDelete.image_url ? (
-                    <img 
-                      src={collectionToDelete.image_url} 
+                    <img
+                      src={collectionToDelete.image_url}
                       alt={collectionToDelete.name}
-                      className="w-full h-full object-cover" 
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full">
@@ -891,7 +880,7 @@ export default function Launchpad() {
               <li>Allowlist entries</li>
             </ul>
           </AlertDialogDescription>
-          
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction

@@ -1006,8 +1006,11 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       }
 
       let solanaAddress = null;
+      let candyMachineAddress = null;
+
       if (blockchain === 'solana') {
         try {
+          // 1. Deploy Collection NFT
           const solanaResult = await solanaLaunch.deploySolanaCollection(solanaStandard, {
             name,
             symbol,
@@ -1015,6 +1018,37 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
             sellerFeeBasisPoints: parseFloat(royaltyPercent) * 100,
           });
           solanaAddress = solanaResult.address;
+
+          // 2. Prepare Phases for Candy Machine
+          // Filter enabled phases and map to LaunchpadPhase format
+          const launchpadPhases = phases
+            .filter(p => p.enabled)
+            .map(p => ({
+              id: p.id,
+              price: parseFloat(p.price) || 0,
+              startTime: p.startTime ? new Date(p.startTime) : null,
+              endTime: p.endTime ? new Date(p.endTime) : null,
+              merkleRoot: p.merkleRoot,
+              maxPerWallet: parseInt(p.maxPerWallet) || undefined
+            }));
+
+          // 3. Create Candy Machine
+          if (solanaAddress && launchpadPhases.length > 0) {
+            const cmResult = await solanaLaunch.createLaunchpadCandyMachine(
+              solanaAddress,
+              parseInt(totalSupply),
+              launchpadPhases,
+              {
+                name,
+                symbol,
+                uri: finalImageUrl || '',
+                sellerFeeBasisPoints: parseFloat(royaltyPercent) * 100,
+                creators: [{ address: user.id, share: 100 }] // Simplified creator, usually comes from wallet
+              }
+            );
+            candyMachineAddress = cmResult.address;
+          }
+
         } catch (err) {
           // Error handled in hook (toast shown)
           setIsDeploying(false);
@@ -1032,6 +1066,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         startTime: p.startTime || null,
         endTime: p.endTime || null,
         requiresAllowlist: p.requiresAllowlist,
+        candyMachineAddress: candyMachineAddress, // Store CM address here
+        merkleRoot: p.merkleRoot
       }));
 
       // Calculate public price from first enabled phase
@@ -2101,7 +2137,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-xs">Price (MON)</Label>
+                          <Label className="text-xs">Price (SOL)</Label>
                           <Input
                             type="number"
                             step="0.01"
@@ -2228,7 +2264,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                     </div>
                     <div>
                       <span className="text-muted-foreground">Network</span>
-                      <p className="font-medium">Monad Mainnet</p>
+                      <p className="font-medium">Solana</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Mint Phases</span>
@@ -2351,7 +2387,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                               </div>
                             </div>
                             <div className="text-right text-sm">
-                              <p className="font-medium">{phase.price === "0" ? "Free" : `${phase.price} MON`}</p>
+                              <p className="font-medium">{phase.price === "0" ? "Free" : `${phase.price} SOL`}</p>
                               <p className="text-muted-foreground">{phase.supply} supply</p>
                             </div>
                           </div>
@@ -2396,7 +2432,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
               <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                 <p className="text-sm text-yellow-600 dark:text-yellow-400">
                   <strong>Note:</strong> Deploying a collection will require a wallet transaction.
-                  Make sure you have enough MON for gas fees.
+                  Make sure you have enough SOL for gas fees.
                 </p>
               </div>
             </div>

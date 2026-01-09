@@ -128,9 +128,9 @@ async function fetchBaseMarketplaceData(): Promise<MarketplaceBaseData> {
       ...listing,
       nft: listing.nft
         ? {
-            ...listing.nft,
-            collection: listing.nft.collection as { name: string; contract_address: string | null } | undefined,
-          }
+          ...listing.nft,
+          collection: listing.nft.collection as { name: string; contract_address: string | null } | undefined,
+        }
         : null,
     }))
     .filter((listing) => listing.nft !== null) as NFTListing[];
@@ -257,7 +257,7 @@ export function getCollectionPrice(collection: Collection): string {
   const phases = collection.phases as any[];
   if (!phases || phases.length === 0) return "TBA";
   const publicPhase = phases.find((p) => p.id === "public") || phases[0];
-  return publicPhase?.price ? `${publicPhase.price} MON` : "Free";
+  return publicPhase?.price ? `${publicPhase.price} SOL` : "Free";
 }
 
 // Helper to check if collection is "new" (created in last 7 days and live)

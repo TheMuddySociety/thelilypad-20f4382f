@@ -10,16 +10,16 @@ import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHi
 import { BackToTop } from "@/components/BackToTop";
 import { useWallet, ChainType } from "@/providers/WalletProvider";
 import { useSEO } from "@/hooks/useSEO";
-import { 
-  useMarketplaceData, 
-  isCollectionNew, 
+import {
+  useMarketplaceData,
+  isCollectionNew,
   type NFTListing,
   type ChainFilter,
 } from "@/hooks/useMarketplaceData";
-import { 
-  PageHeader, 
-  StatsGrid, 
-  type StatItem 
+import {
+  PageHeader,
+  StatsGrid,
+  type StatItem
 } from "@/components/common";
 import {
   MarketplaceFilters,
@@ -28,7 +28,13 @@ import {
   StickerPacksGrid,
   HomepageFeaturedCollections,
 } from "@/components/marketplace";
-import { ChainSelector } from "@/components/ChainSelector";
+import {
+  MarketplaceFilters,
+  CollectionsGrid,
+  ListingsGrid,
+  StickerPacksGrid,
+  HomepageFeaturedCollections,
+} from "@/components/marketplace";
 import frognadBanner from "@/assets/frognad-banner.png";
 
 export default function Marketplace() {
@@ -38,9 +44,9 @@ export default function Marketplace() {
   const [showHotOnly, setShowHotOnly] = useState(false);
   const [showNewOnly, setShowNewOnly] = useState(false);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
-  const [selectedChain, setSelectedChain] = useState<ChainFilter>(
-    chainType === "solana" ? "solana" : "monad"
-  );
+
+  // Hardcoded to Solana for now
+  const selectedChain: ChainFilter = "solana";
 
   // Use the custom hook for data fetching with infinite scroll and chain filter
   const {
@@ -113,27 +119,23 @@ export default function Marketplace() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="container mx-auto px-4 pt-24 pb-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <PageHeader
             logo={<LilyPadLogo size={56} />}
             title="Lily Marketplace"
-            subtitle={`Browse collections and sticker packs on ${selectedChain === "solana" ? "Solana" : currentChain.name}`}
+            subtitle="Browse collections and sticker packs on Solana"
           />
-          <ChainSelector 
-            selectedChain={selectedChain === "solana" ? "solana" : "evm"} 
-            onChainChange={(chain) => setSelectedChain(chain === "solana" ? "solana" : "monad")}
-            showBadge={true}
-          />
+
         </div>
 
         {/* Platform NFT Collection Coming Soon Banner */}
         <div className="relative mb-8 rounded-xl overflow-hidden">
-          <img 
-            src={frognadBanner} 
-            alt="The Lily Pad Frognad Collection" 
+          <img
+            src={frognadBanner}
+            alt="The Lily Pad Frognad Collection"
             className="w-full h-auto object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />

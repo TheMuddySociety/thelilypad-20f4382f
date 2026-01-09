@@ -166,7 +166,7 @@ async function recordPlatformFee(supabase: any, event: PlatformFeeEvent) {
       fee_type: event.fee_type,
       source_volume: event.source_volume,
       contributed_to_buyback: buybackContribution,
-      chain: event.chain || 'monad',
+      chain: event.chain || 'solana',
     })
     .select()
     .single();
@@ -196,7 +196,7 @@ async function recordTransaction(supabase: any, data: any) {
     collection_id,
     shop_item_id,
     user_id,
-    chain = 'monad',
+    chain = 'solana',
   } = data;
 
   // Calculate platform fee (2.5% of volume)
@@ -249,7 +249,7 @@ async function updateBuybackPool(supabase: any, weightedVolume: number) {
   if (pool) {
     // Update existing pool
     const newAccumulatedVolume = Number(pool.accumulated_volume) + weightedVolume;
-    
+
     const { error: updateError } = await supabase
       .from('buyback_pool')
       .update({
@@ -284,7 +284,7 @@ async function updateBuybackPoolBalance(supabase: any, buybackContribution: numb
 
   if (pool) {
     const newBalance = Number(pool.pool_balance) + buybackContribution;
-    
+
     const { error: updateError } = await supabase
       .from('buyback_pool')
       .update({

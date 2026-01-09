@@ -15,11 +15,11 @@ import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge"
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
-import { 
-  ExternalLink, 
-  Image as ImageIcon, 
-  RefreshCw, 
-  User, 
+import {
+  ExternalLink,
+  Image as ImageIcon,
+  RefreshCw,
+  User,
   Wallet,
   Grid3X3,
   List,
@@ -130,7 +130,7 @@ export default function MyNFTs() {
     }
 
     setIsLoading(true);
-    
+
     // Build query based on available identifiers
     let query = supabase
       .from("minted_nfts")
@@ -206,7 +206,7 @@ export default function MyNFTs() {
 
         if (collectionNfts && collectionNfts.length > 0) {
           const allCollectionNftIds = collectionNfts.map(n => n.id);
-          
+
           // Get all active listings for these NFTs
           const { data: allListings } = await supabase
             .from("nft_listings")
@@ -302,7 +302,7 @@ export default function MyNFTs() {
       if (error) throw error;
 
       toast.success("Listing cancelled successfully");
-      
+
       // Update local state
       setListedNftIds(prev => {
         const updated = new Set(prev);
@@ -327,19 +327,16 @@ export default function MyNFTs() {
   };
 
   const explorerUrl = (hash: string) => {
-    return `https://testnet.monadexplorer.com/tx/${hash}`;
+    return `https://explorer.solana.com/tx/${hash}?cluster=devnet`;
   };
 
-  const tokenExplorerUrl = (contractAddress: string | null, tokenId: number) => {
-    if (!contractAddress) return null;
-    return `https://testnet.monadexplorer.com/token/${contractAddress}?a=${tokenId}`;
-  };
+  return `https://explorer.solana.com/address/${contractAddress}?cluster=devnet`;
 
   // Calculate rarity scores and trait data for NFTs based on trait occurrence
   const { rarityScores, traitRarityData } = useMemo(() => {
     const scores = new Map<string, number>();
     const traitData = new Map<string, Map<string, { count: number; total: number; percent: number }>>();
-    
+
     // Group NFTs by collection
     const collectionNfts = new Map<string, NFT[]>();
     nfts.forEach(nft => {
@@ -366,7 +363,7 @@ export default function MyNFTs() {
       // Store trait rarity data for each NFT
       collNfts.forEach(nft => {
         const nftTraitData = new Map<string, { count: number; total: number; percent: number }>();
-        
+
         if (nft.attributes.length === 0) {
           scores.set(nft.id, 50);
           traitData.set(nft.id, nftTraitData);
@@ -380,7 +377,7 @@ export default function MyNFTs() {
           const percent = (count / totalNfts) * 100;
           const traitRarity = (1 - count / totalNfts) * 100;
           totalRarity += traitRarity;
-          
+
           nftTraitData.set(key, { count, total: totalNfts, percent });
         });
 
@@ -444,7 +441,7 @@ export default function MyNFTs() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="container mx-auto px-4 pt-24 pb-12">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -483,8 +480,8 @@ export default function MyNFTs() {
                 <List className="w-4 h-4" />
               </Button>
             </div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="icon"
               onClick={handleRefresh}
               disabled={isRefreshing}
@@ -532,7 +529,7 @@ export default function MyNFTs() {
                   <div>
                     <p className="text-sm text-muted-foreground">Est. Portfolio Value</p>
                     <p className="text-2xl font-bold">
-                      {portfolioValue > 0 ? `${portfolioValue.toFixed(2)} MON` : "—"}
+                      {portfolioValue > 0 ? `${portfolioValue.toFixed(2)} SOL` : "—"}
                     </p>
                     {portfolioValue > 0 && (
                       <p className="text-xs text-muted-foreground">
@@ -548,9 +545,9 @@ export default function MyNFTs() {
 
         {/* Portfolio Value Chart */}
         {!isLoading && nfts.length > 0 && (
-          <PortfolioValueChart 
-            nfts={nfts.map(n => ({ id: n.id, minted_at: n.minted_at, collection_id: n.collection_id }))} 
-            collectionStats={collectionStats} 
+          <PortfolioValueChart
+            nfts={nfts.map(n => ({ id: n.id, minted_at: n.minted_at, collection_id: n.collection_id }))}
+            collectionStats={collectionStats}
           />
         )}
 
@@ -579,8 +576,8 @@ export default function MyNFTs() {
                   >
                     <span className="flex items-center gap-2 truncate">
                       {collection.image_url ? (
-                        <img 
-                          src={collection.image_url} 
+                        <img
+                          src={collection.image_url}
                           alt={collection.name}
                           className="w-5 h-5 rounded object-cover"
                         />
@@ -645,12 +642,11 @@ export default function MyNFTs() {
                           className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
                           onClick={() => setSelectedNft(nft)}
                         >
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                            index === 0 ? 'bg-amber-500/20 text-amber-400' :
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-amber-500/20 text-amber-400' :
                             index === 1 ? 'bg-slate-300/20 text-slate-300' :
-                            index === 2 ? 'bg-orange-600/20 text-orange-500' :
-                            'bg-muted text-muted-foreground'
-                          }`}>
+                              index === 2 ? 'bg-orange-600/20 text-orange-500' :
+                                'bg-muted text-muted-foreground'
+                            }`}>
                             {index + 1}
                           </div>
                           <div className="w-10 h-10 rounded overflow-hidden bg-muted flex-shrink-0">
@@ -718,14 +714,14 @@ export default function MyNFTs() {
             </div>
 
             {isLoading ? (
-              <div className={viewMode === "grid" 
+              <div className={viewMode === "grid"
                 ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
                 : "space-y-3"
               }>
                 {[...Array(8)].map((_, i) => (
-                  <Skeleton 
-                    key={i} 
-                    className={viewMode === "grid" ? "aspect-square rounded-lg" : "h-20 rounded-lg"} 
+                  <Skeleton
+                    key={i}
+                    className={viewMode === "grid" ? "aspect-square rounded-lg" : "h-20 rounded-lg"}
                   />
                 ))}
               </div>
@@ -734,7 +730,7 @@ export default function MyNFTs() {
                 <ImageIcon className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
                 <h2 className="text-xl font-semibold mb-2">No NFTs Found</h2>
                 <p className="text-muted-foreground mb-6">
-                  {selectedCollection 
+                  {selectedCollection
                     ? "You don't have any NFTs from this collection"
                     : "Start minting NFTs to build your collection"
                   }
@@ -750,7 +746,7 @@ export default function MyNFTs() {
                   const tier = getRarityTier(score);
                   const rarity = RARITY_CONFIG[tier];
                   const RarityIcon = rarity.icon;
-                  
+
                   return (
                     <div
                       key={nft.id}
@@ -783,8 +779,8 @@ export default function MyNFTs() {
                       )}
                       {/* LilyPad Verification Badge */}
                       <div className="absolute top-2 left-2">
-                        <LilyPadVerificationBadge 
-                          contractAddress={nft.collection?.contract_address} 
+                        <LilyPadVerificationBadge
+                          contractAddress={nft.collection?.contract_address}
                           size="sm"
                         />
                       </div>
@@ -807,7 +803,7 @@ export default function MyNFTs() {
                   const tier = getRarityTier(score);
                   const rarity = RARITY_CONFIG[tier];
                   const RarityIcon = rarity.icon;
-                  
+
                   return (
                     <div
                       key={nft.id}
@@ -844,8 +840,8 @@ export default function MyNFTs() {
                               <span className={`text-[10px] font-medium ${rarity.color}`}>{rarity.label}</span>
                             </div>
                           )}
-                          <LilyPadVerificationBadge 
-                            contractAddress={nft.collection?.contract_address} 
+                          <LilyPadVerificationBadge
+                            contractAddress={nft.collection?.contract_address}
                             size="sm"
                           />
                         </div>
@@ -968,15 +964,14 @@ export default function MyNFTs() {
                           const percent = traitInfo?.percent ?? 50;
                           const traitTier = getTraitRarityTier(percent);
                           const traitRarity = RARITY_CONFIG[traitTier];
-                          
+
                           return (
-                            <div 
+                            <div
                               key={i}
-                              className={`relative overflow-hidden rounded-lg p-2 border ${
-                                traitTier !== 'common' 
-                                  ? `${traitRarity.bgColor} border-${traitTier === 'legendary' ? 'amber' : traitTier === 'epic' ? 'purple' : traitTier === 'rare' ? 'blue' : 'green'}-500/30`
-                                  : 'bg-muted/50 border-transparent'
-                              }`}
+                              className={`relative overflow-hidden rounded-lg p-2 border ${traitTier !== 'common'
+                                ? `${traitRarity.bgColor} border-${traitTier === 'legendary' ? 'amber' : traitTier === 'epic' ? 'purple' : traitTier === 'rare' ? 'blue' : 'green'}-500/30`
+                                : 'bg-muted/50 border-transparent'
+                                }`}
                             >
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
                                 {attr.trait_type}
@@ -994,14 +989,13 @@ export default function MyNFTs() {
                               </div>
                               {/* Rarity bar */}
                               <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full transition-all ${
-                                    traitTier === 'legendary' ? 'bg-amber-400' :
+                                <div
+                                  className={`h-full rounded-full transition-all ${traitTier === 'legendary' ? 'bg-amber-400' :
                                     traitTier === 'epic' ? 'bg-purple-400' :
-                                    traitTier === 'rare' ? 'bg-blue-400' :
-                                    traitTier === 'uncommon' ? 'bg-green-400' :
-                                    'bg-muted-foreground'
-                                  }`}
+                                      traitTier === 'rare' ? 'bg-blue-400' :
+                                        traitTier === 'uncommon' ? 'bg-green-400' :
+                                          'bg-muted-foreground'
+                                    }`}
                                   style={{ width: `${Math.max(5, 100 - percent)}%` }}
                                 />
                               </div>
@@ -1048,7 +1042,7 @@ export default function MyNFTs() {
                         </Button>
                       </div>
                     )}
-                    
+
                     {/* Transfer Button */}
                     <Button
                       variant="outline"
@@ -1063,7 +1057,7 @@ export default function MyNFTs() {
                       <Send className="w-4 h-4 mr-2" />
                       Transfer NFT
                     </Button>
-                    
+
                     <div className="flex gap-2">
                       <Button
                         variant="outline"

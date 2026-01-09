@@ -18,12 +18,12 @@ import { NFTNetworkSelector, NFT_NETWORKS } from "@/components/wallet/NFTNetwork
 import { WalletNFTDetailModal } from "@/components/wallet/WalletNFTDetailModal";
 import { PortfolioValueCard } from "@/components/wallet/PortfolioValueCard";
 import { NFTFilters, filterAndSortNFTs, SortOption } from "@/components/wallet/NFTFilters";
-import { 
-  Wallet, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Copy, 
-  ExternalLink, 
+import {
+  Wallet,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Copy,
+  ExternalLink,
   Image as ImageIcon,
   History,
   Settings,
@@ -36,7 +36,8 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { monadMainnet } from "@/config/alchemy";
+// Solana mainnet info
+const solanaMainnet = { name: "Solana", blockExplorers: { default: { url: "https://explorer.solana.com" } } };
 
 interface Transaction {
   id: string;
@@ -62,20 +63,20 @@ export default function WalletProfile() {
   const [selectedNetwork, setSelectedNetwork] = useState("eth-mainnet");
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
-  
+
   // NFT Filter states
   const [nftSearchQuery, setNftSearchQuery] = useState("");
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
   const [nftSortBy, setNftSortBy] = useState<SortOption>("name-asc");
-  
+
   // Fetch real NFTs from Alchemy based on selected network
-  const { 
-    nfts, 
-    totalCount: nftCount, 
-    isLoading: nftsLoading, 
-    hasMore, 
-    loadMore, 
-    refresh: refreshNFTs 
+  const {
+    nfts,
+    totalCount: nftCount,
+    isLoading: nftsLoading,
+    hasMore,
+    loadMore,
+    refresh: refreshNFTs
   } = useWalletNFTs(address, selectedNetwork);
 
   // Get current user session for badges
@@ -92,7 +93,7 @@ export default function WalletProfile() {
     queryKey: ['wallet-transactions', address],
     queryFn: async () => {
       if (!address) return [];
-      
+
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
@@ -230,7 +231,7 @@ export default function WalletProfile() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="container mx-auto px-3 sm:px-4 pt-20 sm:pt-24 pb-8 sm:pb-12">
         {/* Header Section */}
         <div className="mb-4 sm:mb-8">
@@ -259,7 +260,7 @@ export default function WalletProfile() {
                       )}
                     </button>
                     <a
-                      href={`${monadMainnet.blockExplorers.default.url}/address/${address}`}
+                      href={`${solanaMainnet.blockExplorers.default.url}/address/${address}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-1 sm:p-1.5 rounded-lg hover:bg-muted transition-colors shrink-0"
@@ -270,12 +271,12 @@ export default function WalletProfile() {
                   <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
                     <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary animate-pulse" />
                     <span className="text-xs sm:text-sm text-muted-foreground truncate">
-                      Connected to {monadMainnet.name}
+                      Connected to {solanaMainnet.name}
                     </span>
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex flex-col pt-3 sm:pt-0 border-t sm:border-t-0 border-border/50">
                 <div className="text-xs sm:text-sm text-muted-foreground">Balance</div>
                 <div className="text-2xl sm:text-3xl md:text-4xl font-bold">
@@ -298,7 +299,7 @@ export default function WalletProfile() {
               )}
             </CardContent>
           </Card>
-          
+
           <Card className="glass-card border-border/50">
             <CardContent className="p-3 sm:p-4 md:p-6">
               <div className="text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground mb-1">NFTs</div>
@@ -309,7 +310,7 @@ export default function WalletProfile() {
               )}
             </CardContent>
           </Card>
-          
+
           <Card className="glass-card border-border/50">
             <CardContent className="p-3 sm:p-4 md:p-6">
               <div className="text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground mb-1">Chain</div>
@@ -382,11 +383,10 @@ export default function WalletProfile() {
                         className="flex items-center gap-2.5 sm:gap-4 p-2.5 sm:p-4 rounded-lg sm:rounded-xl bg-muted/50 hover:bg-muted transition-colors"
                       >
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${
-                            tx.tx_type === "mint"
+                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${tx.tx_type === "mint"
                               ? "bg-primary/10 text-primary"
                               : "bg-secondary/10 text-secondary-foreground"
-                          }`}
+                            }`}
                         >
                           {tx.tx_type === "mint" ? (
                             <ArrowDownLeft className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -415,7 +415,7 @@ export default function WalletProfile() {
                             {tx.price_paid} MON
                           </div>
                           <a
-                            href={`${monadMainnet.blockExplorers.default.url}/tx/${tx.tx_hash}`}
+                            href={`${solanaMainnet.blockExplorers.default.url}/tx/${tx.tx_hash}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[10px] sm:text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 justify-end"
@@ -454,7 +454,7 @@ export default function WalletProfile() {
                 />
               </div>
             )}
-            
+
             <Card className="glass-card border-border/50">
               <CardHeader className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -664,7 +664,7 @@ export default function WalletProfile() {
                   <h3 className="font-medium text-sm sm:text-base">Network</h3>
                   <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg bg-muted flex-wrap">
                     <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-primary animate-pulse shrink-0" />
-                    <span className="text-sm sm:text-base">{monadMainnet.name}</span>
+                    <span className="text-sm sm:text-base">{solanaMainnet.name}</span>
                     <Badge variant="secondary" className="text-[10px] sm:text-xs">Chain: {chainId}</Badge>
                   </div>
                 </div>

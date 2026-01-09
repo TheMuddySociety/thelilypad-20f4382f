@@ -12,11 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { useNFTTransfer } from "@/hooks/useNFTTransfer";
-import { 
-  Send, 
-  Loader2, 
-  CheckCircle2, 
+import { toast } from "sonner";
+import {
+  Send,
+  Loader2,
+  CheckCircle2,
   AlertTriangle,
   ExternalLink,
   Image as ImageIcon
@@ -39,47 +39,39 @@ interface NFTTransferModalProps {
   onTransferSuccess: () => void;
 }
 
-export function NFTTransferModal({ 
-  open, 
-  onOpenChange, 
+export function NFTTransferModal({
+  open,
+  onOpenChange,
   nft,
-  onTransferSuccess 
+  onTransferSuccess
 }: NFTTransferModalProps) {
   const [recipientAddress, setRecipientAddress] = useState("");
   const [isValidAddress, setIsValidAddress] = useState<boolean | null>(null);
-  const { isTransferring, txHash, error, transferNFT, validateAddress, resetState } = useNFTTransfer();
+
+  // Stubbed state for Sol migration
+  const isTransferring = false;
+  const txHash = null;
+  const error = null;
 
   useEffect(() => {
     if (!open) {
       setRecipientAddress("");
       setIsValidAddress(null);
-      resetState();
     }
-  }, [open, resetState]);
+  }, [open]);
 
   useEffect(() => {
     if (recipientAddress.length === 0) {
       setIsValidAddress(null);
-    } else if (recipientAddress.length === 42) {
-      setIsValidAddress(validateAddress(recipientAddress));
     } else {
-      setIsValidAddress(false);
+      // Simple Solana address check length
+      setIsValidAddress(recipientAddress.length >= 32);
     }
-  }, [recipientAddress, validateAddress]);
+  }, [recipientAddress]);
 
   const handleTransfer = async () => {
-    if (!nft || !nft.collection?.contract_address) return;
-
-    const result = await transferNFT(
-      nft.collection.contract_address,
-      nft.token_id,
-      recipientAddress,
-      nft.id
-    );
-
-    if (result) {
-      onTransferSuccess();
-    }
+    toast.info("Transfers coming soon for Solana NFTs");
+    onOpenChange(false);
   };
 
   const explorerUrl = (hash: string) => {
@@ -160,8 +152,8 @@ export function NFTTransferModal({
               <ExternalLink className="w-4 h-4 mr-2" />
               View on Explorer
             </Button>
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               onClick={() => onOpenChange(false)}
             >
               Done
@@ -188,11 +180,11 @@ export function NFTTransferModal({
                 value={recipientAddress}
                 onChange={(e) => setRecipientAddress(e.target.value)}
                 className={
-                  isValidAddress === false 
-                    ? "border-destructive" 
-                    : isValidAddress === true 
-                    ? "border-green-500" 
-                    : ""
+                  isValidAddress === false
+                    ? "border-destructive"
+                    : isValidAddress === true
+                      ? "border-green-500"
+                      : ""
                 }
                 disabled={isTransferring || !nft.collection?.contract_address}
               />
@@ -220,14 +212,14 @@ export function NFTTransferModal({
             </Alert>
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isTransferring}
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleTransfer}
                 disabled={!canTransfer}
               >

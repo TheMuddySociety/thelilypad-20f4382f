@@ -54,7 +54,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { MerkleTree } from "merkletreejs";
-import { keccak256, encodePacked, toHex } from "viem";
+import { keccak_256 } from "js-sha3";
+import { Buffer } from "buffer";
+import { PublicKey } from "@solana/web3.js";
 
 interface AllowlistEntry {
   id: string;
@@ -77,14 +79,30 @@ interface MerkleProof {
   leaf: string;
 }
 
-// Generate leaf for Merkle tree (address only - standard approach)
+// Generate leaf for Merkle tree (Solana address)
 const generateLeaf = (address: string): string => {
-  return keccak256(encodePacked(['address'], [address.toLowerCase() as `0x${string}`]));
+  try {
+    const buffer = new PublicKey(address).toBuffer();
+    return keccak_256(buffer);
+  } catch (e) {
+    return "";
+  }
 };
 
-// Generate leaf with max mint amount for more complex allowlists
+// Generate leaf with max mint amount - logic varies by Guard, but simple hash for now
 const generateLeafWithAmount = (address: string, maxMint: number): string => {
-  return keccak256(encodePacked(['address', 'uint256'], [address.toLowerCase() as `0x${string}`, BigInt(maxMint)]))
+  try {
+    // Custom packing for limit: address + uint64 (LE)
+    // For simplicity in this demo, we just hash address. 
+    // Real implementation depends on the specific Guard structure (e.g., AllowList vs MintLimit)
+    // CM v3 Allowlist Guard is just address check. 
+    // MintLimit Guard is global or per-wallet counter, separate from Merkle Allowlist usually.
+    // If we want "specific max mint per wallet in allowlist", we need a custom guard or Token2022.
+    // We will stick to simple address hashing for the AllowList Guard.
+    return generateLeaf(address);
+  } catch (e) {
+    return "";
+  }
 };
 
 interface AllowlistManagerProps {
@@ -93,14 +111,14 @@ interface AllowlistManagerProps {
   onAllowlistChange?: (phases: MintPhase[]) => void;
 }
 
-// Validate Ethereum address
-const isValidEthAddress = (address: string): boolean => {
-  return /^0x[a-fA-F0-9]{40}$/.test(address);
-};
-
-// Validate ENS name (basic check)
-const isValidENS = (name: string): boolean => {
-  return /^[a-zA-Z0-9-]+\.eth$/.test(name);
+// Validate Solana address
+const isValidAddress = (address: string): boolean => {
+  try {
+    new PublicKey(address);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 export function AllowlistManager({
@@ -129,7 +147,7 @@ export function AllowlistManager({
   // Bulk add form state
   const [bulkInput, setBulkInput] = useState("");
   const [bulkMaxMint, setBulkMaxMint] = useState("1");
-  
+
   // CSV import state
   const [isCsvDialogOpen, setIsCsvDialogOpen] = useState(false);
   const [csvImportResults, setCsvImportResults] = useState<{
@@ -144,7 +162,7 @@ export function AllowlistManager({
   const csvCancelRef = useRef(false);
   const csvPauseRef = useRef(false);
   const csvResumeResolverRef = useRef<(() => void) | null>(null);
-  
+
   // Merkle tree state
   const [isMerkleDialogOpen, setIsMerkleDialogOpen] = useState(false);
   const [merkleIncludeAmount, setMerkleIncludeAmount] = useState(false);
@@ -157,29 +175,29 @@ export function AllowlistManager({
       e.walletAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.notes?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
-  
+
   // Generate Merkle tree for current phase
   const currentMerkleData = useMemo(() => {
     if (!currentPhase || currentPhase.entries.length === 0) {
       return null;
     }
-    
+
     // Filter only valid ETH addresses
-    const validEntries = currentPhase.entries.filter(e => isValidEthAddress(e.walletAddress));
-    
+    const validEntries = currentPhase.entries.filter(e => isValidAddress(e.walletAddress));
+
     if (validEntries.length === 0) {
       return null;
     }
-    
-    const leaves = validEntries.map(entry => 
-      merkleIncludeAmount 
+
+    const leaves = validEntries.map(entry =>
+      merkleIncludeAmount
         ? generateLeafWithAmount(entry.walletAddress, entry.maxMint)
         : generateLeaf(entry.walletAddress)
     );
-    
+
     const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
     const root = tree.getHexRoot();
-    
+
     return {
       tree,
       root,
@@ -187,60 +205,60 @@ export function AllowlistManager({
       entries: validEntries,
     };
   }, [currentPhase, merkleIncludeAmount]);
-  
+
   // Generate proof for a specific address
   const generateProofForAddress = useCallback((address: string) => {
-    if (!currentMerkleData || !isValidEthAddress(address)) {
+    if (!currentMerkleData || !isValidAddress(address)) {
       setFoundProof(null);
       return;
     }
-    
+
     const entry = currentMerkleData.entries.find(
       e => e.walletAddress.toLowerCase() === address.toLowerCase()
     );
-    
+
     if (!entry) {
       setFoundProof(null);
       toast.error("Address not found in allowlist");
       return;
     }
-    
+
     const leaf = merkleIncludeAmount
       ? generateLeafWithAmount(entry.walletAddress, entry.maxMint)
       : generateLeaf(entry.walletAddress);
-    
+
     const proof = currentMerkleData.tree.getHexProof(leaf);
-    
+
     setFoundProof({
       address: entry.walletAddress,
       proof,
       leaf: leaf,
     });
-    
+
     toast.success("Proof generated successfully");
   }, [currentMerkleData, merkleIncludeAmount]);
-  
+
   // Export all proofs
   const exportAllProofs = useCallback(() => {
     if (!currentMerkleData || !currentPhase) {
       toast.error("No Merkle tree data available");
       return;
     }
-    
-    const proofs: { 
-      address: string; 
+
+    const proofs: {
+      address: string;
       maxMint: number;
       leaf: string;
       proof: string[];
     }[] = [];
-    
+
     currentMerkleData.entries.forEach((entry) => {
       const leaf = merkleIncludeAmount
         ? generateLeafWithAmount(entry.walletAddress, entry.maxMint)
         : generateLeaf(entry.walletAddress);
-      
+
       const proof = currentMerkleData.tree.getHexProof(leaf);
-      
+
       proofs.push({
         address: entry.walletAddress,
         maxMint: entry.maxMint,
@@ -248,7 +266,7 @@ export function AllowlistManager({
         proof,
       });
     });
-    
+
     const exportData = {
       phase: currentPhase.name,
       merkleRoot: currentMerkleData.root,
@@ -257,7 +275,7 @@ export function AllowlistManager({
       generatedAt: new Date().toISOString(),
       proofs,
     };
-    
+
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -269,152 +287,152 @@ export function AllowlistManager({
     URL.revokeObjectURL(url);
     toast.success(`Exported ${proofs.length} Merkle proofs`);
   }, [currentMerkleData, currentPhase, merkleIncludeAmount]);
-  
+
   // Copy Merkle root to clipboard
   const copyMerkleRoot = useCallback(() => {
     if (!currentMerkleData) return;
     navigator.clipboard.writeText(currentMerkleData.root);
     toast.success("Merkle root copied to clipboard");
   }, [currentMerkleData]);
-  
+
   // Process CSV file content with progress tracking
   const processCsvContent = useCallback(async (content: string) => {
     csvCancelRef.current = false;
     csvPauseRef.current = false;
     setIsCsvPaused(false);
     const lines = content.split(/\r?\n/).filter(line => line.trim());
-    
+
     if (lines.length === 0) {
       toast.error("CSV file is empty");
       setIsProcessingCsv(false);
       setCsvProgress(null);
       return;
     }
-    
+
     // Detect header row
     const firstLine = lines[0].toLowerCase();
-    const hasHeader = firstLine.includes('address') || 
-                      firstLine.includes('wallet') || 
-                      firstLine.includes('max') ||
-                      !isValidEthAddress(lines[0].split(',')[0]?.trim() || '');
-    
+    const hasHeader = firstLine.includes('address') ||
+      firstLine.includes('wallet') ||
+      firstLine.includes('max') ||
+      !isValidAddress(lines[0].split(',')[0]?.trim() || '');
+
     const dataLines = hasHeader ? lines.slice(1) : lines;
     const totalLines = dataLines.length;
-    
+
     // Initialize progress
     setCsvProgress({ current: 0, total: totalLines });
-    
+
     // Get existing addresses for duplicate check
     const existingAddresses = new Set(
       currentPhase?.entries.map(e => e.walletAddress.toLowerCase()) || []
     );
-    
+
     const valid: { address: string; maxMint: number; notes?: string }[] = [];
     const invalid: { line: number; content: string; reason: string }[] = [];
     const duplicates: string[] = [];
     const seenInFile = new Set<string>();
-    
+
     // Process in batches for large files to show progress
     const BATCH_SIZE = 100;
     let wasCancelled = false;
-    
+
     for (let i = 0; i < dataLines.length; i += BATCH_SIZE) {
       // Check for cancellation
       if (csvCancelRef.current) {
         wasCancelled = true;
         break;
       }
-      
+
       // Check for pause
       if (csvPauseRef.current) {
         await new Promise<void>(resolve => {
           csvResumeResolverRef.current = resolve;
         });
         csvResumeResolverRef.current = null;
-        
+
         // Check if cancelled while paused
         if (csvCancelRef.current) {
           wasCancelled = true;
           break;
         }
       }
-      
+
       const batch = dataLines.slice(i, i + BATCH_SIZE);
-      
+
       batch.forEach((line, batchIndex) => {
         const index = i + batchIndex;
         const lineNum = hasHeader ? index + 2 : index + 1;
         const trimmedLine = line.trim();
-        
+
         if (!trimmedLine) return;
-        
+
         // Parse CSV columns
         const columns = trimmedLine.split(',').map(col => col.trim().replace(/^["']|["']$/g, ''));
         const address = columns[0] || '';
         const maxMintStr = columns[1] || '1';
         const notes = columns[2] || '';
-        
+
         // Validate address
         if (!address) {
           invalid.push({ line: lineNum, content: trimmedLine, reason: 'Empty address' });
           return;
         }
-        
-        if (!isValidEthAddress(address) && !isValidENS(address)) {
+
+        if (!isValidAddress(address)) {
           invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid address format' });
           return;
         }
-        
+
         // Check for duplicates
         const lowerAddress = address.toLowerCase();
         if (existingAddresses.has(lowerAddress) || seenInFile.has(lowerAddress)) {
           duplicates.push(address);
           return;
         }
-        
+
         seenInFile.add(lowerAddress);
-        
+
         // Parse max mint
         const maxMint = parseInt(maxMintStr) || 1;
         if (maxMint < 1) {
           invalid.push({ line: lineNum, content: trimmedLine, reason: 'Invalid max mint value' });
           return;
         }
-        
+
         valid.push({
           address,
           maxMint,
           notes: notes || undefined,
         });
       });
-      
+
       // Update progress after each batch
       const processed = Math.min(i + BATCH_SIZE, totalLines);
       setCsvProgress({ current: processed, total: totalLines });
-      
+
       // Allow UI to update between batches for large files
       if (totalLines > BATCH_SIZE) {
         await new Promise(resolve => setTimeout(resolve, 0));
       }
     }
-    
+
     if (wasCancelled) {
       toast.info("CSV import cancelled");
       setCsvProgress(null);
       setIsProcessingCsv(false);
       return;
     }
-    
+
     setCsvImportResults({ valid, invalid, duplicates });
     setCsvProgress(null);
-    
+
     if (valid.length === 0 && invalid.length === 0 && duplicates.length === 0) {
       toast.error("No data found in CSV file");
     }
-    
+
     setIsProcessingCsv(false);
   }, [currentPhase]);
-  
+
   // Cancel CSV processing
   const cancelCsvProcessing = useCallback(() => {
     csvCancelRef.current = true;
@@ -424,13 +442,13 @@ export function AllowlistManager({
     }
     setIsCsvPaused(false);
   }, []);
-  
+
   // Pause CSV processing
   const pauseCsvProcessing = useCallback(() => {
     csvPauseRef.current = true;
     setIsCsvPaused(true);
   }, []);
-  
+
   // Resume CSV processing
   const resumeCsvProcessing = useCallback(() => {
     csvPauseRef.current = false;
@@ -439,15 +457,15 @@ export function AllowlistManager({
       csvResumeResolverRef.current();
     }
   }, []);
-  
+
   // Parse CSV file from file input
   const handleCsvFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    
+
     setIsProcessingCsv(true);
     setCsvImportResults(null);
-    
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -462,47 +480,47 @@ export function AllowlistManager({
         event.target.value = '';
       }
     };
-    
+
     reader.onerror = () => {
       toast.error("Failed to read file");
       setIsProcessingCsv(false);
     };
-    
+
     reader.readAsText(file);
   }, [processCsvContent]);
-  
+
   // Handle CSV drag and drop
   const handleCsvDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsCsvDragging(true);
   }, []);
-  
+
   const handleCsvDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsCsvDragging(false);
   }, []);
-  
+
   const handleCsvDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsCsvDragging(false);
-    
+
     const files = Array.from(e.dataTransfer.files);
-    const csvFile = files.find(file => 
-      file.type === 'text/csv' || 
+    const csvFile = files.find(file =>
+      file.type === 'text/csv' ||
       file.name.endsWith('.csv')
     );
-    
+
     if (!csvFile) {
       toast.error("Please drop a CSV file");
       return;
     }
-    
+
     setIsProcessingCsv(true);
     setCsvImportResults(null);
-    
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -514,22 +532,22 @@ export function AllowlistManager({
         setIsProcessingCsv(false);
       }
     };
-    
+
     reader.onerror = () => {
       toast.error("Failed to read file");
       setIsProcessingCsv(false);
     };
-    
+
     reader.readAsText(csvFile);
   }, [processCsvContent]);
-  
+
   // Download CSV template
   const downloadCsvTemplate = () => {
     const template = `wallet_address,max_mint,notes
 0x1234567890123456789012345678901234567890,3,OG Holder
 0xabcdefabcdefabcdefabcdefabcdefabcdefabcd,2,Early Supporter
 0x9876543210987654321098765432109876543210,1,Contest Winner`;
-    
+
     const blob = new Blob([template], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -547,14 +565,14 @@ export function AllowlistManager({
     setMintPhases(newPhases);
     onAllowlistChange?.(newPhases);
   }, [onAllowlistChange]);
-  
+
   // Confirm CSV import
   const confirmCsvImport = useCallback(() => {
     if (!csvImportResults || csvImportResults.valid.length === 0) {
       toast.error("No valid entries to import");
       return;
     }
-    
+
     const newEntries: AllowlistEntry[] = csvImportResults.valid.map(item => ({
       id: crypto.randomUUID(),
       walletAddress: item.address,
@@ -562,11 +580,11 @@ export function AllowlistManager({
       notes: item.notes,
       addedAt: new Date(),
     }));
-    
+
     const newPhases = mintPhases.map((p) =>
       p.id === activePhase ? { ...p, entries: [...p.entries, ...newEntries] } : p
     );
-    
+
     updatePhases(newPhases);
     setCsvImportResults(null);
     setIsCsvDialogOpen(false);
@@ -576,13 +594,13 @@ export function AllowlistManager({
   // Add single wallet
   const handleAddWallet = () => {
     const trimmedWallet = newWallet.trim();
-    
+
     if (!trimmedWallet) {
       toast.error("Please enter a wallet address");
       return;
     }
 
-    if (!isValidEthAddress(trimmedWallet) && !isValidENS(trimmedWallet)) {
+    if (!isValidAddress(trimmedWallet)) {
       toast.error("Invalid wallet address or ENS name");
       return;
     }
@@ -635,7 +653,7 @@ export function AllowlistManager({
 
     lines.forEach((line) => {
       const address = line.trim();
-      if (isValidEthAddress(address) || isValidENS(address)) {
+      if (isValidAddress(address)) {
         if (existingAddresses.has(address.toLowerCase()) || validAddresses.includes(address.toLowerCase())) {
           duplicates.push(address);
         } else {
@@ -694,7 +712,7 @@ export function AllowlistManager({
     if (!editingEntry) return;
 
     const trimmedWallet = editingEntry.walletAddress.trim();
-    if (!isValidEthAddress(trimmedWallet) && !isValidENS(trimmedWallet)) {
+    if (!isValidAddress(trimmedWallet)) {
       toast.error("Invalid wallet address or ENS name");
       return;
     }
@@ -702,11 +720,11 @@ export function AllowlistManager({
     const newPhases = mintPhases.map((p) =>
       p.id === activePhase
         ? {
-            ...p,
-            entries: p.entries.map((e) =>
-              e.id === editingEntry.id ? editingEntry : e
-            ),
-          }
+          ...p,
+          entries: p.entries.map((e) =>
+            e.id === editingEntry.id ? editingEntry : e
+          ),
+        }
         : p
     );
 
@@ -997,15 +1015,14 @@ export function AllowlistManager({
                   <div className="space-y-4 py-4">
                     {!csvImportResults ? (
                       <>
-                        <div 
+                        <div
                           onDragOver={handleCsvDragOver}
                           onDragLeave={handleCsvDragLeave}
                           onDrop={handleCsvDrop}
-                          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                            isCsvDragging
-                              ? "border-primary bg-primary/10"
-                              : "border-border hover:border-primary/50"
-                          }`}
+                          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isCsvDragging
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/50"
+                            }`}
                         >
                           <input
                             type="file"
@@ -1025,8 +1042,8 @@ export function AllowlistManager({
                                 )}
                                 {csvProgress ? (
                                   <div className="w-full max-w-[240px] space-y-2">
-                                    <Progress 
-                                      value={(csvProgress.current / csvProgress.total) * 100} 
+                                    <Progress
+                                      value={(csvProgress.current / csvProgress.total) * 100}
                                       className="h-2"
                                     />
                                     <p className="text-sm text-muted-foreground text-center">
@@ -1307,14 +1324,14 @@ export function AllowlistManager({
                               className="font-mono"
                             />
                           </div>
-                          <Button 
+                          <Button
                             onClick={() => generateProofForAddress(proofSearchAddress)}
                             disabled={!proofSearchAddress}
                             className="w-full"
                           >
                             Generate Proof
                           </Button>
-                          
+
                           {foundProof && (
                             <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
                               <div className="space-y-1">
@@ -1378,7 +1395,7 @@ export function AllowlistManager({
                           </Label>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Merkle Root</Label>
                         <div className="flex items-center gap-2">
@@ -1390,19 +1407,19 @@ export function AllowlistManager({
                           </Button>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Check className="w-3.5 h-3.5 text-green-500" />
                         {currentMerkleData.entries.length} valid addresses included
                       </div>
-                      
+
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={exportAllProofs} className="flex-1">
                           <Download className="w-3 h-3 mr-1" />
                           Export All Proofs
                         </Button>
                       </div>
-                      
+
                       <p className="text-xs text-muted-foreground">
                         Use this Merkle root in your smart contract to verify allowlist membership.
                         The proof array can be used with OpenZeppelin's MerkleProof library.
@@ -1436,7 +1453,7 @@ export function AllowlistManager({
                           <TableRow key={entry.id}>
                             <TableCell className="font-mono text-sm">
                               <div className="flex items-center gap-2">
-                                {isValidEthAddress(entry.walletAddress) ? (
+                                {isValidAddress(entry.walletAddress) ? (
                                   <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
                                 ) : (
                                   <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />

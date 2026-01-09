@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Package, 
-  Download, 
-  ShoppingBag, 
+import {
+  Package,
+  Download,
+  ShoppingBag,
   ExternalLink,
   ImageIcon,
   Calendar,
@@ -263,7 +263,7 @@ export default function MyPurchases() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Spent</p>
-                <p className="text-2xl font-bold">{totalSpent.toFixed(2)} MON</p>
+                <p className="text-2xl font-bold">{totalSpent.toFixed(2)} SOL</p>
               </div>
             </CardContent>
           </Card>
@@ -385,7 +385,7 @@ export default function MyPurchases() {
                               className="text-xs text-muted-foreground gap-1"
                               onClick={() =>
                                 window.open(
-                                  `https://testnet.monadexplorer.com/tx/${purchase.tx_hash}`,
+                                  `https://explorer.solana.com/tx/${purchase.tx_hash}?cluster=devnet`,
                                   "_blank"
                                 )
                               }
@@ -507,7 +507,7 @@ export default function MyPurchases() {
                           className="text-xs text-muted-foreground gap-1"
                           onClick={() =>
                             window.open(
-                              `https://testnet.monadexplorer.com/tx/${purchase.tx_hash}`,
+                              `https://explorer.solana.com/tx/${purchase.tx_hash}?cluster=devnet`,
                               "_blank"
                             )
                           }

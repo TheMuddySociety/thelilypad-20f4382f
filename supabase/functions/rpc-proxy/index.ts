@@ -14,21 +14,13 @@ interface RpcEndpoint {
 }
 
 const MAINNET_RPCS: RpcEndpoint[] = [
-  { url: 'https://rpc.monad.xyz', name: 'QuickNode', rateLimit: 25, weight: 100 },
-  { url: 'https://rpc1.monad.xyz', name: 'Alchemy', rateLimit: 15, weight: 90 },
-  { url: 'https://rpc3.monad.xyz', name: 'Ankr', rateLimit: 30, weight: 80 },
-  { url: 'https://rpc-mainnet.monadinfra.com', name: 'MF', rateLimit: 20, weight: 70 },
-  { url: 'https://monad-mainnet.api.onfinality.io/public', name: 'OnFinality', rateLimit: 10, weight: 60 },
-  { url: 'https://monad-rpc.synergynodes.com', name: 'SynergyNodes', rateLimit: 10, weight: 50 },
+  { url: 'https://api.mainnet-beta.solana.com', name: 'Solana Mainnet', rateLimit: 50, weight: 100 },
+  { url: 'https://solana-mainnet.g.alchemy.com/v2/demo', name: 'Alchemy', rateLimit: 20, weight: 90 },
 ];
 
 const TESTNET_RPCS: RpcEndpoint[] = [
-  { url: 'https://testnet-rpc.monad.xyz', name: 'Monad Testnet', rateLimit: 25, weight: 100 },
-  { url: 'https://monad-testnet.blockvision.org/v1/37hH1sm8QDkbsAYrBsU9EjXwZ0o', name: 'BlockVision', rateLimit: 25, weight: 95 },
-  { url: 'https://monad-testnet.drpc.org', name: 'dRPC Testnet', rateLimit: 20, weight: 85 },
-  { url: 'https://rpc-testnet.monadinfra.com', name: 'MF Testnet', rateLimit: 20, weight: 80 },
-  { url: 'https://rpc.ankr.com/monad_testnet', name: 'Ankr Testnet', rateLimit: 30, weight: 75 },
-  { url: 'https://monad-testnet.api.onfinality.io/public', name: 'OnFinality Testnet', rateLimit: 15, weight: 70 },
+  { url: 'https://api.devnet.solana.com', name: 'Solana Devnet', rateLimit: 50, weight: 100 },
+  { url: 'https://solana-devnet.g.alchemy.com/v2/demo', name: 'Alchemy Devnet', rateLimit: 20, weight: 90 },
 ];
 
 // In-memory cache for RPC health status
@@ -281,7 +273,7 @@ async function checkAllHealth(network: 'mainnet' | 'testnet'): Promise<any[]> {
           body: JSON.stringify({
             jsonrpc: '2.0',
             id: Date.now(),
-            method: 'eth_chainId',
+            method: 'getHealth',
             params: [],
           }),
           signal: controller.signal,
@@ -315,27 +307,26 @@ async function checkAllHealth(network: 'mainnet' | 'testnet'): Promise<any[]> {
         }
 
         // Validate chain ID
-        const chainId = parseInt(data.result, 16);
-        const expectedChainId = network === 'mainnet' ? 143 : 10143;
-
-        if (chainId !== expectedChainId) {
-          updateHealthStatus(rpc.url, false, latency);
+        // For Solana, we check health/version instead of chainId
+        if (data.result && (data.result['solana-core'] || typeof data.result === 'string')) {
+          updateHealthStatus(rpc.url, true, latency);
           return {
             url: rpc.url,
             name: rpc.name,
-            healthy: false,
+            healthy: true,
             latency,
-            error: `Wrong chain: ${chainId}`,
+            chainId: 0, // Not applicable
           };
         }
 
-        updateHealthStatus(rpc.url, true, latency);
+        // If we got here, it might be an unexpected response format
+        updateHealthStatus(rpc.url, true, latency); // Assume healthy if we got a response without error
         return {
           url: rpc.url,
           name: rpc.name,
           healthy: true,
           latency,
-          chainId,
+          chainId: 0,
         };
 
       } catch (error: any) {

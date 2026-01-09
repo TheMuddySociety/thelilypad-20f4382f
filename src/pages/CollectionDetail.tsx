@@ -8,14 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { keccak256, encodePacked } from "viem";
-import { MerkleTree } from "merkletreejs";
+// Removed EVM imports
+
 import { RpcHealthIndicator } from "@/components/RpcHealthIndicator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
-import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
-import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
-import { PhaseConfigManager } from "@/components/launchpad/PhaseConfigManager";
 import { LaunchChecklist } from "@/components/launchpad/LaunchChecklist";
 import { RevealManager } from "@/components/launchpad/RevealManager";
 import { TransactionHistory } from "@/components/TransactionHistory";
@@ -39,10 +36,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { useSEO } from "@/hooks/useSEO";
-import { useContractMint } from "@/hooks/useContractMint";
-import { useGasEstimation } from "@/hooks/useGasEstimation";
-import { useOnChainPhaseSync } from "@/hooks/useOnChainPhaseSync";
-import { useTheLilyPadContract } from "@/hooks/useTheLilyPadContract";
+// EVM hooks removed
 import { useSolanaMint } from "@/hooks/useSolanaMint";
 import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import {
@@ -127,7 +121,7 @@ interface Phase {
 export default function CollectionDetail() {
   const { collectionId } = useParams();
   const navigate = useNavigate();
-  const { network, currentChain, isConnected, chainId, switchToMonad, connect, balance, address } = useWallet();
+  const { network, currentChain, isConnected, chainId, connect, balance, address } = useWallet();
   const [collection, setCollection] = useState<Collection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mintAmount, setMintAmount] = useState(1);
@@ -138,7 +132,6 @@ export default function CollectionDetail() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [isAllowlistModalOpen, setIsAllowlistModalOpen] = useState(false);
   const [allowlistAddresses, setAllowlistAddresses] = useState<string[]>([]);
   const [showRevealModal, setShowRevealModal] = useState(false);
@@ -151,49 +144,25 @@ export default function CollectionDetail() {
   const [revealTxHash, setRevealTxHash] = useState<string>("");
 
   // Advanced gas override settings
-  const [showAdvancedGas, setShowAdvancedGas] = useState(false);
-  const [customGasLimit, setCustomGasLimit] = useState<string>("");
+  // EVM Hooks removed
 
-  // Contract minting hook
-  const {
-    isMinting,
-    step: mintStep,
-    txHash: mintTxHash,
-    error: mintError,
-    mintWithAllowlist,
-    mintPublic,
-    verifyAllowlist,
-    resetState: resetMintState
-  } = useContractMint(collection?.contract_address || null);
 
-  // On-chain phase sync hook
-  const {
-    syncPhases,
-    isSyncing,
-  } = useOnChainPhaseSync(collection?.contract_address || null, collectionId || null);
 
-  // TheLilyPad contract hook for owner functions (targets this collection contract)
-  const {
-    configurePhase: configureContractPhase,
-    setActivePhase: setContractActivePhase,
-    isLoading: isContractLoading,
-  } = useTheLilyPadContract(collection?.contract_address || null);
 
   const solanaMint = useSolanaMint();
 
   const [isInitializing, setIsInitializing] = useState(false);
 
   // Determine chain from collection data
-  const collectionChain = collection?.chain || collection?.blockchain || 'monad';
+  const collectionChain = collection?.chain || collection?.blockchain || 'solana';
   const isSolana = isSolanaChain(collectionChain);
   const currency = getCurrencySymbol(collectionChain);
   const collectionNetwork = getNetworkDisplayName(collectionChain);
   const isCollectionTestnet = isChainTestnet(collectionChain);
   const collectionExplorerUrl = getExplorerUrl(collectionChain, isCollectionTestnet ? 'testnet' : 'mainnet');
-  
-  // For EVM chains, check if on wrong network
+
   const isTestnet = network === "testnet";
-  const isWrongNetwork = !isSolana && isConnected && chainId !== currentChain.id;
+  const isWrongNetwork = false; // Always correct for now, or handled by SOL adapter
   const isCreator = currentUserId && collection?.creator_id === currentUserId;
 
   useSEO({
@@ -292,40 +261,10 @@ export default function CollectionDetail() {
   const totalCost = activePhase ? parseFloat(activePhase.price) * mintAmount : 0;
   const userBalance = balance ? parseFloat(balance) : 0;
 
-  // Generate leaf for Merkle tree (address only)
-  const generateLeaf = useCallback((addr: string): string => {
-    return keccak256(encodePacked(['address'], [addr.toLowerCase() as `0x${string}`]));
-  }, []);
 
-  // Generate Merkle proof for an address
-  const generateMerkleProof = useCallback((
-    userAddress: string,
-    allowlistAddrs: string[]
-  ): string[] => {
-    if (allowlistAddrs.length === 0) return [];
-    const leaves = allowlistAddrs.map(addr => generateLeaf(addr));
-    const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
-    const leaf = generateLeaf(userAddress);
-    return tree.getHexProof(leaf);
-  }, [generateLeaf]);
 
-  // Gas estimation with RPC failover
-  const {
-    gasEstimate,
-    isEstimating: isEstimatingGas,
-    error: gasEstimateError,
-    refetch: refetchGasEstimate,
-  } = useGasEstimation({
-    contractAddress: collection?.contract_address || null,
-    mintAmount,
-    pricePerNft: activePhase?.price || "0",
-    requiresAllowlist: activePhase?.requiresAllowlist,
-    allowlistAddresses,
-    generateMerkleProof,
-  });
-
-  const totalWithGas = totalCost + (gasEstimate?.totalGas || 0);
-  const hasInsufficientBalance = isConnected && !isWrongNetwork && totalWithGas > userBalance;
+  const totalWithGas = totalCost; // No gas estimation needed for SOL UI yet
+  const hasInsufficientBalance = isConnected && totalWithGas > userBalance;
 
   // Live supply from collection
   const liveSupply = collection?.minted || 0;
@@ -430,54 +369,15 @@ export default function CollectionDetail() {
   };
 
   const handleSwitchNetwork = async () => {
-    setIsSwitchingNetwork(true);
-    try {
-      await switchToMonad();
-      toast.success(`Switched to ${currentChain.name}`);
-    } catch (error) {
-      toast.error("Failed to switch network", {
-        description: "Please switch manually in your wallet",
-      });
-    }
-    setIsSwitchingNetwork(false);
+    // Solana auto-switching logic is handled by standard wallet adapters usually
+    // or we just show a toast to switch manually
+    toast.info("Please switch to Solana in your wallet");
   };
 
   // Initialize contract phase (owner only)
+  // Initialize contract phase (owner only) - Placeholder or removed for Solana
   const handleInitializeContract = async () => {
-    if (!isConnected || !collection?.contract_address) {
-      toast.error("Wallet not connected or contract not deployed");
-      return;
-    }
-
-    setIsInitializing(true);
-    try {
-      // Get phase settings from DB
-      const price = activePhase?.price || "0";
-      const maxPerWallet = activePhase?.maxPerWallet || 100;
-      const supply = activePhase?.supply || collection.total_supply || 100;
-
-      toast.info("Step 1/2: Configuring phase...");
-      const configTx = await configureContractPhase(0, price, maxPerWallet, supply);
-
-      if (!configTx) {
-        setIsInitializing(false);
-        return;
-      }
-
-      toast.info("Step 2/2: Activating phase...");
-      const activateTx = await setContractActivePhase(0);
-
-      if (activateTx) {
-        toast.success("Contract initialized! Phase 0 is now active.");
-        // Sync phases from contract to update DB
-        await syncPhases();
-        fetchCollection();
-      }
-    } catch (error) {
-      console.error("Initialize error:", error);
-      toast.error("Failed to initialize contract");
-    }
-    setIsInitializing(false);
+    toast.info("Coming soon for Solana");
   };
 
   // Calculate remaining supply
@@ -558,9 +458,16 @@ export default function CollectionDetail() {
     let txHash: string | null = null;
 
     // Use appropriate mint function based on on-chain standard
-    if (isSolana) {
-      try {
-        const solResult = await solanaMint.mintNFT(
+    // Use appropriate mint function based on on-chain standard
+    try {
+      const cmAddress = activePhase.candyMachineAddress;
+      const solResult = cmAddress
+        ? await solanaMint.mintFromCandyMachine(
+          cmAddress,
+          collection.contract_address!,
+          activePhase.id
+        )
+        : await solanaMint.mintNFT(
           (collection.solana_standard as any) || 'core',
           collection.contract_address!,
           {
@@ -568,22 +475,10 @@ export default function CollectionDetail() {
             uri: collection.image_url || '',
           }
         );
-        txHash = solResult.signature;
-      } catch (err) {
-        // Error already handled by hook (toast)
-        return;
-      }
-    } else if (activePhase.requiresAllowlist) {
-      // Check if user is on allowlist
-      if (address && !verifyAllowlist(address, allowlistAddresses)) {
-        toast.error("Not on allowlist", {
-          description: "Your wallet address is not on the allowlist for this phase",
-        });
-        return;
-      }
-      txHash = await mintWithAllowlist(mintAmount, activePhase.price, allowlistAddresses, collection.id, collection.name, collection.image_url);
-    } else {
-      txHash = await mintPublic(mintAmount, activePhase.price, collection.id, collection.name, collection.image_url);
+      txHash = solResult.signature;
+    } catch (err) {
+      // Error already handled by hook (toast)
+      return;
     }
 
     if (txHash) {
@@ -627,8 +522,14 @@ export default function CollectionDetail() {
     let txHash: string | null = null;
 
     try {
-      if (isSolana) {
-        const solResult = await solanaMint.mintNFT(
+      const cmAddress = activePhase.candyMachineAddress;
+      const solResult = cmAddress
+        ? await solanaMint.mintFromCandyMachine(
+          cmAddress,
+          collection.contract_address!,
+          activePhase.id
+        )
+        : await solanaMint.mintNFT(
           (collection.solana_standard as any) || 'core',
           collection.contract_address!,
           {
@@ -636,18 +537,7 @@ export default function CollectionDetail() {
             uri: collection.image_url || '',
           }
         );
-        txHash = solResult.signature;
-      } else if (activePhase.requiresAllowlist) {
-        if (address && !verifyAllowlist(address, allowlistAddresses)) {
-          toast.error("Not on allowlist");
-          return;
-        }
-        // Force mintAmount=1, no custom gas override
-        txHash = await mintWithAllowlist(1, activePhase.price, allowlistAddresses, collection.id, collection.name, collection.image_url);
-      } else {
-        // Force mintAmount=1, no custom gas override
-        txHash = await mintPublic(1, activePhase.price, collection.id, collection.name, collection.image_url);
-      }
+      txHash = solResult.signature;
 
       if (txHash) {
         const mockAttributes = generateRandomAttributes(1, collection.minted);
@@ -678,18 +568,25 @@ export default function CollectionDetail() {
     const price = phases[0]?.price || "0";
 
     toast.info("🚀 Force Mint Started", {
-      description: `Minting 1 NFT at ${price} MON - bypassing phase checks...`,
+      description: `Minting 1 NFT at ${price} SOL - bypassing phase checks...`,
     });
 
     try {
+      const cmAddress = phases[0]?.candyMachineAddress;
       // Always use public mint for force mint - simplest path
-      const txHash = isSolana
-        ? (await solanaMint.mintNFT(
+      const solResult = cmAddress
+        ? await solanaMint.mintFromCandyMachine(
+          cmAddress,
+          collection.contract_address!,
+          phases[0]?.id
+        )
+        : await solanaMint.mintNFT(
           (collection.solana_standard as any) || 'core',
           collection.contract_address!,
           { name: `${collection.name} #FORCE`, uri: collection.image_url || '' }
-        )).signature
-        : await mintPublic(1, price, collection.id, collection.name, collection.image_url);
+        );
+
+      const txHash = solResult.signature;
 
       if (txHash) {
         toast.success("Force Mint Submitted!", {

@@ -16,7 +16,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { MintStep } from "@/hooks/useContractMint";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+
+export type MintStep = 'idle' | 'waiting_wallet' | 'submitting' | 'processing' | 'syncing' | 'success' | 'error';
 
 interface MintProcessOverlayProps {
     isOpen: boolean;
@@ -31,9 +34,9 @@ interface MintProcessOverlayProps {
 
 const steps = [
     { id: 'waiting_wallet', label: 'Wallet Confirmation', icon: Wallet, description: 'Please confirm the transaction in your wallet.' },
-    { id: 'submitting', label: 'Submitting', icon: Send, description: 'Sending your transaction to the Monad network...' },
-    { id: 'processing', label: 'Processing', icon: RefreshCw, description: 'Waiting for Monad to mine and execute your transaction.' },
-    { id: 'syncing', label: 'Finalizing', icon: Sparkles, description: 'Synchronizing execution state for deterministic finality...' },
+    { id: 'submitting', label: 'Submitting', icon: Send, description: 'Sending your transaction to the network...' },
+    { id: 'processing', label: 'Processing', icon: RefreshCw, description: 'Waiting for transaction confirmation.' },
+    { id: 'syncing', label: 'Finalizing', icon: Sparkles, description: 'Finalizing mint details...' },
 ];
 
 export function MintProcessOverlay({
@@ -44,7 +47,7 @@ export function MintProcessOverlay({
     onClose,
     onViewNFTs,
     collectionName,
-    explorerUrl = "https://testnet.monadexplorer.com"
+    explorerUrl = "https://solscan.io"
 }: MintProcessOverlayProps) {
 
     const currentStepIndex = steps.findIndex(s => s.id === step);
@@ -157,8 +160,8 @@ export function MintProcessOverlay({
                                             className="flex items-start gap-4"
                                         >
                                             <div className={`mt-1 p-2 rounded-lg border-2 flex-shrink-0 transition-colors ${status === 'complete' ? 'bg-primary/20 border-primary text-primary' :
-                                                    status === 'active' ? 'bg-primary/10 border-primary animate-pulse text-primary' :
-                                                        'bg-muted border-muted-foreground/20 text-muted-foreground'
+                                                status === 'active' ? 'bg-primary/10 border-primary animate-pulse text-primary' :
+                                                    'bg-muted border-muted-foreground/20 text-muted-foreground'
                                                 }`}>
                                                 {status === 'complete' ? <CheckCircle2 className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
                                             </div>
@@ -212,7 +215,7 @@ export function MintProcessOverlay({
 
                             {!isComplete && !isError && (
                                 <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest">
-                                    Powered by Monad Asynchronous Execution
+                                    Powered by Solana
                                 </p>
                             )}
                         </div>

@@ -11,6 +11,10 @@ import {
 import {
     mintToCollectionV1 as mintBubblegum,
 } from '@metaplex-foundation/mpl-bubblegum';
+import {
+    mintV2,
+    fetchCandyMachine,
+} from '@metaplex-foundation/mpl-candy-machine';
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
 import { toast } from 'sonner';
@@ -115,9 +119,58 @@ export const useSolanaMint = () => {
         }
     }, [getUmi]);
 
+    const mintFromCandyMachine = useCallback(async (
+        candyMachineAddress: string,
+        collectionAddress: string,
+        groupLabel?: string,
+        mintArgs?: any
+    ) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const umi = await getUmi();
+            const nftMint = generateSigner(umi);
+
+            toast.loading(`Minting from Candy Machine...`, { id: 'cm-mint' });
+
+            // Allowlist mint args handling
+            // If mintArgs are provided (e.g. proof), we should construct proper guard args
+
+            const candyMachine = await fetchCandyMachine(umi, publicKey(candyMachineAddress));
+
+            const tx = await mintV2(umi, {
+                candyMachine: candyMachine.publicKey,
+                minter: umi.identity,
+                nftMint,
+                collectionMint: publicKey(collectionAddress),
+                collectionUpdateAuthority: umi.identity.publicKey, // Often CM is auth, or we pass it
+                group: groupLabel,
+                mintArgs: mintArgs || {}
+            });
+
+            const result = await tx.sendAndConfirm(umi);
+
+            toast.success(`Minted successfully!`, { id: 'cm-mint' });
+
+            return {
+                signature: result.signature,
+                address: nftMint.publicKey.toString()
+            };
+        } catch (err: any) {
+            console.error("CM mint error:", err);
+            const msg = err.message || "Candy Machine mint failed";
+            setError(msg);
+            toast.error(msg, { id: 'cm-mint' });
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi]);
+
     return {
         isLoading,
         error,
         mintNFT,
+        mintFromCandyMachine,
     };
 };
