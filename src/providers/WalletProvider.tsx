@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Connection, PublicKey } from "@solana/web3.js";
 
 // Types
-export type WalletType = "phantom";
+export type WalletType = "phantom" | "solana";
 export type ChainType = "solana";
 export type OAuthProvider = "google" | "apple";
 
@@ -45,7 +45,16 @@ export const useWallet = () => {
 
 // Get Solana provider
 const getSolanaProvider = () => {
-  return window.phantom?.solana || (window.solana?.isPhantom ? window.solana : null);
+  // Check for window.solana (generic) or window.phantom.solana (specific)
+  if (typeof window !== "undefined") {
+    if ("phantom" in window && (window as any).phantom?.solana) {
+      return (window as any).phantom.solana;
+    }
+    if ("solana" in window) {
+      return (window as any).solana;
+    }
+  }
+  return null;
 };
 
 // Format Solana balance
@@ -144,11 +153,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (isPhantomAvailable) {
         // Should have used SDK usually, but if we are here
       }
-      toast.error("Please install Phantom wallet");
+      toast.error("Solana wallet not found");
       return;
     }
 
-    setState(prev => ({ ...prev, isConnecting: true, walletType: "phantom", chainType: "solana" }));
+    setState(prev => ({ ...prev, isConnecting: true, walletType: "solana", chainType: "solana" }));
 
     try {
       const response = await provider.connect();
@@ -161,13 +170,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isConnected: true,
         isConnecting: false,
         balance,
-        walletType: "phantom",
+        walletType: "solana",
         chainType: "solana",
         authProvider: "injected",
       }));
 
       localStorage.setItem("walletConnected", "true");
-      localStorage.setItem("walletType", "phantom");
+      localStorage.setItem("walletType", "solana");
 
       toast.success("Wallet connected on Solana");
     } catch (error: any) {
@@ -308,7 +317,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             isConnected: true,
             isConnecting: false,
             balance,
-            walletType: "phantom",
+            walletType: "solana",
             chainType: "solana",
             authProvider: "injected",
           }));

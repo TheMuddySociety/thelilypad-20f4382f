@@ -1,8 +1,22 @@
-import { NetworkType } from "./alchemy";
+// Solalna RPC endpoints
 
 // Solana RPC endpoints
 export const SOLANA_DEVNET_RPC = "https://api.devnet.solana.com";
 export const SOLANA_MAINNET_RPC = "https://api.mainnet-beta.solana.com";
+
+// Monad RPC endpoints
+export const MONAD_TESTNET_RPCS = [
+  "https://testnet-rpc.monad.xyz",
+  "https://monad-testnet.blockvision.org/v1/37hH1sm8QDkbsAYrBsU9EjXwZ0o",
+  "https://rpc.ankr.com/monad_testnet",
+  "https://monad.drpc.org"
+];
+
+export const MONAD_MAINNET_RPCS = [
+  "https://rpc1.monad.xyz",
+  "https://rpc.monad.xyz",
+  "https://rpc3.monad.xyz"
+];
 
 export const getSolanaRpcUrl = (network: NetworkType): string => {
   return network === "mainnet" ? SOLANA_MAINNET_RPC : SOLANA_DEVNET_RPC;

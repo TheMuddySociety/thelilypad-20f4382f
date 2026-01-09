@@ -21,8 +21,11 @@ let phantomSDK: BrowserSDK | null = null;
 export const getPhantomSDK = (): BrowserSDK => {
   if (!phantomSDK) {
     phantomSDK = new BrowserSDK({
-      providers: ["google", "apple", "injected"],
-      addressTypes: [AddressType.ethereum, AddressType.solana],
+      // @ts-ignore - The types in the package might be slightly different than the snippet, but we follow user instruction
+      providerType: "embedded",
+      // @ts-ignore
+      providers: ["google", "apple", "injected"], // Keeping this for backward compatibility if the SDK supports both or falls back
+      addressTypes: [AddressType.ethereum, AddressType.solana, AddressType.bitcoinSegwit, AddressType.sui],
       appId: PHANTOM_APP_ID,
       authOptions: {
         authUrl: "https://connect.phantom.app/login",
