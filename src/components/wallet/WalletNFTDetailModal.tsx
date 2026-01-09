@@ -9,10 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { 
-  ExternalLink, 
-  Copy, 
-  Check, 
+import {
+  ExternalLink,
+  Copy,
+  Check,
   Image as ImageIcon,
   Hash,
   FileText,
@@ -32,46 +32,58 @@ interface WalletNFTDetailModalProps {
   onTransferSuccess?: () => void;
 }
 
-const NETWORK_CONFIG: Record<string, { 
-  openSeaUrl: string; 
-  explorerUrl: string; 
+const NETWORK_CONFIG: Record<string, {
+  openSeaUrl: string;
+  explorerUrl: string;
   explorerName: string;
   openSeaSupported: boolean;
 }> = {
-  "eth-mainnet": { 
-    openSeaUrl: "https://opensea.io/assets/ethereum", 
+  "eth-mainnet": {
+    openSeaUrl: "https://opensea.io/assets/ethereum",
     explorerUrl: "https://etherscan.io/nft",
     explorerName: "Etherscan",
     openSeaSupported: true
   },
-  "polygon-mainnet": { 
-    openSeaUrl: "https://opensea.io/assets/matic", 
+  "polygon-mainnet": {
+    openSeaUrl: "https://opensea.io/assets/matic",
     explorerUrl: "https://polygonscan.com/nft",
     explorerName: "PolygonScan",
     openSeaSupported: true
   },
-  "arb-mainnet": { 
-    openSeaUrl: "https://opensea.io/assets/arbitrum", 
+  "arb-mainnet": {
+    openSeaUrl: "https://opensea.io/assets/arbitrum",
     explorerUrl: "https://arbiscan.io/nft",
     explorerName: "Arbiscan",
     openSeaSupported: true
   },
-  "opt-mainnet": { 
-    openSeaUrl: "https://opensea.io/assets/optimism", 
+  "opt-mainnet": {
+    openSeaUrl: "https://opensea.io/assets/optimism",
     explorerUrl: "https://optimistic.etherscan.io/nft",
     explorerName: "Optimism Explorer",
     openSeaSupported: true
   },
-  "base-mainnet": { 
-    openSeaUrl: "https://opensea.io/assets/base", 
+  "base-mainnet": {
+    openSeaUrl: "https://opensea.io/assets/base",
     explorerUrl: "https://basescan.org/nft",
     explorerName: "BaseScan",
     openSeaSupported: true
   },
-  "solana-mainnet": { 
-    openSeaUrl: "", 
+  "solana-mainnet": {
+    openSeaUrl: "",
     explorerUrl: "https://solscan.io/token",
     explorerName: "Solscan",
+    openSeaSupported: false
+  },
+  "solana-devnet": {
+    openSeaUrl: "",
+    explorerUrl: "https://solscan.io/token",
+    explorerName: "Solscan (Devnet)",
+    openSeaSupported: false
+  },
+  "solana-testnet": {
+    openSeaUrl: "",
+    explorerUrl: "https://solscan.io/token",
+    explorerName: "Solscan (Testnet)",
     openSeaSupported: false
   },
 };
@@ -89,13 +101,13 @@ export const WalletNFTDetailModal: React.FC<WalletNFTDetailModalProps> = ({
   if (!nft) return null;
 
   const config = NETWORK_CONFIG[network] || NETWORK_CONFIG["eth-mainnet"];
-  
-  const openSeaLink = config.openSeaSupported 
+
+  const openSeaLink = config.openSeaSupported
     ? `${config.openSeaUrl}/${nft.contractAddress}/${nft.tokenId}`
     : null;
-  
-  const explorerLink = network === "solana-mainnet"
-    ? `${config.explorerUrl}/${nft.contractAddress}`
+
+  const explorerLink = network.includes("solana")
+    ? `${config.explorerUrl}/${nft.contractAddress}?cluster=${network.includes("devnet") ? "devnet" : network.includes("testnet") ? "testnet" : "mainnet"}`
     : `${config.explorerUrl}/${nft.contractAddress}/${nft.tokenId}`;
 
   const handleCopyAddress = async () => {
@@ -137,7 +149,7 @@ export const WalletNFTDetailModal: React.FC<WalletNFTDetailModalProps> = ({
                 <ImageIcon className="w-16 h-16 text-muted-foreground" />
               </div>
             )}
-            
+
             <Badge className="absolute top-3 right-3 bg-black/70 text-white border-none">
               <Hash className="w-3 h-3 mr-1" />
               {nft.tokenId.length > 10 ? truncateAddress(nft.tokenId) : nft.tokenId}
@@ -153,7 +165,7 @@ export const WalletNFTDetailModal: React.FC<WalletNFTDetailModalProps> = ({
                 <span className="font-medium truncate">{nft.collection}</span>
               </div>
             )}
-            
+
             <div className="flex items-center gap-2 text-sm">
               <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
               <span className="text-muted-foreground">Contract:</span>

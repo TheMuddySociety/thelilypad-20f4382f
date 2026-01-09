@@ -654,6 +654,17 @@ export default function Launchpad() {
                             </div>
                           )}
                           <div className="absolute top-3 right-3 flex gap-2">
+                            {collection.chain.includes("solana") ? (
+                              <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-md border-white/10 h-6">
+                                <Globe className="w-3 h-3 mr-1" />
+                                SOL
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-purple-500/50 text-white backdrop-blur-md border-white/10 h-6">
+                                <Zap className="w-3 h-3 mr-1" />
+                                MON
+                              </Badge>
+                            )}
                             {canEdit && (
                               <>
                                 <Badge
