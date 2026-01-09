@@ -17,6 +17,7 @@ import { PublicBadgeShowcase } from "@/components/PublicBadgeShowcase";
 import { NFTNetworkSelector, NFT_NETWORKS } from "@/components/wallet/NFTNetworkSelector";
 import { WalletNFTDetailModal } from "@/components/wallet/WalletNFTDetailModal";
 import { PortfolioValueCard } from "@/components/wallet/PortfolioValueCard";
+import { CreateNftModal } from "@/components/CreateNftModal";
 import { NFTFilters, filterAndSortNFTs, SortOption } from "@/components/wallet/NFTFilters";
 import {
   Wallet,
@@ -384,8 +385,8 @@ export default function WalletProfile() {
                       >
                         <div
                           className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${tx.tx_type === "mint"
-                              ? "bg-primary/10 text-primary"
-                              : "bg-secondary/10 text-secondary-foreground"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-secondary/10 text-secondary-foreground"
                             }`}
                         >
                           {tx.tx_type === "mint" ? (
@@ -487,6 +488,9 @@ export default function WalletProfile() {
                 )}
               </CardHeader>
               <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                <div className="mb-4 flex justify-end">
+                  <CreateNftModal />
+                </div>
                 {/* Filters - only show when we have NFTs */}
                 {nfts.length > 0 && (
                   <div className="mb-4">

@@ -81,6 +81,7 @@ interface CreateCollectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCollectionCreated?: () => void;
+  defaultChain?: 'monad' | 'solana';
 }
 
 interface MintPhase {
@@ -160,7 +161,7 @@ interface DraftData {
   editionArtwork?: { imageUrl: string; editionType: "open" | "limited" | "timed" };
 }
 
-export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated }: CreateCollectionModalProps) {
+export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated, defaultChain = 'monad' }: CreateCollectionModalProps) {
   const { address } = useWallet();
   const solanaLaunch = useSolanaLaunch();
   const modalWalkthrough = useModalWalkthrough();
@@ -190,7 +191,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
   // Collection type
   const [collectionType, setCollectionType] = useState<CollectionType>("generative");
-  const [blockchain, setBlockchain] = useState<'monad' | 'solana'>('solana');
+  const [blockchain, setBlockchain] = useState<'monad' | 'solana'>(defaultChain);
   const [solanaStandard, setSolanaStandard] = useState<SolanaStandard>('core');
 
   // Art generation (Generative)
@@ -544,8 +545,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     } else {
       // Reset recovery dialog state when modal closes
       setShowRecoveryDialog(false);
+      // Reset blockchain to default when re-opening without draft
+      if (!hasDraft) {
+        setBlockchain(defaultChain);
+      }
     }
-  }, [open, modalWalkthrough.autoStartIfNeeded]);
+  }, [open, modalWalkthrough.autoStartIfNeeded, defaultChain, hasDraft]);
 
 
   const loadDraft = () => {
