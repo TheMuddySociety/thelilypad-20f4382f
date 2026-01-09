@@ -130,7 +130,7 @@ export function VolumeSimulator() {
         <div className="space-y-2">
           <Label htmlFor="your-volume" className="flex items-center gap-1">
             Your Current Volume
-            <span className="text-muted-foreground text-xs">(weighted MON)</span>
+            <span className="text-muted-foreground text-xs">(weighted SOL)</span>
           </Label>
           <Input
             id="your-volume"
@@ -183,7 +183,7 @@ export function VolumeSimulator() {
               {/* Current Volume at this rank */}
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium">
-                  {formatVolume(data.currentVolume)} MON
+                  {formatVolume(data.currentVolume)} SOL
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {data.rewardPercent}% reward share
@@ -224,11 +224,11 @@ export function VolumeSimulator() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="text-xs text-muted-foreground mb-1">Top Volume</div>
-                <div className="font-semibold">{formatVolume(leaderboardVolumes[0])} MON</div>
+                <div className="font-semibold">{formatVolume(leaderboardVolumes[0])} SOL</div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground mb-1">10th Place</div>
-                <div className="font-semibold">{formatVolume(leaderboardVolumes[9])} MON</div>
+                <div className="font-semibold">{formatVolume(leaderboardVolumes[9])} SOL</div>
               </div>
             </div>
           </div>

@@ -75,7 +75,7 @@ export function RewardsClaimCard() {
       queryClient.invalidateQueries({ queryKey: ['volume-rewards'] });
       toast({
         title: "Rewards Claimed!",
-        description: `Your MON rewards have been sent to your wallet. TX: ${txHash.slice(0, 10)}...`,
+        description: `Your SOL rewards have been sent to your wallet. TX: ${txHash.slice(0, 10)}...`,
       });
     },
     onError: () => {
@@ -151,7 +151,7 @@ export function RewardsClaimCard() {
               Volume Rewards
             </CardTitle>
             <CardDescription>
-              Claim your MON rewards for being a top trader
+              Claim your SOL rewards for being a top trader
             </CardDescription>
           </div>
           {totalUnclaimed > 0 && (
@@ -159,7 +159,7 @@ export function RewardsClaimCard() {
               <p className="text-xs text-muted-foreground">Available to Claim</p>
               <p className="text-lg font-bold text-primary flex items-center gap-1">
                 <Coins className="w-4 h-4" />
-                {totalUnclaimed.toFixed(2)} MON
+                {totalUnclaimed.toFixed(2)} SOL
               </p>
             </div>
           )}
@@ -182,7 +182,7 @@ export function RewardsClaimCard() {
                   <div className="flex items-center gap-3">
                     {getRankBadge(reward.rank)}
                     <div>
-                      <p className="font-medium">{reward.reward_amount.toFixed(2)} MON</p>
+                      <p className="font-medium">{reward.reward_amount.toFixed(2)} SOL</p>
                       <p className="text-xs text-muted-foreground">
                         {formatPeriod(reward.reward_period_start, reward.reward_period_end)}
                       </p>
@@ -208,7 +208,7 @@ export function RewardsClaimCard() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Weighted Volume: {Number(reward.weighted_volume).toFixed(2)} MON
+                  Weighted Volume: {Number(reward.weighted_volume).toFixed(2)} SOL
                 </p>
               </div>
             ))}
@@ -232,7 +232,7 @@ export function RewardsClaimCard() {
                     {getRankBadge(reward.rank)}
                     <div>
                       <p className="font-medium text-muted-foreground">
-                        {reward.reward_amount.toFixed(2)} MON
+                        {reward.reward_amount.toFixed(2)} SOL
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {formatPeriod(reward.reward_period_start, reward.reward_period_end)}
@@ -260,7 +260,7 @@ export function RewardsClaimCard() {
             <Trophy className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="font-medium">No rewards yet</p>
             <p className="text-sm">
-              Trade more to earn a spot on the leaderboard and receive MON rewards!
+              Trade more to earn a spot on the leaderboard and receive SOL rewards!
             </p>
           </div>
         )}
