@@ -23,7 +23,7 @@ export const getSolanaRpcUrl = (network: NetworkType): string => {
 export const initializeUmi = (network: NetworkType) => {
     const rpcUrl = getSolanaRpcUrl(network);
     console.log(`Initializing Umi with Solana ${network === 'mainnet' ? 'Mainnet' : 'Devnet'}: ${rpcUrl}`);
-    
+
     const umi = createUmi(rpcUrl)
         .use(mplTokenMetadata())
         .use(mplCore())
@@ -43,7 +43,7 @@ export const fetchSolanaAsset = async (
     network: NetworkType = 'testnet'
 ): Promise<any> => {
     const rpcUrl = getSolanaRpcUrl(network);
-    
+
     const response = await fetch(rpcUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,11 +56,11 @@ export const fetchSolanaAsset = async (
     });
 
     const data = await response.json();
-    
+
     if (data.error) {
         throw new Error(data.error.message || 'Failed to fetch asset');
     }
-    
+
     return data.result;
 };
 
@@ -72,7 +72,7 @@ export const fetchSolanaAssets = async (
     network: NetworkType = 'testnet'
 ): Promise<any[]> => {
     const rpcUrl = getSolanaRpcUrl(network);
-    
+
     const response = await fetch(rpcUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -85,11 +85,11 @@ export const fetchSolanaAssets = async (
     });
 
     const data = await response.json();
-    
+
     if (data.error) {
         throw new Error(data.error.message || 'Failed to fetch assets');
     }
-    
+
     return data.result || [];
 };
 
@@ -104,22 +104,22 @@ export const SOLANA_STANDARDS: { id: SolanaStandard; name: string; description: 
     {
         id: 'core',
         name: 'Metaplex Core',
-        description: 'Next-gen, ultra-efficient NFT standard with low gas and complex utility.'
+        description: 'Best for simple, low-cost assets. The modern standard for most use cases.'
     },
     {
         id: 'token-metadata',
         name: 'Token Metadata',
-        description: 'The classic Solana NFT standard. Maximum compatibility across all wallets and marketplaces.'
+        description: 'Standard for Master Editions, Limited Editions, and legacy support. Best for 1/1s with prints.'
     },
     {
         id: 'bubblegum',
         name: 'Compressed NFTs (cNFT)',
-        description: 'Ultra-low cost for large collections. Perfect for 10k+ drops where mint costs matter.'
+        description: 'Best for large-scale generative collections (10k+ items) at ultra-low cost.'
     },
     {
         id: 'candy-machine',
         name: 'Candy Machine v3',
-        description: 'Fair launch distribution with complex mint phases, allowlists, and bot protection.'
+        description: 'Best for public mints, generative drops, and complex validation phases.'
     },
     {
         id: 'inscription',

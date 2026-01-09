@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -193,6 +194,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
   const [collectionType, setCollectionType] = useState<CollectionType>("generative");
   const [blockchain, setBlockchain] = useState<'monad' | 'solana'>(defaultChain);
   const [solanaStandard, setSolanaStandard] = useState<SolanaStandard>('core');
+  const [supplyType, setSupplyType] = useState<'Unlimited' | 'Limited' | 'Zero'>('Unlimited');
+  const [supplyLimit, setSupplyLimit] = useState<number>(100);
 
   // Art generation (Generative)
   const [layers, setLayers] = useState<Layer[]>([]);
@@ -1016,13 +1019,19 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       if (blockchain === 'solana') {
         try {
           // 1. Deploy Collection NFT
-          const solanaResult = await solanaLaunch.deploySolanaCollection(solanaStandard, {
+          const solanaResult = await solanaLaunch.createCollection({
             name,
             symbol,
-            uri: finalImageUrl || '', // In a real app, this should be a metadata JSON URI
-            sellerFeeBasisPoints: parseFloat(royaltyPercent) * 100,
+            imageUri: finalImageUrl || '', // In a real app, this should be a metadata JSON URI
+            royaltyBasisPoints: parseFloat(royaltyPercent) * 100,
+            standard: solanaStandard,
+            // Pass supply config for token-metadata
+            supplyConfig: solanaStandard === 'token-metadata' ? {
+              type: supplyType,
+              limit: supplyType === 'Limited' ? supplyLimit : undefined
+            } : undefined
           });
-          solanaAddress = solanaResult.address;
+          solanaAddress = solanaResult.collectionAddress;
 
           // 2. Prepare Phases for Candy Machine
           // Filter enabled phases and map to LaunchpadPhase format
@@ -1351,6 +1360,42 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                 </div>
               )}
 
+              {/* Master Edition Settings (only for Token Metadata) */}
+              {blockchain === "solana" && solanaStandard === "token-metadata" && (
+                <div className="space-y-4 pt-2 border-t border-border animate-in fade-in slide-in-from-top-2">
+                  <h4 className="text-sm font-medium">Master Edition Settings</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Supply Type</Label>
+                      <Select
+                        value={supplyType}
+                        onValueChange={(v: any) => setSupplyType(v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Unlimited">Open Edition (Unlimited)</SelectItem>
+                          <SelectItem value="Limited">Limited Edition</SelectItem>
+                          <SelectItem value="Zero">One-of-a-Kind (Zero Copies)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {supplyType === "Limited" && (
+                      <div className="space-y-2">
+                        <Label>Limit</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={supplyLimit}
+                          onChange={(e) => setSupplyLimit(parseInt(e.target.value) || 0)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Collection Type Selector */}
               <div className="space-y-3" data-walkthrough="collection-type">
                 <Label>Collection Type *</Label>
@@ -1360,7 +1405,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       ? "border-primary bg-primary/5 ring-1 ring-primary"
                       : "border-border"
                       }`}
-                    onClick={() => setCollectionType("generative")}
+                    onClick={() => {
+                      setCollectionType("generative");
+                      if (blockchain === "solana") setSolanaStandard("candy-machine");
+                    }}
                   >
                     <CardContent className="p-4 text-center">
                       <Shuffle className="w-8 h-8 mx-auto mb-2 text-primary" />
@@ -1376,7 +1424,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       ? "border-primary bg-primary/5 ring-1 ring-primary"
                       : "border-border"
                       }`}
-                    onClick={() => setCollectionType("one_of_one")}
+                    onClick={() => {
+                      setCollectionType("one_of_one");
+                      if (blockchain === "solana") setSolanaStandard("core");
+                    }}
                   >
                     <CardContent className="p-4 text-center">
                       <Gem className="w-8 h-8 mx-auto mb-2 text-amber-500" />
@@ -1392,7 +1443,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       ? "border-primary bg-primary/5 ring-1 ring-primary"
                       : "border-border"
                       }`}
-                    onClick={() => setCollectionType("editions")}
+                    onClick={() => {
+                      setCollectionType("editions");
+                      if (blockchain === "solana") setSolanaStandard("token-metadata");
+                    }}
                   >
                     <CardContent className="p-4 text-center">
                       <Copy className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
@@ -1408,7 +1462,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       ? "border-primary bg-primary/5 ring-1 ring-primary"
                       : "border-border"
                       }`}
-                    onClick={() => setCollectionType("music")}
+                    onClick={() => {
+                      setCollectionType("music");
+                      if (blockchain === "solana") setSolanaStandard("core");
+                    }}
                   >
                     <CardContent className="p-4 text-center">
                       <Music className="w-8 h-8 mx-auto mb-2 text-pink-500" />

@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
 import { generateSigner, percentAmount } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
-import { 
+import {
   createCollectionV1 as createCoreCollection,
 } from '@metaplex-foundation/mpl-core';
 import {
   createNft,
+  printSupply,
 } from '@metaplex-foundation/mpl-token-metadata';
 import {
   createTree,
@@ -32,6 +33,11 @@ export interface SolanaCollectionConfig {
   merkleTreeConfig?: {
     maxDepth: number;
     maxBufferSize: number;
+  };
+  // Token Metadata specific
+  supplyConfig?: {
+    type: 'Unlimited' | 'Limited' | 'Zero';
+    limit?: number;
   };
 }
 
@@ -92,7 +98,7 @@ export const useSolanaLaunchpad = () => {
           // For Bubblegum, we first need to create a Merkle tree
           const merkleTreeSigner = generateSigner(umi);
           const treeConfig = config.merkleTreeConfig || { maxDepth: 14, maxBufferSize: 64 };
-          
+
           const treeBuilder = await createTree(umi, {
             merkleTree: merkleTreeSigner,
             maxDepth: treeConfig.maxDepth,
