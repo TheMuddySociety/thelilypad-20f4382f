@@ -7,13 +7,10 @@ import {
   Settings,
   Loader2,
   CheckCircle2,
-  ExternalLink,
   AlertTriangle,
-  Zap,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useContractAllowlist } from "@/hooks/useContractAllowlist";
-import { useWallet } from "@/providers/WalletProvider";
 import { getCurrencySymbol } from "@/lib/chainUtils";
 
 interface Phase {
@@ -29,85 +26,46 @@ interface Phase {
 interface PhaseConfigManagerProps {
   contractAddress: string;
   phases: Phase[];
-  chain?: 'monad' | 'solana';
+  chain?: 'monad' | 'solana' | string;
   onConfigured?: () => void;
 }
 
 export const PhaseConfigManager: React.FC<PhaseConfigManagerProps> = ({
   contractAddress,
   phases,
-  chain = 'monad',
+  chain = 'solana',
   onConfigured,
 }) => {
-  const { currentChain } = useWallet();
-  const { isUpdating, txHash, error, configurePhase, setActivePhase, resetState } = useContractAllowlist(contractAddress);
   const [configuredPhases, setConfiguredPhases] = useState<Set<string>>(new Set());
   const [isConfiguringAll, setIsConfiguringAll] = useState(false);
   
   const currency = getCurrencySymbol(chain);
-  const explorerUrl = currentChain.blockExplorers?.default?.url;
+  const isSolana = chain?.toLowerCase().includes('solana');
+  const isMonad = chain?.toLowerCase().includes('monad');
 
-  const handleConfigurePhase = async (phase: Phase, phaseIndex: number) => {
-    const result = await configurePhase(
-      phaseIndex,
-      phase.price,
-      phase.maxPerWallet,
-      phase.supply,
-      phase.requiresAllowlist
-    );
-
-    if (result) {
-      setConfiguredPhases(prev => new Set(prev).add(phase.id));
-      toast.success(`${phase.name} phase configured on-chain!`);
-      onConfigured?.();
+  const handleConfigureAllPhases = async () => {
+    if (isMonad) {
+      toast.info("Monad phase configuration is coming soon. Please use Solana for now.");
+      return;
     }
+    
+    if (isSolana) {
+      // For Solana, phases are configured via Candy Machine guards
+      toast.info("Phases are configured through Candy Machine guards on Solana.");
+      setConfiguredPhases(new Set(phases.map(p => p.id)));
+      onConfigured?.();
+      return;
+    }
+    
+    toast.info("Phase configuration is currently only available for Solana.");
   };
 
   const handleSetActivePhase = async (phaseIndex: number, phaseName: string) => {
-    const result = await setActivePhase(phaseIndex);
-    if (result) {
-      toast.success(`${phaseName} set as active phase!`);
-      onConfigured?.();
+    if (isSolana) {
+      toast.info(`${phaseName} phase timing is controlled by Candy Machine guards.`);
+      return;
     }
-  };
-
-  const handleConfigureAllPhases = async () => {
-    setIsConfiguringAll(true);
-    
-    try {
-      for (let i = 0; i < phases.length; i++) {
-        const phase = phases[i];
-        toast.info(`Configuring ${phase.name}...`, { duration: 2000 });
-        
-        const result = await configurePhase(
-          i,
-          phase.price,
-          phase.maxPerWallet,
-          phase.supply,
-          phase.requiresAllowlist
-        );
-
-        if (!result) {
-          toast.error(`Failed to configure ${phase.name}`);
-          setIsConfiguringAll(false);
-          return;
-        }
-
-        setConfiguredPhases(prev => new Set(prev).add(phase.id));
-      }
-
-      // Set the first active phase (usually public phase with index 1, or the first phase)
-      const publicPhaseIndex = phases.findIndex(p => p.id === "public");
-      const activePhaseIndex = publicPhaseIndex >= 0 ? publicPhaseIndex : 0;
-      
-      toast.info("Setting active phase...", { duration: 2000 });
-      await setActivePhase(activePhaseIndex);
-
-      toast.success("All phases configured and activated!");
-      onConfigured?.();
-    } finally {
-      setIsConfiguringAll(false);
-    }
+    toast.info("Active phase management is coming soon for this network.");
   };
 
   return (
@@ -115,133 +73,108 @@ export const PhaseConfigManager: React.FC<PhaseConfigManagerProps> = ({
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-amber-500" />
-          <CardTitle className="text-lg">Configure Phases On-Chain</CardTitle>
+          <CardTitle className="text-lg">Phase Configuration</CardTitle>
         </div>
         <CardDescription>
-          Your contract is deployed, but phases need to be configured on-chain before minting works.
+          {isSolana 
+            ? "Phases are managed via Candy Machine guards on Solana"
+            : "Configure mint phases on-chain"
+          }
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Quick Configure All Button */}
-        <Button
-          onClick={handleConfigureAllPhases}
-          disabled={isUpdating || isConfiguringAll}
-          className="w-full gap-2"
-        >
-          {isConfiguringAll ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Configuring All Phases...
-            </>
-          ) : (
-            <>
-              <Zap className="w-4 h-4" />
-              Configure All Phases (Recommended)
-            </>
-          )}
-        </Button>
+        {/* Info for Solana */}
+        {isSolana && (
+          <div className="flex items-start gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+            <Info className="w-4 h-4 mt-0.5 text-primary" />
+            <div className="text-sm">
+              <p className="font-medium">Candy Machine Phases</p>
+              <p className="text-muted-foreground text-xs mt-1">
+                On Solana, mint phases (allowlist, public sale, etc.) are controlled by Candy Machine guard settings 
+                including start/end dates, allowlists, and pricing.
+              </p>
+            </div>
+          </div>
+        )}
 
-        <Separator />
+        {/* Coming soon for Monad */}
+        {isMonad && (
+          <div className="flex items-start gap-2 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+            <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-500" />
+            <div className="text-sm">
+              <p className="font-medium text-amber-500">Coming Soon</p>
+              <p className="text-muted-foreground text-xs mt-1">
+                Monad EVM phase configuration will be available soon.
+              </p>
+            </div>
+          </div>
+        )}
 
-        {/* Individual Phase Configuration */}
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">Or configure individually:</p>
-          
-          {phases.map((phase, index) => {
-            const isConfigured = configuredPhases.has(phase.id);
-            
-            return (
-              <div
-                key={phase.id}
-                className={`p-3 rounded-lg border ${
-                  isConfigured 
-                    ? "bg-green-500/10 border-green-500/30" 
-                    : "bg-muted/50 border-border"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {isConfigured ? (
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-amber-500" />
-                    )}
-                    <div>
-                      <span className="font-medium">{phase.name}</span>
-                      <div className="text-xs text-muted-foreground">
-                        {phase.price === "0" ? "Free" : `${phase.price} ${currency}`} • 
-                        Max {phase.maxPerWallet}/wallet • 
-                        {phase.supply.toLocaleString()} supply
-                      </div>
-                    </div>
-                  </div>
+        {/* Phase List */}
+        <div className="space-y-2">
+          {phases.map((phase, index) => (
+            <div
+              key={phase.id}
+              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+            >
+              <div className="flex items-center gap-3">
+                {configuredPhases.has(phase.id) ? (
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                ) : (
+                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
+                )}
+                <div>
                   <div className="flex items-center gap-2">
-                    {!isConfigured && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleConfigurePhase(phase, index)}
-                        disabled={isUpdating || isConfiguringAll}
-                      >
-                        {isUpdating ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          "Configure"
-                        )}
-                      </Button>
+                    <span className="font-medium text-sm">{phase.name}</span>
+                    {phase.isActive && (
+                      <Badge className="text-xs">Active</Badge>
                     )}
-                    {isConfigured && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleSetActivePhase(index, phase.name)}
-                        disabled={isUpdating || isConfiguringAll}
-                      >
-                        Set Active
-                      </Button>
-                    )}
-                    {isConfigured && (
-                      <Badge variant="outline" className="text-green-500 border-green-500/30">
-                        Configured
-                      </Badge>
-                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {phase.price === "0" ? "Free" : `${phase.price} ${currency}`} • 
+                    Max {phase.maxPerWallet}/wallet • 
+                    {phase.supply} supply
                   </div>
                 </div>
               </div>
-            );
-          })}
+              {!isSolana && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleSetActivePhase(index, phase.name)}
+                  disabled={phase.isActive}
+                >
+                  {phase.isActive ? "Active" : "Set Active"}
+                </Button>
+              )}
+            </div>
+          ))}
         </div>
 
-        {/* Transaction Status */}
-        {txHash && (
-          <div className="p-2 bg-green-500/10 border border-green-500/30 rounded-lg">
-            <a
-              href={`${explorerUrl}/tx/${txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-primary hover:underline flex items-center gap-1"
-            >
-              View latest transaction <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
-        )}
+        <Separator />
 
-        {/* Error Display */}
-        {error && (
-          <div className="p-2 bg-destructive/10 border border-destructive/30 rounded-lg">
-            <p className="text-sm text-destructive">{error}</p>
-          </div>
+        {/* Configure All Button */}
+        {!isSolana && (
+          <Button
+            className="w-full"
+            onClick={handleConfigureAllPhases}
+            disabled={isConfiguringAll || isMonad}
+          >
+            {isConfiguringAll ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Configuring...
+              </>
+            ) : isMonad ? (
+              "Coming Soon"
+            ) : (
+              "Configure All Phases"
+            )}
+          </Button>
         )}
-
-        {/* Help Text */}
-        <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
-          <p className="font-medium mb-1">Why is this needed?</p>
-          <p>
-            The smart contract needs to know the price, supply, and settings for each mint phase.
-            This step writes these settings to the blockchain so minting can work correctly.
-          </p>
-        </div>
       </CardContent>
     </Card>
   );
 };
+
+export default PhaseConfigManager;

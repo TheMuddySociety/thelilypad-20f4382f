@@ -2,58 +2,46 @@ import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { useWallet } from "@/providers/WalletProvider";
+import { toast } from "sonner";
 import {
   Users,
-  Plus,
-  Upload,
-  Trash2,
   Loader2,
+  Plus,
+  Trash2,
+  Upload,
+  Download,
   CheckCircle2,
-  XCircle,
-  ExternalLink,
   AlertTriangle,
-  Send,
+  Info,
 } from "lucide-react";
-import { toast } from "sonner";
-import { useContractAllowlist } from "@/hooks/useContractAllowlist";
-import { useWallet } from "@/providers/WalletProvider";
-import { supabase } from "@/integrations/supabase/client";
+import { keccak_256 } from "js-sha3";
+import MerkleTree from "merkletreejs";
 
 interface Phase {
   id: string;
   name: string;
-  price: string;
-  maxPerWallet: number;
-  supply: number;
   requiresAllowlist: boolean;
 }
 
 interface AllowlistEntry {
   id: string;
   wallet_address: string;
-  max_mint: number;
-  notes: string | null;
   phase_name: string;
+  max_mint: number | null;
+  notes: string | null;
+  created_at: string;
 }
 
 interface ContractAllowlistManagerProps {
@@ -65,10 +53,6 @@ interface ContractAllowlistManagerProps {
   creatorId: string;
 }
 
-const isValidEthAddress = (address: string): boolean => {
-  return /^0x[a-fA-F0-9]{40}$/.test(address);
-};
-
 export const ContractAllowlistManager: React.FC<ContractAllowlistManagerProps> = ({
   open,
   onOpenChange,
@@ -77,8 +61,7 @@ export const ContractAllowlistManager: React.FC<ContractAllowlistManagerProps> =
   phases,
   creatorId,
 }) => {
-  const { currentChain, address: userAddress } = useWallet();
-  const { isUpdating, txHash, error, setAllowlist, configurePhase, resetState } = useContractAllowlist(contractAddress);
+  const { address: userAddress } = useWallet();
   
   const [activePhase, setActivePhaseState] = useState(phases[0]?.id || "");
   const [entries, setEntries] = useState<AllowlistEntry[]>([]);
@@ -86,10 +69,9 @@ export const ContractAllowlistManager: React.FC<ContractAllowlistManagerProps> =
   const [newAddress, setNewAddress] = useState("");
   const [newMaxMint, setNewMaxMint] = useState("1");
   const [bulkAddresses, setBulkAddresses] = useState("");
-  const [pendingAddresses, setPendingAddresses] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   const allowlistPhases = phases.filter(p => p.requiresAllowlist);
-  const currentPhaseData = phases.find(p => p.id === activePhase);
   const currentEntries = entries.filter(e => e.phase_name === activePhase);
 
   // Load allowlist entries from database
@@ -110,92 +92,79 @@ export const ContractAllowlistManager: React.FC<ContractAllowlistManagerProps> =
       if (error) throw error;
       setEntries(data || []);
     } catch (err) {
-      console.error("Error loading allowlist:", err);
-      toast.error("Failed to load allowlist");
+      console.error("Failed to load entries:", err);
+      toast.error("Failed to load allowlist entries");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const addSingleAddress = async () => {
-    if (!isValidEthAddress(newAddress)) {
-      toast.error("Invalid wallet address");
+  const handleAddEntry = async () => {
+    if (!newAddress || !newAddress.trim()) {
+      toast.error("Please enter a wallet address");
       return;
     }
 
-    const exists = currentEntries.some(
-      e => e.wallet_address.toLowerCase() === newAddress.toLowerCase()
-    );
-    if (exists) {
-      toast.error("Address already in allowlist");
-      return;
-    }
-
+    setIsSaving(true);
     try {
       const { error } = await supabase.from("allowlist_entries").insert({
         collection_id: collectionId,
-        wallet_address: newAddress,
-        max_mint: parseInt(newMaxMint) || 1,
+        wallet_address: newAddress.trim(),
         phase_name: activePhase,
+        max_mint: parseInt(newMaxMint) || 1,
         created_by: creatorId,
       });
 
       if (error) throw error;
-
-      setPendingAddresses(prev => [...prev, newAddress.toLowerCase()]);
-      await loadEntries();
-      setNewAddress("");
+      
       toast.success("Address added to allowlist");
+      setNewAddress("");
+      loadEntries();
     } catch (err) {
-      console.error("Error adding address:", err);
+      console.error("Failed to add entry:", err);
       toast.error("Failed to add address");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const addBulkAddresses = async () => {
+  const handleBulkAdd = async () => {
     const addresses = bulkAddresses
       .split(/[\n,]/)
       .map(a => a.trim())
-      .filter(a => isValidEthAddress(a));
+      .filter(a => a.length > 0);
 
     if (addresses.length === 0) {
       toast.error("No valid addresses found");
       return;
     }
 
-    // Filter out duplicates
-    const existingSet = new Set(currentEntries.map(e => e.wallet_address.toLowerCase()));
-    const newAddresses = addresses.filter(a => !existingSet.has(a.toLowerCase()));
-
-    if (newAddresses.length === 0) {
-      toast.error("All addresses already in allowlist");
-      return;
-    }
-
+    setIsSaving(true);
     try {
-      const insertData = newAddresses.map(addr => ({
+      const entries = addresses.map(addr => ({
         collection_id: collectionId,
         wallet_address: addr,
-        max_mint: 1,
         phase_name: activePhase,
+        max_mint: 1,
         created_by: creatorId,
       }));
 
-      const { error } = await supabase.from("allowlist_entries").insert(insertData);
+      const { error } = await supabase.from("allowlist_entries").insert(entries);
 
       if (error) throw error;
-
-      setPendingAddresses(prev => [...prev, ...newAddresses.map(a => a.toLowerCase())]);
-      await loadEntries();
+      
+      toast.success(`Added ${addresses.length} addresses to allowlist`);
       setBulkAddresses("");
-      toast.success(`Added ${newAddresses.length} addresses`);
+      loadEntries();
     } catch (err) {
-      console.error("Error adding addresses:", err);
+      console.error("Failed to bulk add:", err);
       toast.error("Failed to add addresses");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const removeAddress = async (entryId: string) => {
+  const handleDeleteEntry = async (entryId: string) => {
     try {
       const { error } = await supabase
         .from("allowlist_entries")
@@ -203,296 +172,184 @@ export const ContractAllowlistManager: React.FC<ContractAllowlistManagerProps> =
         .eq("id", entryId);
 
       if (error) throw error;
-      await loadEntries();
-      toast.success("Address removed");
+      
+      toast.success("Address removed from allowlist");
+      loadEntries();
     } catch (err) {
-      console.error("Error removing address:", err);
+      console.error("Failed to delete entry:", err);
       toast.error("Failed to remove address");
     }
   };
 
-  const syncToContract = async () => {
-    if (!contractAddress) {
-      toast.error("No contract deployed");
+  const generateMerkleRoot = () => {
+    if (currentEntries.length === 0) {
+      toast.error("No addresses to generate merkle root from");
       return;
     }
 
-    const addresses = currentEntries.map(e => e.wallet_address);
-    if (addresses.length === 0) {
-      toast.error("No addresses to sync");
-      return;
-    }
-
-    // Map phase id to phase index (0, 1, 2, etc.)
-    const phaseIndex = phases.findIndex(p => p.id === activePhase);
-    if (phaseIndex === -1) {
-      toast.error("Invalid phase");
-      return;
-    }
-
-    const txHash = await setAllowlist(addresses, phaseIndex);
-    if (txHash) {
-      setPendingAddresses([]);
-      toast.success("Allowlist synced to contract!");
-    }
-  };
-
-  const syncPhaseConfig = async () => {
-    if (!contractAddress || !currentPhaseData) {
-      toast.error("No contract or phase data");
-      return;
-    }
-
-    const phaseIndex = phases.findIndex(p => p.id === activePhase);
-    if (phaseIndex === -1) {
-      toast.error("Invalid phase");
-      return;
-    }
-
-    const txHash = await configurePhase(
-      phaseIndex,
-      currentPhaseData.price,
-      currentPhaseData.maxPerWallet,
-      currentPhaseData.supply,
-      currentPhaseData.requiresAllowlist
+    const leaves = currentEntries.map(entry => 
+      Buffer.from(keccak_256(entry.wallet_address.toLowerCase()), 'hex')
     );
 
-    if (txHash) {
-      toast.success("Phase configuration synced to contract!");
-    }
+    const tree = new MerkleTree(leaves, keccak_256, { sortPairs: true });
+    const root = tree.getHexRoot();
+
+    navigator.clipboard.writeText(root);
+    toast.success("Merkle root copied to clipboard!");
   };
 
-  const explorerUrl = currentChain.blockExplorers?.default?.url;
+  const exportAddresses = () => {
+    const csv = currentEntries.map(e => e.wallet_address).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `allowlist-${activePhase}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="w-5 h-5 text-primary" />
-            Allowlist Manager
+            Manage Allowlist
           </DialogTitle>
           <DialogDescription>
-            Manage allowlist for mint phases and sync to smart contract
+            Add wallet addresses to the allowlist for presale phases
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col space-y-4">
+        <div className="flex-1 overflow-hidden flex flex-col gap-4">
           {/* Phase Selector */}
-          {allowlistPhases.length > 0 ? (
-            <Tabs value={activePhase} onValueChange={setActivePhaseState}>
-              <TabsList className="w-full">
-                {allowlistPhases.map(phase => (
-                  <TabsTrigger key={phase.id} value={phase.id} className="flex-1">
-                    {phase.name}
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {entries.filter(e => e.phase_name === phase.id).length}
-                    </Badge>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
-              <p>No phases require allowlist</p>
+          {allowlistPhases.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              {allowlistPhases.map(phase => (
+                <Button
+                  key={phase.id}
+                  variant={activePhase === phase.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActivePhaseState(phase.id)}
+                >
+                  {phase.name}
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {entries.filter(e => e.phase_name === phase.id).length}
+                  </Badge>
+                </Button>
+              ))}
             </div>
           )}
 
-          {allowlistPhases.length > 0 && (
-            <>
-              {/* Contract Status */}
-              {contractAddress && (
-                <Card className="border-primary/30 bg-primary/5">
-                  <CardContent className="py-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-sm">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        <span>Contract deployed</span>
-                        {pendingAddresses.length > 0 && (
-                          <Badge variant="outline" className="text-amber-500 border-amber-500/30">
-                            {pendingAddresses.length} pending sync
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={syncPhaseConfig}
-                          disabled={isUpdating}
-                        >
-                          {isUpdating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
-                          Sync Phase Config
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={syncToContract}
-                          disabled={isUpdating || currentEntries.length === 0}
-                        >
-                          {isUpdating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Send className="w-3 h-3 mr-1" />}
-                          Sync Allowlist
-                        </Button>
-                      </div>
-                    </div>
-                    {txHash && (
-                      <div className="mt-2 text-xs">
-                        <a
-                          href={`${explorerUrl}/tx/${txHash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline flex items-center gap-1"
-                        >
-                          View transaction <ExternalLink className="w-3 h-3" />
-                        </a>
-                      </div>
-                    )}
-                    {error && (
-                      <div className="mt-2 text-xs text-destructive flex items-center gap-1">
-                        <XCircle className="w-3 h-3" />
-                        {error}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {!contractAddress && (
-                <Card className="border-amber-500/30 bg-amber-500/5">
-                  <CardContent className="py-3">
-                    <div className="flex items-center gap-2 text-sm text-amber-500">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span>Deploy contract first to sync allowlist on-chain</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Add Addresses */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Single Add */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Plus className="w-4 h-4" />
-                        Add Single Address
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div>
-                        <Label className="text-xs">Wallet Address</Label>
-                        <Input
-                          placeholder="0x..."
-                          value={newAddress}
-                          onChange={e => setNewAddress(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Max Mint</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={newMaxMint}
-                          onChange={e => setNewMaxMint(e.target.value)}
-                        />
-                      </div>
-                      <Button size="sm" className="w-full" onClick={addSingleAddress}>
-                        Add Address
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  {/* Bulk Add */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Upload className="w-4 h-4" />
-                        Bulk Add
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div>
-                        <Label className="text-xs">Addresses (one per line or comma-separated)</Label>
-                        <Textarea
-                          placeholder="0x123...
-0x456...
-0x789..."
-                          value={bulkAddresses}
-                          onChange={e => setBulkAddresses(e.target.value)}
-                          rows={3}
-                        />
-                      </div>
-                      <Button size="sm" className="w-full" onClick={addBulkAddresses}>
-                        Add All
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Current Entries */}
-              <div className="flex-1 overflow-hidden">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium">
-                    Allowlist ({currentEntries.length} addresses)
-                  </h4>
-                </div>
-                <ScrollArea className="h-[200px] border rounded-lg">
-                  {isLoading ? (
-                    <div className="flex items-center justify-center h-full">
-                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : currentEntries.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                      No addresses in this phase
-                    </div>
-                  ) : (
-                    <div className="p-2 space-y-1">
-                      {currentEntries.map(entry => (
-                        <div
-                          key={entry.id}
-                          className="flex items-center justify-between p-2 rounded bg-muted/50 hover:bg-muted"
-                        >
-                          <div className="flex items-center gap-2">
-                            <code className="text-xs">
-                              {entry.wallet_address.slice(0, 8)}...{entry.wallet_address.slice(-6)}
-                            </code>
-                            <Badge variant="outline" className="text-xs">
-                              Max: {entry.max_mint}
-                            </Badge>
-                            {pendingAddresses.includes(entry.wallet_address.toLowerCase()) && (
-                              <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">
-                                Pending
-                              </Badge>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive hover:text-destructive"
-                            onClick={() => removeAddress(entry.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </div>
-            </>
+          {allowlistPhases.length === 0 && (
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+              <Info className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                No phases require allowlist. Enable allowlist on a phase to manage entries.
+              </span>
+            </div>
           )}
-        </div>
 
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
+          {/* Add Single Address */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Wallet address"
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+                className="flex-1 font-mono text-sm"
+              />
+              <Input
+                type="number"
+                placeholder="Max"
+                value={newMaxMint}
+                onChange={(e) => setNewMaxMint(e.target.value)}
+                className="w-20"
+                min={1}
+              />
+              <Button onClick={handleAddEntry} disabled={isSaving}>
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              </Button>
+            </div>
+          </div>
+
+          {/* Bulk Add */}
+          <div className="space-y-2">
+            <Textarea
+              placeholder="Bulk add addresses (one per line or comma-separated)"
+              value={bulkAddresses}
+              onChange={(e) => setBulkAddresses(e.target.value)}
+              rows={3}
+              className="font-mono text-sm"
+            />
+            <Button
+              onClick={handleBulkAdd}
+              disabled={isSaving || !bulkAddresses.trim()}
+              variant="outline"
+              className="w-full"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Bulk Add Addresses
+            </Button>
+          </div>
+
+          <Separator />
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={generateMerkleRoot} disabled={currentEntries.length === 0}>
+              Generate Merkle Root
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportAddresses} disabled={currentEntries.length === 0}>
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
+
+          {/* Entry List */}
+          <ScrollArea className="flex-1 max-h-[200px]">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : currentEntries.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No addresses in allowlist for this phase
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {currentEntries.map(entry => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between p-2 bg-muted/50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      <code className="text-xs">
+                        {entry.wallet_address.slice(0, 8)}...{entry.wallet_address.slice(-6)}
+                      </code>
+                      <Badge variant="secondary" className="text-xs">
+                        Max: {entry.max_mint || 1}
+                      </Badge>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => handleDeleteEntry(entry.id)}
+                    >
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
         </div>
       </DialogContent>
     </Dialog>
   );
 };
+
+export default ContractAllowlistManager;

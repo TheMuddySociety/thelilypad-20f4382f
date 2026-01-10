@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { publicKey, signerIdentity, Signer, generateSigner, some, percentAmount, dateTime, sol } from '@metaplex-foundation/umi';
+import { publicKey, generateSigner, some, percentAmount, dateTime, sol } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import {
     createCollection as createCoreCollection,
@@ -9,11 +9,7 @@ import {
     TokenStandard,
 } from '@metaplex-foundation/mpl-token-metadata';
 import {
-    createTree,
-} from '@metaplex-foundation/mpl-bubblegum';
-import {
     create,
-    addConfigLines,
     GuardGroupArgs,
     DefaultGuardSetArgs,
 } from '@metaplex-foundation/mpl-candy-machine';
@@ -28,6 +24,20 @@ export interface LaunchpadPhase {
     endTime: Date | null;
     merkleRoot?: string | null; // for allowlist
     maxPerWallet?: number;
+}
+
+interface CreateCollectionParams {
+    name: string;
+    symbol: string;
+    imageUri?: string;
+    uri?: string;
+    royaltyBasisPoints?: number;
+    sellerFeeBasisPoints?: number;
+    standard?: SolanaStandard;
+    supplyConfig?: {
+        type: string;
+        limit?: number;
+    };
 }
 
 export const useSolanaLaunch = () => {
@@ -107,7 +117,8 @@ export const useSolanaLaunch = () => {
             toast.success(`Successfully deployed collection!`, { id: 'sol-deploy' });
             return {
                 signature: result?.signature,
-                address: collectionSigner.publicKey.toString()
+                address: collectionSigner.publicKey.toString(),
+                collectionAddress: collectionSigner.publicKey.toString()
             };
         } catch (err: any) {
             console.error("Solana deployment error:", err);
@@ -140,41 +151,42 @@ export const useSolanaLaunch = () => {
 
             toast.loading(`Initializing Candy Machine...`, { id: 'cm-create' });
 
-            // map phases to groups
+            // map phases to groups with proper guard structure
             const groups: GuardGroupArgs<DefaultGuardSetArgs>[] = phases.map(phase => {
-                const guards: DefaultGuardSetArgs = {};
+                // Build guards object with proper Option types
+                const guards: Partial<DefaultGuardSetArgs> = {};
 
-                // Payment guard
+                // Payment guard - use 'some' wrapper for Option types
                 if (phase.price > 0) {
-                    guards.solPayment = {
-                        amount: sol(phase.price),
-                        destination: umi.identity.publicKey // Simplified
-                    };
+                    guards.solPayment = some({
+                        lamports: sol(phase.price),
+                        destination: umi.identity.publicKey
+                    });
                 }
 
                 // Start date
                 if (phase.startTime) {
-                    guards.startDate = { date: dateTime(phase.startTime) };
+                    guards.startDate = some({ date: dateTime(phase.startTime) });
                 }
 
                 // End date
                 if (phase.endTime) {
-                    guards.endDate = { date: dateTime(phase.endTime) };
+                    guards.endDate = some({ date: dateTime(phase.endTime) });
                 }
 
                 // Allowlist (Merkle Root)
                 if (phase.merkleRoot) {
-                    guards.allowList = { merkleRoot: new Uint8Array(Buffer.from(phase.merkleRoot, 'hex')) };
+                    guards.allowList = some({ merkleRoot: new Uint8Array(Buffer.from(phase.merkleRoot, 'hex')) });
                 }
 
                 // Mint limit
                 if (phase.maxPerWallet) {
-                    guards.mintLimit = { id: 1, limit: phase.maxPerWallet };
+                    guards.mintLimit = some({ id: 1, limit: phase.maxPerWallet });
                 }
 
                 return {
                     label: phase.id,
-                    guards,
+                    guards: guards as DefaultGuardSetArgs,
                 };
             });
 
@@ -216,10 +228,25 @@ export const useSolanaLaunch = () => {
 
     }, [getUmi]);
 
+    // Simplified createCollection for backward compatibility
+    const createCollection = useCallback(async (params: CreateCollectionParams) => {
+        const uri = params.uri || params.imageUri || '';
+        const sellerFeeBasisPoints = params.sellerFeeBasisPoints || params.royaltyBasisPoints || 0;
+        const standard = params.standard || 'core';
+        
+        return deploySolanaCollection(standard, {
+            name: params.name,
+            symbol: params.symbol,
+            uri,
+            sellerFeeBasisPoints
+        });
+    }, [deploySolanaCollection]);
+
     return {
         isLoading,
         error,
         deploySolanaCollection,
-        createLaunchpadCandyMachine
+        createLaunchpadCandyMachine,
+        createCollection
     };
 };
