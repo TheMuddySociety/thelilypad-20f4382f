@@ -7,14 +7,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Wallet, ExternalLink } from "lucide-react";
+import { Wallet, ExternalLink, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getPhantomSDK, waitForPhantomExtension } from "@/config/phantom";
 import type { InjectedWalletInfo } from "@phantom/browser-sdk";
 
-export type WalletType = "metamask" | "phantom";
-export type ChainType = "evm" | "solana";
+export type WalletType = "phantom" | "solana";
+export type ChainType = "solana";
 export type OAuthProvider = "google" | "apple";
 
 interface WalletOption {
@@ -23,25 +23,19 @@ interface WalletOption {
   icon: string;
   isInstalled: boolean;
   installUrl: string;
-  supportedChains: ChainType[];
 }
 
 interface WalletSelectorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (walletType: WalletType, chainType: ChainType) => void;
-  onOAuthSelect?: (provider: OAuthProvider, chainType: ChainType) => void;
+  onSelect: (walletType: WalletType) => void;
+  onOAuthSelect?: (provider: OAuthProvider) => void;
   isConnecting: boolean;
 }
 
 const oauthOptions = [
   { id: "google" as OAuthProvider, name: "Continue with Google", icon: "🔵" },
   { id: "apple" as OAuthProvider, name: "Continue with Apple", icon: "🍎" },
-];
-
-const chainOptions = [
-  { id: "evm" as ChainType, name: "Monad (EVM)", icon: "⟠", description: "Connect to Monad network" },
-  { id: "solana" as ChainType, name: "Solana", icon: "◎", description: "Connect to Solana network" },
 ];
 
 export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
@@ -51,55 +45,59 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
   onOAuthSelect,
   isConnecting,
 }) => {
-  const [mode, setMode] = useState<"wallet" | "chain">("wallet");
-  const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null);
-  const [selectedOAuth, setSelectedOAuth] = useState<OAuthProvider | null>(null);
   const [walletOptions, setWalletOptions] = useState<WalletOption[]>([]);
   const [discoveredWallets, setDiscoveredWallets] = useState<InjectedWalletInfo[]>([]);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  // Detect wallets on open
   useEffect(() => {
-    if (!open) return;
-
-    const detect = async () => {
-      const phantomAvailable = await waitForPhantomExtension(2000);
-      let discovered: InjectedWalletInfo[] = [];
-
-      if (phantomAvailable) {
-        try {
-          const sdk = getPhantomSDK();
-          await sdk.discoverWallets?.();
-          discovered = sdk.getDiscoveredWallets?.() || [];
-          setDiscoveredWallets(discovered);
-        } catch {}
+    const initWallets = async () => {
+      setIsInitializing(true);
+      
+      try {
+        // Wait for Phantom extension
+        await waitForPhantomExtension(2000);
+        
+        // Get Phantom SDK
+        const sdk = getPhantomSDK();
+        if (sdk) {
+          const wallets = await sdk.wallets.getInjectedWallets();
+          setDiscoveredWallets(wallets);
+        }
+        
+        // Check Phantom availability
+        const isPhantomInstalled = !!(window as any).phantom?.solana?.isPhantom;
+        
+        const options: WalletOption[] = [
+          {
+            id: "phantom",
+            name: "Phantom",
+            icon: "👻",
+            isInstalled: isPhantomInstalled,
+            installUrl: "https://phantom.app/",
+          },
+        ];
+        
+        setWalletOptions(options);
+      } catch (e) {
+        console.error("Error initializing wallets:", e);
+        // Fallback
+        setWalletOptions([
+          {
+            id: "phantom",
+            name: "Phantom",
+            icon: "👻",
+            isInstalled: false,
+            installUrl: "https://phantom.app/",
+          },
+        ]);
       }
-
-      const hasMetaMask = window.ethereum?.isMetaMask || 
-        discovered.some(w => w.name.toLowerCase().includes("metamask"));
-      const hasPhantom = phantomAvailable || 
-        discovered.some(w => w.name.toLowerCase().includes("phantom"));
-
-      setWalletOptions([
-        {
-          id: "metamask",
-          name: "MetaMask",
-          icon: "🦊",
-          isInstalled: !!hasMetaMask,
-          installUrl: "https://metamask.io/download/",
-          supportedChains: ["evm"],
-        },
-        {
-          id: "phantom",
-          name: "Phantom",
-          icon: "👻",
-          isInstalled: !!hasPhantom,
-          installUrl: "https://phantom.app/download",
-          supportedChains: ["evm", "solana"],
-        },
-      ]);
+      
+      setIsInitializing(false);
     };
 
-    detect();
+    if (open) {
+      initWallets();
+    }
   }, [open]);
 
   const handleWalletClick = (wallet: WalletOption) => {
@@ -107,160 +105,119 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
       window.open(wallet.installUrl, "_blank");
       return;
     }
-
-    if (wallet.supportedChains.length === 1) {
-      onSelect(wallet.id, wallet.supportedChains[0]);
-      reset();
-      return;
-    }
-
-    setSelectedWallet(wallet.id);
-    setMode("chain");
-  };
-
-  const handleOAuthClick = (provider: OAuthProvider) => {
-    setSelectedOAuth(provider);
-    setMode("chain");
-  };
-
-  const handleChainSelect = (chain: ChainType) => {
-    if (selectedWallet) {
-      onSelect(selectedWallet, chain);
-    } else if (selectedOAuth && onOAuthSelect) {
-      onOAuthSelect(selectedOAuth, chain);
-    }
-    reset();
-  };
-
-  const reset = () => {
-    setMode("wallet");
-    setSelectedWallet(null);
-    setSelectedOAuth(null);
-  };
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) reset();
-    onOpenChange(newOpen);
+    onSelect(wallet.id);
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wallet className="w-5 h-5" />
-            {mode === "wallet" ? "Connect Wallet" : "Select Network"}
+            Connect Wallet
           </DialogTitle>
           <DialogDescription>
-            {mode === "wallet" 
-              ? "Choose how to connect to The Lily Pad" 
-              : "Choose which network to use"}
+            Connect your Solana wallet to get started
           </DialogDescription>
         </DialogHeader>
 
-        {mode === "wallet" ? (
-          <div className="flex flex-col gap-3 mt-4">
-            {/* OAuth */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                No extension? Sign in with
-              </p>
-              {oauthOptions.map((oauth) => (
-                <Button
-                  key={oauth.id}
-                  variant="outline"
-                  className="w-full h-12 justify-start gap-3"
-                  onClick={() => handleOAuthClick(oauth.id)}
-                  disabled={isConnecting || !onOAuthSelect}
-                >
-                  <span>{oauth.icon}</span>
-                  <span className="font-medium">{oauth.name}</span>
-                  <Badge variant="secondary" className="ml-auto text-[10px]">Embedded</Badge>
-                </Button>
-              ))}
-            </div>
+        <div className="space-y-4 py-4">
+          {/* Solana Network Badge */}
+          <div className="flex items-center justify-center">
+            <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
+              <span className="mr-1">◎</span>
+              Solana Network
+            </Badge>
+          </div>
 
-            <div className="relative my-2">
-              <Separator />
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">
-                or use extension
-              </span>
-            </div>
+          {/* OAuth Options */}
+          {onOAuthSelect && (
+            <>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground text-center">
+                  Quick sign in
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {oauthOptions.map((option) => (
+                    <Button
+                      key={option.id}
+                      variant="outline"
+                      className="w-full justify-start gap-2"
+                      onClick={() => onOAuthSelect(option.id)}
+                      disabled={isConnecting}
+                    >
+                      <span>{option.icon}</span>
+                      <span className="text-sm">{option.id === "google" ? "Google" : "Apple"}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
-            {/* Wallets */}
-            {walletOptions.map((wallet) => (
-              <Button
-                key={wallet.id}
-                variant="outline"
-                className="w-full h-14 justify-start gap-4"
-                onClick={() => handleWalletClick(wallet)}
-                disabled={isConnecting}
-              >
-                <span className="text-2xl">{wallet.icon}</span>
-                <div className="flex flex-col items-start flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{wallet.name}</span>
-                    {wallet.supportedChains.length > 1 && (
-                      <Badge variant="secondary" className="text-[10px]">Multi-chain</Badge>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <Separator />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    or with wallet
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Wallet Options */}
+          <div className="space-y-2">
+            {isInitializing ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <>
+                {walletOptions.map((wallet) => (
+                  <Button
+                    key={wallet.id}
+                    variant="outline"
+                    className="w-full justify-between h-14"
+                    onClick={() => handleWalletClick(wallet)}
+                    disabled={isConnecting}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{wallet.icon}</span>
+                      <div className="text-left">
+                        <div className="font-medium">{wallet.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {wallet.isInstalled ? "Detected" : "Not installed"}
+                        </div>
+                      </div>
+                    </div>
+                    {!wallet.isInstalled && (
+                      <ExternalLink className="w-4 h-4 text-muted-foreground" />
                     )}
+                    {wallet.isInstalled && isConnecting && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    )}
+                  </Button>
+                ))}
+
+                {/* Monad Coming Soon */}
+                <div className="mt-4 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span>Monad (EVM) support coming soon</span>
                   </div>
                 </div>
-                {!wallet.isInstalled ? (
-                  <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                )}
-              </Button>
-            ))}
-
-            {/* Other discovered wallets */}
-            {discoveredWallets
-              .filter(w => !w.name.toLowerCase().includes("metamask") && !w.name.toLowerCase().includes("phantom"))
-              .map((wallet) => (
-                <Button
-                  key={wallet.id}
-                  variant="outline"
-                  className="w-full h-14 justify-start gap-4 opacity-60"
-                  disabled
-                >
-                  {wallet.icon ? (
-                    <img src={wallet.icon} alt={wallet.name} className="w-6 h-6" />
-                  ) : (
-                    <span className="text-2xl">💳</span>
-                  )}
-                  <div className="flex flex-col items-start flex-1">
-                    <span className="font-semibold">{wallet.name}</span>
-                    <span className="text-xs text-muted-foreground">Not yet supported</span>
-                  </div>
-                </Button>
-              ))}
+              </>
+            )}
           </div>
-        ) : (
-          <div className="flex flex-col gap-3 mt-4">
-            <Button variant="ghost" size="sm" className="w-fit" onClick={() => setMode("wallet")}>
-              ← Back
-            </Button>
-            {chainOptions.map((chain) => (
-              <Button
-                key={chain.id}
-                variant="outline"
-                className="w-full h-16 justify-start gap-4"
-                onClick={() => handleChainSelect(chain.id)}
-                disabled={isConnecting}
-              >
-                <span className="text-2xl">{chain.icon}</span>
-                <div className="flex flex-col items-start">
-                  <span className="font-semibold">{chain.name}</span>
-                  <span className="text-xs text-muted-foreground">{chain.description}</span>
-                </div>
-              </Button>
-            ))}
-          </div>
-        )}
 
-        <p className="text-xs text-muted-foreground text-center mt-4">
-          By connecting, you agree to our Terms of Service
-        </p>
+          {/* Discovered wallets from SDK */}
+          {discoveredWallets.length > 0 && (
+            <div className="text-xs text-muted-foreground text-center">
+              {discoveredWallets.length} wallet(s) detected via Phantom SDK
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

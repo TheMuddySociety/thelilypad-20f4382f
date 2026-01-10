@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/providers/WalletProvider";
-import { Wallet, LogOut, ExternalLink, User, AlertTriangle, ArrowRightLeft, Coins, ChevronDown, ChevronUp } from "lucide-react";
+import { Wallet, LogOut, ExternalLink, User, ChevronDown, ChevronUp, Coins } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { SPLTokenList } from "./SPLTokenList";
 import { useSPLTokens } from "@/hooks/useSPLTokens";
-import { WalletSelectorModal, WalletType, ChainType, OAuthProvider } from "./WalletSelectorModal";
+import { WalletSelectorModal, WalletType, OAuthProvider } from "./WalletSelectorModal";
 import { Badge } from "@/components/ui/badge";
 
 interface ConnectWalletProps {
@@ -46,15 +46,11 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
     isConnected, 
     isConnecting, 
     balance, 
-    chainId, 
     connect,
     connectWithOAuth,
     disconnect, 
-    currentChain, 
-    switchToMonad, 
     walletType,
     chainType,
-    switchChain,
     network,
     authProvider
   } = useWallet();
@@ -63,8 +59,6 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
   const [showWalletSelector, setShowWalletSelector] = useState(false);
   const [showTokens, setShowTokens] = useState(false);
   const { totalTokens } = useSPLTokens();
-
-  const isWrongNetwork = isConnected && chainType === "evm" && chainId !== currentChain.id;
 
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -80,14 +74,14 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
     setShowDisconnectConfirm(false);
   };
 
-  const handleWalletSelect = async (selectedWalletType: WalletType, selectedChainType: ChainType) => {
+  const handleWalletSelect = async (selectedWalletType: WalletType) => {
     setShowWalletSelector(false);
-    await connect(selectedWalletType, selectedChainType);
+    await connect(selectedWalletType);
   };
 
-  const handleOAuthSelect = async (provider: OAuthProvider, selectedChainType: ChainType) => {
+  const handleOAuthSelect = async (provider: OAuthProvider) => {
     setShowWalletSelector(false);
-    await connectWithOAuth(provider, selectedChainType);
+    await connectWithOAuth(provider);
   };
 
   const getWalletIcon = () => {
@@ -106,35 +100,14 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
       </svg>
     );
     if (walletType === "phantom") return "👻";
-    if (walletType === "metamask") return "🦊";
     return null;
   };
 
-  const getChainIcon = () => {
-    if (chainType === "solana") return "◎";
-    return "⟠";
-  };
-
   const getChainName = () => {
-    if (chainType === "solana") {
-      return network === "mainnet" ? "Solana" : "Solana Devnet";
-    }
-    return currentChain.name;
+    return network === "mainnet" ? "Solana" : "Solana Devnet";
   };
 
-  const getBalanceSymbol = () => {
-    if (chainType === "solana") return "SOL";
-    return "MON";
-  };
-
-  const getExplorerUrl = () => {
-    if (chainType === "solana") {
-      const cluster = network === "mainnet" ? "" : "?cluster=devnet";
-      return `https://explorer.solana.com/address/${address}${cluster}`;
-    }
-    return `${currentChain.blockExplorers?.default?.url}/address/${address}`;
-  };
-
+  // Not connected state
   if (!isConnected) {
     return (
       <>
@@ -145,10 +118,19 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
           onClick={() => setShowWalletSelector(true)}
           disabled={isConnecting}
         >
-          <Wallet className="w-4 h-4 mr-2" />
-          {isConnecting ? "Connecting..." : "Connect Wallet"}
+          {isConnecting ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+              Connecting...
+            </>
+          ) : (
+            <>
+              <Wallet className="w-4 h-4 mr-2" />
+              Connect Wallet
+            </>
+          )}
         </Button>
-        
+
         <WalletSelectorModal
           open={showWalletSelector}
           onOpenChange={setShowWalletSelector}
@@ -160,178 +142,104 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
     );
   }
 
-  if (isWrongNetwork) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="destructive"
-            size={size}
-            className={className}
-            onClick={switchToMonad}
-          >
-            <AlertTriangle className="w-4 h-4 mr-2" />
-            Switch to {currentChain.name}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="text-xs">
-            Wallet is on chain {chainId}, expected {currentChain.id} ({currentChain.name})
-          </p>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
+  // Connected state
   return (
     <>
-      <div className="flex items-center gap-1">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant={variant} size={size} className={className}>
-              <div className="flex items-center gap-2">
-                <span className="text-sm">{getChainIcon()}</span>
-                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                <span className="font-mono">{formatAddress(address!)}</span>
-              </div>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <div className="px-3 py-2">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg flex-shrink-0">{getWalletIcon()}</span>
-                <span className="text-sm font-medium">
-                  {authProvider === "google" ? "Google" : 
-                   authProvider === "apple" ? "Apple" : 
-                   walletType === "phantom" ? "Phantom" : "MetaMask"}
-                </span>
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {chainType === "solana" ? "Solana" : "EVM"}
-                </Badge>
-                {(authProvider === "google" || authProvider === "apple") && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                    Embedded
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground font-mono">{formatAddress(address!)}</p>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant={variant} size={size} className={`${className} gap-2`}>
+            <div className="flex items-center gap-2">
+              {/* Wallet icon */}
+              <span className="text-lg">{getWalletIcon()}</span>
+              
+              {/* Chain icon */}
+              <span className="text-sm">◎</span>
+              
+              {/* Address */}
+              <span className="font-mono text-xs">{formatAddress(address!)}</span>
             </div>
-            <DropdownMenuSeparator />
-            <div className="px-3 py-2">
-              <p className="text-xs text-muted-foreground">Network</p>
-              <p className="text-sm font-medium flex items-center gap-1">
-                <span>{getChainIcon()}</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          {/* Balance section */}
+          <div className="px-3 py-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Balance</span>
+              <Badge variant="outline" className="text-xs">
                 {getChainName()}
-              </p>
+              </Badge>
             </div>
-            <div className="px-3 py-2">
-              <p className="text-xs text-muted-foreground">Balance</p>
-              <p className="text-sm font-semibold">{formatBalance(balance)} {getBalanceSymbol()}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">◎</span>
+              <span className="text-lg font-semibold">{formatBalance(balance)} SOL</span>
             </div>
-            
-            {/* SPL Token List for Solana */}
-            {chainType === "solana" && (
-              <>
-                <DropdownMenuSeparator />
-                <div className="px-2 py-1">
-                  <button
-                    className="w-full flex items-center justify-between px-1 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowTokens(!showTokens);
-                    }}
-                  >
-                    <div className="flex items-center gap-1">
-                      <Coins className="w-3 h-3" />
-                      <span>SPL Tokens</span>
-                      {totalTokens > 0 && (
-                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
-                          {totalTokens}
-                        </span>
-                      )}
-                    </div>
-                    {showTokens ? (
-                      <ChevronUp className="w-3 h-3" />
-                    ) : (
-                      <ChevronDown className="w-3 h-3" />
-                    )}
-                  </button>
-                  {showTokens && (
-                    <div className="mt-1">
-                      <SPLTokenList compact maxHeight="150px" />
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-            <DropdownMenuSeparator />
-            {walletType === "phantom" && (
-              <DropdownMenuItem 
-                onClick={() => switchChain(chainType === "solana" ? "evm" : "solana")}
-              >
-                <ArrowRightLeft className="w-4 h-4 mr-2" />
-                Switch to {chainType === "solana" ? "Monad (EVM)" : "Solana"}
-              </DropdownMenuItem>
-            )}
-            
-            <DropdownMenuItem onClick={() => navigate("/wallet")}>
-              <User className="w-4 h-4 mr-2" />
-              View Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => window.open(getExplorerUrl(), "_blank")}
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              View on Explorer
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => setShowDisconnectConfirm(true)} 
-              className="text-destructive"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Disconnect
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              onClick={() => setShowDisconnectConfirm(true)}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Disconnect wallet</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
+          </div>
 
+          {/* SPL Tokens Toggle */}
+          <DropdownMenuItem 
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowTokens(!showTokens);
+            }}
+          >
+            <Coins className="w-4 h-4 mr-2" />
+            <span>SPL Tokens ({totalTokens})</span>
+            {showTokens ? (
+              <ChevronUp className="w-4 h-4 ml-auto" />
+            ) : (
+              <ChevronDown className="w-4 h-4 ml-auto" />
+            )}
+          </DropdownMenuItem>
+
+          {showTokens && (
+            <div className="px-2 py-1 max-h-48 overflow-y-auto">
+              <SPLTokenList compact />
+            </div>
+          )}
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem 
+            className="cursor-pointer"
+            onClick={() => navigate("/my-nfts")}
+          >
+            <User className="w-4 h-4 mr-2" />
+            My NFTs
+          </DropdownMenuItem>
+
+          <DropdownMenuItem 
+            className="cursor-pointer"
+            onClick={() => window.open(`https://solscan.io/account/${address}${network === "testnet" ? "?cluster=devnet" : ""}`, "_blank")}
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            View on Explorer
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem 
+            className="cursor-pointer text-destructive"
+            onClick={() => setShowDisconnectConfirm(true)}
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Disconnect
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Disconnect confirmation */}
       <AlertDialog open={showDisconnectConfirm} onOpenChange={setShowDisconnectConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              Disconnect Wallet?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Disconnect Wallet</AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to disconnect your {chainType === "solana" ? "Solana" : "EVM"} wallet{" "}
-              <span className="font-mono font-medium">{formatAddress(address!)}</span>. 
-              You will need to reconnect to access wallet features and make transactions.
+              Are you sure you want to disconnect your wallet? You'll need to reconnect to use wallet features.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDisconnect}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
+            <AlertDialogAction onClick={handleDisconnect}>
               Disconnect
             </AlertDialogAction>
           </AlertDialogFooter>

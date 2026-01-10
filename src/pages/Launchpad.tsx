@@ -103,7 +103,6 @@ export default function Launchpad() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedChain, setSelectedChain] = useState<ChainType>("solana");
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>("monad");
 
@@ -217,30 +216,29 @@ export default function Launchpad() {
   const fetchCollections = async () => {
     setIsLoading(true);
     try {
-      try {
-        const { data, error } = await supabase
-          .from("collections")
-          .select("*")
-          // Filter based on platform
-          .in("chain",
-            selectedPlatform === "monad"
-              ? ["monad-testnet", "monad-mainnet"]
-              : ["solana", "solana-devnet", "solana-mainnet"]
-          )
-          .is("deleted_at", null)
-          .order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("collections")
+        .select("*")
+        // Filter based on platform
+        .in("chain",
+          selectedPlatform === "monad"
+            ? ["monad-testnet", "monad-mainnet"]
+            : ["solana", "solana-devnet", "solana-mainnet"]
+        )
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
 
-        if (error) {
-          console.error("Error fetching collections:", error);
-        } else {
-          setCollections(data || []);
-        }
-      } catch (err) {
-        console.error("Error:", err);
-      } finally {
-        setIsLoading(false);
+      if (error) {
+        console.error("Error fetching collections:", error);
+      } else {
+        setCollections(data || []);
       }
-    };
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
     useEffect(() => {
       fetchCollections();

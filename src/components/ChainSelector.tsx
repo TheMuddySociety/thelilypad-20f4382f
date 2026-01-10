@@ -19,8 +19,9 @@ interface ChainOption {
 
 const CHAIN_OPTIONS: ChainOption[] = [
   { id: "solana", name: "Solana", icon: "◎", color: "bg-purple-500/10 text-purple-400 border-purple-500/30" },
-  { id: "evm", name: "Monad", icon: "⬡", color: "bg-primary/10 text-primary border-primary/30", comingSoon: true },
 ];
+
+// Monad coming soon - will be added when EVM support is ready
 
 interface ChainSelectorProps {
   selectedChain: ChainType;
