@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { Heart, Loader2, Wallet, Coins, CheckCircle2 } from "lucide-react";
-import { monadMainnet } from "@/config/alchemy";
 import { motion, AnimatePresence } from "framer-motion";
 import { getErrorMessage } from "@/lib/errorUtils";
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { getSolanaRpcUrl } from "@/config/alchemy";
 
 interface TipModalProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export const TipModal: React.FC<TipModalProps> = ({
   streamerId,
   streamId,
 }) => {
-  const { isConnected, address, balance, connect, sendTransaction } = useWallet();
+  const { isConnected, address, balance, connect, network, getSolanaProvider } = useWallet();
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [tipState, setTipState] = useState<TipState>("idle");
@@ -61,6 +62,33 @@ export const TipModal: React.FC<TipModalProps> = ({
       resetState();
       onClose();
     }
+  };
+
+  const sendSolTransaction = async (toAddress: string, solAmount: number): Promise<string | null> => {
+    const provider = getSolanaProvider();
+    if (!provider || !provider.publicKey) {
+      throw new Error("Solana wallet not connected");
+    }
+
+    const connection = new Connection(getSolanaRpcUrl(network), 'confirmed');
+    
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: provider.publicKey,
+        toPubkey: new PublicKey(toAddress),
+        lamports: Math.floor(solAmount * LAMPORTS_PER_SOL),
+      })
+    );
+
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = provider.publicKey;
+
+    const signed = await provider.signTransaction(transaction);
+    const signature = await connection.sendRawTransaction(signed.serialize());
+    await connection.confirmTransaction(signature, 'confirmed');
+
+    return signature;
   };
 
   const handleSendTip = async () => {
@@ -85,7 +113,7 @@ export const TipModal: React.FC<TipModalProps> = ({
     if (balance && parseFloat(amount) > parseFloat(balance)) {
       toast({
         title: "Insufficient balance",
-        description: "You don't have enough MON to send this tip",
+        description: "You don't have enough SOL to send this tip",
         variant: "destructive",
       });
       return;
@@ -99,7 +127,7 @@ export const TipModal: React.FC<TipModalProps> = ({
       // Move to pending once wallet interaction starts
       setTipState("pending");
 
-      const txHash = await sendTransaction(streamerAddress, amount);
+      const txHash = await sendSolTransaction(streamerAddress, parseFloat(amount));
 
       if (txHash) {
         // Show success immediately (optimistic)
@@ -113,7 +141,7 @@ export const TipModal: React.FC<TipModalProps> = ({
             user_id: streamerId,
             stream_id: streamId || null,
             amount: parseFloat(amount),
-            currency: "MON",
+            currency: "SOL",
             type: "donation",
             from_user_id: session.user.id,
             from_username: address.slice(0, 6) + "..." + address.slice(-4),
@@ -125,13 +153,17 @@ export const TipModal: React.FC<TipModalProps> = ({
           });
         }
 
+        const explorerUrl = network === 'mainnet' 
+          ? `https://explorer.solana.com/tx/${txHash}`
+          : `https://explorer.solana.com/tx/${txHash}?cluster=devnet`;
+
         toast({
           title: "Tip sent! 🎉",
           description: (
             <div className="space-y-1">
-              <p>Successfully sent {amount} MON to {streamerName}</p>
+              <p>Successfully sent {amount} SOL to {streamerName}</p>
               <a
-                href={`${monadMainnet.blockExplorers.default.url}/tx/${txHash}`}
+                href={explorerUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline text-sm"
@@ -190,7 +222,7 @@ export const TipModal: React.FC<TipModalProps> = ({
               >
                 <h3 className="text-xl font-semibold">Tip Sent!</h3>
                 <p className="text-muted-foreground mt-1">
-                  {sentAmount} MON sent to {streamerName}
+                  {sentAmount} SOL sent to {streamerName}
                 </p>
               </motion.div>
             </motion.div>
@@ -226,7 +258,7 @@ export const TipModal: React.FC<TipModalProps> = ({
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                       <span className="text-sm text-muted-foreground">Your Balance</span>
                       <span className="font-medium">
-                        {balance ? parseFloat(balance).toFixed(4) : "0"} MON
+                        {balance ? parseFloat(balance).toFixed(4) : "0"} SOL
                       </span>
                     </div>
 
@@ -251,7 +283,7 @@ export const TipModal: React.FC<TipModalProps> = ({
 
                     {/* Custom amount */}
                     <div className="space-y-2">
-                      <Label htmlFor="amount">Amount (MON)</Label>
+                      <Label htmlFor="amount">Amount (SOL)</Label>
                       <div className="relative">
                         <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
@@ -301,7 +333,7 @@ export const TipModal: React.FC<TipModalProps> = ({
                             className="flex items-center"
                           >
                             <Heart className="w-4 h-4 mr-2" />
-                            Send {amount || "0"} MON
+                            Send {amount || "0"} SOL
                           </motion.span>
                         )}
                         {tipState === "confirming" && (
@@ -343,7 +375,7 @@ export const TipModal: React.FC<TipModalProps> = ({
                     </Button>
 
                     <p className="text-xs text-center text-muted-foreground">
-                      Powered by Monad. Transaction fees apply.
+                      Powered by Solana. Transaction fees apply.
                     </p>
                   </>
                 )}

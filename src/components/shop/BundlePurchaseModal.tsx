@@ -23,13 +23,16 @@ import {
   Gift,
   Sparkles,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  Info
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { isUserRejection, getErrorMessage, errorContains } from "@/lib/errorUtils";
+import { isUserRejection, getErrorMessage } from "@/lib/errorUtils";
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { getSolanaRpcUrl } from "@/config/alchemy";
 
-// Platform treasury address for receiving bundle payments
-const PLATFORM_TREASURY_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e7595f5CB25";
+// Platform treasury address for receiving bundle payments (Solana)
+const PLATFORM_TREASURY_ADDRESS = "11111111111111111111111111111112"; // Replace with actual treasury
 
 interface BundleItem {
   id: string;
@@ -52,6 +55,7 @@ interface Bundle {
   discount_percent: number;
   original_price: number;
   bundle_price: number;
+  bundle_price_sol?: number;
 }
 
 interface BundlePurchaseModalProps {
@@ -70,7 +74,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
   onPurchaseComplete,
 }) => {
   const navigate = useNavigate();
-  const { address, isConnected, connect, sendTransaction, balance, chainId, currentChain, switchToMonad } = useWallet();
+  const { address, isConnected, connect, balance, network, getSolanaProvider } = useWallet();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [ownedItems, setOwnedItems] = useState<string[]>([]);
@@ -78,7 +82,8 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
   const [txHash, setTxHash] = useState<string | null>(null);
   const [purchaseStep, setPurchaseStep] = useState<"idle" | "confirming" | "processing" | "complete">("idle");
 
-  const isWrongNetwork = isConnected && chainId !== currentChain.id;
+  // Price in SOL (use bundle_price_sol if available, otherwise estimate)
+  const priceInSol = bundle.bundle_price_sol || bundle.bundle_price * 0.01; // Rough estimate
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -102,56 +107,38 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
 
       if (bundlePurchase) {
         setHasPurchased(true);
-        return;
       }
 
       // Check which individual items user already owns
       const itemIds = bundleItems.map(bi => bi.item_id);
-      const { data: existingPurchases } = await supabase
+      const { data: purchases } = await supabase
         .from("shop_purchases")
         .select("item_id")
         .eq("user_id", userId)
         .in("item_id", itemIds);
 
-      setOwnedItems(existingPurchases?.map(p => p.item_id) || []);
+      if (purchases) {
+        setOwnedItems(purchases.map(p => p.item_id));
+      }
     };
 
     checkExistingPurchases();
-  }, [userId, bundle.id, bundleItems, open]);
-
-  // Reset state when modal opens
-  useEffect(() => {
-    if (open) {
-      setPurchaseStep("idle");
-      setTxHash(null);
-    }
-  }, [open]);
-
-  const savings = bundle.original_price - bundle.bundle_price;
-  const newItems = bundleItems.filter(bi => !ownedItems.includes(bi.item_id));
-  
-  // Check if user has sufficient balance
-  const hasInsufficientBalance = balance ? parseFloat(balance) < bundle.bundle_price : false;
+  }, [userId, open, bundle.id, bundleItems]);
 
   const handlePurchase = async () => {
-    if (!userId) {
-      toast.error("Please sign in to purchase");
-      navigate("/auth");
-      return;
-    }
-
     if (!isConnected || !address) {
       toast.error("Please connect your wallet first");
       return;
     }
 
-    if (isWrongNetwork) {
-      toast.error("Please switch to the correct network");
+    if (!userId) {
+      toast.error("Please sign in to purchase");
       return;
     }
 
-    if (hasInsufficientBalance) {
-      toast.error("Insufficient MON balance");
+    const userBalance = parseFloat(balance || "0");
+    if (userBalance < priceInSol) {
+      toast.error(`Insufficient balance. You need ${priceInSol.toFixed(4)} SOL`);
       return;
     }
 
@@ -159,343 +146,226 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
     setPurchaseStep("confirming");
 
     try {
-      // Send on-chain transaction to transfer MON to platform treasury
-      const txHashResult = await sendTransaction(
-        PLATFORM_TREASURY_ADDRESS,
-        bundle.bundle_price.toString()
-      );
-
-      if (!txHashResult) {
-        throw new Error("Transaction failed - no transaction hash returned");
+      const provider = getSolanaProvider();
+      if (!provider || !provider.publicKey) {
+        throw new Error("Solana wallet not connected");
       }
 
-      setTxHash(txHashResult);
       setPurchaseStep("processing");
 
-      // Record the bundle purchase in database
-      const { error: bundlePurchaseError } = await supabase
+      // Create Solana transaction
+      const connection = new Connection(getSolanaRpcUrl(network), 'confirmed');
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: provider.publicKey,
+          toPubkey: new PublicKey(PLATFORM_TREASURY_ADDRESS),
+          lamports: Math.floor(priceInSol * LAMPORTS_PER_SOL),
+        })
+      );
+
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = provider.publicKey;
+
+      const signed = await provider.signTransaction(transaction);
+      const signature = await connection.sendRawTransaction(signed.serialize());
+      await connection.confirmTransaction(signature, 'confirmed');
+
+      setTxHash(signature);
+
+      // Record purchase in database
+      const { error: purchaseError } = await supabase
         .from("shop_bundle_purchases")
         .insert({
           bundle_id: bundle.id,
           user_id: userId,
-          price_paid: bundle.bundle_price,
-          tx_hash: txHashResult,
+          price_paid: priceInSol,
+          tx_hash: signature,
+          currency: "SOL",
         });
 
-      if (bundlePurchaseError) {
-        if (bundlePurchaseError.code === "23505") {
-          toast.error("You already own this bundle!");
-          setHasPurchased(true);
-          return;
-        }
-        throw bundlePurchaseError;
-      }
+      if (purchaseError) throw purchaseError;
 
-      // Grant access to all items in the bundle that user doesn't already own
-      const newPurchases = newItems.map(bi => ({
+      // Add individual items to user's purchases
+      const itemPurchases = bundleItems.map(bi => ({
         item_id: bi.item_id,
         user_id: userId,
-        price_paid: 0, // Purchased as part of bundle
-        tx_hash: txHashResult,
+        price_paid: 0, // Part of bundle
+        tx_hash: signature,
+        currency: "SOL",
       }));
 
-      if (newPurchases.length > 0) {
-        const { error: itemsPurchaseError } = await supabase
-          .from("shop_purchases")
-          .insert(newPurchases);
-
-        if (itemsPurchaseError) {
-          console.error("Error granting item access:", itemsPurchaseError);
-          // Don't throw - bundle purchase was successful
-        }
-      }
+      await supabase.from("shop_purchases").insert(itemPurchases);
 
       setPurchaseStep("complete");
       setHasPurchased(true);
-      toast.success("Bundle purchased successfully! You now have access to all included packs.");
-      onPurchaseComplete?.();
-    } catch (error: unknown) {
-      console.error("Purchase error:", error);
-      setPurchaseStep("idle");
       
-      // Handle user rejection
-      if (isUserRejection(error) || errorContains(error, "rejected")) {
-        toast.error("Transaction was cancelled");
+      toast.success("Bundle purchased successfully!");
+      onPurchaseComplete?.();
+
+    } catch (error: any) {
+      console.error("Purchase failed:", error);
+      
+      if (isUserRejection(error)) {
+        toast.error("Transaction cancelled");
       } else {
-        toast.error(getErrorMessage(error) || "Failed to complete purchase. Please try again.");
+        toast.error(getErrorMessage(error) || "Failed to complete purchase");
       }
+      
+      setPurchaseStep("idle");
     } finally {
       setIsPurchasing(false);
     }
   };
 
-  const handleConnectWallet = async () => {
-    try {
-      await connect();
-    } catch (error) {
-      console.error("Failed to connect wallet:", error);
-    }
-  };
-
-  const handleSwitchNetwork = async () => {
-    try {
-      await switchToMonad();
-    } catch (error) {
-      console.error("Failed to switch network:", error);
-    }
-  };
+  const explorerUrl = network === 'mainnet' 
+    ? `https://explorer.solana.com/tx/${txHash}`
+    : `https://explorer.solana.com/tx/${txHash}?cluster=devnet`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="w-5 h-5 text-primary" />
             {bundle.name}
           </DialogTitle>
           <DialogDescription>
-            {bundle.description || "Get this amazing bundle deal!"}
+            {bundle.description || "Get this exclusive bundle at a discounted price"}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
-          {/* Discount Banner */}
-          <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-lg p-4 mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Percent className="w-5 h-5 text-green-500" />
-              <span className="font-semibold text-green-600">{bundle.discount_percent}% OFF</span>
+        <div className="space-y-4">
+          {/* Bundle Image */}
+          {bundle.image_url && (
+            <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted">
+              <img 
+                src={bundle.image_url} 
+                alt={bundle.name} 
+                className="w-full h-full object-cover"
+              />
             </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground line-through">{bundle.original_price} MON</p>
-              <p className="text-lg font-bold text-green-600">Save {savings.toFixed(2)} MON</p>
+          )}
+
+          {/* Price Info */}
+          <div className="p-4 bg-muted/50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-muted-foreground line-through">
+                  ${bundle.original_price.toFixed(2)}
+                </div>
+                <div className="text-2xl font-bold text-primary">
+                  {priceInSol.toFixed(4)} SOL
+                </div>
+              </div>
+              <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
+                <Percent className="w-3 h-3 mr-1" />
+                {bundle.discount_percent}% OFF
+              </Badge>
             </div>
           </div>
 
-          {/* Transaction Status */}
-          {purchaseStep !== "idle" && purchaseStep !== "complete" && (
-            <div className="bg-primary/10 rounded-lg p-4 mb-4">
-              <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                <div>
-                  <p className="font-medium">
-                    {purchaseStep === "confirming" && "Confirm transaction in your wallet..."}
-                    {purchaseStep === "processing" && "Processing purchase..."}
-                  </p>
-                  {txHash && (
-                    <a 
-                      href={`${currentChain.blockExplorers?.default?.url}/tx/${txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline flex items-center gap-1"
-                    >
-                      View transaction <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {purchaseStep === "complete" && txHash && (
-            <div className="bg-green-500/20 rounded-lg p-4 mb-4">
-              <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-600" />
-                <div>
-                  <p className="font-medium text-green-600">Purchase Complete!</p>
-                  <a 
-                    href={`${currentChain.blockExplorers?.default?.url}/tx/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-green-600 hover:underline flex items-center gap-1"
-                  >
-                    View transaction <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Included Items */}
-          <div className="mb-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Gift className="w-4 h-4 text-primary" />
-              <span className="font-medium">Included Packs ({bundleItems.length})</span>
-            </div>
-            <ScrollArea className="h-48">
-              <div className="space-y-2 pr-4">
-                {bundleItems.map((item) => {
-                  const isOwned = ownedItems.includes(item.item_id);
-                  return (
-                    <div 
-                      key={item.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg border ${
-                        isOwned ? "bg-muted/50 border-muted" : "border-border"
-                      }`}
-                    >
-                      {item.shop_items.image_url ? (
+          {/* Items in Bundle */}
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Includes:</div>
+            <ScrollArea className="h-[150px]">
+              <div className="space-y-2">
+                {bundleItems.map(item => (
+                  <div key={item.id} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
+                    <div className="w-10 h-10 rounded bg-muted overflow-hidden">
+                      {item.shop_items.image_url && (
                         <img 
-                          src={item.shop_items.image_url}
+                          src={item.shop_items.image_url} 
                           alt={item.shop_items.name}
-                          className="w-12 h-12 rounded-lg object-cover"
+                          className="w-full h-full object-cover"
                         />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-                          <Sparkles className="w-5 h-5 text-muted-foreground" />
-                        </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{item.shop_items.name}</p>
-                        <p className="text-sm text-muted-foreground capitalize">
-                          {item.shop_items.category.replace("_", " ")}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        {isOwned ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <Check className="w-3 h-3" />
-                            Owned
-                          </Badge>
-                        ) : (
-                          <span className="text-sm font-medium">{item.shop_items.price_mon} MON</span>
-                        )}
-                      </div>
                     </div>
-                  );
-                })}
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{item.shop_items.name}</div>
+                      <div className="text-xs text-muted-foreground">{item.shop_items.category}</div>
+                    </div>
+                    {ownedItems.includes(item.item_id) && (
+                      <Badge variant="secondary" className="text-xs">
+                        <Check className="w-3 h-3 mr-1" />
+                        Owned
+                      </Badge>
+                    )}
+                  </div>
+                ))}
               </div>
             </ScrollArea>
           </div>
 
-          {/* Owned Items Notice */}
-          {ownedItems.length > 0 && !hasPurchased && (
-            <div className="bg-muted/50 rounded-lg p-3 mb-4 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-muted-foreground">
-                You already own {ownedItems.length} of {bundleItems.length} packs. 
-                The bundle still offers great value for the remaining items!
-              </p>
-            </div>
-          )}
+          <Separator />
 
-          <Separator className="my-4" />
-
-          {/* Pricing Summary */}
-          <div className="space-y-2 mb-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Items Value:</span>
-              <span className="line-through text-muted-foreground">{bundle.original_price} MON</span>
-            </div>
-            <div className="flex justify-between text-sm text-green-600">
-              <span>Bundle Discount:</span>
-              <span>-{savings.toFixed(2)} MON</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between font-bold text-lg">
-              <span>Total:</span>
-              <span className="text-primary">{bundle.bundle_price} MON</span>
-            </div>
-          </div>
-
-          {/* Wallet Status */}
-          {!hasPurchased && (
-            <div className="bg-muted/30 rounded-lg p-3 mb-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">Wallet</span>
-                </div>
-                {isConnected ? (
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="gap-1">
-                      <Check className="w-3 h-3" />
-                      {address?.slice(0, 6)}...{address?.slice(-4)}
-                    </Badge>
-                  </div>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={handleConnectWallet}>
-                    Connect
-                  </Button>
-                )}
+          {/* Purchase Status */}
+          {purchaseStep === "complete" && txHash && (
+            <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <div className="flex items-center gap-2 text-green-500 mb-2">
+                <Sparkles className="w-5 h-5" />
+                <span className="font-medium">Purchase Complete!</span>
               </div>
-              {isConnected && (
-                <>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Balance:</span>
-                    <span className={hasInsufficientBalance ? "text-destructive font-medium" : ""}>
-                      {balance ? `${parseFloat(balance).toFixed(4)} MON` : "Loading..."}
-                    </span>
-                  </div>
-                  {hasInsufficientBalance && (
-                    <p className="text-xs text-destructive">
-                      Insufficient balance. You need at least {bundle.bundle_price} MON.
-                    </p>
-                  )}
-                  {isWrongNetwork && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-destructive">Wrong network</span>
-                      <Button variant="outline" size="sm" onClick={handleSwitchNetwork}>
-                        Switch Network
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
+              <a
+                href={explorerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline flex items-center gap-1"
+              >
+                View transaction <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
           )}
-        </div>
 
-        {/* Purchase Button */}
-        <div className="pt-4 border-t">
-          {hasPurchased ? (
-            <Button disabled className="w-full gap-2" variant="secondary">
-              <Check className="w-4 h-4" />
-              Bundle Owned
+          {/* Action Button */}
+          {!isConnected ? (
+            <Button className="w-full" onClick={() => connect()}>
+              <Wallet className="w-4 h-4 mr-2" />
+              Connect Wallet
             </Button>
-          ) : !userId ? (
-            <Button 
-              onClick={() => navigate("/auth")}
-              className="w-full gap-2"
-            >
-              Sign In to Purchase
-            </Button>
-          ) : !isConnected ? (
-            <Button 
-              onClick={handleConnectWallet}
-              className="w-full gap-2"
-            >
-              <Wallet className="w-4 h-4" />
-              Connect Wallet to Purchase
-            </Button>
-          ) : isWrongNetwork ? (
-            <Button 
-              onClick={handleSwitchNetwork}
-              className="w-full gap-2"
-              variant="secondary"
-            >
-              Switch to {currentChain.name}
+          ) : hasPurchased ? (
+            <Button className="w-full" variant="secondary" onClick={() => navigate("/my-purchases")}>
+              <Gift className="w-4 h-4 mr-2" />
+              View My Purchases
             </Button>
           ) : (
             <Button 
+              className="w-full" 
               onClick={handlePurchase}
-              disabled={isPurchasing || hasInsufficientBalance}
-              className="w-full gap-2 h-12 text-lg"
+              disabled={isPurchasing}
             >
-              {isPurchasing ? (
+              {purchaseStep === "confirming" && (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  {purchaseStep === "confirming" ? "Confirm in Wallet..." : "Processing..."}
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Confirm in wallet...
                 </>
-              ) : (
+              )}
+              {purchaseStep === "processing" && (
                 <>
-                  <ShoppingCart className="w-5 h-5" />
-                  Buy Bundle for {bundle.bundle_price} MON
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              )}
+              {purchaseStep === "idle" && (
+                <>
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Purchase for {priceInSol.toFixed(4)} SOL
                 </>
               )}
             </Button>
+          )}
+
+          {/* Balance Info */}
+          {isConnected && !hasPurchased && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Your balance:</span>
+              <span>{parseFloat(balance || "0").toFixed(4)} SOL</span>
+            </div>
           )}
         </div>
       </DialogContent>
     </Dialog>
   );
 };
+
+export default BundlePurchaseModal;
