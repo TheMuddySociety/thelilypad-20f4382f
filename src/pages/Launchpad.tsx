@@ -93,7 +93,7 @@ const statusIcons = {
 
 export default function Launchpad() {
   const navigate = useNavigate();
-  const { network, currentChain, chainType } = useWallet();
+  const { network, chainType } = useWallet();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [collections, setCollections] = useState<Collection[]>([]);

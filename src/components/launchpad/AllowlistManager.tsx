@@ -195,7 +195,7 @@ export function AllowlistManager({
         : generateLeaf(entry.walletAddress)
     );
 
-    const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+    const tree = new MerkleTree(leaves, (data: Buffer) => Buffer.from(keccak_256(data), 'hex'), { sortPairs: true });
     const root = tree.getHexRoot();
 
     return {

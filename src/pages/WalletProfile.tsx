@@ -54,7 +54,7 @@ interface Transaction {
 }
 
 export default function WalletProfile() {
-  const { address, isConnected, balance, chainId, disconnect } = useWallet();
+  const { address, isConnected, balance, disconnect, network } = useWallet();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -314,8 +314,8 @@ export default function WalletProfile() {
 
           <Card className="glass-card border-border/50">
             <CardContent className="p-3 sm:p-4 md:p-6">
-              <div className="text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground mb-1">Chain</div>
-              <div className="text-lg sm:text-xl md:text-2xl font-bold">{chainId}</div>
+              <div className="text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground mb-1">Network</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold">{network === 'mainnet' ? 'Mainnet' : 'Devnet'}</div>
             </CardContent>
           </Card>
         </div>
@@ -669,7 +669,7 @@ export default function WalletProfile() {
                   <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg bg-muted flex-wrap">
                     <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-primary animate-pulse shrink-0" />
                     <span className="text-sm sm:text-base">{solanaMainnet.name}</span>
-                    <Badge variant="secondary" className="text-[10px] sm:text-xs">Chain: {chainId}</Badge>
+                    <Badge variant="secondary" className="text-[10px] sm:text-xs">{network === 'mainnet' ? 'Mainnet' : 'Devnet'}</Badge>
                   </div>
                 </div>
 

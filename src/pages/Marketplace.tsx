@@ -28,17 +28,10 @@ import {
   StickerPacksGrid,
   HomepageFeaturedCollections,
 } from "@/components/marketplace";
-import {
-  MarketplaceFilters,
-  CollectionsGrid,
-  ListingsGrid,
-  StickerPacksGrid,
-  HomepageFeaturedCollections,
-} from "@/components/marketplace";
 import frognadBanner from "@/assets/frognad-banner.png";
 
 export default function Marketplace() {
-  const { currentChain, chainType } = useWallet();
+  const { chainType } = useWallet();
   const [activeFilter, setActiveFilter] = useState("all");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [showHotOnly, setShowHotOnly] = useState(false);

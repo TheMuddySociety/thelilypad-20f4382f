@@ -330,7 +330,10 @@ export default function MyNFTs() {
     return `https://explorer.solana.com/tx/${hash}?cluster=devnet`;
   };
 
-  return `https://explorer.solana.com/address/${contractAddress}?cluster=devnet`;
+  const tokenExplorerUrl = (contractAddress: string | null, tokenId: number) => {
+    if (!contractAddress) return null;
+    return `https://explorer.solana.com/address/${contractAddress}?cluster=devnet`;
+  };
 
   // Calculate rarity scores and trait data for NFTs based on trait occurrence
   const { rarityScores, traitRarityData } = useMemo(() => {

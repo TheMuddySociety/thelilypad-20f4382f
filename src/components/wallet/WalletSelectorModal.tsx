@@ -60,8 +60,13 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
         // Get Phantom SDK
         const sdk = getPhantomSDK();
         if (sdk) {
-          const wallets = await sdk.wallets.getInjectedWallets();
-          setDiscoveredWallets(wallets);
+          try {
+            const wallets = await (sdk as any).getInjectedWallets?.() || [];
+            setDiscoveredWallets(wallets);
+          } catch (e) {
+            // SDK method may not exist in all versions
+            console.log("Could not get injected wallets:", e);
+          }
         }
         
         // Check Phantom availability

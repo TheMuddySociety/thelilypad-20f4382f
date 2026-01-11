@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-// Removed EVM imports
 
 import { RpcHealthIndicator } from "@/components/RpcHealthIndicator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +16,9 @@ import { LaunchChecklist } from "@/components/launchpad/LaunchChecklist";
 import { RevealManager } from "@/components/launchpad/RevealManager";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTGallery } from "@/components/NFTGallery";
+import { PhaseConfigManager } from "@/components/launchpad/PhaseConfigManager";
+import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
+import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
 import { RevealHistory } from "@/components/RevealHistory";
 import { RarityLeaderboard } from "@/components/RarityLeaderboard";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
@@ -116,12 +118,24 @@ interface Phase {
   startTime: string | null;
   endTime: string | null;
   requiresAllowlist: boolean;
+  candyMachineAddress?: string;
 }
+
+// Solana chain info object for display
+const solanaChainInfo = {
+  name: "Solana",
+  blockExplorers: { default: { url: "https://explorer.solana.com" } }
+};
+
+// Verify if address is in allowlist
+const verifyAllowlist = (address: string, allowlistAddresses: string[]): boolean => {
+  return allowlistAddresses.some(a => a.toLowerCase() === address.toLowerCase());
+};
 
 export default function CollectionDetail() {
   const { collectionId } = useParams();
   const navigate = useNavigate();
-  const { network, currentChain, isConnected, chainId, connect, balance, address } = useWallet();
+  const { network, isConnected, connect, balance, address } = useWallet();
   const [collection, setCollection] = useState<Collection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mintAmount, setMintAmount] = useState(1);
@@ -143,8 +157,32 @@ export default function CollectionDetail() {
   }>>([]);
   const [revealTxHash, setRevealTxHash] = useState<string>("");
 
-  // Advanced gas override settings
-  // EVM Hooks removed
+  // Deploy modal state
+  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
+
+  // Minting state (for Solana)
+  const [isMinting, setIsMinting] = useState(false);
+  const [mintStep, setMintStep] = useState<'idle' | 'waiting_wallet' | 'submitting' | 'processing' | 'syncing' | 'success' | 'error'>('idle');
+  const [mintTxHash, setMintTxHash] = useState<string | null>(null);
+  const [mintError, setMintError] = useState<string | null>(null);
+
+  const resetMintState = () => {
+    setIsMinting(false);
+    setMintStep('idle');
+    setMintTxHash(null);
+    setMintError(null);
+  };
+
+  // Use Solana chain info
+  const currentChain = solanaChainInfo;
+
+  // Stub functions for EVM features (not used on Solana)
+  const syncPhases = async () => {
+    toast.info("Solana phases are managed via Candy Machine guards");
+    return null;
+  };
+  const isSyncing = false;
+  const isContractLoading = false;
 
 
 
@@ -1371,173 +1409,17 @@ export default function CollectionDetail() {
 
                 <Separator />
 
-                {/* Gas Estimation */}
+                {/* Network Status (Solana) */}
                 {isConnected && !isWrongNetwork && (
                   <div className="p-3 bg-muted/50 rounded-lg space-y-2">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-muted-foreground">RPC Status</span>
+                      <span className="text-xs text-muted-foreground">Network Status</span>
                       <RpcHealthIndicator />
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Fuel className="w-4 h-4" />
-                        <span>Estimated Gas</span>
-                        {gasEstimate && !isEstimatingGas && !gasEstimateError && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-green-500 border-green-500/30 bg-green-500/10">
-                            Live
-                          </Badge>
-                        )}
-                        {gasEstimateError && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-500 border-amber-500/30 bg-amber-500/10">
-                            Est.
-                          </Badge>
-                        )}
-                      </div>
-                      {isEstimatingGas ? (
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          <span className="text-xs">Fetching from network...</span>
-                        </div>
-                      ) : gasEstimate ? (
-                        <span className="font-medium text-muted-foreground">
-                          ~{gasEstimate.totalGas.toFixed(6)} {currency}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">--</span>
-                      )}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <span>Connected to Solana {network === 'mainnet' ? 'Mainnet' : 'Devnet'}</span>
                     </div>
-                    {gasEstimateError && !isEstimatingGas && (
-                      <div className="flex items-center gap-1 text-xs text-amber-500">
-                        <AlertTriangle className="w-3 h-3" />
-                        <span>{gasEstimateError}</span>
-                      </div>
-                    )}
-                    {gasEstimate && !isEstimatingGas && (
-                      <>
-                        <div className="text-xs text-muted-foreground">
-                          Gas Limit: {customGasLimit ? parseInt(customGasLimit).toLocaleString() : gasEstimate.gasLimit.toLocaleString()} • Gas Price: {(gasEstimate.gasPrice * 1e9).toFixed(2)} Gwei
-                        </div>
-
-                        {/* Network Congestion Indicator */}
-                        {(() => {
-                          const MONAD_MIN_GWEI = 100; // Monad minimum base_price_per_gas
-                          const currentGwei = gasEstimate.gasPrice * 1e9;
-                          const congestionRatio = currentGwei / MONAD_MIN_GWEI;
-
-                          let congestionLevel: 'low' | 'moderate' | 'high' | 'very-high';
-                          let congestionLabel: string;
-                          let congestionColor: string;
-                          let barWidth: number;
-
-                          if (congestionRatio <= 1.2) {
-                            congestionLevel = 'low';
-                            congestionLabel = 'Low';
-                            congestionColor = 'bg-green-500';
-                            barWidth = 25;
-                          } else if (congestionRatio <= 2) {
-                            congestionLevel = 'moderate';
-                            congestionLabel = 'Moderate';
-                            congestionColor = 'bg-yellow-500';
-                            barWidth = 50;
-                          } else if (congestionRatio <= 5) {
-                            congestionLevel = 'high';
-                            congestionLabel = 'High';
-                            congestionColor = 'bg-orange-500';
-                            barWidth = 75;
-                          } else {
-                            congestionLevel = 'very-high';
-                            congestionLabel = 'Very High';
-                            congestionColor = 'bg-red-500';
-                            barWidth = 100;
-                          }
-
-                          return (
-                            <div className="mt-2 space-y-1.5">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground flex items-center gap-1.5">
-                                  <span className="relative flex h-2 w-2">
-                                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${congestionColor} opacity-75`}></span>
-                                    <span className={`relative inline-flex rounded-full h-2 w-2 ${congestionColor}`}></span>
-                                  </span>
-                                  Network Congestion
-                                </span>
-                                <span className={`font-medium ${congestionLevel === 'low' ? 'text-green-500' :
-                                  congestionLevel === 'moderate' ? 'text-yellow-500' :
-                                    congestionLevel === 'high' ? 'text-orange-500' :
-                                      'text-red-500'
-                                  }`}>
-                                  {congestionLabel} ({congestionRatio.toFixed(1)}x min)
-                                </span>
-                              </div>
-                              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full ${congestionColor} transition-all duration-500`}
-                                  style={{ width: `${barWidth}%` }}
-                                />
-                              </div>
-                              <p className="text-[10px] text-muted-foreground">
-                                {congestionLevel === 'low' && 'Network is running smoothly. Optimal time to mint.'}
-                                {congestionLevel === 'moderate' && 'Slightly elevated gas prices. Transactions should confirm normally.'}
-                                {congestionLevel === 'high' && 'Network is busy. Consider waiting for lower gas prices.'}
-                                {congestionLevel === 'very-high' && 'Network is congested. Expect higher fees and slower confirmations.'}
-                              </p>
-                            </div>
-                          );
-                        })()}
-                      </>
-                    )}
-
-                    {/* Advanced Gas Override Toggle */}
-                    <button
-                      type="button"
-                      onClick={() => setShowAdvancedGas(!showAdvancedGas)}
-                      className="flex items-center gap-1 text-xs text-primary hover:underline mt-2"
-                    >
-                      <Fuel className="w-3 h-3" />
-                      {showAdvancedGas ? "Hide advanced" : "Advanced gas settings"}
-                    </button>
-
-                    {/* Advanced Gas Override Input */}
-                    {showAdvancedGas && (
-                      <div className="mt-3 p-3 bg-background/50 rounded-lg border border-border space-y-2">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-medium">Custom Gas Limit</label>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 text-xs px-2"
-                            onClick={() => setCustomGasLimit("")}
-                            disabled={!customGasLimit}
-                          >
-                            Reset
-                          </Button>
-                        </div>
-                        <Input
-                          type="number"
-                          placeholder={gasEstimate ? gasEstimate.gasLimit.toString() : "e.g. 300000"}
-                          value={customGasLimit}
-                          onChange={(e) => setCustomGasLimit(e.target.value)}
-                          className="h-8 text-sm"
-                          min={100000}
-                          max={10000000}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Override the automatic gas limit. Leave empty to use auto-retry logic with increasing limits.
-                        </p>
-                        {customGasLimit && parseInt(customGasLimit) < 200000 && (
-                          <p className="text-xs text-amber-500 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            Low gas limit may cause transaction to fail
-                          </p>
-                        )}
-                        {customGasLimit && parseInt(customGasLimit) > 1000000 && (
-                          <p className="text-xs text-amber-500 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            High gas limit - you may pay more than needed
-                          </p>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -1549,28 +1431,11 @@ export default function CollectionDetail() {
                       {totalCostDisplay === "0.00" ? "Free" : `${totalCostDisplay} ${currency}`}
                     </span>
                   </div>
-                  {gasEstimate && !isEstimatingGas && (
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm text-muted-foreground">+ Gas Fee</span>
-                      <span className="font-medium text-muted-foreground">
-                        ~{gasEstimate.totalGas.toFixed(6)} {currency}
-                      </span>
-                    </div>
-                  )}
                   <Separator className="my-2" />
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-medium">Total</span>
                     <span className="text-2xl font-bold text-primary">
-                      {isEstimatingGas ? (
-                        <span className="flex items-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span className="text-lg">Calculating...</span>
-                        </span>
-                      ) : totalWithGas === 0 ? (
-                        "Free"
-                      ) : (
-                        `~${totalWithGas.toFixed(4)} ${currency}`
-                      )}
+                      {totalWithGas === 0 ? "Free" : `~${totalWithGas.toFixed(4)} ${currency}`}
                     </span>
                   </div>
 
