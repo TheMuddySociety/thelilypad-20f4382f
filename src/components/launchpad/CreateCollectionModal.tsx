@@ -1221,7 +1221,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                 <div>
                   <DialogTitle>Create NFT Collection</DialogTitle>
                   <DialogDescription>
-                    Launch your NFT collection on Monad Mainnet
+                    Launch your NFT collection on Solana Devnet
                   </DialogDescription>
                 </div>
                 {/* Help button to restart modal walkthrough */}
