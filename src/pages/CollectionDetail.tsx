@@ -178,7 +178,11 @@ export default function CollectionDetail() {
 
   // Stub functions for EVM features (not used on Solana)
   const syncPhases = async () => {
-    toast.info("Solana phases are managed via Candy Machine guards");
+    if (isSolana) {
+      toast.info("Solana phases are managed via Candy Machine guards");
+      return null;
+    }
+    // EVM logic would go here
     return null;
   };
   const isSyncing = false;
@@ -493,29 +497,54 @@ export default function CollectionDetail() {
       return;
     }
 
+    setIsMinting(true);
+    setMintStep('waiting_wallet');
+
     let txHash: string | null = null;
 
     // Use appropriate mint function based on on-chain standard
     // Use appropriate mint function based on on-chain standard
     try {
-      const cmAddress = activePhase.candyMachineAddress;
-      const solResult = cmAddress
-        ? await solanaMint.mintFromCandyMachine(
-          cmAddress,
-          collection.contract_address!,
-          activePhase.id
-        )
-        : await solanaMint.mintNFT(
-          (collection.solana_standard as any) || 'core',
-          collection.contract_address!,
-          {
-            name: `${collection.name} #${collection.minted + 1}`,
-            uri: collection.image_url || '',
-          }
-        );
-      txHash = solResult.signature;
+      if (isSolana) {
+        const cmAddress = activePhase.candyMachineAddress;
+        let lastTxHash = null;
+
+        // Loop for multiple mints on Solana
+        for (let i = 0; i < mintAmount; i++) {
+          toast.loading(`Minting NFT ${i + 1} of ${mintAmount}...`, { id: 'sol-mint-progress' });
+
+          const solResult = cmAddress
+            ? await solanaMint.mintFromCandyMachine(
+              cmAddress,
+              collection.contract_address!,
+              activePhase.id
+            )
+            : await solanaMint.mintNFT(
+              (collection.solana_standard as any) || 'core',
+              collection.contract_address!,
+              {
+                name: `${collection.name} #${collection.minted + i + 1}`,
+                uri: collection.image_url || '',
+              }
+            );
+
+          lastTxHash = solResult.signature;
+          setMintTxHash(lastTxHash);
+        }
+
+        txHash = lastTxHash;
+        toast.success(`Successfully minted ${mintAmount} NFT${mintAmount > 1 ? 's' : ''}!`, { id: 'sol-mint-progress' });
+      } else {
+        // EVM Minting logic (placeholder)
+        toast.error("EVM minting not implemented in this view");
+        setIsMinting(false);
+        return;
+      }
     } catch (err) {
-      // Error already handled by hook (toast)
+      console.error("Mint error:", err);
+      setIsMinting(false);
+      setMintStep('error');
+      // Error toast is usually handled by the hooks
       return;
     }
 
@@ -1596,7 +1625,7 @@ export default function CollectionDetail() {
 
 
                 {/* INITIALIZE CONTRACT - Owner only: Configure and activate phase 0 on-chain */}
-                {isConnected && collection?.contract_address && isCreator && (
+                {isConnected && collection?.contract_address && isCreator && !isSolana && (
                   <Button
                     variant="default"
                     size="sm"
@@ -1610,7 +1639,7 @@ export default function CollectionDetail() {
                 )}
 
                 {/* SYNC PHASES - Read on-chain phase status and update DB */}
-                {isConnected && collection?.contract_address && (
+                {isConnected && collection?.contract_address && !isSolana && (
                   <Button
                     variant="outline"
                     size="sm"
