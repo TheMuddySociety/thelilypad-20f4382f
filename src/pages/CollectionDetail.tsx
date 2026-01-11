@@ -173,25 +173,46 @@ export default function CollectionDetail() {
     setMintError(null);
   };
 
-  // Use Solana chain info
-  const currentChain = solanaChainInfo;
-
-  // Stub functions for EVM features (not used on Solana)
-  const syncPhases = async () => {
-    if (isSolana) {
-      toast.info("Solana phases are managed via Candy Machine guards");
-      return null;
-    }
-    // EVM logic would go here
-    return null;
-  };
-  const isSyncing = false;
-  const isContractLoading = false;
-
-
-
-
   const solanaMint = useSolanaMint();
+
+  // Helper for actual Solana minting transaction logic
+  const performSolanaMint = async (
+    cmAddress: string | undefined,
+    standard: string,
+    amount: number,
+    phaseId: string,
+    isForce: boolean = false
+  ) => {
+    let lastHash = null;
+
+    for (let i = 0; i < amount; i++) {
+      if (amount > 1) {
+        toast.loading(`Minting NFT ${i + 1} of ${amount}...`, { id: 'sol-mint-progress' });
+      } else {
+        toast.loading(isForce ? "🚀 Force Minting..." : "Minting NFT...", { id: 'sol-mint-progress' });
+      }
+
+      const result = cmAddress
+        ? await solanaMint.mintFromCandyMachine(
+          cmAddress,
+          collection!.contract_address!,
+          phaseId
+        )
+        : await solanaMint.mintNFT(
+          (standard as any) || 'core',
+          collection!.contract_address!,
+          {
+            name: `${collection!.name} #${collection!.minted + i + 1}${isForce ? ' (FORCE)' : ''}`,
+            uri: collection!.image_url || '',
+          }
+        );
+
+      lastHash = result.signature;
+      setMintTxHash(lastHash);
+    }
+
+    return lastHash;
+  };
 
   const [isInitializing, setIsInitializing] = useState(false);
 
@@ -443,7 +464,7 @@ export default function CollectionDetail() {
     // Check if on wrong network and prompt to switch
     if (isWrongNetwork) {
       toast.error(`Wrong network detected`, {
-        description: `Please switch to ${currentChain.name} to mint`,
+        description: `Please switch to ${collectionNetwork} to mint`,
         action: {
           label: "Switch Network",
           onClick: handleSwitchNetwork,
@@ -471,7 +492,7 @@ export default function CollectionDetail() {
     // Check if user has sufficient balance (including gas)
     if (hasInsufficientBalance) {
       toast.error("Insufficient balance", {
-        description: `You need ${(totalWithGas - userBalance).toFixed(4)} more MON (including gas) to mint`,
+        description: `You need ${(totalWithGas - userBalance).toFixed(4)} more ${currency} (including gas) to mint`,
       });
       return;
     }
@@ -502,41 +523,17 @@ export default function CollectionDetail() {
 
     let txHash: string | null = null;
 
-    // Use appropriate mint function based on on-chain standard
-    // Use appropriate mint function based on on-chain standard
     try {
       if (isSolana) {
-        const cmAddress = activePhase.candyMachineAddress;
-        let lastTxHash = null;
-
-        // Loop for multiple mints on Solana
-        for (let i = 0; i < mintAmount; i++) {
-          toast.loading(`Minting NFT ${i + 1} of ${mintAmount}...`, { id: 'sol-mint-progress' });
-
-          const solResult = cmAddress
-            ? await solanaMint.mintFromCandyMachine(
-              cmAddress,
-              collection.contract_address!,
-              activePhase.id
-            )
-            : await solanaMint.mintNFT(
-              (collection.solana_standard as any) || 'core',
-              collection.contract_address!,
-              {
-                name: `${collection.name} #${collection.minted + i + 1}`,
-                uri: collection.image_url || '',
-              }
-            );
-
-          lastTxHash = solResult.signature;
-          setMintTxHash(lastTxHash);
-        }
-
-        txHash = lastTxHash;
+        txHash = await performSolanaMint(
+          activePhase.candyMachineAddress,
+          collection.solana_standard || 'core',
+          mintAmount,
+          activePhase.id
+        );
         toast.success(`Successfully minted ${mintAmount} NFT${mintAmount > 1 ? 's' : ''}!`, { id: 'sol-mint-progress' });
       } else {
-        // EVM Minting logic (placeholder)
-        toast.error("EVM minting not implemented in this view");
+        toast.error("EVM minting not supported in this view");
         setIsMinting(false);
         return;
       }
@@ -544,7 +541,6 @@ export default function CollectionDetail() {
       console.error("Mint error:", err);
       setIsMinting(false);
       setMintStep('error');
-      // Error toast is usually handled by the hooks
       return;
     }
 
@@ -589,22 +585,12 @@ export default function CollectionDetail() {
     let txHash: string | null = null;
 
     try {
-      const cmAddress = activePhase.candyMachineAddress;
-      const solResult = cmAddress
-        ? await solanaMint.mintFromCandyMachine(
-          cmAddress,
-          collection.contract_address!,
-          activePhase.id
-        )
-        : await solanaMint.mintNFT(
-          (collection.solana_standard as any) || 'core',
-          collection.contract_address!,
-          {
-            name: `${collection.name} #${collection.minted + 1}`,
-            uri: collection.image_url || '',
-          }
-        );
-      txHash = solResult.signature;
+      txHash = await performSolanaMint(
+        activePhase.candyMachineAddress,
+        collection.solana_standard || 'core',
+        1,
+        activePhase.id
+      );
 
       if (txHash) {
         const mockAttributes = generateRandomAttributes(1, collection.minted);
@@ -615,6 +601,7 @@ export default function CollectionDetail() {
       }
     } catch (err) {
       console.error("Test mint failed:", err);
+      toast.error("Test mint failed");
     }
   };
 
@@ -635,29 +622,22 @@ export default function CollectionDetail() {
     const price = phases[0]?.price || "0";
 
     toast.info("🚀 Force Mint Started", {
-      description: `Minting 1 NFT at ${price} SOL - bypassing phase checks...`,
+      description: `Minting 1 NFT at ${price} ${currency} - bypassing phase checks...`,
     });
 
     try {
-      const cmAddress = phases[0]?.candyMachineAddress;
-      // Always use public mint for force mint - simplest path
-      const solResult = cmAddress
-        ? await solanaMint.mintFromCandyMachine(
-          cmAddress,
-          collection.contract_address!,
-          phases[0]?.id
-        )
-        : await solanaMint.mintNFT(
-          (collection.solana_standard as any) || 'core',
-          collection.contract_address!,
-          { name: `${collection.name} #FORCE`, uri: collection.image_url || '' }
-        );
-
-      const txHash = solResult.signature;
+      const txHash = await performSolanaMint(
+        phases[0]?.candyMachineAddress,
+        collection.solana_standard || 'core',
+        1,
+        phases[0]?.id || 'public',
+        true
+      );
 
       if (txHash) {
         toast.success("Force Mint Submitted!", {
           description: `TX: ${txHash.slice(0, 10)}...`,
+          id: 'sol-mint-progress'
         });
         const mockAttributes = generateRandomAttributes(1, collection.minted);
         setRevealedNfts(mockAttributes);
@@ -669,6 +649,7 @@ export default function CollectionDetail() {
       console.error("Force mint failed:", err);
       toast.error("Force Mint Failed", {
         description: err?.message || "Check console for details",
+        id: 'sol-mint-progress'
       });
     }
   };
@@ -1162,10 +1143,9 @@ export default function CollectionDetail() {
               <PhaseConfigManager
                 contractAddress={collection.contract_address}
                 phases={phases}
-                chain={collection.chain || collection.blockchain || 'monad'}
+                chain={collectionChain}
                 onConfigured={() => {
                   fetchCollection();
-                  syncPhases();
                 }}
               />
             )}
@@ -1488,7 +1468,7 @@ export default function CollectionDetail() {
                       <span className="text-sm font-medium">Wrong Network</span>
                     </div>
                     <p className="text-xs text-destructive/80 mb-3">
-                      You're connected to a different network. Switch to {currentChain.name} to mint.
+                      You're connected to a different network. Switch to {getNetworkDisplayName(collectionChain)} to mint.
                     </p>
                     <Button
                       variant="outline"
@@ -1504,7 +1484,7 @@ export default function CollectionDetail() {
                         </>
                       ) : (
                         <>
-                          Switch to {currentChain.name}
+                          Switch to {getNetworkDisplayName(collectionChain)}
                         </>
                       )}
                     </Button>
@@ -1624,39 +1604,7 @@ export default function CollectionDetail() {
                 )}
 
 
-                {/* INITIALIZE CONTRACT - Owner only: Configure and activate phase 0 on-chain */}
-                {isConnected && collection?.contract_address && isCreator && !isSolana && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="w-full gap-2 bg-gradient-to-r from-primary to-accent hover:opacity-90"
-                    onClick={handleInitializeContract}
-                    disabled={isInitializing || isContractLoading}
-                  >
-                    <Rocket className={`w-4 h-4 ${isInitializing ? "animate-pulse" : ""}`} />
-                    {isInitializing ? "Initializing..." : "⚡ Initialize Contract (Owner)"}
-                  </Button>
-                )}
 
-                {/* SYNC PHASES - Read on-chain phase status and update DB */}
-                {isConnected && collection?.contract_address && !isSolana && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                    onClick={async () => {
-                      const result = await syncPhases();
-                      if (result) {
-                        // Refresh collection data after sync
-                        fetchCollection();
-                      }
-                    }}
-                    disabled={isSyncing}
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
-                    {isSyncing ? "Syncing..." : "🔄 Sync Phases from Contract"}
-                  </Button>
-                )}
 
                 {isTestnet && (
                   <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
@@ -1728,7 +1676,7 @@ export default function CollectionDetail() {
         nfts={revealedNfts}
         collectionName={collection?.name || ""}
         txHash={revealTxHash}
-        explorerUrl={currentChain.blockExplorers?.default?.url}
+        explorerUrl={getExplorerUrl(collectionChain)}
       />
 
       {/* Mint Process Overlay */}

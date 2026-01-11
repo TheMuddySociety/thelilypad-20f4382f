@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Badge } from "@/components/ui/badge";
 import { BuyNFTModal } from "@/components/BuyNFTModal";
@@ -16,6 +16,7 @@ import {
   type NFTListing,
   type ChainFilter,
 } from "@/hooks/useMarketplaceData";
+import { PlatformSwitcher } from "@/components/launchpad/PlatformSwitcher";
 import {
   PageHeader,
   StatsGrid,
@@ -38,8 +39,14 @@ export default function Marketplace() {
   const [showNewOnly, setShowNewOnly] = useState(false);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
 
-  // Hardcoded to Solana for now
-  const selectedChain: ChainFilter = "solana";
+  const [selectedChain, setSelectedChain] = useState<ChainFilter>(() => {
+    const saved = localStorage.getItem("selectedPlatform");
+    return (saved as ChainFilter) || "solana";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("selectedPlatform", selectedChain);
+  }, [selectedChain]);
 
   // Use the custom hook for data fetching with infinite scroll and chain filter
   const {
@@ -119,7 +126,12 @@ export default function Marketplace() {
           <PageHeader
             logo={<LilyPadLogo size={56} />}
             title="Lily Marketplace"
-            subtitle="Browse collections and sticker packs on Solana"
+            subtitle={`Browse collections and sticker packs on ${selectedChain === 'solana' ? 'Solana' : 'Monad'}`}
+          />
+
+          <PlatformSwitcher
+            selected={selectedChain as any}
+            onChange={(p) => setSelectedChain(p as ChainFilter)}
           />
 
         </div>

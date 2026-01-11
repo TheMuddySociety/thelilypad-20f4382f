@@ -6,16 +6,20 @@
 export type ChainValue = 'solana' | 'solana-devnet' | string;
 
 /**
- * Get the currency symbol for a given chain (Defaults to SOL)
+ * Get the currency symbol for a given chain
  */
 export const getCurrencySymbol = (chain: ChainValue | string): string => {
+  const normalizedChain = chain?.toLowerCase() || "";
+  if (normalizedChain.includes('monad')) return 'MON';
   return 'SOL';
 };
 
 /**
- * Get the currency icon for a given chain (Defaults to ◎)
+ * Get the currency icon for a given chain
  */
 export const getCurrencyIcon = (chain: ChainValue | string): string => {
+  const normalizedChain = chain?.toLowerCase() || "";
+  if (normalizedChain.includes('monad')) return 'M';
   return '◎';
 };
 
@@ -59,10 +63,13 @@ export const getTxExplorerUrl = (
 };
 
 /**
- * Check if a chain is a Solana chain (Always true in this context, but kept for compatibility)
+ * Check if a chain is a Solana chain
  */
 export const isSolanaChain = (chain: ChainValue | string): boolean => {
-  return true;
+  const normalizedChain = chain?.toLowerCase() || "";
+  // If it's empty, default to Solana for compatibility
+  if (!normalizedChain) return true;
+  return normalizedChain.includes('solana');
 };
 
 /**
@@ -81,6 +88,22 @@ export const isTestnet = (chain: ChainValue | string): boolean => {
 export const getNetworkDisplayName = (chain: ChainValue | string): string => {
   const normalizedChain = chain?.toLowerCase() || "";
   if (normalizedChain.includes('devnet')) return 'Solana Devnet';
+  if (normalizedChain.includes('monad')) return 'Monad Testnet';
   return 'Solana';
+};
+
+/**
+ * Common helper to get price from a collection's phases
+ */
+export const getCollectionPrice = (collection: any): string => {
+  if (!collection) return "TBA";
+  const phases = collection.phases;
+  if (!Array.isArray(phases) || phases.length === 0) return "TBA";
+
+  const publicPhase = phases.find((p: any) => p.id === "public" || p.id === "public-mint") || phases[0];
+  const currency = getCurrencySymbol(collection.chain || collection.blockchain);
+
+  if (!publicPhase?.price || parseFloat(publicPhase.price) === 0) return "Free";
+  return `${publicPhase.price} ${currency}`;
 };
 

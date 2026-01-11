@@ -2189,7 +2189,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                         {phase.id === "partners" && <Users className="w-4 h-4 text-muted-foreground" />}
                       </div>
                       {phase.enabled && (
-                        <Badge variant="secondary">{phase.price === "0" ? "Free" : `${phase.price} MON`}</Badge>
+                        <Badge variant="secondary">{phase.price === "0" ? "Free" : `${phase.price} ${blockchain === 'solana' ? 'SOL' : 'MON'}`}</Badge>
                       )}
                     </div>
                   </CardHeader>
@@ -2198,7 +2198,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-xs">Price (SOL)</Label>
+                          <Label className="text-xs">Price ({blockchain === 'solana' ? 'SOL' : 'MON'})</Label>
                           <Input
                             type="number"
                             step="0.01"
@@ -2325,7 +2325,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                     </div>
                     <div>
                       <span className="text-muted-foreground">Network</span>
-                      <p className="font-medium">Solana</p>
+                      <p className="font-medium text-capitalize">{blockchain}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Mint Phases</span>
@@ -2448,7 +2448,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                               </div>
                             </div>
                             <div className="text-right text-sm">
-                              <p className="font-medium">{phase.price === "0" ? "Free" : `${phase.price} SOL`}</p>
+                              <p className="font-medium">{phase.price === "0" ? "Free" : `${phase.price} ${blockchain === 'solana' ? 'SOL' : 'MON'}`}</p>
                               <p className="text-muted-foreground">{phase.supply} supply</p>
                             </div>
                           </div>

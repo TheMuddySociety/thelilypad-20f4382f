@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMultiTableSubscription } from "./useRealtimeSubscription";
 import { useInfiniteScroll } from "./useInfiniteScroll";
+import { getCollectionPrice as getPriceFromUtils } from "@/lib/chainUtils";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -254,10 +255,7 @@ export function useMarketplaceData(chain: ChainFilter = "all") {
 
 // Helper function to get price from phases
 export function getCollectionPrice(collection: Collection): string {
-  const phases = collection.phases as any[];
-  if (!phases || phases.length === 0) return "TBA";
-  const publicPhase = phases.find((p) => p.id === "public") || phases[0];
-  return publicPhase?.price ? `${publicPhase.price} SOL` : "Free";
+  return getPriceFromUtils(collection);
 }
 
 // Helper to check if collection is "new" (created in last 7 days and live)
