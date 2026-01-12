@@ -345,7 +345,7 @@ export default function MyPurchases() {
                               {format(new Date(purchase.purchased_at), "MMM d, yyyy")}
                             </div>
                             <div className="font-medium text-foreground">
-                              {Number(purchase.price_paid).toFixed(2)} MON
+                              {Number(purchase.price_paid).toFixed(2)} SOL
                             </div>
                           </div>
                         </div>
@@ -436,7 +436,7 @@ export default function MyPurchases() {
                           {format(new Date(purchase.purchased_at), "MMM d, yyyy")}
                         </div>
                         <div className="font-medium text-foreground">
-                          {Number(purchase.price_paid).toFixed(2)} MON
+                          {Number(purchase.price_paid).toFixed(2)} SOL
                         </div>
                       </div>
                     </div>

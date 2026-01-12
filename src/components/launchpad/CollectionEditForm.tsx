@@ -1414,7 +1414,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="space-y-1">
-                        <Label className="text-xs">Price (MON)</Label>
+                        <Label className="text-xs">Price (SOL)</Label>
                         <Input
                           type="number"
                           value={phase.price}

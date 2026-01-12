@@ -312,7 +312,7 @@ const BlindBoxManager = () => {
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Price (MON)</Label>
+                  <Label>Price (SOL)</Label>
                   <Input
                     type="number"
                     value={price}

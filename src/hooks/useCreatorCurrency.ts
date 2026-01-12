@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type CurrencyType = "MON" | "SOL";
+export type CurrencyType = "SOL";
 
 interface CreatorCurrencySettings {
   preferredCurrency: CurrencyType;
@@ -12,7 +12,7 @@ interface CreatorCurrencySettings {
 
 export const useCreatorCurrency = (userId?: string) => {
   const [settings, setSettings] = useState<CreatorCurrencySettings>({
-    preferredCurrency: "MON",
+    preferredCurrency: "SOL",
     solWalletAddress: null,
     payoutWalletAddress: null,
   });
@@ -35,7 +35,7 @@ export const useCreatorCurrency = (userId?: string) => {
 
       if (data) {
         setSettings({
-          preferredCurrency: (data.preferred_currency as CurrencyType) || "MON",
+          preferredCurrency: (data.preferred_currency as CurrencyType) || "SOL",
           solWalletAddress: data.sol_wallet_address,
           payoutWalletAddress: data.payout_wallet_address,
         });
@@ -120,10 +120,8 @@ export const useCreatorCurrency = (userId?: string) => {
 // Helper hook for shop item currency display
 export const useCurrencyDisplay = (currency: CurrencyType, priceMonad?: number, priceSol?: number) => {
   const getDisplayPrice = () => {
-    if (currency === "SOL") {
-      return { amount: priceSol || 0, symbol: "SOL", icon: "◎" };
-    }
-    return { amount: priceMonad || 0, symbol: "MON", icon: "⟠" };
+    // Always use SOL now
+    return { amount: priceSol || priceMonad || 0, symbol: "SOL", icon: "◎" };
   };
 
   const formatPrice = (amount: number, symbol: string) => {

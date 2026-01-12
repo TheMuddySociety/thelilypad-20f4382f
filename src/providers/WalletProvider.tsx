@@ -189,15 +189,36 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Main connect function
   const connect = useCallback(async (walletType?: WalletType, chainType?: ChainType) => {
+    // First try SDK if Phantom is available
     if (isPhantomAvailable) {
       try {
         await connectWithSDK();
         return;
-      } catch (err) {
-        console.warn("SDK connect failed, trying legacy", err);
+      } catch (err: any) {
+        console.warn("SDK connect failed, trying legacy:", err?.message || err);
+        // If user rejected, don't retry with legacy
+        if (err?.code === 4001 || err?.message?.toLowerCase().includes("rejected")) {
+          toast.error("Connection rejected by user");
+          return;
+        }
       }
     }
-    await connectSolanaLegacy();
+    
+    // Try legacy Solana provider as fallback
+    try {
+      await connectSolanaLegacy();
+    } catch (err: any) {
+      console.error("All connection methods failed:", err);
+      // Provide helpful error message
+      const isPhantomInstalled = typeof window !== "undefined" && (
+        (window as any).phantom?.solana || (window as any).solana
+      );
+      if (!isPhantomInstalled) {
+        toast.error("Phantom wallet not found. Please install Phantom extension.");
+      } else {
+        toast.error(err?.message || "Failed to connect wallet. Please try again.");
+      }
+    }
   }, [isPhantomAvailable, connectWithSDK, connectSolanaLegacy]);
 
   // Connect with OAuth

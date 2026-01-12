@@ -47,7 +47,7 @@ export const ClaimFunds: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [claimingType, setClaimingType] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("MON");
+  const [selectedCurrency] = useState<CurrencyType>("SOL");
   
   const { 
     payoutWalletAddress, 
@@ -177,7 +177,8 @@ export const ClaimFunds: React.FC = () => {
   };
 
   const getCurrencyKey = (currency: CurrencyType): "mon" | "sol" => {
-    return currency === "SOL" ? "sol" : "mon";
+    // Always return "sol" since we only use SOL now (but keep "mon" key for backward compat with existing data)
+    return currency === "SOL" ? "sol" : "sol";
   };
 
   const handleClaim = async (type: "donations" | "nftSales" | "shopSales", currency: CurrencyType) => {
@@ -186,13 +187,9 @@ export const ClaimFunds: React.FC = () => {
       return;
     }
 
-    // Check wallet type matches currency
-    if (currency === "SOL" && chainType !== "solana") {
+    // Check wallet type matches currency (only Solana supported now)
+    if (chainType !== "solana") {
       toast.error("Please connect a Solana wallet to claim SOL");
-      return;
-    }
-    if (currency === "MON" && chainType === "solana") {
-      toast.error("Please connect an EVM wallet to claim MON");
       return;
     }
 
@@ -245,12 +242,8 @@ export const ClaimFunds: React.FC = () => {
       return;
     }
 
-    if (currency === "SOL" && chainType !== "solana") {
+    if (chainType !== "solana") {
       toast.error("Please connect a Solana wallet to claim SOL");
-      return;
-    }
-    if (currency === "MON" && chainType === "solana") {
-      toast.error("Please connect an EVM wallet to claim MON");
       return;
     }
 
@@ -304,7 +297,6 @@ export const ClaimFunds: React.FC = () => {
     return earnings.donations[key].amount + earnings.nftSales[key].amount + earnings.shopSales[key].amount;
   };
 
-  const totalMon = getTotalClaimable("MON");
   const totalSol = getTotalClaimable("SOL");
 
   if (isLoading) {
@@ -519,7 +511,7 @@ export const ClaimFunds: React.FC = () => {
         <CardTitle className="flex items-center gap-2">
           <Wallet className="w-5 h-5 text-primary" />
           Claim Funds
-          {(totalMon > 0 || totalSol > 0) && (
+          {totalSol > 0 && (
             <Badge className="ml-auto bg-green-500/20 text-green-500 border-green-500/30">
               <TrendingUp className="w-3 h-3 mr-1" />
               Funds Available
@@ -528,34 +520,7 @@ export const ClaimFunds: React.FC = () => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Tabs value={selectedCurrency} onValueChange={(v) => setSelectedCurrency(v as CurrencyType)}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="MON" className="flex items-center gap-2">
-              <span>⟠</span> MON
-              {totalMon > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
-                  {totalMon.toFixed(2)}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="SOL" className="flex items-center gap-2">
-              <span>◎</span> SOL
-              {totalSol > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
-                  {totalSol.toFixed(2)}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="MON" className="mt-4">
-            {renderEarningsForCurrency("MON")}
-          </TabsContent>
-          
-          <TabsContent value="SOL" className="mt-4">
-            {renderEarningsForCurrency("SOL")}
-          </TabsContent>
-        </Tabs>
+        {renderEarningsForCurrency("SOL")}
       </CardContent>
     </Card>
   );

@@ -15,14 +15,14 @@ import { useSEO } from "@/hooks/useSEO";
 
 const Index: React.FC = () => {
   useSEO({
-    title: "The Lily Pad | NFT Launchpad & Live Streaming Platform on Monad",
-    description: "Launch NFT collections and stream live on Monad blockchain. Create, mint, and trade digital collectibles with built-in creator tools and community features.",
+    title: "The Lily Pad | NFT Launchpad & Live Streaming Platform on Solana",
+    description: "Launch NFT collections and stream live on Solana blockchain. Create, mint, and trade digital collectibles with built-in creator tools and community features.",
     structuredData: {
       "@context": "https://schema.org",
       "@type": "WebSite",
       "name": "The Lily Pad",
       "url": "https://thelilypad.app",
-      "description": "NFT Launchpad & Live Streaming Platform on Monad blockchain",
+      "description": "NFT Launchpad & Live Streaming Platform on Solana blockchain",
       "potentialAction": {
         "@type": "SearchAction",
         "target": "https://thelilypad.app/streamers?q={search_term_string}",

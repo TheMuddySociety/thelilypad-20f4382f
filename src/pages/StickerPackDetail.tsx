@@ -273,7 +273,7 @@ export default function StickerPackDetail() {
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Price</span>
                     <span className="font-bold text-lg">
-                      {pack.price_mon > 0 ? `${pack.price_mon} MON` : "Free"}
+                      {pack.price_mon > 0 ? `${pack.price_mon} SOL` : "Free"}
                     </span>
                   </div>
                 </div>
@@ -296,7 +296,7 @@ export default function StickerPackDetail() {
                     ) : (
                       <ShoppingCart className="w-4 h-4" />
                     )}
-                    {pack.price_mon > 0 ? `Buy for ${pack.price_mon} MON` : "Get for Free"}
+                    {pack.price_mon > 0 ? `Buy for ${pack.price_mon} SOL` : "Get for Free"}
                   </Button>
                 )}
               </CardContent>

@@ -208,7 +208,7 @@ export const CreateStickerPackModal: React.FC<CreateStickerPackModalProps> = ({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="price">Price (MON)</Label>
+              <Label htmlFor="price">Price (SOL)</Label>
               <Input
                 id="price"
                 type="number"

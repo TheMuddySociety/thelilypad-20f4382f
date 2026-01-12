@@ -67,14 +67,14 @@ const BuybackStats = () => {
         {/* Pool Balance */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Pool Balance</span>
-          <span className="font-bold text-primary">{Number(poolBalance).toFixed(4)} MON</span>
+          <span className="font-bold text-primary">{Number(poolBalance).toFixed(4)} SOL</span>
         </div>
 
         {/* Progress to Next Buyback */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Volume Progress</span>
-            <span className="font-medium">{Number(accumulatedVolume).toFixed(2)} / {threshold} MON</span>
+            <span className="font-medium">{Number(accumulatedVolume).toFixed(2)} / {threshold} SOL</span>
           </div>
           <Progress value={progress} className="h-2" />
           <p className="text-xs text-muted-foreground">
@@ -103,7 +103,7 @@ const BuybackStats = () => {
             <div className="flex flex-wrap gap-2">
               {Object.entries(volumeBySource).map(([source, amount]) => (
                 <Badge key={source} variant="secondary" className="text-xs">
-                  {source}: {Number(amount).toFixed(2)} MON
+                  {source}: {Number(amount).toFixed(2)} SOL
                 </Badge>
               ))}
             </div>
@@ -119,7 +119,7 @@ const BuybackStats = () => {
                 <div key={event.id} className="flex items-center justify-between text-xs bg-muted/20 rounded px-2 py-1">
                   <span className="flex items-center gap-1">
                     <ArrowUpRight className="h-3 w-3 text-green-500" />
-                    {Number(event.mon_spent).toFixed(2)} MON
+                    {Number(event.mon_spent).toFixed(2)} SOL
                   </span>
                   <span className="text-muted-foreground">
                     {new Date(event.executed_at).toLocaleDateString()}

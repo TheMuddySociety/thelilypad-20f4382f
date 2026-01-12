@@ -108,7 +108,7 @@ export const StickerPacksGrid: React.FC<StickerPacksGridProps> = ({
             <CardContent>
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-muted-foreground">Price</span>
-                <span className="font-bold text-lg">{pack.price_mon} MON</span>
+                <span className="font-bold text-lg">{pack.price_mon} SOL</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Sales</span>
