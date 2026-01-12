@@ -228,12 +228,7 @@ export default function Launchpad() {
       const { data, error } = await supabase
         .from("collections")
         .select("*")
-        // Filter based on platform
-        .in("chain",
-          selectedPlatform === "monad"
-            ? ["monad-testnet", "monad-mainnet"]
-            : ["solana", "solana-devnet", "solana-mainnet"]
-        )
+        .in("chain", ["solana", "solana-devnet", "solana-mainnet"])
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
@@ -266,9 +261,8 @@ export default function Launchpad() {
     if (activeTab === "all") return true;
     if (activeTab === "drafts") return false; // Drafts handled separately
 
-    // Safety check for chain consistency (though fetch should handle it)
-    if (selectedPlatform === "solana" && !collection.chain.includes("solana")) return false;
-    if (selectedPlatform === "monad" && collection.chain.includes("solana")) return false;
+    // Filter for Solana collections only
+    if (!collection.chain.includes("solana")) return false;
 
     return collection.status === activeTab;
   });
@@ -364,23 +358,19 @@ export default function Launchpad() {
             <div>
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <h1 className="text-3xl sm:text-4xl font-bold">Lily Launchpad</h1>
-                <Badge
-                  variant="outline"
-                  className={isTestnet
-                    ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                    : "bg-primary/10 text-primary border-primary/30"
-                  }
-                >
-                  {selectedPlatform === "monad" ? (
-                    <Zap className="w-3 h-3 mr-1" />
-                  ) : (
+                  <Badge
+                    variant="outline"
+                    className={isTestnet
+                      ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                      : "bg-primary/10 text-primary border-primary/30"
+                    }
+                  >
                     <Globe className="w-3 h-3 mr-1" />
-                  )}
-                  {selectedPlatform === "monad" ? "Monad Testnet" : (isTestnet ? "Solana Devnet" : "Solana Mainnet")}
-                </Badge>
-              </div>
-              <p className="text-muted-foreground mb-4">
-                Launch your NFT collection on {selectedPlatform === "monad" ? "Monad" : "Solana"}
+                    {isTestnet ? "Solana Devnet" : "Solana Mainnet"}
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground mb-4">
+                  Launch your NFT collection on Solana
               </p>
               <PlatformSwitcher
                 selected={selectedPlatform}

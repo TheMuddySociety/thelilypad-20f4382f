@@ -1,46 +1,32 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Zap, Globe } from "lucide-react";
+import { Globe } from "lucide-react";
 
-export type Platform = "monad" | "solana";
+// Locked to Solana only - Monad support coming soon
+export type Platform = "solana";
 
 interface PlatformSwitcherProps {
     selected: Platform;
-    onChange: (platform: Platform) => void;
+    onChange?: (platform: Platform) => void;
     className?: string;
 }
 
 export const PlatformSwitcher: React.FC<PlatformSwitcherProps> = ({
-    selected,
-    onChange,
+    selected: _selected,
+    onChange: _onChange,
     className,
 }) => {
     return (
         <div className={cn("inline-flex items-center p-1 bg-muted rounded-lg border border-border", className)}>
-            <button
-                onClick={() => onChange("monad")}
+            <div
                 className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
-                    selected === "monad"
-                        ? "bg-background shadow-sm text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium",
+                    "bg-background shadow-sm text-foreground"
                 )}
             >
-                <Zap className={cn("w-4 h-4", selected === "monad" && "text-purple-500")} />
-                Monad (EVM)
-            </button>
-            <button
-                onClick={() => onChange("solana")}
-                className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
-                    selected === "solana"
-                        ? "bg-background shadow-sm text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-            >
-                <Globe className={cn("w-4 h-4", selected === "solana" && "text-green-500")} />
-                Solana
-            </button>
+                <Globe className="w-4 h-4 text-green-500" />
+                Solana Devnet
+            </div>
         </div>
     );
 };
