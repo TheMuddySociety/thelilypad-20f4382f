@@ -50,7 +50,7 @@ export function BuybackProgramInfo({ collectionId }: BuybackProgramInfoProps) {
             <div>
               <p className="font-medium text-sm">Volume Rewards</p>
               <p className="text-xs text-muted-foreground">
-                Top volume movers receive MON rewards
+                Top volume movers receive SOL rewards
               </p>
             </div>
           </div>

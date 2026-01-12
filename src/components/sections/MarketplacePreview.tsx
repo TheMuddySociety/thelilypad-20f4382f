@@ -63,7 +63,7 @@ export const MarketplacePreview: React.FC = () => {
     const phases = collection.phases as any[];
     if (!phases || phases.length === 0) return "TBA";
     const publicPhase = phases.find(p => p.id === "public") || phases[0];
-    return publicPhase?.price ? `${publicPhase.price} MON` : "Free";
+    return publicPhase?.price ? `${publicPhase.price} SOL` : "Free";
   };
 
   const formatAddress = (address: string) => {

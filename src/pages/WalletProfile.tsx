@@ -281,7 +281,7 @@ export default function WalletProfile() {
               <div className="flex flex-col pt-3 sm:pt-0 border-t sm:border-t-0 border-border/50">
                 <div className="text-xs sm:text-sm text-muted-foreground">Balance</div>
                 <div className="text-2xl sm:text-3xl md:text-4xl font-bold">
-                  {formatBalance(balance)} <span className="text-sm sm:text-lg text-muted-foreground">MON</span>
+                  {formatBalance(balance)} <span className="text-sm sm:text-lg text-muted-foreground">SOL</span>
                 </div>
               </div>
             </div>
@@ -413,7 +413,7 @@ export default function WalletProfile() {
                         </div>
                         <div className="text-right shrink-0">
                           <div className="font-semibold text-sm sm:text-base text-primary">
-                            {tx.price_paid} MON
+                            {tx.price_paid} SOL
                           </div>
                           <a
                             href={`${solanaMainnet.blockExplorers.default.url}/tx/${tx.tx_hash}`}

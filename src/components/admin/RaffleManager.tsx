@@ -360,7 +360,7 @@ const RaffleManager = () => {
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Entry Price (MON)</Label>
+                  <Label>Entry Price (SOL)</Label>
                   <Input
                     type="number"
                     value={entryPrice}

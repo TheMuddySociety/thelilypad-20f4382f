@@ -184,7 +184,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
 
           {/* Price Input */}
           <div className="space-y-2">
-            <Label htmlFor="price">Price (MON)</Label>
+            <Label htmlFor="price">Price (SOL)</Label>
             <div className="relative">
               <Input
                 id="price"

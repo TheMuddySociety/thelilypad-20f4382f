@@ -84,7 +84,7 @@ export const ShopItemCard: React.FC<ShopItemCardProps> = ({
       
       <div className="text-right shrink-0 hidden sm:block">
         <div className="text-sm font-bold text-primary">
-          {priceMon > 0 ? `${priceMon} MON` : "Free"}
+          {priceMon > 0 ? `${priceMon} SOL` : "Free"}
         </div>
         <div className="text-xs text-muted-foreground">
           {totalSales} {totalSales === 1 ? "sale" : "sales"}

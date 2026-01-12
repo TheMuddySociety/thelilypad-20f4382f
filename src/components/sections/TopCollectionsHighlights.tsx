@@ -26,7 +26,7 @@ const categories = [
     key: "byVolume" as const, 
     title: "Top Volume", 
     icon: TrendingUp, 
-    format: (v: number) => `${v.toFixed(2)} MON`,
+    format: (v: number) => `${v.toFixed(2)} SOL`,
     gradient: "from-emerald-500/20 to-teal-500/20",
     iconColor: "text-emerald-400"
   },

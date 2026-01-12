@@ -121,7 +121,7 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
           {/* Price Input */}
           <div className="space-y-2">
             <Label htmlFor="nft-price" className="text-sm flex items-center gap-1">
-              NFT Price (MON)
+              NFT Price (SOL)
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="w-3 h-3 text-muted-foreground cursor-help" />

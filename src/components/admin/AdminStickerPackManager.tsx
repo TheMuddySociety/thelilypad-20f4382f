@@ -306,7 +306,7 @@ export const AdminStickerPackManager: React.FC = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {pack.price_mon > 0 ? `${pack.price_mon} MON` : 'Free'}
+                      {pack.price_mon > 0 ? `${pack.price_mon} SOL` : 'Free'}
                     </TableCell>
                     <TableCell>{pack.total_sales}</TableCell>
                     <TableCell>
@@ -483,7 +483,7 @@ export const AdminStickerPackManager: React.FC = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="admin-pack-price">Price (MON)</Label>
+                <Label htmlFor="admin-pack-price">Price (SOL)</Label>
                 <Input
                   id="admin-pack-price"
                   type="number"
