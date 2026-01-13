@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { publicKey, generateSigner, some, percentAmount, dateTime, sol } from '@metaplex-foundation/umi';
+import { publicKey, generateSigner, some, percentAmount, dateTime, sol, Signer } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import {
     createCollection as createCoreCollection,
@@ -7,6 +7,7 @@ import {
 import {
     createNft,
     TokenStandard,
+    findMetadataPda,
 } from '@metaplex-foundation/mpl-token-metadata';
 import {
     create,
@@ -39,6 +40,9 @@ interface CreateCollectionParams {
         limit?: number;
     };
 }
+
+// Store collection signer for Candy Machine creation
+let lastCollectionSigner: Signer | null = null;
 
 export const useSolanaLaunch = () => {
     const { network, getSolanaProvider } = useWallet();
@@ -78,6 +82,9 @@ export const useSolanaLaunch = () => {
             const umi = await getUmi();
             let result;
             const collectionSigner = generateSigner(umi);
+            
+            // Store signer for later Candy Machine creation
+            lastCollectionSigner = collectionSigner;
 
             toast.loading(`Deploying ${metadata.name} on Solana...`, { id: 'sol-deploy' });
 
@@ -91,18 +98,8 @@ export const useSolanaLaunch = () => {
                     break;
 
                 case 'token-metadata':
-                    result = await createNft(umi, {
-                        mint: collectionSigner,
-                        name: metadata.name,
-                        symbol: metadata.symbol,
-                        uri: metadata.uri,
-                        sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
-                        isCollection: true,
-                    }).sendAndConfirm(umi);
-                    break;
-
                 default:
-                    // For now default to standard NFT if bubblegum or others req complex setup
+                    // Create collection NFT with wallet as update authority
                     result = await createNft(umi, {
                         mint: collectionSigner,
                         name: metadata.name,
@@ -110,6 +107,7 @@ export const useSolanaLaunch = () => {
                         uri: metadata.uri,
                         sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
                         isCollection: true,
+                        // Wallet identity becomes the update authority automatically
                     }).sendAndConfirm(umi);
                     break;
             }
@@ -190,14 +188,22 @@ export const useSolanaLaunch = () => {
                 };
             });
 
+            const collectionMint = publicKey(collectionAddress);
+
+            // The wallet (umi.identity) must be the update authority of the collection
+            // which it is since we created the collection with the same wallet
             const createIx = await create(umi, {
                 candyMachine,
-                collectionMint: publicKey(collectionAddress),
-                collectionUpdateAuthority: umi.identity,
+                collectionMint,
+                collectionUpdateAuthority: umi.identity, // Wallet is the update authority
                 tokenStandard: TokenStandard.NonFungible,
                 sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
                 itemsAvailable,
-                creators: metadata.creators.map(c => ({ address: publicKey(c.address), verified: true, percentageShare: c.share })),
+                creators: metadata.creators.map(c => ({ 
+                    address: publicKey(c.address), 
+                    verified: c.address === umi.identity.publicKey.toString(), // Only verify if it's the signer
+                    percentageShare: c.share 
+                })),
                 configLineSettings: some({
                     prefixName: "",
                     nameLength: 32,
@@ -205,7 +211,7 @@ export const useSolanaLaunch = () => {
                     uriLength: 200,
                     isSequential: false,
                 }),
-                groups,
+                groups: groups.length > 0 ? groups : undefined,
             });
 
             await createIx.sendAndConfirm(umi);
@@ -218,7 +224,11 @@ export const useSolanaLaunch = () => {
 
         } catch (err: any) {
             console.error("Candy Machine creation error:", err);
-            const msg = err.message || "Failed to create Candy Machine";
+            // Extract more detailed error info
+            let msg = err.message || "Failed to create Candy Machine";
+            if (err.logs) {
+                console.error("Transaction logs:", err.logs);
+            }
             setError(msg);
             toast.error(msg, { id: 'cm-create' });
             throw err;
@@ -232,7 +242,7 @@ export const useSolanaLaunch = () => {
     const createCollection = useCallback(async (params: CreateCollectionParams) => {
         const uri = params.uri || params.imageUri || '';
         const sellerFeeBasisPoints = params.sellerFeeBasisPoints || params.royaltyBasisPoints || 0;
-        const standard = params.standard || 'core';
+        const standard = params.standard || 'token-metadata'; // Default to token-metadata for CM compatibility
         
         return deploySolanaCollection(standard, {
             name: params.name,
@@ -247,6 +257,7 @@ export const useSolanaLaunch = () => {
         error,
         deploySolanaCollection,
         createLaunchpadCandyMachine,
-        createCollection
+        createCollection,
+        getLastCollectionSigner: () => lastCollectionSigner,
     };
 };
