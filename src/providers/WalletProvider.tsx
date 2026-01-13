@@ -146,20 +146,17 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [getSDK, fetchSolanaBalance, state.network]);
 
 
-  // Connect Solana (Legacy method fallback)
+  // Connect Solana (Legacy method - Phantom injected provider)
   const connectSolanaLegacy = useCallback(async () => {
     const provider = getSolanaProvider();
     if (!provider) {
-      if (isPhantomAvailable) {
-        // Should have used SDK usually, but if we are here
-      }
-      toast.error("Solana wallet not found");
-      return;
+      throw new Error("Solana wallet not found");
     }
 
     setState(prev => ({ ...prev, isConnecting: true, walletType: "solana", chainType: "solana" }));
 
     try {
+      // Phantom/Solana provider connect
       const response = await provider.connect();
       const address = response.publicKey.toString();
       const balance = await fetchSolanaBalance(address);
@@ -181,44 +178,69 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toast.success("Wallet connected on Solana");
     } catch (error: any) {
       console.error("Solana connect error:", error);
-      const isUserRejected = error.code === 4001 || error.message?.toLowerCase().includes("rejected");
-      toast.error(isUserRejected ? "Connection rejected" : (error.message || "Failed to connect to Solana"));
+
+      const message = (error?.message || "").toString();
+      const code = error?.code;
+
+      // Common Phantom errors
+      const isUserRejected = code === 4001 || message.toLowerCase().includes("rejected");
+      const isInternalRpcError = code === -32603 || message.toLowerCase().includes("internal json-rpc");
+
+      if (isUserRejected) {
+        toast.error("Connection rejected");
+      } else if (isInternalRpcError) {
+        toast.error("Phantom returned an internal error. Please unlock Phantom, then try again.");
+      } else {
+        toast.error(message || "Failed to connect to Solana");
+      }
+
       setState(prev => ({ ...prev, isConnecting: false }));
+      throw error;
     }
-  }, [isPhantomAvailable, fetchSolanaBalance]);
+  }, [fetchSolanaBalance]);
 
   // Main connect function
-  const connect = useCallback(async (walletType?: WalletType, chainType?: ChainType) => {
-    // First try SDK if Phantom is available
+  const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
+    // Prefer injected Solana provider first (most reliable for Phantom extension)
+    const injected = getSolanaProvider();
+    if (injected) {
+      try {
+        await connectSolanaLegacy();
+        return;
+      } catch (err: any) {
+        // If user rejected, don't fallback to other methods
+        if (err?.code === 4001 || err?.message?.toLowerCase().includes("rejected")) return;
+
+        // Cleanup in case Phantom/provider is in a weird state
+        try {
+          await injected.disconnect?.();
+        } catch { /* noop */ }
+      }
+    }
+
+    // If no injected provider, or it failed, try Phantom SDK (OAuth/embedded)
     if (isPhantomAvailable) {
       try {
         await connectWithSDK();
         return;
       } catch (err: any) {
-        console.warn("SDK connect failed, trying legacy:", err?.message || err);
-        // If user rejected, don't retry with legacy
+        console.warn("SDK connect failed:", err?.message || err);
+
+        // Reset SDK instance and allow retry next time
+        sdkRef.current = null;
+        resetPhantomSDK();
+
         if (err?.code === 4001 || err?.message?.toLowerCase().includes("rejected")) {
           toast.error("Connection rejected by user");
           return;
         }
-      }
-    }
-    
-    // Try legacy Solana provider as fallback
-    try {
-      await connectSolanaLegacy();
-    } catch (err: any) {
-      console.error("All connection methods failed:", err);
-      // Provide helpful error message
-      const isPhantomInstalled = typeof window !== "undefined" && (
-        (window as any).phantom?.solana || (window as any).solana
-      );
-      if (!isPhantomInstalled) {
-        toast.error("Phantom wallet not found. Please install Phantom extension.");
-      } else {
+
         toast.error(err?.message || "Failed to connect wallet. Please try again.");
+        return;
       }
     }
+
+    toast.error("Phantom wallet not found. Please install Phantom extension.");
   }, [isPhantomAvailable, connectWithSDK, connectSolanaLegacy]);
 
   // Connect with OAuth
