@@ -161,8 +161,8 @@ interface DraftData {
   editionArtwork?: { imageUrl: string; editionType: "open" | "limited" | "timed" };
 }
 
-export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated, defaultChain = 'monad' }: CreateCollectionModalProps) {
-  const { address } = useWallet();
+export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated, defaultChain = 'solana' }: CreateCollectionModalProps) {
+  const { address, network } = useWallet();
   const solanaLaunch = useSolanaLaunch();
   const modalWalkthrough = useModalWalkthrough();
   const [currentStep, setCurrentStep] = useState(1);
@@ -1046,7 +1046,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
             }));
 
           // 3. Create Candy Machine
-          if (solanaAddress && launchpadPhases.length > 0) {
+          if (solanaAddress && launchpadPhases.length > 0 && address) {
             const cmResult = await solanaLaunch.createLaunchpadCandyMachine(
               solanaAddress,
               parseInt(totalSupply),
@@ -1056,7 +1056,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                 symbol,
                 uri: finalImageUrl || '',
                 sellerFeeBasisPoints: parseFloat(royaltyPercent) * 100,
-                creators: [{ address: user.id, share: 100 }] // Simplified creator, usually comes from wallet
+                creators: [{ address: address, share: 100 }] // Use connected wallet address
               }
             );
             candyMachineAddress = cmResult.address;
@@ -1087,12 +1087,17 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       const firstPhase = enabledPhasesData[0];
       const publicPrice = firstPhase?.price || "0";
 
+      // Determine chain value with network awareness
+      const chainValue = blockchain === 'solana' 
+        ? (network === 'mainnet' ? 'solana-mainnet' : 'solana-devnet')
+        : blockchain;
+
       // Insert collection into database
       const { data, error } = await supabase
         .from("collections")
         .insert([{
           creator_id: user.id,
-          creator_address: address || `0x${user.id.replace(/-/g, '').slice(0, 40)}`,
+          creator_address: address || '', // Use wallet address for Solana
           contract_address: solanaAddress,
           name,
           symbol,
@@ -1105,7 +1110,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
           status: "upcoming",
           collection_type: collectionType,
           phases: JSON.parse(JSON.stringify(enabledPhasesData)),
-          chain: blockchain,
+          chain: chainValue,
           layers_metadata: layers.length > 0 ? JSON.parse(JSON.stringify(layers.map(l => ({
             id: l.id,
             name: l.name,
