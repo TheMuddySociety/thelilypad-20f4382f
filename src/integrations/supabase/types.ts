@@ -202,6 +202,51 @@ export type Database = {
           },
         ]
       }
+      card_stack_items: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          cta_label: string | null
+          description: string | null
+          display_order: number
+          href: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          tag: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          description?: string | null
+          display_order?: number
+          href?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          tag?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          description?: string | null
+          display_order?: number
+          href?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          tag?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       challenge_badges: {
         Row: {
           badge_icon: string
