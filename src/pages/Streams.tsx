@@ -59,7 +59,7 @@ const Streams: React.FC = () => {
 
   useSEO({
     title: "Live Streams | The Lily Pad",
-    description: "Watch live NFT minting events, art creation, auctions, and community streams. Join the action and support your favorite creators on Monad."
+    description: "Watch live NFT minting events, art creation, auctions, and community streams. Join the action and support your favorite creators on Solana."
   });
 
   // Fetch streams from database

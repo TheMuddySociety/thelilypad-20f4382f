@@ -28,7 +28,7 @@ export const CreatorProtection: React.FC = () => {
           
           {/* Description */}
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Treasury-backed token system ensures safe, fair, transparent launches across Monad. 
+            Treasury-backed token system ensures safe, fair, transparent launches across Solana. 
             Your community deserves trust—we deliver it.
           </p>
           

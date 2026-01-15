@@ -27,13 +27,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 const RPC_LABELS: Record<string, string> = {
-  "https://testnet-rpc.monad.xyz": "Monad Testnet (Primary)",
-  "https://monad-testnet.blockvision.org/v1/37hH1sm8QDkbsAYrBsU9EjXwZ0o": "BlockVision (Faster)",
-  "https://rpc1.monad.xyz": "Alchemy (Mainnet)",
-  "https://rpc.monad.xyz": "QuickNode (Mainnet)",
-  "https://rpc3.monad.xyz": "Ankr",
-  "https://monad.drpc.org": "dRPC",
-  "https://rpc.ankr.com/monad_testnet": "Ankr Testnet",
+  "https://api.devnet.solana.com": "Solana Devnet (Primary)",
+  "https://api.mainnet-beta.solana.com": "Solana Mainnet",
+  "https://solana-mainnet.g.alchemy.com": "Alchemy (Mainnet)",
+  "https://solana-devnet.g.alchemy.com": "Alchemy (Devnet)",
 };
 
 export const getPreferredRpc = (network: NetworkType): string | null => {
@@ -183,7 +180,7 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
         <DialogHeader>
           <DialogTitle>RPC Endpoint Settings</DialogTitle>
           <DialogDescription>
-            Select your preferred RPC endpoint for {network === "mainnet" ? "Monad Mainnet" : "Monad Testnet"}
+            Select your preferred RPC endpoint for {network === "mainnet" ? "Solana Mainnet" : "Solana Devnet"}
           </DialogDescription>
         </DialogHeader>
 

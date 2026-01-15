@@ -47,7 +47,7 @@ const availableCategories = [
       metaDescription.setAttribute("name", "description");
       document.head.appendChild(metaDescription);
     }
-    metaDescription.setAttribute("content", "Discover talented Lily Pad streamers. Browse verified creators, find live streams, and follow your favorite content creators on Monad blockchain.");
+    metaDescription.setAttribute("content", "Discover talented Lily Pad streamers. Browse verified creators, find live streams, and follow your favorite content creators on Solana blockchain.");
   }, []);
 
   useEffect(() => {

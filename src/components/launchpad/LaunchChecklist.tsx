@@ -206,7 +206,7 @@ export function LaunchChecklist({
     {
       id: "deploy",
       title: "Deploy Contract",
-      description: "Deploy your NFT smart contract to Monad",
+      description: "Deploy your NFT smart contract to Solana",
       guidance: "Once everything is ready, deploy your smart contract to the blockchain. This makes your collection live and enables minting. This step requires gas fees.",
       isComplete: !!collection.contract_address,
       icon: Rocket,
