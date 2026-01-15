@@ -82,7 +82,7 @@ export const useSolanaLaunch = () => {
             const umi = await getUmi();
             let result;
             const collectionSigner = generateSigner(umi);
-            
+
             // Store signer for later Candy Machine creation
             lastCollectionSigner = collectionSigner;
 
@@ -120,14 +120,24 @@ export const useSolanaLaunch = () => {
             };
         } catch (err: any) {
             console.error("Solana deployment error:", err);
-            const msg = err.message || "Failed to deploy to Solana";
+            let msg = err.message || "Failed to deploy to Solana";
+
+            // Check for specific "program does not exist" error which often involves network mismatch
+            if (msg.includes("Attempt to load a program that does not exist")) {
+                if (network === "testnet") {
+                    msg = "Deployment failed: Metaplex programs may not be available on Solana Testnet. Please switch to Devnet or Mainnet.";
+                } else {
+                    msg = "Deployment failed: A required program (Metaplex) does not exist on this network.";
+                }
+            }
+
             setError(msg);
             toast.error(msg, { id: 'sol-deploy' });
             throw err;
         } finally {
             setIsLoading(false);
         }
-    }, [getUmi]);
+    }, [getUmi, network]);
 
     const createLaunchpadCandyMachine = useCallback(async (
         collectionAddress: string,
@@ -199,10 +209,10 @@ export const useSolanaLaunch = () => {
                 tokenStandard: TokenStandard.NonFungible,
                 sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
                 itemsAvailable,
-                creators: metadata.creators.map(c => ({ 
-                    address: publicKey(c.address), 
+                creators: metadata.creators.map(c => ({
+                    address: publicKey(c.address),
                     verified: c.address === umi.identity.publicKey.toString(), // Only verify if it's the signer
-                    percentageShare: c.share 
+                    percentageShare: c.share
                 })),
                 configLineSettings: some({
                     prefixName: "",
@@ -243,7 +253,7 @@ export const useSolanaLaunch = () => {
         const uri = params.uri || params.imageUri || '';
         const sellerFeeBasisPoints = params.sellerFeeBasisPoints || params.royaltyBasisPoints || 0;
         const standard = params.standard || 'token-metadata'; // Default to token-metadata for CM compatibility
-        
+
         return deploySolanaCollection(standard, {
             name: params.name,
             symbol: params.symbol,

@@ -161,14 +161,24 @@ export const useSolanaLaunchpad = () => {
       };
     } catch (err: any) {
       console.error("Solana collection creation error:", err);
-      const msg = err.message || "Failed to create collection";
+      let msg = err.message || "Failed to create collection";
+
+      // Check for specific "program does not exist" error
+      if (msg.includes("Attempt to load a program that does not exist")) {
+        if (network === "testnet") {
+          msg = "Creation failed: Metaplex programs may not be available on Solana Testnet. Please switch to Devnet or Mainnet.";
+        } else {
+          msg = "Creation failed: A required program (Metaplex) does not exist on this network.";
+        }
+      }
+
       setError(msg);
       toast.error(msg, { id: 'sol-create' });
       throw err;
     } finally {
       setIsLoading(false);
     }
-  }, [getUmi]);
+  }, [getUmi, network]);
 
   const getStandardInfo = (standard: SolanaStandard) => {
     const info = {
