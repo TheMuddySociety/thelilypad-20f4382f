@@ -75,7 +75,7 @@ export const RpcHealthIndicator: React.FC = () => {
             <div>
               <h4 className="font-medium text-sm">RPC Endpoints</h4>
               <p className="text-xs text-muted-foreground">
-                {network === 'mainnet' ? 'Monad Mainnet' : 'Monad Testnet'}
+                {network === 'mainnet' ? 'Solana Mainnet' : 'Solana Devnet'}
               </p>
             </div>
             <div className="flex items-center gap-1">

@@ -12,7 +12,7 @@ const steps = [
   {
     number: "02",
     icon: Rocket,
-    title: "Launch on Monad",
+    title: "Launch on Solana",
     description: "Instant deployment with reveal options, rewards enabled, and full customization.",
   },
   {

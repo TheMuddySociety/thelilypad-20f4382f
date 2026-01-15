@@ -17,7 +17,7 @@ const features = [
     icon: Layers,
     title: "NFT Generator Studio",
     description: "Create stunning generative art collections with our powerful no-code generator.",
-    bullets: ["Layer uploads", "Rarity tools", "Metadata builder", "Preview engine", "One-click Monad deployment"],
+    bullets: ["Layer uploads", "Rarity tools", "Metadata builder", "Preview engine", "One-click Solana deployment"],
     cta: "Try Generator",
     href: "/launchpad",
     imagePosition: "left",

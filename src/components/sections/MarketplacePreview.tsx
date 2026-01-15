@@ -82,7 +82,7 @@ export const MarketplacePreview: React.FC = () => {
             Explore the <span className="gradient-text">Marketplace</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Discover, collect, and trade premium NFT collections on Monad.
+            Discover, collect, and trade premium NFT collections on Solana.
           </p>
         </div>
         

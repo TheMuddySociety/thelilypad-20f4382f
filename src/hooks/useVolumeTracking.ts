@@ -74,7 +74,7 @@ export const useVolumeTracking = () => {
             collection_id: params.collectionId,
             shop_item_id: params.shopItemId,
             user_id: params.userId,
-            chain: params.chain || 'monad',
+            chain: params.chain || 'solana',
           },
         },
       });

@@ -108,7 +108,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
           seller_id: user.id,
           seller_address: nft.owner_address,
           price: parseFloat(price),
-          currency: 'MON',
+          currency: 'SOL',
           expires_at: expiresAt?.toISOString() || null,
           tx_hash: listTx,
         });
@@ -118,7 +118,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
       setListingStatus('success');
       toast({
         title: "NFT Listed!",
-        description: `Your NFT is now listed for ${price} MON`,
+        description: `Your NFT is now listed for ${price} SOL`,
       });
 
       setTimeout(() => {
@@ -198,7 +198,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
                 className="pr-16"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                MON
+                SOL
               </span>
             </div>
           </div>
@@ -279,7 +279,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
               ) : (
                 <>
                   <Tag className="mr-2 h-4 w-4" />
-                  List for {price || '0'} MON
+                  List for {price || '0'} SOL
                 </>
               )}
             </Button>

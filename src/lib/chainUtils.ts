@@ -11,6 +11,7 @@ export type ChainValue = 'solana' | 'solana-devnet' | string;
 export const getCurrencySymbol = (chain: ChainValue | string): string => {
   const normalizedChain = chain?.toLowerCase() || "";
   if (normalizedChain.includes('monad')) return 'MON';
+  // Default to SOL for Solana-first experience
   return 'SOL';
 };
 

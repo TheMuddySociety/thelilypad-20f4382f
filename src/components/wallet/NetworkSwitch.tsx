@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FlaskConical, Globe, Droplets, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-const TESTNET_FAUCET_URL = "https://faucet.monad.xyz";
+const TESTNET_FAUCET_URL = "https://faucet.solana.com";
 
 // Lock app to testnet only
 const TESTNET_LOCKED = true;
@@ -28,9 +28,9 @@ export const NetworkSwitch: React.FC = () => {
         <FlaskConical className="w-4 h-4 text-amber-500" />
         <Badge 
           variant="outline"
-          className="bg-amber-500/10 text-amber-500 border-amber-500/30"
+          className="bg-purple-500/10 text-purple-500 border-purple-500/30"
         >
-          Testnet Only
+          Solana Devnet
         </Badge>
       </div>
       <Button

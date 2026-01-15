@@ -181,7 +181,7 @@ const OfficialPacks: React.FC = () => {
         {/* Price Overlay */}
         <div className="absolute bottom-2 right-2">
           <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm font-bold">
-            {pack.price_mon > 0 ? `${pack.price_mon} MON` : "FREE"}
+            {pack.price_mon > 0 ? `${pack.price_mon} SOL` : "FREE"}
           </Badge>
         </div>
       </div>
@@ -337,15 +337,15 @@ const OfficialPacks: React.FC = () => {
           <div className="bg-muted/50 rounded-lg p-4 mb-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-muted-foreground">Original Price:</span>
-              <span className="text-lg line-through text-muted-foreground">{bundle.original_price} MON</span>
+              <span className="text-lg line-through text-muted-foreground">{bundle.original_price} SOL</span>
             </div>
             <div className="flex justify-between items-center mb-2 text-green-600">
               <span className="text-sm">You Save:</span>
-              <span className="font-medium">{savings.toFixed(2)} MON</span>
+              <span className="font-medium">{savings.toFixed(2)} SOL</span>
             </div>
             <div className="flex justify-between items-center pt-2 border-t border-border">
               <span className="font-semibold">Bundle Price:</span>
-              <span className="text-2xl font-bold text-primary">{bundle.bundle_price} MON</span>
+              <span className="text-2xl font-bold text-primary">{bundle.bundle_price} SOL</span>
             </div>
           </div>
           

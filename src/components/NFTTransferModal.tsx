@@ -75,7 +75,7 @@ export function NFTTransferModal({
   };
 
   const explorerUrl = (hash: string) => {
-    return `https://testnet.monadexplorer.com/tx/${hash}`;
+    return `https://explorer.solana.com/tx/${hash}?cluster=devnet`;
   };
 
   if (!nft) return null;

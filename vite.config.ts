@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => ({
       manifest: {
         name: "The Lily Pad",
         short_name: "LilyPad",
-        description: "NFT Launchpad & Marketplace on Monad",
+        description: "NFT Launchpad & Marketplace on Solana",
         theme_color: "#0a0f1a",
         background_color: "#0a0f1a",
         display: "standalone",
