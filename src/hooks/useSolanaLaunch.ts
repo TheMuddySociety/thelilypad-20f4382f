@@ -86,7 +86,16 @@ export const useSolanaLaunch = () => {
             // Store signer for later Candy Machine creation
             lastCollectionSigner = collectionSigner;
 
-            toast.loading(`Deploying ${metadata.name} on Solana...`, { id: 'sol-deploy' });
+            // 🔍 DEBUG LOGGING - Critical for diagnosing cluster/program mismatches
+            console.log("=== DEPLOYMENT DEBUG INFO ===");
+            console.log("🌐 Network:", network);
+            console.log("🔗 RPC Endpoint:", umi.rpc.getEndpoint());
+            console.log("👛 Wallet Address:", umi.identity.publicKey.toString());
+            console.log("📦 Collection Standard:", standard);
+            console.log("🎯 Collection Address (will be):", collectionSigner.publicKey.toString());
+            console.log("============================");
+
+            toast.loading(`Deploying ${metadata.name} on Solana ${network}...`, { id: 'sol-deploy' });
 
             switch (standard) {
                 case 'core':

@@ -68,7 +68,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isConnected: false,
     isConnecting: false,
     balance: null,
-    network: (localStorage.getItem("solanaNetwork") as NetworkType) || "testnet",
+    network: (localStorage.getItem("solanaNetwork") as NetworkType) || "devnet", // Changed from testnet to devnet
     walletType: "phantom",
     chainType: "solana",
   }));
