@@ -1,11 +1,9 @@
 import { useMemo } from 'react';
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
-import { mplCore, create, fetchAsset, fetchCollection } from '@metaplex-foundation/mpl-core';
+import { create, fetchAsset, fetchCollection } from '@metaplex-foundation/mpl-core';
 import { useWallet } from '@/providers/WalletProvider';
-import { getSolanaRpcUrl } from '@/config/solana';
-import { PublicKey, generateSigner, publicKey } from '@metaplex-foundation/umi';
-import { toast } from 'sonner';
+import { initializeUmi } from '@/config/solana';
+import { generateSigner, publicKey } from '@metaplex-foundation/umi';
 
 export interface CreateNftParams {
     name: string;
@@ -16,8 +14,7 @@ export const useMplCore = () => {
     const { network, getSolanaProvider } = useWallet();
 
     const umi = useMemo(() => {
-        const rpcUrl = getSolanaRpcUrl(network);
-        const umiInstance = createUmi(rpcUrl).use(mplCore());
+        const umiInstance = initializeUmi(network);
 
         const provider = getSolanaProvider();
         if (provider) {

@@ -120,6 +120,19 @@ export const useSolanaLaunch = () => {
             };
         } catch (err: any) {
             console.error("Solana deployment error:", err);
+
+            // Try to extract logs if available
+            if (err.getLogs) {
+                try {
+                    const logs = await err.getLogs();
+                    console.error("Transaction Logs:", logs);
+                } catch (e) {
+                    console.error("Failed to get logs via getLogs()", e);
+                }
+            } else if (err.logs) {
+                console.error("Transaction Logs (property):", err.logs);
+            }
+
             let msg = err.message || "Failed to deploy to Solana";
 
             // Check for specific "program does not exist" error which often involves network mismatch
@@ -127,7 +140,7 @@ export const useSolanaLaunch = () => {
                 if (network === "testnet") {
                     msg = "Deployment failed: Metaplex programs may not be available on Solana Testnet. Please switch to Devnet or Mainnet.";
                 } else {
-                    msg = "Deployment failed: A required program (Metaplex) does not exist on this network.";
+                    msg = "Deployment failed: A required program (Metaplex) does not exist on this network. Check console for logs.";
                 }
             }
 
