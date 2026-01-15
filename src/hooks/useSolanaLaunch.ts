@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { publicKey, generateSigner, some, percentAmount, dateTime, sol, Signer } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import {
-    createCollection as createCoreCollection,
+    createCollectionV1 as createCoreCollection,
 } from '@metaplex-foundation/mpl-core';
 import {
     createNft,
