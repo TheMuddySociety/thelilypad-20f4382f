@@ -13,13 +13,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { toast } from "sonner";
-import { 
-  Package, 
-  Loader2, 
-  Check, 
-  Wallet, 
-  ShoppingCart, 
-  Percent, 
+import {
+  Package,
+  Loader2,
+  Check,
+  Wallet,
+  ShoppingCart,
+  Percent,
   Gift,
   Sparkles,
   AlertCircle,
@@ -29,7 +29,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { isUserRejection, getErrorMessage } from "@/lib/errorUtils";
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { getSolanaRpcUrl } from "@/config/alchemy";
+import { getSolanaRpcUrl } from "@/config/solana";
 
 // Platform treasury address for receiving bundle payments (Solana)
 const PLATFORM_TREASURY_ADDRESS = "11111111111111111111111111111112"; // Replace with actual treasury
@@ -199,26 +199,26 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
 
       setPurchaseStep("complete");
       setHasPurchased(true);
-      
+
       toast.success("Bundle purchased successfully!");
       onPurchaseComplete?.();
 
     } catch (error: any) {
       console.error("Purchase failed:", error);
-      
+
       if (isUserRejection(error)) {
         toast.error("Transaction cancelled");
       } else {
         toast.error(getErrorMessage(error) || "Failed to complete purchase");
       }
-      
+
       setPurchaseStep("idle");
     } finally {
       setIsPurchasing(false);
     }
   };
 
-  const explorerUrl = network === 'mainnet' 
+  const explorerUrl = network === 'mainnet'
     ? `https://explorer.solana.com/tx/${txHash}`
     : `https://explorer.solana.com/tx/${txHash}?cluster=devnet`;
 
@@ -239,9 +239,9 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
           {/* Bundle Image */}
           {bundle.image_url && (
             <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted">
-              <img 
-                src={bundle.image_url} 
-                alt={bundle.name} 
+              <img
+                src={bundle.image_url}
+                alt={bundle.name}
                 className="w-full h-full object-cover"
               />
             </div>
@@ -274,8 +274,8 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
                   <div key={item.id} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
                     <div className="w-10 h-10 rounded bg-muted overflow-hidden">
                       {item.shop_items.image_url && (
-                        <img 
-                          src={item.shop_items.image_url} 
+                        <img
+                          src={item.shop_items.image_url}
                           alt={item.shop_items.name}
                           className="w-full h-full object-cover"
                         />
@@ -329,8 +329,8 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
               View My Purchases
             </Button>
           ) : (
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               onClick={handlePurchase}
               disabled={isPurchasing}
             >

@@ -17,7 +17,7 @@ import { Heart, Loader2, Wallet, Coins, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getErrorMessage } from "@/lib/errorUtils";
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { getSolanaRpcUrl } from "@/config/alchemy";
+import { getSolanaRpcUrl } from "@/config/solana";
 
 interface TipModalProps {
   isOpen: boolean;
@@ -71,7 +71,7 @@ export const TipModal: React.FC<TipModalProps> = ({
     }
 
     const connection = new Connection(getSolanaRpcUrl(network), 'confirmed');
-    
+
     const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: provider.publicKey,
@@ -135,7 +135,7 @@ export const TipModal: React.FC<TipModalProps> = ({
 
         // Record in database in background
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (session?.user) {
           supabase.from("earnings").insert({
             user_id: streamerId,
@@ -153,7 +153,7 @@ export const TipModal: React.FC<TipModalProps> = ({
           });
         }
 
-        const explorerUrl = network === 'mainnet' 
+        const explorerUrl = network === 'mainnet'
           ? `https://explorer.solana.com/tx/${txHash}`
           : `https://explorer.solana.com/tx/${txHash}?cluster=devnet`;
 
@@ -188,7 +188,7 @@ export const TipModal: React.FC<TipModalProps> = ({
         description: getErrorMessage(error) || "Failed to send tip. Please try again.",
         variant: "destructive",
       });
-      
+
       // Reset to idle after error
       setTimeout(() => {
         setTipState("idle");

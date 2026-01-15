@@ -7,21 +7,21 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, Clock, Zap, RotateCcw } from "lucide-react";
-import { getPreferredRpcUrl } from "@/config/alchemy";
+import { getPreferredRpcUrl } from "@/config/solana";
 import { useWallet } from "@/providers/WalletProvider";
 import { useRpcFailover } from "@/hooks/useRpcFailover";
 import { RpcSettings } from "@/components/wallet/RpcSettings";
 
 export const RpcHealthIndicator: React.FC = () => {
   const { network } = useWallet();
-  const { 
-    currentRpc, 
-    isHealthy, 
-    isFailingOver, 
-    healthStatuses, 
-    checkHealth, 
+  const {
+    currentRpc,
+    isHealthy,
+    isFailingOver,
+    healthStatuses,
+    checkHealth,
     resetFailedRpcs,
-    failover 
+    failover
   } = useRpcFailover(network);
 
   const healthyCount = healthStatuses.filter(s => s.healthy).length;
@@ -62,10 +62,10 @@ export const RpcHealthIndicator: React.FC = () => {
           )}
           <span className="text-xs hidden sm:inline">
             {status === 'failover' ? 'Switching...' :
-             status === 'checking' ? 'Checking...' : 
-             status === 'healthy' ? 'RPC OK' : 
-             status === 'degraded' ? `${healthyCount}/${totalCount}` : 
-             'RPC Down'}
+              status === 'checking' ? 'Checking...' :
+                status === 'healthy' ? 'RPC OK' :
+                  status === 'degraded' ? `${healthyCount}/${totalCount}` :
+                    'RPC Down'}
           </span>
         </Button>
       </PopoverTrigger>
@@ -113,9 +113,9 @@ export const RpcHealthIndicator: React.FC = () => {
               </span>
             </div>
             {!isHealthy && (
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="w-full mt-2 h-7 text-xs"
                 onClick={failover}
                 disabled={isFailingOver}
@@ -131,13 +131,12 @@ export const RpcHealthIndicator: React.FC = () => {
               const preferredRpc = getPreferredRpcUrl(network);
               const isPreferred = preferredRpc === rpcStatus.url;
               const isActive = currentRpc === rpcStatus.url;
-              
+
               return (
                 <div
                   key={rpcStatus.url}
-                  className={`flex items-center justify-between p-2 rounded-lg bg-muted/50 ${
-                    isActive ? 'ring-1 ring-primary/50' : ''
-                  } ${isPreferred ? 'border border-primary/30' : ''}`}
+                  className={`flex items-center justify-between p-2 rounded-lg bg-muted/50 ${isActive ? 'ring-1 ring-primary/50' : ''
+                    } ${isPreferred ? 'border border-primary/30' : ''}`}
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {rpcStatus.healthy ? (
@@ -161,18 +160,16 @@ export const RpcHealthIndicator: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {rpcStatus.healthy && rpcStatus.latency !== null ? (
-                      <span className={`text-xs ${
-                        rpcStatus.latency < 200 ? 'text-green-500' :
-                        rpcStatus.latency < 500 ? 'text-amber-500' :
-                        'text-orange-500'
-                      }`}>
+                      <span className={`text-xs ${rpcStatus.latency < 200 ? 'text-green-500' :
+                          rpcStatus.latency < 500 ? 'text-amber-500' :
+                            'text-orange-500'
+                        }`}>
                         {rpcStatus.latency}ms
                       </span>
                     ) : rpcStatus.error ? (
-                      <span 
-                        className={`text-xs truncate max-w-[80px] ${
-                          rpcStatus.error.includes('Method not') ? 'text-amber-500' : 'text-destructive'
-                        }`} 
+                      <span
+                        className={`text-xs truncate max-w-[80px] ${rpcStatus.error.includes('Method not') ? 'text-amber-500' : 'text-destructive'
+                          }`}
                         title={rpcStatus.error}
                       >
                         {rpcStatus.error.includes('Method not') ? 'Partial' : rpcStatus.error}

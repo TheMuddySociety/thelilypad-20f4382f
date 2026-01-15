@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { NetworkType, getSolanaRpcUrl } from "@/config/alchemy";
+import { NetworkType, getSolanaRpcUrl } from "@/config/solana";
 import { getPhantomSDK, waitForPhantomExtension, AddressType, resetPhantomSDK } from "@/config/phantom";
 import type { BrowserSDK, ConnectResult, InjectedWalletInfo, AuthProviderType } from "@phantom/browser-sdk";
 import { toast } from "sonner";

@@ -2,7 +2,7 @@
 // Provides Solana RPC health checking and failover
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { NetworkType, getSolanaRpcUrl, checkRpcHealth, RpcHealthStatus } from "@/config/alchemy";
+import { NetworkType, getSolanaRpcUrl, checkRpcHealth, RpcHealthStatus } from "@/config/solana";
 
 interface UseRpcFailoverReturn {
   currentRpc: string;

@@ -15,22 +15,22 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import {
-  MONAD_MAINNET_RPCS,
-  MONAD_TESTNET_RPCS,
+  SOLANA_MAINNET_RPC,
+  SOLANA_DEVNET_RPC,
+  SOLANA_TESTNET_RPC,
   checkRpcHealth,
   RpcHealthStatus,
   NetworkType,
-} from "@/config/alchemy";
+} from "@/config/solana";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 const RPC_LABELS: Record<string, string> = {
-  "https://api.devnet.solana.com": "Solana Devnet (Primary)",
-  "https://api.mainnet-beta.solana.com": "Solana Mainnet",
-  "https://solana-mainnet.g.alchemy.com": "Alchemy (Mainnet)",
-  "https://solana-devnet.g.alchemy.com": "Alchemy (Devnet)",
+  [SOLANA_DEVNET_RPC]: "Solana Devnet (Public)",
+  [SOLANA_TESTNET_RPC]: "Solana Testnet (Public)",
+  [SOLANA_MAINNET_RPC]: "Solana Mainnet (Public)",
 };
 
 export const getPreferredRpc = (network: NetworkType): string | null => {
@@ -71,7 +71,11 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
     },
   });
 
-  const rpcs = network === "mainnet" ? MONAD_MAINNET_RPCS : MONAD_TESTNET_RPCS;
+  const rpcs = network === "mainnet"
+    ? [SOLANA_MAINNET_RPC]
+    : network === "testnet"
+      ? [SOLANA_TESTNET_RPC]
+      : [SOLANA_DEVNET_RPC];
 
   useEffect(() => {
     const saved = getPreferredRpc(network);
@@ -180,7 +184,7 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
         <DialogHeader>
           <DialogTitle>RPC Endpoint Settings</DialogTitle>
           <DialogDescription>
-            Select your preferred RPC endpoint for {network === "mainnet" ? "Solana Mainnet" : "Solana Devnet"}
+            Select your preferred RPC endpoint for {network === "mainnet" ? "Solana Mainnet" : network === "testnet" ? "Solana Testnet" : "Solana Devnet"}
           </DialogDescription>
         </DialogHeader>
 

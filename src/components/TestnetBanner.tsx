@@ -8,16 +8,19 @@ const TESTNET_FAUCET_URL = "https://faucet.monad.xyz";
 export const TestnetBanner: React.FC = () => {
   const { network } = useWallet();
 
-  if (network !== "testnet") {
+  if (network === "mainnet") {
     return null;
   }
+
+  const isTestnet = network === "testnet";
+  const label = isTestnet ? "Solana Testnet" : "Solana Devnet";
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-amber-950">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-center gap-3 py-1.5 text-sm font-medium">
           <FlaskConical className="w-4 h-4" />
-          <span>You are viewing the Monad Testnet</span>
+          <span>You are viewing the {label}</span>
           <span className="hidden sm:inline text-amber-800">—</span>
           <span className="hidden sm:inline text-amber-800">Transactions use test tokens with no real value</span>
           <Button
@@ -27,7 +30,7 @@ export const TestnetBanner: React.FC = () => {
             onClick={() => window.open(TESTNET_FAUCET_URL, "_blank")}
           >
             <Droplets className="w-3 h-3 mr-1" />
-            Get Test MON
+            Get Test SOL
             <ExternalLink className="w-3 h-3 ml-1" />
           </Button>
         </div>

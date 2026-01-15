@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { THELILYPAD_ABI, THELILYPAD_CONTRACT_ADDRESS } from "@/config/theLilyPad";
 import { encodeFunctionData } from "viem";
-import { NetworkType } from "@/config/alchemy";
+import { NetworkType } from "@/config/solana";
 import { supabase } from "@/integrations/supabase/client";
 
 // RPC Proxy base URL
