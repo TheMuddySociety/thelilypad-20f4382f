@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Heart } from "lucide-react";
+import { Heart, Loader2 } from "lucide-react";
 import { TipModal } from "./TipModal";
+import { useStreamerWallet } from "@/hooks/useStreamerWallet";
+import { toast } from "@/hooks/use-toast";
 
 interface TipButtonProps {
-  streamerAddress: string;
-  streamerName: string;
   streamerId: string;
+  streamerName: string;
   streamId?: string;
   variant?: "default" | "outline" | "ghost" | "secondary";
   size?: "default" | "sm" | "lg" | "icon";
@@ -14,15 +15,32 @@ interface TipButtonProps {
 }
 
 export const TipButton: React.FC<TipButtonProps> = ({
-  streamerAddress,
-  streamerName,
   streamerId,
+  streamerName,
   streamId,
   variant = "default",
   size = "default",
   className,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const { fetchWalletAddress, isLoading } = useStreamerWallet();
+
+  const handleOpenTipModal = async () => {
+    // Fetch wallet address securely when user clicks tip
+    const result = await fetchWalletAddress(streamerId);
+    
+    if (result?.wallet_address) {
+      setWalletAddress(result.wallet_address);
+      setIsModalOpen(true);
+    } else {
+      toast({
+        title: "Cannot tip",
+        description: "This streamer hasn't set up their wallet yet or you need to be logged in.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <>
@@ -30,20 +48,27 @@ export const TipButton: React.FC<TipButtonProps> = ({
         variant={variant}
         size={size}
         className={className}
-        onClick={() => setIsModalOpen(true)}
+        onClick={handleOpenTipModal}
+        disabled={isLoading}
       >
-        <Heart className="w-4 h-4 mr-2" />
+        {isLoading ? (
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        ) : (
+          <Heart className="w-4 h-4 mr-2" />
+        )}
         Tip
       </Button>
 
-      <TipModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        streamerAddress={streamerAddress}
-        streamerName={streamerName}
-        streamerId={streamerId}
-        streamId={streamId}
-      />
+      {walletAddress && (
+        <TipModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          streamerAddress={walletAddress}
+          streamerName={streamerName}
+          streamerId={streamerId}
+          streamId={streamId}
+        />
+      )}
     </>
   );
 };

@@ -44,3 +44,9 @@ verify_jwt = false
 
 [functions.draw-raffle-winners]
 verify_jwt = false
+
+[functions.get-streamer-wallet]
+verify_jwt = false
+
+[functions.resolve-streak-challenges]
+verify_jwt = false

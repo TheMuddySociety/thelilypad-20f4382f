@@ -46,7 +46,6 @@ interface StreamerProfile {
   display_name: string | null;
   avatar_url: string | null;
   is_verified: boolean;
-  payout_wallet_address: string | null;
   user_id: string;
 }
 
@@ -89,8 +88,8 @@ const Streams: React.FC = () => {
       if (!dbStreams || dbStreams.length === 0) return [];
       const userIds = [...new Set(dbStreams.map(s => s.user_id))];
       const { data, error } = await supabase
-        .from('streamer_profiles')
-        .select('user_id, display_name, avatar_url, is_verified, payout_wallet_address')
+        .from('streamer_profiles_public')
+        .select('user_id, display_name, avatar_url, is_verified')
         .in('user_id', userIds);
       if (error) throw error;
       return data as StreamerProfile[];
@@ -217,16 +216,13 @@ const Streams: React.FC = () => {
                           <Play className="w-4 h-4 mr-2" />
                           Watch Now
                         </Button>
-                        {featuredProfile?.payout_wallet_address && (
-                          <TipButton
-                            streamerAddress={featuredProfile.payout_wallet_address}
-                            streamerName={featuredProfile.display_name || 'Streamer'}
-                            streamerId={featuredStream.user_id}
-                            streamId={featuredStream.id}
-                            variant="outline"
-                            className="border-white/30 text-white hover:bg-white/10"
-                          />
-                        )}
+                        <TipButton
+                          streamerId={featuredStream.user_id}
+                          streamerName={featuredProfile?.display_name || 'Streamer'}
+                          streamId={featuredStream.id}
+                          variant="outline"
+                          className="border-white/30 text-white hover:bg-white/10"
+                        />
                       </div>
                     </div>
                   </div>

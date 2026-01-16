@@ -19,8 +19,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { FollowButton } from "@/components/FollowButton";
 
-type StreamerProfile = Tables<"streamer_profiles">;
-type StreamerWithFollowers = StreamerProfile & { follower_count: number; is_live: boolean };
+// Public streamer profile (excludes sensitive wallet addresses)
+type StreamerProfilePublic = Omit<Tables<"streamer_profiles">, "payout_wallet_address" | "sol_wallet_address">;
+type StreamerWithFollowers = StreamerProfilePublic & { follower_count: number; is_live: boolean };
 
 const Streamers = () => {
   const [streamers, setStreamers] = useState<StreamerWithFollowers[]>([]);
@@ -134,7 +135,7 @@ const availableCategories = [
     try {
       // Fetch streamer profiles
       const { data: profiles, error: profilesError } = await supabase
-        .from("streamer_profiles")
+        .from("streamer_profiles_public")
         .select("*")
         .order("created_at", { ascending: false });
 
@@ -232,7 +233,7 @@ const availableCategories = [
       .slice(0, 2);
   };
 
-  const getSocialCount = (streamer: StreamerProfile) => {
+  const getSocialCount = (streamer: StreamerProfilePublic) => {
     let count = 0;
     if (streamer.social_twitter) count++;
     if (streamer.social_youtube) count++;

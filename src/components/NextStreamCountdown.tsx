@@ -5,7 +5,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tables } from "@/integrations/supabase/types";
 
-type StreamerProfile = Tables<"streamer_profiles">;
+// Public streamer profile type (excludes sensitive wallet addresses)
+type StreamerProfilePublic = Omit<Tables<"streamer_profiles">, "payout_wallet_address" | "sol_wallet_address">;
 
 interface ScheduleItem {
   day: string;
@@ -14,7 +15,7 @@ interface ScheduleItem {
 }
 
 interface NextStreamCountdownProps {
-  streamers: StreamerProfile[];
+  streamers: StreamerProfilePublic[];
 }
 
 const DAYS_ORDER = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -77,7 +78,7 @@ export const NextStreamCountdown = ({ streamers }: NextStreamCountdownProps) => 
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     
     let soonest: {
-      streamer: StreamerProfile;
+      streamer: StreamerProfilePublic;
       time: string;
       minutesFromNow: number;
       dayOffset: number;
