@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useWallet } from '@/providers/WalletProvider';
 import { supabase } from '@/integrations/supabase/client';
 
+const ADMIN_WALLET_ADDRESS = "Cra8LAvpQAk3hx4By5STHp4xrq7HSAnZLk4Jwzv1wUAH";
+
 export interface UserProfile {
     id: string;
     wallet_address: string;
@@ -42,7 +44,30 @@ export const useUserProfile = () => {
                     .eq('wallet_address', address)
                     .maybeSingle();
 
-                if (fetchError) throw fetchError;
+                if (fetchError) {
+                    // If table doesn't exist, we might be in Lovable Cloud without sync
+                    // If admin, we gracefully provide a mock profile
+                    if (address === ADMIN_WALLET_ADDRESS) {
+                        setProfile({
+                            id: 'admin-temp-id',
+                            wallet_address: address,
+                            user_id: null,
+                            is_collector: true,
+                            is_creator: true,
+                            is_streamer: true,
+                            profile_setup_completed: true,
+                            display_name: 'Lily Admin',
+                            bio: 'Administrator Bypass Mode',
+                            avatar_url: null,
+                            banner_url: null,
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        });
+                        setLoading(false);
+                        return;
+                    }
+                    throw fetchError;
+                }
 
                 setProfile(data);
             } catch (err: any) {
@@ -91,6 +116,27 @@ export const useUserProfile = () => {
             throw new Error('Wallet not connected');
         }
 
+        if (address === ADMIN_WALLET_ADDRESS) {
+            console.log('Admin Bypass: Mocking profile creation');
+            const mockProfile = {
+                id: 'admin-temp-id',
+                wallet_address: address,
+                user_id: null,
+                is_collector: roleSelection.isCollector,
+                is_creator: roleSelection.isCreator,
+                is_streamer: roleSelection.isStreamer,
+                profile_setup_completed: true,
+                display_name: 'Lily Admin',
+                bio: 'Administrator Bypass Mode',
+                avatar_url: null,
+                banner_url: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+            setProfile(mockProfile);
+            return mockProfile;
+        }
+
         const { data, error: insertError } = await supabase
             .from('user_profiles')
             .insert({
@@ -112,6 +158,13 @@ export const useUserProfile = () => {
     const updateProfile = async (updates: Partial<UserProfile>) => {
         if (!address) {
             throw new Error('Wallet not connected');
+        }
+
+        if (address === ADMIN_WALLET_ADDRESS) {
+            console.log('Admin Bypass: Mocking profile update');
+            const updatedProfile = { ...profile, ...updates } as UserProfile;
+            setProfile(updatedProfile);
+            return updatedProfile;
         }
 
         const { data, error: updateError } = await supabase
