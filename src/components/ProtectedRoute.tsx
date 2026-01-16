@@ -28,9 +28,17 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/auth" replace />;
   }
 
+  // ADMIN BYPASS: If admin, allow through regardless of profile status
+  if (isAdmin) {
+    // If admin is on profile-setup, maybe redirect to home?
+    if (location.pathname === '/profile-setup') {
+      return <Navigate to="/" replace />;
+    }
+    return <>{children}</>;
+  }
+
   // If connected but profile not setup and not already on profile-setup page, redirect
-  // SKIP for admin
-  if (isConnected && !profileLoading && !isAdmin) {
+  if (isConnected && !profileLoading) {
     // Check if profile setup is incomplete
     const needsProfileSetup = !profile || !profile.profile_setup_completed;
 

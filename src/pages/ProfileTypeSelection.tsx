@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle2, ShoppingBag, Rocket, Radio, Sparkles } from 'lucide-react';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useSEO } from '@/hooks/useSEO';
 import { LilyPadLogo } from '@/components/LilyPadLogo';
 
@@ -78,6 +79,14 @@ export default function ProfileTypeSelection() {
     const [selectedRole, setSelectedRole] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { createProfile } = useUserProfile();
+    const { isAdmin, loading: adminLoading } = useIsAdmin();
+
+    useEffect(() => {
+        // Double guard: Redirect admin away from this page
+        if (!adminLoading && isAdmin) {
+            navigate('/');
+        }
+    }, [isAdmin, adminLoading, navigate]);
 
     useSEO({
         title: 'Welcome to The Lily Pad - Set Up Your Profile',
@@ -130,11 +139,15 @@ export default function ProfileTypeSelection() {
                     <div className="flex justify-center mb-6">
                         <LilyPadLogo size={80} />
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                        Welcome to <span className="text-primary">The Lily Pad</span>
+                    <h1 className="text-4xl md:text-5xl font-bold mb-4 line-through opacity-50">
+                        Welcome to <span className="text-primary text-primary">The Lily Pad</span>
                     </h1>
+                    <div className="inline-block px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 font-semibold mb-6 animate-pulse">
+                        ⚠️ Coming Soon: Profiles & Role Selection
+                    </div>
                     <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                        Choose your role to get started. You can always add more roles later in your profile settings.
+                        We are currently fine-tuning the profile system. This feature will be available shortly!
+                        Creators can still launch collections via the main dashboard.
                     </p>
                 </motion.div>
 
@@ -153,8 +166,8 @@ export default function ProfileTypeSelection() {
                             >
                                 <Card
                                     className={`relative cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-primary/20 ${isSelected
-                                            ? 'ring-2 ring-primary shadow-lg shadow-primary/30'
-                                            : 'hover:ring-1 hover:ring-primary/50'
+                                        ? 'ring-2 ring-primary shadow-lg shadow-primary/30'
+                                        : 'hover:ring-1 hover:ring-primary/50'
                                         }`}
                                     onClick={() => setSelectedRole(option.id)}
                                 >
@@ -196,11 +209,11 @@ export default function ProfileTypeSelection() {
                 >
                     <Button
                         size="lg"
-                        onClick={handleSubmit}
-                        disabled={!selectedRole || isSubmitting}
-                        className="gap-2 px-12"
+                        // onClick={handleSubmit}
+                        disabled={true} // Disabled for "Coming Soon"
+                        className="gap-2 px-12 opacity-50"
                     >
-                        {isSubmitting ? 'Creating Profile...' : 'Continue'}
+                        Feature Coming Soon
                     </Button>
                 </motion.div>
 
