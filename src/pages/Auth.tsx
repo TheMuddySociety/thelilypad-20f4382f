@@ -1,215 +1,99 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useWallet } from "@/providers/WalletProvider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, CheckCircle, ArrowLeft } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { z } from "zod";
+import { Loader2, Wallet, Chrome } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
 import authBranding from "@/assets/auth-branding.png";
 
-const emailSchema = z.string().email("Invalid email address");
-const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
+// Phantom and OAuth icons
+const PhantomIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="26" fill="url(#paint0_linear)"/>
+    <path d="M110.5 64.6C110.5 90.5 89.3 111.5 63.2 111.5H33.6C31.5 111.5 29.8 109.8 29.8 107.7V63.1C29.8 41.1 47.9 23.2 70.1 23.2C92.3 23.2 110.5 41.1 110.5 63.1V64.6Z" fill="url(#paint1_linear)"/>
+    <path d="M86.7 64.5C86.7 68.3 83.6 71.4 79.8 71.4C76 71.4 72.9 68.3 72.9 64.5C72.9 60.7 76 57.6 79.8 57.6C83.6 57.6 86.7 60.7 86.7 64.5Z" fill="white"/>
+    <path d="M64.5 64.5C64.5 68.3 61.4 71.4 57.6 71.4C53.8 71.4 50.7 68.3 50.7 64.5C50.7 60.7 53.8 57.6 57.6 57.6C61.4 57.6 64.5 60.7 64.5 64.5Z" fill="white"/>
+    <defs>
+      <linearGradient id="paint0_linear" x1="64" y1="0" x2="64" y2="128" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#534BB1"/>
+        <stop offset="1" stopColor="#551BF9"/>
+      </linearGradient>
+      <linearGradient id="paint1_linear" x1="70.15" y1="23.2" x2="70.15" y2="111.5" gradientUnits="userSpaceOnUse">
+        <stop stopColor="white"/>
+        <stop offset="1" stopColor="white" stopOpacity="0.82"/>
+      </linearGradient>
+    </defs>
+  </svg>
+);
+
+const GoogleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+  </svg>
+);
+
+const AppleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+  </svg>
+);
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  
-  const [isResending, setIsResending] = useState(false);
-  const [isResetLoading, setIsResetLoading] = useState(false);
-  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetEmailError, setResetEmailError] = useState("");
-  const [verificationEmail, setVerificationEmail] = useState("");
+  const { connect, connectWithOAuth, isConnected, isConnecting, address } = useWallet();
+  const [connectingMethod, setConnectingMethod] = useState<string | null>(null);
 
   useSEO({
-    title: "Sign In | The Lily Pad",
-    description: "Sign in or create an account to access The Lily Pad. Manage your streams, launch NFT collections, and connect with the community."
+    title: "Connect Wallet | The Lily Pad",
+    description: "Connect your Phantom wallet to access The Lily Pad. Manage your streams, launch NFT collections, and connect with the community."
   });
 
+  // Redirect when connected
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        navigate("/");
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        navigate("/");
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
-    
-    const emailResult = emailSchema.safeParse(email);
-    if (!emailResult.success) {
-      newErrors.email = emailResult.error.errors[0].message;
+    if (isConnected && address) {
+      navigate("/");
     }
-    
-    const passwordResult = passwordSchema.safeParse(password);
-    if (!passwordResult.success) {
-      newErrors.password = passwordResult.error.errors[0].message;
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  }, [isConnected, address, navigate]);
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-    const redirectUrl = `${window.location.origin}/`;
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl
-      }
-    });
-
-    setIsLoading(false);
-
-    if (error) {
-      if (error.message.includes("already registered")) {
-        toast({
-          title: "Account exists",
-          description: "This email is already registered. Please sign in instead.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Sign up failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    } else {
-      setVerificationEmail(email);
-      setShowVerificationMessage(true);
-      setEmail("");
-      setPassword("");
-      toast({
-        title: "Verification email sent!",
-        description: "Please check your inbox and click the verification link to complete signup.",
-      });
+  const handlePhantomConnect = async () => {
+    setConnectingMethod("phantom");
+    try {
+      await connect();
+    } catch (error) {
+      console.error("Phantom connect error:", error);
+    } finally {
+      setConnectingMethod(null);
     }
   };
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    setIsLoading(false);
-
-    if (error) {
-      // Check if the error is about unverified email
-      if (error.message.includes("Email not confirmed")) {
-        toast({
-          title: "Email not verified",
-          description: "Please check your inbox and verify your email before signing in.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Sign in failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
+  const handleGoogleConnect = async () => {
+    setConnectingMethod("google");
+    try {
+      await connectWithOAuth("google");
+    } catch (error) {
+      console.error("Google connect error:", error);
+    } finally {
+      setConnectingMethod(null);
     }
   };
 
-
-  const handleResendVerification = async () => {
-    if (!verificationEmail) return;
-    
-    setIsResending(true);
-    const redirectUrl = `${window.location.origin}/auth/callback`;
-
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: verificationEmail,
-      options: {
-        emailRedirectTo: redirectUrl,
-      },
-    });
-
-    setIsResending(false);
-
-    if (error) {
-      toast({
-        title: "Failed to resend",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Email sent!",
-        description: "We've sent another verification email. Please check your inbox.",
-      });
+  const handleAppleConnect = async () => {
+    setConnectingMethod("apple");
+    try {
+      await connectWithOAuth("apple");
+    } catch (error) {
+      console.error("Apple connect error:", error);
+    } finally {
+      setConnectingMethod(null);
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setResetEmailError("");
-
-    const emailResult = emailSchema.safeParse(resetEmail);
-    if (!emailResult.success) {
-      setResetEmailError(emailResult.error.errors[0].message);
-      return;
-    }
-
-    setIsResetLoading(true);
-    const redirectUrl = `${window.location.origin}/auth/callback`;
-
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: redirectUrl,
-    });
-
-    setIsResetLoading(false);
-
-    if (error) {
-      toast({
-        title: "Failed to send reset email",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Reset email sent!",
-        description: "Check your inbox for a password reset link.",
-      });
-      setShowForgotPassword(false);
-      setResetEmail("");
-    }
-  };
+  const isLoading = isConnecting || connectingMethod !== null;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -222,7 +106,7 @@ export default function Auth() {
         />
       </div>
       
-      {/* Right side - Auth Form */}
+      {/* Right side - Wallet Connect */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 bg-background">
         {/* Mobile Branding */}
         <div className="lg:hidden mb-6 w-full max-w-[280px]">
@@ -236,192 +120,84 @@ export default function Auth() {
         <Card className="w-full max-w-md border-border/50 shadow-xl">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">Welcome to The Lily Pad</CardTitle>
-            <CardDescription>Sign in to manage your streams and access creator tools</CardDescription>
+            <CardDescription>Connect your wallet to get started</CardDescription>
           </CardHeader>
-          <CardContent>
-            {showVerificationMessage ? (
-              <div className="space-y-4 py-4">
-                <Alert className="border-green-500/50 bg-green-500/10">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <AlertDescription className="text-foreground">
-                    We've sent a verification email to <strong>{verificationEmail}</strong>. 
-                    Please check your inbox and click the link to verify your account.
-                  </AlertDescription>
-                </Alert>
-                <div className="text-center space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Didn't receive the email? Check your spam folder or resend.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                    <Button 
-                      variant="default"
-                      onClick={handleResendVerification}
-                      disabled={isResending}
-                    >
-                      {isResending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Mail className="w-4 h-4 mr-2" />
-                          Resend Email
-                        </>
-                      )}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setShowVerificationMessage(false)}
-                    >
-                      Back to Sign In
-                    </Button>
-                  </div>
-                </div>
+          <CardContent className="space-y-4">
+            {/* Primary: Phantom Wallet */}
+            <Button
+              onClick={handlePhantomConnect}
+              disabled={isLoading}
+              className="w-full h-12 text-base font-medium"
+              variant="default"
+            >
+              {connectingMethod === "phantom" || (isConnecting && !connectingMethod) ? (
+                <Loader2 className="w-5 h-5 animate-spin mr-3" />
+              ) : (
+                <span className="mr-3"><PhantomIcon /></span>
+              )}
+              Connect with Phantom
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator className="w-full" />
               </div>
-            ) : showForgotPassword ? (
-              <div className="space-y-4 py-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mb-2 -ml-2"
-                  onClick={() => {
-                    setShowForgotPassword(false);
-                    setResetEmail("");
-                    setResetEmailError("");
-                  }}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Sign In
-                </Button>
-                <div className="text-center mb-4">
-                  <h3 className="text-lg font-semibold">Reset Password</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Enter your email and we'll send you a reset link
-                  </p>
-                </div>
-                <form onSubmit={handleForgotPassword} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="reset-email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="reset-email"
-                        type="email"
-                        placeholder="you@example.com"
-                        value={resetEmail}
-                        onChange={(e) => setResetEmail(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    {resetEmailError && <p className="text-sm text-destructive">{resetEmailError}</p>}
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isResetLoading}>
-                    {isResetLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Send Reset Link
-                  </Button>
-                </form>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  or continue with
+                </span>
               </div>
-            ) : (
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              </TabsList>
+            </div>
 
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="signin-email"
-                        type="email"
-                        placeholder="you@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="signin-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
-                  </div>
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="px-0 h-auto text-sm text-muted-foreground hover:text-primary"
-                      onClick={() => setShowForgotPassword(true)}
-                    >
-                      Forgot password?
-                    </Button>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Sign In
-                  </Button>
+            {/* OAuth options via Phantom Smart Wallet */}
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={handleGoogleConnect}
+                disabled={isLoading}
+                variant="outline"
+                className="h-11"
+              >
+                {connectingMethod === "google" ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <span className="mr-2"><GoogleIcon /></span>
+                )}
+                Google
+              </Button>
+              <Button
+                onClick={handleAppleConnect}
+                disabled={isLoading}
+                variant="outline"
+                className="h-11"
+              >
+                {connectingMethod === "apple" ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <span className="mr-2"><AppleIcon /></span>
+                )}
+                Apple
+              </Button>
+            </div>
 
-                </form>
-              </TabsContent>
-
-              <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        placeholder="you@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="signup-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Create Account
-                  </Button>
-
-                </form>
-              </TabsContent>
-            </Tabs>
-            )}
+            {/* Info text */}
+            <p className="text-xs text-muted-foreground text-center pt-4">
+              Don't have a wallet? Choose Google or Apple to create a smart wallet automatically with Phantom.
+            </p>
           </CardContent>
         </Card>
+
+        {/* Install Phantom link */}
+        <p className="mt-6 text-sm text-muted-foreground text-center">
+          Need Phantom?{" "}
+          <a
+            href="https://phantom.app/download"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline font-medium"
+          >
+            Download here
+          </a>
+        </p>
       </div>
     </div>
   );
