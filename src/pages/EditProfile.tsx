@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useWallet } from "@/providers/WalletProvider";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useSEO } from "@/hooks/useSEO";
-import { 
+import {
   User, ArrowLeft, Save, Plus, Trash2,
   Twitter, Youtube, MessageCircle, Instagram, Music2, Calendar, Tag, X, Upload, ImageIcon, Wallet, CheckCircle
 } from "lucide-react";
@@ -35,14 +37,16 @@ interface ScheduleItem {
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const availableCategories = [
-  'Gaming', 'Just Chatting', 'Music', 'Art', 'Cooking', 
+  'Gaming', 'Just Chatting', 'Music', 'Art', 'Cooking',
   'Sports', 'Education', 'Technology', 'Fitness', 'Travel',
   'Comedy', 'News', 'Crypto', 'DeFi', 'NFTs'
 ];
 
-const EditStreamerProfile = () => {
+const EditProfile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { address, isConnected } = useWallet();
+  const { profile, loading: profileLoading, updateProfile } = useUserProfile();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -51,8 +55,7 @@ const EditStreamerProfile = () => {
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
   const [cropType, setCropType] = useState<'avatar' | 'banner'>('avatar');
-  const [userId, setUserId] = useState<string | null>(null);
-  
+
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -69,138 +72,91 @@ const EditStreamerProfile = () => {
 
   useSEO({
     title: "Edit Profile | The Lily Pad",
-    description: "Customize your streamer profile. Add bio, social links, streaming schedule, and profile images."
+    description: "Customize your profile. Add bio, social links, and profile images."
   });
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    // Check wallet connection
+    if (!isConnected || !address) {
+      navigate('/auth');
+      return;
+    }
+
+    if (!profileLoading && profile) {
+      setDisplayName(profile.display_name || "");
+      setBio(profile.bio || "");
+      setAvatarUrl(profile.avatar_url || "");
+      setBannerUrl(profile.banner_url || "");
+      setSocialTwitter(profile.social_twitter || "");
+      setSocialYoutube(profile.social_youtube || "");
+      setSocialDiscord(profile.social_discord || "");
+      setSocialInstagram(profile.social_instagram || "");
+      setSocialTiktok(profile.social_tiktok || "");
+
+      // Parse schedule
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-          setLoading(false);
-          navigate('/auth');
-          return;
-        }
-        
-        if (!session?.user) {
-          setLoading(false);
-          navigate('/auth');
-          return;
-        }
-
-        setUserId(session.user.id);
-
-        const { data: profile, error } = await supabase
-          .from('streamer_profiles')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Error fetching profile:', error);
-          // Don't return - user might be creating a new profile
-        }
-
-        if (profile) {
-          setDisplayName(profile.display_name || "");
-          setBio(profile.bio || "");
-          setAvatarUrl(profile.avatar_url || "");
-          setBannerUrl(profile.banner_url || "");
-          setSocialTwitter(profile.social_twitter || "");
-          setSocialYoutube(profile.social_youtube || "");
-          setSocialDiscord(profile.social_discord || "");
-          setSocialInstagram(profile.social_instagram || "");
-          setSocialTiktok(profile.social_tiktok || "");
-          
-          // Parse schedule
-          try {
-            const rawSchedule = profile.schedule as unknown;
-            const parsedSchedule = Array.isArray(rawSchedule) 
-              ? (rawSchedule as ScheduleItem[])
-              : [];
-            setSchedule(parsedSchedule);
-          } catch {
-            setSchedule([]);
-          }
-
-          // Parse categories
-          setCategories(Array.isArray(profile.categories) ? profile.categories : []);
-          
-          // Set payout wallet
-          setPayoutWalletAddress(profile.payout_wallet_address || "");
-          
-          // Set playlist IDs
-          setPlaylistIds(Array.isArray((profile as any).playlist_ids) ? (profile as any).playlist_ids : []);
-        }
-      } catch (err) {
-        console.error('Error in fetchProfile:', err);
-      } finally {
-        setLoading(false);
+        const rawSchedule = profile.schedule as unknown;
+        const parsedSchedule = Array.isArray(rawSchedule)
+          ? (rawSchedule as ScheduleItem[])
+          : [];
+        setSchedule(parsedSchedule);
+      } catch {
+        setSchedule([]);
       }
-    };
 
-    fetchProfile();
-  }, [navigate]);
+      // Parse categories
+      setCategories(Array.isArray(profile.categories) ? profile.categories : []);
+
+      // Set payout wallet
+      setPayoutWalletAddress(profile.payout_wallet_address || "");
+
+      // Set playlist IDs
+      setPlaylistIds(Array.isArray((profile as any).playlist_ids) ? (profile as any).playlist_ids : []);
+    }
+    setLoading(profileLoading);
+  }, [profile, profileLoading, isConnected, address, navigate]);
 
   const handleSave = async () => {
-    if (!userId) return;
+    if (!address) return;
 
     setSaving(true);
 
-    // Check if profile exists
-    const { data: existingProfile } = await supabase
-      .from('streamer_profiles')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle();
+    try {
+      await updateProfile({
+        display_name: displayName || null,
+        bio: bio || null,
+        avatar_url: avatarUrl || null,
+        banner_url: bannerUrl || null,
+        social_twitter: socialTwitter || null,
+        social_youtube: socialYoutube || null,
+        social_discord: socialDiscord || null,
+        social_instagram: socialInstagram || null,
+        social_tiktok: socialTiktok || null,
+        schedule: JSON.parse(JSON.stringify(schedule)),
+        categories: categories,
+        payout_wallet_address: payoutWalletAddress || null,
+        playlist_ids: playlistIds,
+      });
 
-    const profileData = {
-      user_id: userId,
-      display_name: displayName || null,
-      bio: bio || null,
-      avatar_url: avatarUrl || null,
-      banner_url: bannerUrl || null,
-      social_twitter: socialTwitter || null,
-      social_youtube: socialYoutube || null,
-      social_discord: socialDiscord || null,
-      social_instagram: socialInstagram || null,
-      social_tiktok: socialTiktok || null,
-      schedule: JSON.parse(JSON.stringify(schedule)),
-      categories: categories,
-      payout_wallet_address: payoutWalletAddress || null,
-      playlist_ids: playlistIds,
-    };
+      toast({
+        title: "Profile saved!",
+        description: "Your profile has been updated."
+      });
 
-    let error;
-    if (existingProfile) {
-      const result = await supabase
-        .from('streamer_profiles')
-        .update(profileData)
-        .eq('user_id', userId);
-      error = result.error;
-    } else {
-      const result = await supabase
-        .from('streamer_profiles')
-        .insert(profileData);
-      error = result.error;
-    }
-
-    setSaving(false);
-
-    if (error) {
+      // Navigate based on profile type
+      if (profile?.is_streamer) {
+        navigate(`/streamer/${profile.user_id || address}`);
+      } else {
+        navigate('/');
+      }
+    } catch (error: any) {
       toast({
         title: "Error saving profile",
         description: error.message,
         variant: "destructive"
       });
-    } else {
-      toast({
-        title: "Profile saved!",
-        description: "Your streamer profile has been updated."
-      });
-      navigate(`/streamer/${userId}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -255,20 +211,20 @@ const EditStreamerProfile = () => {
   };
 
   const handleCroppedImage = async (croppedBlob: Blob) => {
-    if (!userId) return;
+    if (!address) return;
 
     setCropModalOpen(false);
     setSelectedImageSrc(null);
     setUploading(true);
 
     try {
-      const fileName = cropType === 'avatar' 
-        ? `${userId}/avatar.jpg`
-        : `${userId}/banner.jpg`;
+      const fileName = cropType === 'avatar'
+        ? `${address}/avatar.jpg`
+        : `${address}/banner.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, croppedBlob, { 
+        .upload(fileName, croppedBlob, {
           upsert: true,
           contentType: 'image/jpeg'
         });
@@ -281,7 +237,7 @@ const EditStreamerProfile = () => {
 
       // Add timestamp to bust cache
       const urlWithCache = `${publicUrl}?t=${Date.now()}`;
-      
+
       if (cropType === 'avatar') {
         setAvatarUrl(urlWithCache);
         toast({
@@ -363,11 +319,11 @@ const EditStreamerProfile = () => {
   };
 
   const handleRemoveBanner = async () => {
-    if (!userId) return;
+    if (!address) return;
 
     setUploading(true);
     try {
-      await supabase.storage.from('avatars').remove([`${userId}/banner.jpg`]);
+      await supabase.storage.from('avatars').remove([`${address}/banner.jpg`]);
       setBannerUrl('');
       toast({
         title: "Banner removed",
@@ -386,17 +342,17 @@ const EditStreamerProfile = () => {
   };
 
   const handleRemoveAvatar = async () => {
-    if (!userId) return;
+    if (!address) return;
 
     setUploading(true);
     try {
       // Try to delete existing avatar files
       const { data: files } = await supabase.storage
         .from('avatars')
-        .list(userId);
+        .list(address);
 
       if (files && files.length > 0) {
-        const filesToDelete = files.map(f => `${userId}/${f.name}`);
+        const filesToDelete = files.map(f => `${address}/${f.name}`);
         await supabase.storage.from('avatars').remove(filesToDelete);
       }
 
@@ -438,8 +394,8 @@ const EditStreamerProfile = () => {
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={() => navigate(-1)}
               className="gap-2"
             >
@@ -486,11 +442,10 @@ const EditStreamerProfile = () => {
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  className={`relative flex items-center gap-4 p-4 rounded-lg border-2 border-dashed transition-colors ${
-                    isDragging
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-primary/50'
-                  }`}
+                  className={`relative flex items-center gap-4 p-4 rounded-lg border-2 border-dashed transition-colors ${isDragging
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
+                    }`}
                 >
                   <Avatar className="h-20 w-20 border-2 border-border shrink-0">
                     <AvatarImage src={avatarUrl} alt="Avatar preview" />
@@ -547,11 +502,10 @@ const EditStreamerProfile = () => {
                   onDragOver={handleBannerDragOver}
                   onDragLeave={handleBannerDragLeave}
                   onDrop={handleBannerDrop}
-                  className={`relative rounded-lg border-2 border-dashed transition-colors overflow-hidden ${
-                    isBannerDragging
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-primary/50'
-                  }`}
+                  className={`relative rounded-lg border-2 border-dashed transition-colors overflow-hidden ${isBannerDragging
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
+                    }`}
                 >
                   {bannerUrl ? (
                     <div className="relative aspect-[3/1] w-full">
@@ -636,44 +590,45 @@ const EditStreamerProfile = () => {
             </CardContent>
           </Card>
 
-          {/* Categories */}
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Tag className="h-5 w-5 text-primary" />
-                Categories / Genres
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Select categories that describe your content (click to toggle):
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {availableCategories.map((category) => (
-                  <Badge
-                    key={category}
-                    variant={categories.includes(category) ? "default" : "outline"}
-                    className={`cursor-pointer transition-all ${
-                      categories.includes(category) 
-                        ? "bg-primary hover:bg-primary/80" 
-                        : "hover:bg-primary/20"
-                    }`}
-                    onClick={() => toggleCategory(category)}
-                  >
-                    {category}
-                    {categories.includes(category) && (
-                      <X className="h-3 w-3 ml-1" />
-                    )}
-                  </Badge>
-                ))}
-              </div>
-              {categories.length > 0 && (
+          {/* Categories - Only for Streamers */}
+          {profile?.is_streamer && (
+            <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Tag className="h-5 w-5 text-primary" />
+                  Categories / Genres
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Selected: {categories.join(", ")}
+                  Select categories that describe your content (click to toggle):
                 </p>
-              )}
-            </CardContent>
-          </Card>
+                <div className="flex flex-wrap gap-2">
+                  {availableCategories.map((category) => (
+                    <Badge
+                      key={category}
+                      variant={categories.includes(category) ? "default" : "outline"}
+                      className={`cursor-pointer transition-all ${categories.includes(category)
+                        ? "bg-primary hover:bg-primary/80"
+                        : "hover:bg-primary/20"
+                        }`}
+                      onClick={() => toggleCategory(category)}
+                    >
+                      {category}
+                      {categories.includes(category) && (
+                        <X className="h-3 w-3 ml-1" />
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+                {categories.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Selected: {categories.join(", ")}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Social Links */}
           <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
@@ -736,7 +691,7 @@ const EditStreamerProfile = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Set a specific wallet address to receive your earnings from donations, NFT sales, and shop sales. 
+                Set a specific wallet address to receive your earnings from donations, NFT sales, and shop sales.
                 Leave empty to use your currently connected wallet.
               </p>
               <div className="space-y-2">
@@ -760,73 +715,75 @@ const EditStreamerProfile = () => {
             </CardContent>
           </Card>
 
-          {/* Music Playlists */}
-          {userId && (
+          {/* Music Playlists - Only for Streamers */}
+          {profile?.is_streamer && (address || profile?.user_id) && (
             <StreamerPlaylistSelector
-              userId={userId}
+              userId={profile?.user_id || address || ""}
               selectedPlaylistIds={playlistIds}
               onSelectionChange={setPlaylistIds}
             />
           )}
 
-          {/* Schedule */}
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary" />
-                Streaming Schedule
-              </CardTitle>
-              <Button variant="outline" size="sm" onClick={addScheduleItem} className="gap-1">
-                <Plus className="h-4 w-4" />
-                Add
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {schedule.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">
-                  No schedule items. Click "Add" to create your streaming schedule.
-                </p>
-              ) : (
-                schedule.map((item, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
-                    <Select
-                      value={item.day}
-                      onValueChange={(value) => updateScheduleItem(index, 'day', value)}
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {days.map((day) => (
-                          <SelectItem key={day} value={day}>{day}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      value={item.time}
-                      onChange={(e) => updateScheduleItem(index, 'time', e.target.value)}
-                      placeholder="8:00 PM"
-                      className="flex-1"
-                    />
-                    <Input
-                      value={item.timezone || ''}
-                      onChange={(e) => updateScheduleItem(index, 'timezone', e.target.value)}
-                      placeholder="EST"
-                      className="w-20"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeScheduleItem(index)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+          {/* Schedule - Only for Streamers */}
+          {profile?.is_streamer && (
+            <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  Streaming Schedule
+                </CardTitle>
+                <Button variant="outline" size="sm" onClick={addScheduleItem} className="gap-1">
+                  <Plus className="h-4 w-4" />
+                  Add
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {schedule.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">
+                    No schedule items. Click "Add" to create your streaming schedule.
+                  </p>
+                ) : (
+                  schedule.map((item, index) => (
+                    <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
+                      <Select
+                        value={item.day}
+                        onValueChange={(value) => updateScheduleItem(index, 'day', value)}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {days.map((day) => (
+                            <SelectItem key={day} value={day}>{day}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={item.time}
+                        onChange={(e) => updateScheduleItem(index, 'time', e.target.value)}
+                        placeholder="8:00 PM"
+                        className="flex-1"
+                      />
+                      <Input
+                        value={item.timezone || ''}
+                        onChange={(e) => updateScheduleItem(index, 'timezone', e.target.value)}
+                        placeholder="EST"
+                        className="w-20"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeScheduleItem(index)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
 
@@ -847,4 +804,4 @@ const EditStreamerProfile = () => {
   );
 };
 
-export default EditStreamerProfile;
+export default EditProfile;

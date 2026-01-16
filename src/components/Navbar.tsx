@@ -7,6 +7,7 @@ import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { RpcSettings } from "@/components/wallet/RpcSettings";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useWallet } from "@/providers/WalletProvider";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -57,8 +58,8 @@ const adminLinks = [
 export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const { network } = useWallet();
+  const { network, isConnected } = useWallet();
+  const { profile, loading: profileLoading } = useUserProfile();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const isTestnet = network === "testnet";
@@ -181,7 +182,14 @@ export const Navbar: React.FC = () => {
                     >
                       Account
                     </p>
-                    {accountLinks.map((link, index) => (
+                    {accountLinks.filter(link => {
+                      // Only show streamer-specific links if user is a streamer
+                      if (link.href === "/go-live" || link.label === "Go Live" || link.label === "Streamer Dashboard") {
+                        return profile?.is_streamer;
+                      }
+                      // Hide donations if not using that feature (optional)
+                      return true;
+                    }).map((link, index) => (
                       <SheetClose asChild key={link.label}>
                         <Link
                           to={link.href}

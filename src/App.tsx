@@ -21,7 +21,7 @@ import NotFound from "./pages/NotFound";
 // Auth guard for auth page - redirects to home if already connected
 const AuthPageGuard = () => {
   const { isConnected, isConnecting } = useWallet();
-  
+
   if (isConnecting) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -29,11 +29,11 @@ const AuthPageGuard = () => {
       </div>
     );
   }
-  
+
   if (isConnected) {
     return <Navigate to="/" replace />;
   }
-  
+
   return <Auth />;
 };
 
@@ -46,7 +46,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const DonorProfile = lazy(() => import("./pages/DonorProfile"));
 const StreamerProfile = lazy(() => import("./pages/StreamerProfile"));
 const StreamerCollections = lazy(() => import("./pages/StreamerCollections"));
-const EditStreamerProfile = lazy(() => import("./pages/EditStreamerProfile"));
+const EditProfile = lazy(() => import("./pages/EditProfile"));
 const Following = lazy(() => import("./pages/Following"));
 const ClipViewer = lazy(() => import("./pages/ClipViewer"));
 const Moderation = lazy(() => import("./pages/Moderation"));
@@ -69,6 +69,7 @@ const ArtistProfile = lazy(() => import("./pages/ArtistProfile"));
 const Raffles = lazy(() => import("./pages/Raffles"));
 const BlindBoxes = lazy(() => import("./pages/BlindBoxes"));
 const Governance = lazy(() => import("./pages/Governance"));
+const ProfileTypeSelection = lazy(() => import("./pages/ProfileTypeSelection"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -103,6 +104,7 @@ const App = () => (
                 <Routes>
                   <Route path="/auth" element={<AuthPageGuard />} />
                   <Route path="/auth/callback" element={<Suspense fallback={<PageLoader />}><AuthCallback /></Suspense>} />
+                  <Route path="/profile-setup" element={<Suspense fallback={<PageLoader />}><ProfileTypeSelection /></Suspense>} />
                   <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                   <Route path="/wallet" element={<ProtectedRoute><WalletProfile /></ProtectedRoute>} />
                   <Route path="/streams" element={<ProtectedRoute><Streams /></ProtectedRoute>} />
@@ -112,7 +114,7 @@ const App = () => (
                   <Route path="/donor-profile" element={<ProtectedRoute><DonorProfile /></ProtectedRoute>} />
                   <Route path="/streamer/:streamerId" element={<ProtectedRoute><StreamerProfile /></ProtectedRoute>} />
                   <Route path="/streamer/:streamerId/collections" element={<ProtectedRoute><StreamerCollections /></ProtectedRoute>} />
-                  <Route path="/edit-profile" element={<ProtectedRoute><EditStreamerProfile /></ProtectedRoute>} />
+                  <Route path="/edit-profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
                   <Route path="/following" element={<ProtectedRoute><Following /></ProtectedRoute>} />
                   <Route path="/clip/:clipId" element={<ProtectedRoute><ClipViewer /></ProtectedRoute>} />
                   <Route path="/moderation" element={<ProtectedRoute><Moderation /></ProtectedRoute>} />
