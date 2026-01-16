@@ -90,13 +90,11 @@ export const Navbar: React.FC = () => {
 
   return (
     <nav
-      className={`fixed left-0 right-0 z-50 transition-all duration-300 ${
-        isTestnet ? "top-[36px]" : "top-0"
-      } ${
-        isScrolled
+      className={`fixed left-0 right-0 z-50 transition-all duration-300 ${isTestnet ? "top-[36px]" : "top-0"
+        } ${isScrolled
           ? "bg-background/80 backdrop-blur-xl border-b border-border/50"
           : "bg-transparent"
-      }`}
+        }`}
     >
       <div className="container mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-14 sm:h-16 md:h-20">
@@ -134,7 +132,7 @@ export const Navbar: React.FC = () => {
 
                   {/* Explore Section */}
                   <div className="space-y-1">
-                    <p 
+                    <p
                       className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider animate-fade-in"
                       style={{ animationDelay: `${primaryLinks.length * 50 + 50}ms`, animationFillMode: 'both' }}
                     >
@@ -143,7 +141,7 @@ export const Navbar: React.FC = () => {
                     {exploreLinks.map((link, index) => {
                       const isDisabled = 'disabled' in link && link.disabled;
                       const isComingSoon = 'comingSoon' in link && link.comingSoon;
-                      
+
                       if (isDisabled) {
                         return (
                           <div
@@ -159,7 +157,7 @@ export const Navbar: React.FC = () => {
                           </div>
                         );
                       }
-                      
+
                       return (
                         <SheetClose asChild key={link.label}>
                           <Link
@@ -177,7 +175,7 @@ export const Navbar: React.FC = () => {
 
                   {/* Account Section */}
                   <div className="space-y-1">
-                    <p 
+                    <p
                       className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider animate-fade-in"
                       style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
                     >
@@ -200,7 +198,7 @@ export const Navbar: React.FC = () => {
                   {/* Admin Section */}
                   {isAdmin && (
                     <div className="space-y-1">
-                      <p 
+                      <p
                         className="px-4 text-xs font-semibold text-primary uppercase tracking-wider animate-fade-in"
                         style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + accountLinks.length + 2) * 50 + 50}ms`, animationFillMode: 'both' }}
                       >
@@ -242,27 +240,6 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center gap-2 sm:gap-3">
             <NotificationBell />
             <ConnectWallet />
-            {user ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSignOut}
-                className="text-muted-foreground hover:text-foreground"
-                title="Sign out"
-              >
-                <LogOut className="w-5 h-5" />
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/auth")}
-                className="gap-2"
-              >
-                <LogIn className="w-4 h-4" />
-                <span className="hidden sm:inline">Login</span>
-              </Button>
-            )}
           </div>
         </div>
       </div>

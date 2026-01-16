@@ -985,11 +985,13 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
     setIsDeploying(true);
 
     try {
-      // Get current user
+      // Get current user or wallet
       const { data: { user } } = await supabase.auth.getUser();
 
-      if (!user) {
-        toast.error("Please sign in to create a collection");
+      const creatorId = user?.id || address;
+
+      if (!creatorId) {
+        toast.error("Please connect your wallet to create a collection");
         setIsDeploying(false);
         return;
       }
@@ -997,7 +999,9 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       // Upload image to storage if there's a new file
       let finalImageUrl = imagePreview;
       if (imageFile) {
-        const uploadedUrl = await uploadImageToStorage(user.id);
+        // Use a generic folder if no user ID (or use address)
+        const uploadPath = user?.id || address || 'anonymous';
+        const uploadedUrl = await uploadImageToStorage(uploadPath);
         if (uploadedUrl) {
           finalImageUrl = uploadedUrl;
         }
@@ -1088,7 +1092,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       const publicPrice = firstPhase?.price || "0";
 
       // Determine chain value with network awareness
-      const chainValue = blockchain === 'solana' 
+      const chainValue = blockchain === 'solana'
         ? (network === 'mainnet' ? 'solana-mainnet' : 'solana-devnet')
         : blockchain;
 
@@ -1096,7 +1100,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       const { data, error } = await supabase
         .from("collections")
         .insert([{
-          creator_id: user.id,
+          creator_id: creatorId,
           creator_address: address || '', // Use wallet address for Solana
           contract_address: solanaAddress,
           name,

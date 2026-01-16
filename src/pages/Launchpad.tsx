@@ -115,10 +115,12 @@ export default function Launchpad() {
     localStorage.setItem("selectedPlatform", selectedPlatform);
   }, [selectedPlatform]);
 
-  // Get current user
+  // Get current user or wallet
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setCurrentUserId(session?.user?.id ?? null);
+      // Use session ID if available, otherwise fallback to wallet address (legacy support)
+      // Note: For new wallet-only flow, we prioritize wallet address if no session
+      setCurrentUserId(session?.user?.id ?? (chainType === "solana" ? useWallet().address : null));
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -126,7 +128,7 @@ export default function Launchpad() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [chainType]); // Re-run if chain changes (to get new address)
 
   const isTestnet = network === "testnet";
   const walkthrough = useLaunchpadWalkthrough();
@@ -358,19 +360,19 @@ export default function Launchpad() {
             <div>
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <h1 className="text-3xl sm:text-4xl font-bold">Lily Launchpad</h1>
-                  <Badge
-                    variant="outline"
-                    className={isTestnet
-                      ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                      : "bg-primary/10 text-primary border-primary/30"
-                    }
-                  >
-                    <Globe className="w-3 h-3 mr-1" />
-                    {isTestnet ? "Solana Devnet" : "Solana Mainnet"}
-                  </Badge>
-                </div>
-                <p className="text-muted-foreground mb-4">
-                  Launch your NFT collection on Solana
+                <Badge
+                  variant="outline"
+                  className={isTestnet
+                    ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                    : "bg-primary/10 text-primary border-primary/30"
+                  }
+                >
+                  <Globe className="w-3 h-3 mr-1" />
+                  {isTestnet ? "Solana Devnet" : "Solana Mainnet"}
+                </Badge>
+              </div>
+              <p className="text-muted-foreground mb-4">
+                Launch your NFT collection on Solana
               </p>
               <PlatformSwitcher
                 selected={selectedPlatform}
