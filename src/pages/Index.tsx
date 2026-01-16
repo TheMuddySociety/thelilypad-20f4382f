@@ -10,6 +10,7 @@ import { MarketplacePreview } from "@/components/sections/MarketplacePreview";
 import { HowItWorks } from "@/components/sections/HowItWorks";
 import { CreatorProtection } from "@/components/sections/CreatorProtection";
 import { CommunityBenefits } from "@/components/sections/CommunityBenefits";
+import { FeaturedCardStack } from "@/components/sections/FeaturedCardStack";
 import { Footer } from "@/components/sections/Footer";
 import { useSEO } from "@/hooks/useSEO";
 
@@ -40,6 +41,7 @@ const Index: React.FC = () => {
     <main className="min-h-screen bg-background overflow-hidden">
       <Navbar />
       <HeroSection />
+      <FeaturedCardStack />
       <PresentationCard />
       <FeaturedCollectionsSection />
       <TopCollectionsHighlights />

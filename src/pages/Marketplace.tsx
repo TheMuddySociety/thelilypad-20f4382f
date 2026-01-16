@@ -8,6 +8,7 @@ import { Sparkles } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
 import { BackToTop } from "@/components/BackToTop";
+import { FeaturedCardStack } from "@/components/sections/FeaturedCardStack";
 import { useWallet, ChainType } from "@/providers/WalletProvider";
 import { useSEO } from "@/hooks/useSEO";
 import {
@@ -159,6 +160,9 @@ export default function Marketplace() {
         <div className="mb-8">
           <HomepageFeaturedCollections />
         </div>
+
+        {/* Featured Card Stack */}
+        <FeaturedCardStack />
 
         {/* Stats */}
         <StatsGrid stats={stats} columns={5} className="mb-8" />
