@@ -18,8 +18,9 @@ import { StreamerSchedules } from "@/components/StreamerSchedules";
 import { NextStreamCountdown } from "@/components/NextStreamCountdown";
 import { useSEO } from "@/hooks/useSEO";
 
-type StreamerProfile = Tables<"streamer_profiles">;
-type StreamerWithStatus = StreamerProfile & { is_live: boolean; followed_at?: string };
+// Public streamer profile (excludes sensitive wallet addresses)
+type StreamerProfilePublic = Omit<Tables<"streamer_profiles">, "payout_wallet_address" | "sol_wallet_address">;
+type StreamerWithStatus = StreamerProfilePublic & { is_live: boolean; followed_at?: string };
 
 type SortOption = "live" | "name" | "recent";
 type ViewMode = "grid" | "list";
@@ -281,7 +282,7 @@ const Following = () => {
 
       // Fetch streamer profiles
       const { data: profiles, error: profilesError } = await supabase
-        .from("streamer_profiles")
+        .from("streamer_profiles_public")
         .select("*")
         .in("user_id", streamerIds);
 
@@ -469,7 +470,7 @@ const Following = () => {
       .slice(0, 2);
   };
 
-  const getSocialCount = (streamer: StreamerProfile) => {
+  const getSocialCount = (streamer: StreamerProfilePublic) => {
     let count = 0;
     if (streamer.social_twitter) count++;
     if (streamer.social_youtube) count++;

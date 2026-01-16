@@ -510,7 +510,6 @@ const StreamerProfile = () => {
                       {streamerId && (
                         <TipButton
                           streamerId={streamerId}
-                          streamerAddress={streamerId}
                           streamerName={profile?.display_name || 'Streamer'}
                         />
                       )}

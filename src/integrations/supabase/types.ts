@@ -2625,7 +2625,69 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      streamer_profiles_public: {
+        Row: {
+          avatar_url: string | null
+          banner_url: string | null
+          bio: string | null
+          categories: string[] | null
+          created_at: string | null
+          display_name: string | null
+          id: string | null
+          is_verified: boolean | null
+          playlist_ids: string[] | null
+          preferred_currency: string | null
+          schedule: Json | null
+          social_discord: string | null
+          social_instagram: string | null
+          social_tiktok: string | null
+          social_twitter: string | null
+          social_youtube: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          banner_url?: string | null
+          bio?: string | null
+          categories?: string[] | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string | null
+          is_verified?: boolean | null
+          playlist_ids?: string[] | null
+          preferred_currency?: string | null
+          schedule?: Json | null
+          social_discord?: string | null
+          social_instagram?: string | null
+          social_tiktok?: string | null
+          social_twitter?: string | null
+          social_youtube?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          banner_url?: string | null
+          bio?: string | null
+          categories?: string[] | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string | null
+          is_verified?: boolean | null
+          playlist_ids?: string[] | null
+          preferred_currency?: string | null
+          schedule?: Json | null
+          social_discord?: string | null
+          social_instagram?: string | null
+          social_tiktok?: string | null
+          social_twitter?: string | null
+          social_youtube?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {

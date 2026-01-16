@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tables } from "@/integrations/supabase/types";
 
-type StreamerProfile = Tables<"streamer_profiles">;
+// Public streamer profile type (excludes sensitive wallet addresses)
+type StreamerProfilePublic = Omit<Tables<"streamer_profiles">, "payout_wallet_address" | "sol_wallet_address">;
 
 interface ScheduleItem {
   day: string;
@@ -15,7 +16,7 @@ interface ScheduleItem {
 }
 
 interface StreamerSchedulesProps {
-  streamers: StreamerProfile[];
+  streamers: StreamerProfilePublic[];
 }
 
 const DAYS_ORDER = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -49,7 +50,7 @@ export const StreamerSchedules = ({ streamers }: StreamerSchedulesProps) => {
 
     // Collect schedules for each day
     const schedulesByDay: Record<string, Array<{
-      streamer: StreamerProfile;
+      streamer: StreamerProfilePublic;
       time: string;
       timezone?: string;
     }>> = {};
