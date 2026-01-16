@@ -20,6 +20,9 @@ const VOLUME_WEIGHTS: Record<string, number> = {
 const PLATFORM_FEE_BPS = 250; // 2.5%
 const BUYBACK_ALLOCATION_BPS = 5000; // 50% of platform fee
 
+// Actions that require authentication (write operations)
+const AUTHENTICATED_ACTIONS = ['record_volume', 'record_fee', 'record_transaction'];
+
 interface VolumeEvent {
   source_type: 'nft_sell' | 'nft_buy' | 'offer' | 'listing' | 'sticker' | 'emote' | 'emoji';
   volume_amount: number;
@@ -40,6 +43,30 @@ interface PlatformFeeEvent {
   chain?: string;
 }
 
+async function authenticateRequest(req: Request, supabase: any): Promise<{ userId: string | null; error: string | null }> {
+  const authHeader = req.headers.get('Authorization');
+  
+  if (!authHeader?.startsWith('Bearer ')) {
+    return { userId: null, error: 'Missing or invalid authorization header' };
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  
+  try {
+    const { data, error } = await supabase.auth.getUser(token);
+    
+    if (error || !data?.user) {
+      console.error('Auth error:', error?.message || 'No user found');
+      return { userId: null, error: 'Invalid or expired token' };
+    }
+
+    return { userId: data.user.id, error: null };
+  } catch (err) {
+    console.error('Authentication failed:', err);
+    return { userId: null, error: 'Authentication failed' };
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -48,15 +75,68 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Create client with anon key for auth verification
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: req.headers.get('Authorization') || '' } }
+    });
+    
+    // Create service role client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { action, data } = await req.json();
-    console.log(`Processing action: ${action}`, JSON.stringify(data));
+    console.log(`Processing action: ${action}`);
+
+    // Check if action requires authentication
+    if (AUTHENTICATED_ACTIONS.includes(action)) {
+      const { userId, error: authError } = await authenticateRequest(req, supabaseAuth);
+      
+      if (authError || !userId) {
+        console.warn(`Unauthorized attempt for action: ${action}`);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized', details: authError }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log(`Authenticated user ${userId} for action: ${action}`);
+      
+      // For write operations, use the authenticated user's ID if not provided
+      if (data && !data.user_id) {
+        data.user_id = userId;
+      }
+    }
 
     switch (action) {
       case 'record_volume': {
         const event = data as VolumeEvent;
+        
+        // Validate required fields
+        if (!event.source_type || !event.volume_amount || !event.tx_hash) {
+          return new Response(
+            JSON.stringify({ error: 'Missing required fields: source_type, volume_amount, tx_hash' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Validate source_type
+        if (!VOLUME_WEIGHTS[event.source_type]) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid source_type' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Validate volume_amount is positive
+        if (event.volume_amount <= 0) {
+          return new Response(
+            JSON.stringify({ error: 'volume_amount must be positive' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
         const result = await recordVolume(supabase, event);
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -65,6 +145,23 @@ Deno.serve(async (req) => {
 
       case 'record_fee': {
         const event = data as PlatformFeeEvent;
+        
+        // Validate required fields
+        if (!event.tx_hash || !event.fee_amount || !event.fee_type || !event.source_volume) {
+          return new Response(
+            JSON.stringify({ error: 'Missing required fields: tx_hash, fee_amount, fee_type, source_volume' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Validate fee_amount is positive
+        if (event.fee_amount <= 0) {
+          return new Response(
+            JSON.stringify({ error: 'fee_amount must be positive' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
         const result = await recordPlatformFee(supabase, event);
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -72,7 +169,30 @@ Deno.serve(async (req) => {
       }
 
       case 'record_transaction': {
-        // Combined action for recording both volume and fee
+        // Validate required fields
+        if (!data?.source_type || !data?.volume_amount || !data?.tx_hash) {
+          return new Response(
+            JSON.stringify({ error: 'Missing required fields: source_type, volume_amount, tx_hash' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Validate source_type
+        if (!VOLUME_WEIGHTS[data.source_type]) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid source_type' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Validate volume_amount is positive
+        if (data.volume_amount <= 0) {
+          return new Response(
+            JSON.stringify({ error: 'volume_amount must be positive' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
         const result = await recordTransaction(supabase, data);
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -80,6 +200,7 @@ Deno.serve(async (req) => {
       }
 
       case 'get_pool_status': {
+        // Public read - no auth required
         const result = await getPoolStatus(supabase);
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -87,6 +208,7 @@ Deno.serve(async (req) => {
       }
 
       case 'get_volume_stats': {
+        // Public read - no auth required
         const result = await getVolumeStats(supabase, data?.period || '24h');
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
