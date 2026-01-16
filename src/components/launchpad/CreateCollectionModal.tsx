@@ -1061,7 +1061,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                 uri: finalImageUrl || '',
                 sellerFeeBasisPoints: parseFloat(royaltyPercent) * 100,
                 creators: [{ address: address, share: 100 }] // Use connected wallet address
-              }
+              },
+              solanaStandard // Pass the selected standard
             );
             candyMachineAddress = cmResult.address;
           }

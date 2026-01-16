@@ -17,6 +17,7 @@
     "@metaplex-foundation/mpl-bubblegum": "^5.0.2",
     "@metaplex-foundation/mpl-candy-machine": "^6.1.0",
     "@metaplex-foundation/mpl-core": "^1.7.0",
+    "@metaplex-foundation/mpl-core-candy-machine": "^0.3.0",
     "@metaplex-foundation/mpl-inscription": "^0.8.1",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
     "@metaplex-foundation/umi": "^1.4.1",

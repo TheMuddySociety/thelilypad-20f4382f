@@ -11,9 +11,13 @@ import {
 } from '@metaplex-foundation/mpl-token-metadata';
 import {
     create,
+    createCandyGuard,
     GuardGroupArgs,
     DefaultGuardSetArgs,
 } from '@metaplex-foundation/mpl-candy-machine';
+import {
+    createCandyMachine as createCoreCandyMachine,
+} from '@metaplex-foundation/mpl-core-candy-machine';
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
 import { toast } from 'sonner';
@@ -171,7 +175,8 @@ export const useSolanaLaunch = () => {
             uri: string;
             sellerFeeBasisPoints: number;
             creators: { address: string; share: number }[];
-        }
+        },
+        standard: SolanaStandard = 'token-metadata'
     ) => {
         setIsLoading(true);
         setError(null);
@@ -221,30 +226,54 @@ export const useSolanaLaunch = () => {
             });
 
             const collectionMint = publicKey(collectionAddress);
+            let createIx;
 
-            // The wallet (umi.identity) must be the update authority of the collection
-            // which it is since we created the collection with the same wallet
-            const createIx = await create(umi, {
-                candyMachine,
-                collectionMint,
-                collectionUpdateAuthority: umi.identity, // Wallet is the update authority
-                tokenStandard: TokenStandard.NonFungible,
-                sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
-                itemsAvailable,
-                creators: metadata.creators.map(c => ({
-                    address: publicKey(c.address),
-                    verified: c.address === umi.identity.publicKey.toString(), // Only verify if it's the signer
-                    percentageShare: c.share
-                })),
-                configLineSettings: some({
-                    prefixName: "",
-                    nameLength: 32,
-                    prefixUri: "",
-                    uriLength: 200,
-                    isSequential: false,
-                }),
-                groups: groups.length > 0 ? groups : undefined,
-            });
+            if (standard === 'core') {
+                toast.loading(`Initializing Core Candy Machine...`, { id: 'cm-create' });
+                // Use Metaplex Core Candy Machine
+                createIx = await createCoreCandyMachine(umi, {
+                    candyMachine,
+                    collection: collectionMint,
+                    itemsAvailable,
+                    sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
+                    creators: metadata.creators.map(c => ({
+                        address: publicKey(c.address),
+                        percentageShare: c.share
+                    })),
+                    configLineSettings: some({
+                        prefixName: "",
+                        nameLength: 32,
+                        prefixUri: "",
+                        uriLength: 200,
+                        isSequential: false,
+                    }),
+                    groups: groups.length > 0 ? groups : undefined,
+                });
+            } else {
+                toast.loading(`Initializing Legacy Candy Machine...`, { id: 'cm-create' });
+                // Use Legacy Candy Machine V3
+                createIx = await create(umi, {
+                    candyMachine,
+                    collectionMint,
+                    collectionUpdateAuthority: umi.identity,
+                    tokenStandard: TokenStandard.NonFungible,
+                    sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
+                    itemsAvailable,
+                    creators: metadata.creators.map(c => ({
+                        address: publicKey(c.address),
+                        verified: c.address === umi.identity.publicKey.toString(),
+                        percentageShare: c.share
+                    })),
+                    configLineSettings: some({
+                        prefixName: "",
+                        nameLength: 32,
+                        prefixUri: "",
+                        uriLength: 200,
+                        isSequential: false,
+                    }),
+                    groups: groups.length > 0 ? groups : undefined,
+                });
+            }
 
             await createIx.sendAndConfirm(umi);
 

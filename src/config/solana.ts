@@ -3,6 +3,7 @@ import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import { mplCore } from '@metaplex-foundation/mpl-core';
 import { mplBubblegum } from '@metaplex-foundation/mpl-bubblegum';
 import { mplCandyMachine } from '@metaplex-foundation/mpl-candy-machine';
+import { mplCoreCandyMachine } from '@metaplex-foundation/mpl-core-candy-machine';
 import { mplInscription } from '@metaplex-foundation/mpl-inscription';
 // Solana RPC endpoints
 export const SOLANA_DEVNET_RPC = "https://api.devnet.solana.com";
@@ -90,6 +91,7 @@ export const initializeUmi = (network: NetworkType) => {
         .use(mplCore())
         .use(mplBubblegum())
         .use(mplCandyMachine())
+        .use(mplCoreCandyMachine())
         .use(mplInscription());
 
     return umi;
