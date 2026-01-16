@@ -430,11 +430,6 @@ export default function MyNFTs() {
             <p className="text-muted-foreground mb-6">
               Connect your wallet to view NFTs in your portfolio
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button onClick={() => navigate("/auth")} variant="outline">
-                Sign In
-              </Button>
-            </div>
           </div>
         </main>
       </div>

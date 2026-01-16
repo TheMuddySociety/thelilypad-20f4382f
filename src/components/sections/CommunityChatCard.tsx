@@ -80,15 +80,15 @@ export const CommunityChatCard: React.FC = () => {
 
   const checkUserStatus = async (userId: string) => {
     // Check if user is admin
-    const { data: adminData } = await supabase.rpc('has_role', { 
-      _user_id: userId, 
-      _role: 'admin' 
+    const { data: adminData } = await supabase.rpc('has_role', {
+      _user_id: userId,
+      _role: 'admin'
     });
     setIsAdmin(!!adminData);
 
     // Check if user is banned
-    const { data: bannedData } = await supabase.rpc('is_user_banned', { 
-      _user_id: userId 
+    const { data: bannedData } = await supabase.rpc('is_user_banned', {
+      _user_id: userId
     });
     setIsBanned(!!bannedData);
   };
@@ -108,7 +108,7 @@ export const CommunityChatCard: React.FC = () => {
         console.error('Error fetching messages:', error);
       } else {
         setMessages((data as ChatMessage[]) || []);
-        
+
         // Fetch reactions for these messages
         if (data && data.length > 0) {
           const messageIds = data.map(m => m.id);
@@ -116,7 +116,7 @@ export const CommunityChatCard: React.FC = () => {
             .from('chat_message_reactions')
             .select('*')
             .in('message_id', messageIds);
-          
+
           if (reactionsData) {
             const grouped: Record<string, MessageReaction[]> = {};
             reactionsData.forEach((r: MessageReaction) => {
@@ -237,9 +237,9 @@ export const CommunityChatCard: React.FC = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newMessage.trim()) return;
-    
+
     if (!user) {
       toast.error('Please sign in to chat');
       return;
@@ -256,7 +256,7 @@ export const CommunityChatCard: React.FC = () => {
     }
 
     setIsSending(true);
-    
+
     const { error } = await supabase
       .from('stream_chat_messages')
       .insert({
@@ -273,7 +273,7 @@ export const CommunityChatCard: React.FC = () => {
     } else {
       setNewMessage('');
     }
-    
+
     setIsSending(false);
   };
 
@@ -320,7 +320,7 @@ export const CommunityChatCard: React.FC = () => {
   const getReactionCounts = (messageId: string): ReactionCount[] => {
     const messageReactions = reactions[messageId] || [];
     const counts: Record<string, ReactionCount> = {};
-    
+
     messageReactions.forEach(r => {
       if (!counts[r.emoji]) {
         counts[r.emoji] = { emoji: r.emoji, count: 0, userReacted: false };
@@ -336,7 +336,7 @@ export const CommunityChatCard: React.FC = () => {
 
   const handleDeleteMessage = async (messageId: string) => {
     if (!isAdmin) return;
-    
+
     const { error } = await supabase
       .from('stream_chat_messages')
       .delete()
@@ -352,7 +352,7 @@ export const CommunityChatCard: React.FC = () => {
 
   const handleBanUser = async (userId: string, username: string) => {
     if (!isAdmin || !user) return;
-    
+
     const { error } = await supabase
       .from('banned_users')
       .insert({
@@ -375,7 +375,7 @@ export const CommunityChatCard: React.FC = () => {
 
   const getAvatarColor = (username: string) => {
     const colors = [
-      'bg-red-500', 'bg-blue-500', 'bg-green-500', 
+      'bg-red-500', 'bg-blue-500', 'bg-green-500',
       'bg-yellow-500', 'bg-purple-500', 'bg-pink-500',
       'bg-indigo-500', 'bg-teal-500', 'bg-orange-500'
     ];
@@ -392,7 +392,7 @@ export const CommunityChatCard: React.FC = () => {
       <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm h-full">
         {/* Retro gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/10 opacity-50" />
-        
+
         <CardContent className="relative p-0 flex flex-col h-[400px]">
           {/* Header */}
           <div className="p-4 border-b border-border/50">
@@ -428,7 +428,7 @@ export const CommunityChatCard: React.FC = () => {
                 ) : (
                   messages.map((msg) => {
                     const reactionCounts = getReactionCounts(msg.id);
-                    
+
                     return (
                       <div key={msg.id} className="group">
                         <div className="flex gap-2">
@@ -447,9 +447,9 @@ export const CommunityChatCard: React.FC = () => {
                               </span>
                             </div>
                             {msg.message_type === 'sticker' || msg.message_type === 'emoji' ? (
-                              <img 
-                                src={msg.sticker_url || ''} 
-                                alt={msg.sticker_name || 'Sticker'} 
+                              <img
+                                src={msg.sticker_url || ''}
+                                alt={msg.sticker_name || 'Sticker'}
                                 className="max-w-24 max-h-24 rounded object-contain"
                               />
                             ) : (
@@ -458,16 +458,16 @@ export const CommunityChatCard: React.FC = () => {
                               </p>
                             )}
                           </div>
-                          
+
                           {/* Moderation & reaction buttons */}
                           <div className="flex items-start gap-1">
                             {/* Add reaction button */}
                             {user && !isBanned && (
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
                                     className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                                   >
                                     <SmilePlus className="h-3.5 w-3.5" />
@@ -488,28 +488,28 @@ export const CommunityChatCard: React.FC = () => {
                                 </PopoverContent>
                               </Popover>
                             )}
-                            
+
                             {/* Admin moderation menu */}
                             {isAdmin && msg.user_id !== user?.id && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
                                     className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive/70 hover:text-destructive"
                                   >
                                     <MoreVertical className="h-3.5 w-3.5" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-40">
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     onClick={() => handleDeleteMessage(msg.id)}
                                     className="text-destructive focus:text-destructive"
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
                                     Delete message
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     onClick={() => handleBanUser(msg.user_id, msg.username)}
                                     className="text-destructive focus:text-destructive"
                                   >
@@ -519,12 +519,12 @@ export const CommunityChatCard: React.FC = () => {
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             )}
-                            
+
                             {/* Delete own message */}
                             {user?.id === msg.user_id && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                                 onClick={() => handleDeleteMessage(msg.id)}
                               >
@@ -533,11 +533,11 @@ export const CommunityChatCard: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        
+
                         {/* Reactions display */}
                         <AnimatePresence>
                           {reactionCounts.length > 0 && (
-                            <motion.div 
+                            <motion.div
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: 'auto' }}
                               exit={{ opacity: 0, height: 0 }}
@@ -547,11 +547,10 @@ export const CommunityChatCard: React.FC = () => {
                                 <button
                                   key={emoji}
                                   onClick={() => user && handleReaction(msg.id, emoji)}
-                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs transition-colors ${
-                                    userReacted 
-                                      ? 'bg-primary/20 border border-primary/40' 
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs transition-colors ${userReacted
+                                      ? 'bg-primary/20 border border-primary/40'
                                       : 'bg-muted/50 hover:bg-muted border border-transparent'
-                                  }`}
+                                    }`}
                                 >
                                   <span>{emoji}</span>
                                   <span className="text-muted-foreground">{count}</span>
@@ -571,12 +570,9 @@ export const CommunityChatCard: React.FC = () => {
           {/* Input area */}
           <div className="p-3 border-t border-border/50 bg-background/30">
             {!user ? (
-              <Link to="/auth">
-                <Button variant="outline" className="w-full gap-2">
-                  <LogIn className="h-4 w-4" />
-                  Sign in to join the conversation
-                </Button>
-              </Link>
+              <div className="text-center text-sm text-muted-foreground py-2">
+                Connect your wallet to join the conversation
+              </div>
             ) : isBanned ? (
               <div className="flex items-center justify-center gap-2 text-destructive text-sm py-2">
                 <ShieldAlert className="h-4 w-4" />
@@ -592,8 +588,8 @@ export const CommunityChatCard: React.FC = () => {
                   disabled={isSending}
                   className="flex-1 bg-background/50"
                 />
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   size="icon"
                   disabled={isSending || !newMessage.trim()}
                 >
