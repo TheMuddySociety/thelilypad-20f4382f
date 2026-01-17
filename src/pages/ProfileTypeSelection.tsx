@@ -139,15 +139,11 @@ export default function ProfileTypeSelection() {
                     <div className="flex justify-center mb-6">
                         <LilyPadLogo size={80} />
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-bold mb-4 line-through opacity-50">
-                        Welcome to <span className="text-primary text-primary">The Lily Pad</span>
+                    <h1 className="text-4xl md:text-5xl font-bold mb-4">
+                        Welcome to <span className="text-primary">The Lily Pad</span>
                     </h1>
-                    <div className="inline-block px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 font-semibold mb-6 animate-pulse">
-                        ⚠️ Coming Soon: Profiles & Role Selection
-                    </div>
                     <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                        We are currently fine-tuning the profile system. This feature will be available shortly!
-                        Creators can still launch collections via the main dashboard.
+                        Choose your role to get started. You can always change this later.
                     </p>
                 </motion.div>
 
@@ -209,11 +205,11 @@ export default function ProfileTypeSelection() {
                 >
                     <Button
                         size="lg"
-                        // onClick={handleSubmit}
-                        disabled={true} // Disabled for "Coming Soon"
-                        className="gap-2 px-12 opacity-50"
+                        onClick={handleSubmit}
+                        disabled={!selectedRole || isSubmitting}
+                        className="gap-2 px-12"
                     >
-                        Feature Coming Soon
+                        {isSubmitting ? 'Creating Profile...' : 'Continue'}
                     </Button>
                 </motion.div>
 
