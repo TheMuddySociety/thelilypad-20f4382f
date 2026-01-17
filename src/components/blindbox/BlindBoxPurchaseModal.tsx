@@ -6,8 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Gift, Minus, Plus, Loader2, Sparkles, Package } from "lucide-react";
+import { Gift, Minus, Plus, Loader2, Sparkles, Package, Wallet } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useWallet } from "@/providers/WalletProvider";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { 
+  Connection, 
+  PublicKey, 
+  Transaction, 
+  SystemProgram, 
+  LAMPORTS_PER_SOL 
+} from "@solana/web3.js";
+import { TREASURY_CONFIG } from "@/config/treasury";
+import { createProtocolMemoInstruction } from "@/lib/solanaProtocol";
 
 interface BlindBox {
   id: string;
@@ -42,6 +53,10 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
   const [revealing, setRevealing] = useState(false);
   const [rewards, setRewards] = useState<any[]>([]);
   const { toast } = useToast();
+  
+  const { isConnected, address, getSolanaProvider, network } = useWallet();
+  const { profile } = useUserProfile();
+  const userId = profile?.id ?? null;
 
   const maxQuantity = box.max_per_user ? Math.min(box.max_per_user - userPurchases, box.remaining_supply) : box.remaining_supply;
   const totalCost = quantity * box.price;
@@ -53,17 +68,16 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
       setRewards([]);
       setQuantity(1);
     }
-  }, [open, box.id]);
+  }, [open, box.id, userId]);
 
   const fetchUserPurchases = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!userId) return;
 
     const { data } = await supabase
       .from('lily_blind_box_purchases')
       .select('quantity')
       .eq('blind_box_id', box.id)
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
 
     const total = (data || []).reduce((sum, p) => sum + (p as any).quantity, 0);
     setUserPurchases(total);
@@ -95,11 +109,29 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
   };
 
   const handlePurchase = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    if (!isConnected) {
       toast({
-        title: "Please sign in",
-        description: "You need to be signed in to purchase blind boxes",
+        title: "Connect Wallet",
+        description: "Please connect your Solana wallet to purchase blind boxes",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const solanaProvider = getSolanaProvider();
+    if (!solanaProvider) {
+      toast({
+        title: "Wallet Error",
+        description: "Solana wallet not available",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!userId) {
+      toast({
+        title: "Profile Required",
+        description: "Please complete your profile to purchase blind boxes",
         variant: "destructive"
       });
       return;
@@ -116,16 +148,63 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
 
     setLoading(true);
     try {
+      // Process SOL payment
+      const rpcUrl = network === "mainnet" 
+        ? "https://api.mainnet-beta.solana.com" 
+        : "https://api.devnet.solana.com";
+      const connection = new Connection(rpcUrl, "confirmed");
+      
+      const fromPubkey = new PublicKey(address!);
+      const treasuryPubkey = new PublicKey(TREASURY_CONFIG.treasuryWallet);
+      
+      // Calculate total in lamports
+      const totalLamports = Math.floor(totalCost * LAMPORTS_PER_SOL);
+      
+      // Create transaction
+      const transaction = new Transaction();
+      
+      // Add transfer to treasury
+      transaction.add(
+        SystemProgram.transfer({
+          fromPubkey,
+          toPubkey: treasuryPubkey,
+          lamports: totalLamports,
+        })
+      );
+      
+      // Add protocol memo
+      transaction.add(
+        createProtocolMemoInstruction("blindbox:purchase", {
+          box: box.id,
+          qty: quantity.toString(),
+        })
+      );
+      
+      // Get recent blockhash
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = fromPubkey;
+      
+      // Sign and send
+      const signedTx = await solanaProvider.signTransaction(transaction);
+      const signature = await connection.sendRawTransaction(signedTx.serialize());
+      
+      // Wait for confirmation
+      await connection.confirmTransaction(signature, "confirmed");
+      
+      // Generate rewards
       const simulatedRewards = simulateRewards();
       
+      // Record purchase in database
       const { error } = await supabase
         .from('lily_blind_box_purchases')
         .insert({
           blind_box_id: box.id,
-          user_id: user.id,
+          user_id: userId,
           quantity: quantity,
           total_paid: totalCost,
-          rewards_received: simulatedRewards
+          rewards_received: simulatedRewards,
+          tx_hash: signature,
         } as any);
 
       if (error) throw error;
@@ -140,11 +219,19 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
       });
       onSuccess();
     } catch (error: any) {
-      toast({
-        title: "Purchase failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      console.error("Purchase error:", error);
+      if (error.message?.includes("User rejected")) {
+        toast({
+          title: "Cancelled",
+          description: "Transaction was cancelled",
+        });
+      } else {
+        toast({
+          title: "Purchase failed",
+          description: error.message || "Failed to complete purchase",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -216,6 +303,16 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Wallet Connection Status */}
+          {!isConnected && (
+            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center gap-3">
+              <Wallet className="w-5 h-5 text-amber-500" />
+              <p className="text-sm text-amber-500">
+                Connect your Solana wallet to purchase
+              </p>
+            </div>
+          )}
+
           {/* Box Info */}
           <div className="flex gap-4">
             <div className="w-24 h-24 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
@@ -237,7 +334,7 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
                   {box.remaining_supply} left
                 </Badge>
                 <Badge variant="secondary">
-                  {box.price} MON
+                  {box.price} SOL
                 </Badge>
               </div>
             </div>
@@ -284,7 +381,7 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
           <div className="bg-muted/50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span>Price per Box</span>
-              <span>{box.price} MON</span>
+              <span>{box.price} SOL</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>Quantity</span>
@@ -292,24 +389,29 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
             </div>
             <div className="border-t border-border pt-2 flex justify-between font-semibold">
               <span>Total</span>
-              <span>{totalCost} MON</span>
+              <span>{totalCost} SOL</span>
             </div>
           </div>
 
           <Button 
             className="w-full" 
             onClick={handlePurchase}
-            disabled={loading || maxQuantity === 0}
+            disabled={loading || maxQuantity === 0 || !isConnected}
           >
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Processing...
               </>
+            ) : !isConnected ? (
+              <>
+                <Wallet className="w-4 h-4 mr-2" />
+                Connect Wallet
+              </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-2" />
-                Open for {totalCost} MON
+                Open for {totalCost} SOL
               </>
             )}
           </Button>

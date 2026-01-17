@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -415,13 +416,13 @@ export const ClaimFunds: React.FC = () => {
               ) : (
                 <span className="text-muted-foreground italic">No wallet configured</span>
               )}
-              <a 
-                href="/edit-profile" 
+              <Link 
+                to="/edit-profile" 
                 className="text-primary hover:underline flex items-center gap-1"
               >
                 <Settings className="w-3 h-3" />
                 Configure
-              </a>
+              </Link>
             </div>
           </div>
 

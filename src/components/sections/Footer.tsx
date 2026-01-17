@@ -13,16 +13,16 @@ const footerLinks = {
     { label: "Buyback Program", href: "/buyback-program" },
   ],
   legal: [
-    { label: "Terms of Service", href: "#" },
-    { label: "Privacy Policy", href: "#" },
+    { label: "Terms of Service", href: "/terms" },
+    { label: "Privacy Policy", href: "/privacy" },
     { label: "Fees & Pricing", href: "/fees" },
   ],
 };
 
 const socialLinks = [
-  { icon: Twitter, label: "Twitter/X", href: "#" },
-  { icon: MessageCircle, label: "Discord", href: "#", comingSoon: true },
-  { icon: Github, label: "GitHub", href: "#" },
+  { icon: Twitter, label: "Twitter/X", href: "https://x.com/TheLilyPadNFT" },
+  { icon: MessageCircle, label: "Discord", href: "https://discord.gg/thelilypad", comingSoon: true },
+  { icon: Github, label: "GitHub", href: "https://github.com/thelilypad" },
 ];
 
 export const Footer: React.FC = () => {
