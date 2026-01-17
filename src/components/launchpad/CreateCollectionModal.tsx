@@ -1416,7 +1416,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       }`}
                     onClick={() => {
                       setCollectionType("generative");
-                      if (blockchain === "solana") setSolanaStandard("candy-machine");
+                      if (blockchain === "solana") setSolanaStandard("core");
                     }}
                   >
                     <CardContent className="p-4 text-center">
@@ -1454,7 +1454,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       }`}
                     onClick={() => {
                       setCollectionType("editions");
-                      if (blockchain === "solana") setSolanaStandard("token-metadata");
+                      if (blockchain === "solana") setSolanaStandard("core");
                     }}
                   >
                     <CardContent className="p-4 text-center">

@@ -149,7 +149,7 @@ export const useSolanaLaunch = () => {
                 if (!confirmed) {
                     console.warn("Transaction may not be fully confirmed yet");
                 }
-                
+
                 // Additional wait for state propagation
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
@@ -188,7 +188,10 @@ export const useSolanaLaunch = () => {
             }
 
             setError(msg);
-            toast.error(msg, { id: 'sol-deploy' });
+            toast.error(msg, {
+                id: 'sol-deploy',
+                description: "Check console for detailed program logs."
+            });
             throw err;
         } finally {
             setIsLoading(false);
@@ -220,7 +223,7 @@ export const useSolanaLaunch = () => {
             // For legacy standard, verify the collection metadata exists and we're the update authority
             if (standard === 'token-metadata') {
                 const metadataPda = findMetadataPda(umi, { mint: collectionMint });
-                
+
                 try {
                     const collectionMetadata = await fetchMetadata(umi, metadataPda);
                     console.log("=== COLLECTION VERIFICATION ===");
@@ -230,7 +233,7 @@ export const useSolanaLaunch = () => {
                     console.log("Our Identity:", umi.identity.publicKey.toString());
                     console.log("Match:", collectionMetadata.updateAuthority.toString() === umi.identity.publicKey.toString());
                     console.log("================================");
-                    
+
                     if (collectionMetadata.updateAuthority.toString() !== umi.identity.publicKey.toString()) {
                         throw new Error(`Update authority mismatch. Collection authority: ${collectionMetadata.updateAuthority.toString()}, Your wallet: ${umi.identity.publicKey.toString()}`);
                     }
@@ -287,6 +290,9 @@ export const useSolanaLaunch = () => {
             });
 
             let createIx;
+
+            // Log the standard being used
+            console.log(`[CM] Initializing Candy Machine with standard: ${standard}`);
 
             if (standard === 'core') {
                 toast.loading(`Initializing Core Candy Machine...`, { id: 'cm-create' });
@@ -346,7 +352,10 @@ export const useSolanaLaunch = () => {
                 console.error("Transaction logs:", err.logs);
             }
             setError(msg);
-            toast.error(msg, { id: 'cm-create' });
+            toast.error(msg, {
+                id: 'cm-create',
+                description: "Check console for detailed program logs."
+            });
             throw err;
         } finally {
             setIsLoading(false);
