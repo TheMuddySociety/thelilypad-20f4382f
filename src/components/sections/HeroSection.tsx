@@ -12,9 +12,9 @@ const formatNumber = (num: number): string => {
 };
 
 const formatVolume = (num: number): string => {
-  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M MON`;
-  if (num >= 1000) return `${(num / 1000).toFixed(2)}K MON`;
-  return `${num.toFixed(2)} MON`;
+  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M SOL`;
+  if (num >= 1000) return `${(num / 1000).toFixed(2)}K SOL`;
+  return `${num.toFixed(2)} SOL`;
 };
 
 export const HeroSection: React.FC = () => {

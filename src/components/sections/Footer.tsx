@@ -37,10 +37,10 @@ export const Footer: React.FC = () => {
               <span className="font-bold text-xl">The Lily Pad</span>
             </div>
             <p className="text-muted-foreground text-sm">
-              The Pinnacle of Creation on Monad
+              The Pinnacle of Creation on Solana
             </p>
           </div>
-          
+
           {/* Platform links */}
           <div>
             <h4 className="font-semibold mb-4 text-foreground">Platform</h4>
@@ -57,7 +57,7 @@ export const Footer: React.FC = () => {
               ))}
             </ul>
           </div>
-          
+
           {/* Legal */}
           <div>
             <h4 className="font-semibold mb-4 text-foreground">Legal</h4>
@@ -83,7 +83,7 @@ export const Footer: React.FC = () => {
               ))}
             </ul>
           </div>
-          
+
           {/* Social */}
           <div>
             <h4 className="font-semibold mb-4 text-foreground">Community</h4>
@@ -104,14 +104,14 @@ export const Footer: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Bottom */}
         <div className="mt-12 pt-8 border-t border-border/30 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-muted-foreground text-sm">
             © 2024 The Lily Pad. All rights reserved.
           </p>
           <p className="text-muted-foreground text-sm">
-            Built for <span className="text-secondary font-medium">Monad Mainnet</span>
+            Built for <span className="text-secondary font-medium">Solana</span>
           </p>
         </div>
       </div>
