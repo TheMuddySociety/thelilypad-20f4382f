@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
+import { useSiteAsset } from "@/hooks/useSiteAsset";
 
-const authBranding = "/auth-branding.webp";
+const fallbackAuthBranding = "/auth-branding.webp";
 
 // Phantom icon
 const PhantomIcon = () => (
@@ -32,6 +33,9 @@ export default function Auth() {
   const navigate = useNavigate();
   const { connect, isConnected, isConnecting, address } = useWallet();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+  
+  // Fetch dynamic auth branding from site_assets, fallback to local
+  const { assetUrl: authBranding } = useSiteAsset('auth_branding', fallbackAuthBranding);
 
   useSEO({
     title: "Connect Wallet | The Lily Pad",
@@ -63,7 +67,7 @@ export default function Auth() {
       {/* Left side - Hero Image (Desktop) */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-emerald-50 to-emerald-100 items-center justify-center p-8">
         <img 
-          src={authBranding} 
+          src={authBranding || fallbackAuthBranding} 
           alt="The Lily Pad" 
           className="w-full h-full object-contain"
           fetchPriority="high"
@@ -79,7 +83,7 @@ export default function Auth() {
         {/* Mobile Branding */}
         <div className="lg:hidden mb-6 w-full max-w-[280px]">
           <img 
-            src={authBranding} 
+            src={authBranding || fallbackAuthBranding} 
             alt="The Lily Pad" 
             className="w-full h-auto rounded-lg"
             fetchPriority="high"

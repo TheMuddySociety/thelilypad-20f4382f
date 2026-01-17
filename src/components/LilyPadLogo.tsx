@@ -1,5 +1,6 @@
 import React from "react";
-import lilypadLogo from "@/assets/lilypad-logo.png";
+import { useSiteAsset } from "@/hooks/useSiteAsset";
+import lilypadLogoFallback from "@/assets/lilypad-logo.png";
 
 interface LilyPadLogoProps {
   className?: string;
@@ -7,9 +8,12 @@ interface LilyPadLogoProps {
 }
 
 export const LilyPadLogo: React.FC<LilyPadLogoProps> = ({ className = "", size = 80 }) => {
+  // Fetch dynamic logo from site_assets, fallback to local asset
+  const { assetUrl } = useSiteAsset('logo', lilypadLogoFallback);
+
   return (
     <img
-      src={lilypadLogo}
+      src={assetUrl || lilypadLogoFallback}
       alt="The Lily Pad"
       width={size}
       height={size}
