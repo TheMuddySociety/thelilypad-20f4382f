@@ -17,7 +17,6 @@ import {
   type NFTListing,
   type ChainFilter,
 } from "@/hooks/useMarketplaceData";
-import { PlatformSwitcher } from "@/components/launchpad/PlatformSwitcher";
 import {
   PageHeader,
   StatsGrid,
@@ -40,14 +39,10 @@ export default function Marketplace() {
   const [showNewOnly, setShowNewOnly] = useState(false);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
 
-  const [selectedChain, setSelectedChain] = useState<ChainFilter>(() => {
-    const saved = localStorage.getItem("selectedPlatform");
-    return (saved as ChainFilter) || "solana";
-  });
+  const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
 
-  useEffect(() => {
-    localStorage.setItem("selectedPlatform", selectedChain);
-  }, [selectedChain]);
+  // Locked to Solana
+  const selectedChain: ChainFilter = "solana";
 
   // Use the custom hook for data fetching with infinite scroll and chain filter
   const {
@@ -127,14 +122,8 @@ export default function Marketplace() {
           <PageHeader
             logo={<LilyPadLogo size={56} />}
             title="Lily Marketplace"
-            subtitle={`Browse collections and sticker packs on ${selectedChain === 'solana' ? 'Solana' : 'Monad'}`}
+            subtitle={`Browse collections and sticker packs on Solana`}
           />
-
-          <PlatformSwitcher
-            selected={selectedChain as any}
-            onChange={(p) => setSelectedChain(p as ChainFilter)}
-          />
-
         </div>
 
         {/* Platform NFT Collection Coming Soon Banner */}

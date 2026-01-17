@@ -9,9 +9,7 @@ export type ChainValue = 'solana' | 'solana-devnet' | string;
  * Get the currency symbol for a given chain
  */
 export const getCurrencySymbol = (chain: ChainValue | string): string => {
-  const normalizedChain = chain?.toLowerCase() || "";
-  if (normalizedChain.includes('monad')) return 'MON';
-  // Default to SOL for Solana-first experience
+  // Always return SOL as we are now Solana-only
   return 'SOL';
 };
 
@@ -19,8 +17,7 @@ export const getCurrencySymbol = (chain: ChainValue | string): string => {
  * Get the currency icon for a given chain
  */
 export const getCurrencyIcon = (chain: ChainValue | string): string => {
-  const normalizedChain = chain?.toLowerCase() || "";
-  if (normalizedChain.includes('monad')) return 'M';
+  // Always return Solana icon
   return '◎';
 };
 
@@ -89,7 +86,6 @@ export const isTestnet = (chain: ChainValue | string): boolean => {
 export const getNetworkDisplayName = (chain: ChainValue | string): string => {
   const normalizedChain = chain?.toLowerCase() || "";
   if (normalizedChain.includes('devnet')) return 'Solana Devnet';
-  if (normalizedChain.includes('monad')) return 'Monad Testnet';
   return 'Solana';
 };
 

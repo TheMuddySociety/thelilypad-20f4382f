@@ -21,7 +21,6 @@ const CHAIN_OPTIONS: ChainOption[] = [
   { id: "solana", name: "Solana", icon: "◎", color: "bg-purple-500/10 text-purple-400 border-purple-500/30" },
 ];
 
-// Monad coming soon - will be added when EVM support is ready
 
 interface ChainSelectorProps {
   selectedChain: ChainType;
@@ -30,11 +29,11 @@ interface ChainSelectorProps {
   className?: string;
 }
 
-export function ChainSelector({ 
-  selectedChain, 
-  onChainChange, 
+export function ChainSelector({
+  selectedChain,
+  onChainChange,
   showBadge = false,
-  className = "" 
+  className = ""
 }: ChainSelectorProps) {
   const { chainType, isConnected } = useWallet();
   const selected = CHAIN_OPTIONS.find(c => c.id === selectedChain) || CHAIN_OPTIONS[0];

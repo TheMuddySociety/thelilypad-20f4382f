@@ -81,7 +81,8 @@ interface CreateCollectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCollectionCreated?: () => void;
-  defaultChain?: 'monad' | 'solana';
+  onCollectionCreated?: () => void;
+  // Previously accepted defaultChain but now hardcoded to solana
 }
 
 interface MintPhase {
@@ -161,7 +162,7 @@ interface DraftData {
   editionArtwork?: { imageUrl: string; editionType: "open" | "limited" | "timed" };
 }
 
-export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated, defaultChain = 'solana' }: CreateCollectionModalProps) {
+export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated }: CreateCollectionModalProps) {
   const { address, network } = useWallet();
   const solanaLaunch = useSolanaLaunch();
   const modalWalkthrough = useModalWalkthrough();
@@ -191,7 +192,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
 
   // Collection type
   const [collectionType, setCollectionType] = useState<CollectionType>("generative");
-  const [blockchain, setBlockchain] = useState<'monad' | 'solana'>(defaultChain);
+  const [blockchain] = useState<'solana'>('solana'); // Locked to Solana
   const [solanaStandard, setSolanaStandard] = useState<SolanaStandard>('core');
   const [supplyType, setSupplyType] = useState<'Unlimited' | 'Limited' | 'Zero'>('Unlimited');
   const [supplyLimit, setSupplyLimit] = useState<number>(100);
@@ -1416,7 +1417,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       }`}
                     onClick={() => {
                       setCollectionType("generative");
-                      if (blockchain === "solana") setSolanaStandard("core");
+                      setSolanaStandard("core");
                     }}
                   >
                     <CardContent className="p-4 text-center">
@@ -1435,7 +1436,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       }`}
                     onClick={() => {
                       setCollectionType("one_of_one");
-                      if (blockchain === "solana") setSolanaStandard("core");
+                      setSolanaStandard("core");
                     }}
                   >
                     <CardContent className="p-4 text-center">
@@ -1454,7 +1455,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       }`}
                     onClick={() => {
                       setCollectionType("editions");
-                      if (blockchain === "solana") setSolanaStandard("core");
+                      setSolanaStandard("core");
                     }}
                   >
                     <CardContent className="p-4 text-center">
@@ -1473,7 +1474,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       }`}
                     onClick={() => {
                       setCollectionType("music");
-                      if (blockchain === "solana") setSolanaStandard("core");
+                      setSolanaStandard("core");
                     }}
                   >
                     <CardContent className="p-4 text-center">

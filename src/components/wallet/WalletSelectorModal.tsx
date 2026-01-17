@@ -52,11 +52,11 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
   useEffect(() => {
     const initWallets = async () => {
       setIsInitializing(true);
-      
+
       try {
         // Wait for Phantom extension
         await waitForPhantomExtension(2000);
-        
+
         // Get Phantom SDK
         const sdk = getPhantomSDK();
         if (sdk) {
@@ -68,10 +68,10 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
             console.log("Could not get injected wallets:", e);
           }
         }
-        
+
         // Check Phantom availability
         const isPhantomInstalled = !!(window as any).phantom?.solana?.isPhantom;
-        
+
         const options: WalletOption[] = [
           {
             id: "phantom",
@@ -81,7 +81,7 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
             installUrl: "https://phantom.app/",
           },
         ];
-        
+
         setWalletOptions(options);
       } catch (e) {
         console.error("Error initializing wallets:", e);
@@ -96,7 +96,7 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
           },
         ]);
       }
-      
+
       setIsInitializing(false);
     };
 
@@ -205,13 +205,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
                   </Button>
                 ))}
 
-                {/* Monad Coming Soon */}
-                <div className="mt-4 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="w-4 h-4 text-primary" />
-                    <span>Monad (EVM) support coming soon</span>
-                  </div>
-                </div>
               </>
             )}
           </div>

@@ -39,7 +39,6 @@ import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
 import { ChainSelector, ChainBadge } from "@/components/ChainSelector";
-import { PlatformSwitcher, Platform } from "@/components/launchpad/PlatformSwitcher";
 import { getCollectionPrice } from "@/lib/chainUtils";
 
 interface DraftCollection {
@@ -104,16 +103,11 @@ export default function Launchpad() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedChain, setSelectedChain] = useState<ChainType>("solana");
-  const [selectedPlatform, setSelectedPlatform] = useState<Platform>(() => {
-    const saved = localStorage.getItem("selectedPlatform");
-    if (saved === "solana" || saved === "monad") return saved as Platform;
-    return "solana";
-  });
-
-  useEffect(() => {
-    localStorage.setItem("selectedPlatform", selectedPlatform);
-  }, [selectedPlatform]);
+  const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Default and locked to Solana
+  const selectedChain = "solana";
+  const selectedPlatform = "solana";
 
   // Get current user or wallet
   useEffect(() => {
