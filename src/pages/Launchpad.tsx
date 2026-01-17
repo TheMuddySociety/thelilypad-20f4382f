@@ -103,8 +103,7 @@ export default function Launchpad() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // Default and locked to Solana
   // Default and locked to Solana
   const selectedChain = "solana";
   const selectedPlatform = "solana";
@@ -368,10 +367,6 @@ export default function Launchpad() {
               <p className="text-muted-foreground mb-4">
                 Launch your NFT collection on Solana
               </p>
-              <PlatformSwitcher
-                selected={selectedPlatform}
-                onChange={setSelectedPlatform}
-              />
             </div>
           </div>
           <Button
@@ -832,7 +827,6 @@ export default function Launchpad() {
             fetchCollections();
             setIsCreateModalOpen(false);
           }}
-          defaultChain={selectedPlatform}
         />
       )}
       {/* Delete Collection Confirmation */}

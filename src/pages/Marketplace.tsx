@@ -38,9 +38,6 @@ export default function Marketplace() {
   const [showHotOnly, setShowHotOnly] = useState(false);
   const [showNewOnly, setShowNewOnly] = useState(false);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
-
-  const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
-
   // Locked to Solana
   const selectedChain: ChainFilter = "solana";
 
