@@ -14,10 +14,10 @@ import { MobileBottomNav } from "./components/MobileBottomNav";
 import FrogLoader from "./components/FrogLoader";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// Eagerly load critical pages
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
+// Lazy load ALL pages to reduce initial bundle and improve FID
+const Index = lazy(() => import("./pages/Index"));
+const Auth = lazy(() => import("./pages/Auth"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Auth guard for auth page - redirects to home if already connected
 const AuthPageGuard = () => {
