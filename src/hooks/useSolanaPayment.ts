@@ -5,6 +5,7 @@ import { getSolanaRpcUrl } from '@/config/solana';
 import { TREASURY_CONFIG, validateMinimumAmount } from '@/config/treasury';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { createProtocolMemoInstruction, ProtocolAction } from '@/lib/solanaProtocol';
 
 export interface PaymentResult {
   success: boolean;
@@ -91,6 +92,18 @@ export function useSolanaPayment() {
           lamports,
         })
       );
+
+      // Add protocol memo instruction for on-chain identification
+      const actionMap: Record<string, ProtocolAction> = {
+        listing: 'marketplace:list',
+        offer: 'marketplace:offer',
+        shopPurchase: 'shop:item_purchase',
+        raffleEntry: 'raffle:entry',
+        blindBox: 'blindbox:purchase',
+        tip: 'tip:creator',
+      };
+      const protocolAction = actionMap[transactionType] || 'shop:item_purchase';
+      transaction.add(createProtocolMemoInstruction(protocolAction));
 
       // Get recent blockhash
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');

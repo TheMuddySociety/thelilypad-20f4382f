@@ -18,6 +18,7 @@ import {
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
 import { toast } from 'sonner';
+import { buildProtocolMemo, MEMO_PROGRAM_ID } from '@/lib/solanaProtocol';
 
 export const useSolanaMint = () => {
     const { network, getSolanaProvider } = useWallet();
@@ -61,6 +62,18 @@ export const useSolanaMint = () => {
 
             toast.loading(`Minting your NFT on Solana...`, { id: 'sol-mint' });
 
+            // Create memo instruction for protocol identification
+            const memoData = buildProtocolMemo('mint:nft', { standard });
+            const memoInstruction = {
+                instruction: {
+                    programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
+                    keys: [],
+                    data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
+                },
+                bytesCreatedOnChain: 0,
+                signers: [],
+            };
+
             switch (standard) {
                 case 'core':
                     result = await createCore(umi, {
@@ -68,7 +81,9 @@ export const useSolanaMint = () => {
                         collection: publicKey(collectionAddress),
                         name: metadata.name,
                         uri: metadata.uri,
-                    }).sendAndConfirm(umi);
+                    })
+                    .add(memoInstruction)
+                    .sendAndConfirm(umi);
                     break;
 
                 case 'token-metadata':
@@ -79,7 +94,9 @@ export const useSolanaMint = () => {
                         sellerFeeBasisPoints: percentAmount(0),
                         isCollection: false,
                         collection: some({ key: publicKey(collectionAddress), verified: false }),
-                    }).sendAndConfirm(umi);
+                    })
+                    .add(memoInstruction)
+                    .sendAndConfirm(umi);
                     break;
 
                 case 'bubblegum':
@@ -96,7 +113,9 @@ export const useSolanaMint = () => {
                             collection: some({ key: publicKey(collectionAddress), verified: false }),
                             creators: [{ address: umi.identity.publicKey, verified: true, share: 100 }],
                         },
-                    }).sendAndConfirm(umi);
+                    })
+                    .add(memoInstruction)
+                    .sendAndConfirm(umi);
                     break;
 
                 default:
@@ -138,15 +157,27 @@ export const useSolanaMint = () => {
 
             const candyMachine = await fetchCandyMachine(umi, publicKey(candyMachineAddress));
 
+            // Create memo instruction for protocol identification
+            const memoData = buildProtocolMemo('mint:candy_machine');
+            const memoInstruction = {
+                instruction: {
+                    programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
+                    keys: [],
+                    data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
+                },
+                bytesCreatedOnChain: 0,
+                signers: [],
+            };
+
             const tx = await mintV2(umi, {
                 candyMachine: candyMachine.publicKey,
                 minter: umi.identity,
                 nftMint,
                 collectionMint: publicKey(collectionAddress),
-                collectionUpdateAuthority: umi.identity.publicKey, // Often CM is auth, or we pass it
+                collectionUpdateAuthority: umi.identity.publicKey,
                 group: groupLabel,
                 mintArgs: mintArgs || {}
-            });
+            }).add(memoInstruction);
 
             const result = await tx.sendAndConfirm(umi);
 
