@@ -65,6 +65,7 @@ export default function Auth() {
           src={authBranding} 
           alt="The Lily Pad" 
           className="w-full h-full object-contain"
+          fetchPriority="high"
         />
       </div>
       
@@ -76,6 +77,7 @@ export default function Auth() {
             src={authBranding} 
             alt="The Lily Pad" 
             className="w-full h-auto rounded-lg"
+            fetchPriority="high"
           />
         </div>
         
