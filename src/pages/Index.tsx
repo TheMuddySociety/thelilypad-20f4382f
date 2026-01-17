@@ -8,7 +8,6 @@ import { ValuePropsSection } from "@/components/sections/ValuePropsSection";
 import { FeaturesSection } from "@/components/sections/FeaturesSection";
 import { MarketplacePreview } from "@/components/sections/MarketplacePreview";
 import { HowItWorks } from "@/components/sections/HowItWorks";
-import { CreatorProtection } from "@/components/sections/CreatorProtection";
 import { CommunityBenefits } from "@/components/sections/CommunityBenefits";
 import { FeaturedCardStack } from "@/components/sections/FeaturedCardStack";
 import { Footer } from "@/components/sections/Footer";
@@ -49,7 +48,6 @@ const Index: React.FC = () => {
       <FeaturesSection />
       <MarketplacePreview />
       <HowItWorks />
-      <CreatorProtection />
       <CommunityBenefits />
       <Footer />
     </main>

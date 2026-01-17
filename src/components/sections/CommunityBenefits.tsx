@@ -8,11 +8,6 @@ const benefits = [
     description: "Earn from platform activity and engagement.",
   },
   {
-    icon: Gift,
-    title: "Token Airdrops",
-    description: "Access to creator token airdrops.",
-  },
-  {
     icon: Ticket,
     title: "Early Raffle Access",
     description: "Get priority entry to exclusive raffles.",
@@ -47,7 +42,7 @@ export const CommunityBenefits: React.FC = () => {
             Hold a Lily Pad NFT and unlock exclusive community perks.
           </p>
         </div>
-        
+
         {/* Benefits grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {benefits.map((benefit) => (
