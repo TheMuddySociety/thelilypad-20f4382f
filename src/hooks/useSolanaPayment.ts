@@ -33,7 +33,7 @@ export interface VerificationResult {
 }
 
 export function useSolanaPayment() {
-  const { getSolanaProvider, network, address } = useWallet();
+  const { getSolanaProvider, network, address, setTransactionPending } = useWallet();
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastSignature, setLastSignature] = useState<string | null>(null);
 
@@ -51,6 +51,8 @@ export function useSolanaPayment() {
     transactionType,
   }: PaymentParams): Promise<PaymentResult> => {
     setIsProcessing(true);
+    // Mark transaction as pending to prevent ProtectedRoute redirect during signing
+    setTransactionPending(true);
     
     try {
       // Validate minimum amount
@@ -146,8 +148,9 @@ export function useSolanaPayment() {
       };
     } finally {
       setIsProcessing(false);
+      setTransactionPending(false);
     }
-  }, [getSolanaProvider, getConnection]);
+  }, [getSolanaProvider, getConnection, setTransactionPending]);
 
   // Verify transaction on backend
   const verifyTransaction = useCallback(async (

@@ -74,7 +74,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
   onPurchaseComplete,
 }) => {
   const navigate = useNavigate();
-  const { address, isConnected, connect, balance, network, getSolanaProvider } = useWallet();
+  const { address, isConnected, connect, balance, network, getSolanaProvider, setTransactionPending } = useWallet();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [ownedItems, setOwnedItems] = useState<string[]>([]);
@@ -144,6 +144,8 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
 
     setIsPurchasing(true);
     setPurchaseStep("confirming");
+    // Mark transaction as pending to prevent ProtectedRoute redirect during signing
+    setTransactionPending(true);
 
     try {
       const provider = getSolanaProvider();
@@ -215,6 +217,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
       setPurchaseStep("idle");
     } finally {
       setIsPurchasing(false);
+      setTransactionPending(false);
     }
   };
 

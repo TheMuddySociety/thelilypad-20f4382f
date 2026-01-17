@@ -14,6 +14,7 @@ interface WalletState {
   address: string | null;
   isConnected: boolean;
   isConnecting: boolean;
+  isTransactionPending: boolean;
   balance: string | null;
   network: NetworkType;
   walletType: WalletType | null;
@@ -28,6 +29,7 @@ interface WalletContextType extends WalletState {
   disconnect: () => void;
   switchNetwork: (network: NetworkType) => Promise<void>;
   getSolanaProvider: () => any;
+  setTransactionPending: (pending: boolean) => void;
   isPhantomAvailable: boolean;
   discoveredWallets: InjectedWalletInfo[];
   connection: Connection;
@@ -67,8 +69,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     address: null,
     isConnected: false,
     isConnecting: false,
+    isTransactionPending: false,
     balance: null,
-    network: (localStorage.getItem("solanaNetwork") as NetworkType) || "devnet", // Changed from testnet to devnet
+    network: (localStorage.getItem("solanaNetwork") as NetworkType) || "devnet",
     walletType: "phantom",
     chainType: "solana",
   }));
@@ -374,6 +377,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     autoConnect();
   }, [getSDK, fetchSolanaBalance, isPhantomAvailable]);
 
+  const setTransactionPending = useCallback((pending: boolean) => {
+    setState(prev => ({ ...prev, isTransactionPending: pending }));
+  }, []);
+
   return (
     <WalletContext.Provider
       value={{
@@ -383,6 +390,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         disconnect,
         switchNetwork,
         getSolanaProvider: getSolanaProviderCallback,
+        setTransactionPending,
         isPhantomAvailable,
         discoveredWallets,
         connection

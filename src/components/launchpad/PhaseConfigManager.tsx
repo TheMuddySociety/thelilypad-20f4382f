@@ -40,7 +40,6 @@ export const PhaseConfigManager: React.FC<PhaseConfigManagerProps> = ({
   const [isConfiguringAll, setIsConfiguringAll] = useState(false);
 
   const currency = getCurrencySymbol(chain);
-  const currency = getCurrencySymbol(chain);
   // Simplified: Always treat as Solana or fallback to default behavior which is now Solana-centric
   const isSolana = true;
 
