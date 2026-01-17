@@ -27,6 +27,8 @@ import { CreateStickerPackModal } from "@/components/stickers/CreateStickerPackM
 import { ManageStickerPackModal } from "@/components/stickers/ManageStickerPackModal";
 import { useFeatureUnlock } from "@/hooks/useFeatureLocks";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useWallet } from "@/providers/WalletProvider";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface ShopItem {
   id: string;
@@ -50,6 +52,7 @@ export default function CreatorStickerPacks() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPack, setSelectedPack] = useState<ShopItem | null>(null);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const {
     isUnlocked,

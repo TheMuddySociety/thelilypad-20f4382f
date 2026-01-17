@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { useWallet } from '@/providers/WalletProvider';
 import { supabase } from '@/integrations/supabase/client';
 
-const ADMIN_WALLET_ADDRESS = "Cra8LAvpQAk3hx4By5STHp4xrq7HSAnZLk4Jwzv1wUAH";
-
 export interface UserProfile {
     id: string;
     wallet_address: string;
@@ -54,37 +52,7 @@ export const useUserProfile = () => {
                     .eq('wallet_address', address)
                     .maybeSingle();
 
-                if (fetchError) {
-                    // If admin, provide a mock profile
-                    if (address === ADMIN_WALLET_ADDRESS) {
-                        setProfile({
-                            id: 'admin-temp-id',
-                            wallet_address: address,
-                            user_id: null,
-                            is_collector: true,
-                            is_creator: true,
-                            is_streamer: true,
-                            profile_setup_completed: true,
-                            display_name: 'Lily Admin',
-                            bio: 'Administrator Bypass Mode',
-                            avatar_url: null,
-                            banner_url: null,
-                            social_twitter: null,
-                            social_discord: null,
-                            social_instagram: null,
-                            social_youtube: null,
-                            social_tiktok: null,
-                            schedule: [],
-                            categories: [],
-                            payout_wallet_address: null,
-                            playlist_ids: [],
-                            is_verified: true,
-                            created_at: new Date().toISOString(),
-                            updated_at: new Date().toISOString()
-                        });
-                        setLoading(false);
-                        return;
-                    }
+            if (fetchError) {
                     throw fetchError;
                 }
 
@@ -135,37 +103,6 @@ export const useUserProfile = () => {
             throw new Error('Wallet not connected');
         }
 
-        if (address === ADMIN_WALLET_ADDRESS) {
-            console.log('Admin Bypass: Mocking profile creation');
-            const mockProfile: UserProfile = {
-                id: 'admin-temp-id',
-                wallet_address: address,
-                user_id: null,
-                is_collector: roleSelection.isCollector,
-                is_creator: roleSelection.isCreator,
-                is_streamer: roleSelection.isStreamer,
-                profile_setup_completed: true,
-                display_name: 'Lily Admin',
-                bio: 'Administrator Bypass Mode',
-                avatar_url: null,
-                banner_url: null,
-                social_twitter: null,
-                social_discord: null,
-                social_instagram: null,
-                social_youtube: null,
-                social_tiktok: null,
-                schedule: [],
-                categories: [],
-                payout_wallet_address: null,
-                playlist_ids: [],
-                is_verified: true,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            };
-            setProfile(mockProfile);
-            return mockProfile;
-        }
-
         const { data, error: insertError } = await supabase
             .from('user_profiles')
             .insert({
@@ -187,13 +124,6 @@ export const useUserProfile = () => {
     const updateProfile = async (updates: Partial<UserProfile>) => {
         if (!address) {
             throw new Error('Wallet not connected');
-        }
-
-        if (address === ADMIN_WALLET_ADDRESS) {
-            console.log('Admin Bypass: Mocking profile update');
-            const updatedProfile = { ...profile, ...updates } as UserProfile;
-            setProfile(updatedProfile);
-            return updatedProfile;
         }
 
         const { data, error: updateError } = await supabase

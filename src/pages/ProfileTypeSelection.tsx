@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useSEO } from '@/hooks/useSEO';
 import { LilyPadLogo } from '@/components/LilyPadLogo';
 
@@ -79,14 +78,6 @@ export default function ProfileTypeSelection() {
     const [selectedRole, setSelectedRole] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { createProfile } = useUserProfile();
-    const { isAdmin, loading: adminLoading } = useIsAdmin();
-
-    useEffect(() => {
-        // Double guard: Redirect admin away from this page
-        if (!adminLoading && isAdmin) {
-            navigate('/');
-        }
-    }, [isAdmin, adminLoading, navigate]);
 
     useSEO({
         title: 'Welcome to The Lily Pad - Set Up Your Profile',
