@@ -106,6 +106,32 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     target: "esnext",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separate heavy vendor libraries into their own chunks
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-charts": ["recharts"],
+          "vendor-motion": ["framer-motion", "gsap"],
+          "vendor-solana": [
+            "@solana/web3.js",
+            "@solana/spl-token",
+          ],
+          "vendor-metaplex": [
+            "@metaplex-foundation/umi",
+            "@metaplex-foundation/mpl-core",
+          ],
+          "vendor-ui": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-tooltip",
+            "@radix-ui/react-popover",
+            "@radix-ui/react-select",
+          ],
+        },
+      },
+    },
   },
 }));
 
