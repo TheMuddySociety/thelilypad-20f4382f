@@ -132,6 +132,26 @@ const verifyAllowlist = (address: string, allowlistAddresses: string[]): boolean
   return allowlistAddresses.some(a => a.toLowerCase() === address.toLowerCase());
 };
 
+// Check if a phase is currently live based on dates OR manual isActive flag
+const isPhaseCurrentlyLive = (phase: Phase | null): boolean => {
+  if (!phase) return false;
+  
+  // If manually marked active, it's live
+  if (phase.isActive) return true;
+  
+  // Otherwise check date range
+  const now = new Date();
+  const startTime = phase.startTime ? new Date(phase.startTime) : null;
+  const endTime = phase.endTime ? new Date(phase.endTime) : null;
+  
+  // If start time is set and we're past it
+  const hasStarted = !startTime || now >= startTime;
+  // If end time is set and we haven't passed it
+  const hasNotEnded = !endTime || now <= endTime;
+  
+  return hasStarted && hasNotEnded;
+};
+
 export default function CollectionDetail() {
   const { collectionId } = useParams();
   const navigate = useNavigate();
@@ -511,7 +531,7 @@ export default function CollectionDetail() {
     }
 
     // Prevent sending transactions when the phase is not active (common cause of "mint failed")
-    if (!activePhase.isActive) {
+    if (!isPhaseCurrentlyLive(activePhase)) {
       toast.error("Mint is not active", {
         description: "This phase is currently inactive. Wait for it to start, or ask the creator to activate the mint phase.",
       });
@@ -1534,7 +1554,7 @@ export default function CollectionDetail() {
                     isMinting ||
                     isSwitchingNetwork ||
                     !activePhase ||
-                    !activePhase.isActive ||
+                    !isPhaseCurrentlyLive(activePhase) ||
                     isSoldOut ||
                     exceedsSupply ||
                     (activePhase.minted || 0) >= (activePhase.supply || 0) ||
@@ -1557,7 +1577,7 @@ export default function CollectionDetail() {
                     </>
                   ) : !activePhase ? (
                     "No Phase Available"
-                  ) : !activePhase.isActive ? (
+                  ) : !isPhaseCurrentlyLive(activePhase) ? (
                     <>
                       <AlertTriangle className="w-4 h-4" />
                       Mint Not Active
