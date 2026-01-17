@@ -138,9 +138,9 @@ const StreamerProfile = () => {
       setLoading(true);
 
       try {
-        // Fetch streamer profile
+        // Fetch streamer profile from public view (excludes sensitive wallet addresses)
         const { data: profileData, error: profileError } = await supabase
-          .from('streamer_profiles')
+          .from('streamer_profiles_public')
           .select('*')
           .eq('user_id', streamerId)
           .maybeSingle();
