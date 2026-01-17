@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getErrorMessage } from "@/lib/errorUtils";
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { getSolanaRpcUrl } from "@/config/solana";
+import { createProtocolMemoInstruction } from "@/lib/solanaProtocol";
 
 interface TipModalProps {
   isOpen: boolean;
@@ -79,6 +80,9 @@ export const TipModal: React.FC<TipModalProps> = ({
         lamports: Math.floor(solAmount * LAMPORTS_PER_SOL),
       })
     );
+
+    // Add protocol memo for on-chain identification
+    transaction.add(createProtocolMemoInstruction('tip:creator'));
 
     const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;

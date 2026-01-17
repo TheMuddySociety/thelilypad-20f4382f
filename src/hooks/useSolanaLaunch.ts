@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { publicKey, generateSigner, some, percentAmount, dateTime, sol, Signer, PublicKey } from '@metaplex-foundation/umi';
+import { publicKey, generateSigner, some, percentAmount, dateTime, sol, Signer, PublicKey, transactionBuilder } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import {
     createCollectionV1 as createCoreCollection,
@@ -22,6 +22,7 @@ import {
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
 import { toast } from 'sonner';
+import { buildProtocolMemo, MEMO_PROGRAM_ID } from '@/lib/solanaProtocol';
 
 // Helper to wait for transaction confirmation
 const waitForConfirmation = async (umi: any, signature: Uint8Array, maxRetries = 30): Promise<boolean> => {
@@ -118,13 +119,28 @@ export const useSolanaLaunch = () => {
 
             toast.loading(`Deploying ${metadata.name} on Solana ${network}...`, { id: 'sol-deploy' });
 
+            // Create memo instruction for protocol identification
+            const memoData = buildProtocolMemo('launchpad:deploy_collection', {
+                standard: standard,
+            });
+
             switch (standard) {
                 case 'core':
                     result = await createCoreCollection(umi, {
                         collection: collectionSigner,
                         name: metadata.name,
                         uri: metadata.uri,
-                    }).sendAndConfirm(umi);
+                    })
+                    .add({
+                        instruction: {
+                            programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
+                            keys: [],
+                            data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
+                        },
+                        bytesCreatedOnChain: 0,
+                        signers: [],
+                    })
+                    .sendAndConfirm(umi);
                     break;
 
                 case 'token-metadata':
@@ -137,8 +153,17 @@ export const useSolanaLaunch = () => {
                         uri: metadata.uri,
                         sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
                         isCollection: true,
-                        // Wallet identity becomes the update authority automatically
-                    }).sendAndConfirm(umi);
+                    })
+                    .add({
+                        instruction: {
+                            programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
+                            keys: [],
+                            data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
+                        },
+                        bytesCreatedOnChain: 0,
+                        signers: [],
+                    })
+                    .sendAndConfirm(umi);
                     break;
             }
 

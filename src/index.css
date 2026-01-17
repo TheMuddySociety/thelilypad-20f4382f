@@ -201,3 +201,15 @@
 .backface-hidden {
   backface-visibility: hidden;
 }
+
+/* Mobile safe area for bottom navigation */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Add bottom padding to main content when mobile nav is visible */
+@media (max-width: 767px) {
+  main {
+    padding-bottom: 5rem;
+  }
+}

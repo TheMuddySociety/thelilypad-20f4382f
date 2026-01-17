@@ -2768,6 +2768,10 @@ export type Database = {
       }
     }
     Functions: {
+      get_profile_id_by_wallet: {
+        Args: { wallet_addr: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2776,6 +2780,10 @@ export type Database = {
         Returns: boolean
       }
       is_user_banned: { Args: { _user_id: string }; Returns: boolean }
+      wallet_owns_profile: {
+        Args: { profile_uuid: string; wallet_addr: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

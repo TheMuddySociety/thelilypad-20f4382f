@@ -10,6 +10,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import NetworkStatusIndicator from "@/components/NetworkStatusIndicator";
 import { AudioPlayerProvider } from "./providers/AudioPlayerProvider";
 import { MiniPlayer } from "./components/music/MiniPlayer";
+import { MobileBottomNav } from "./components/MobileBottomNav";
 import FrogLoader from "./components/FrogLoader";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -141,6 +142,7 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
+              <MobileBottomNav />
               <MiniPlayer />
             </BrowserRouter>
           </TooltipProvider>

@@ -13,12 +13,21 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Sticker, Loader2, ShoppingCart, Check, Sparkles, ArrowLeft } from "lucide-react";
+import { Sticker, Loader2, ShoppingCart, Check, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSEO } from "@/hooks/useSEO";
 import { useWallet } from "@/providers/WalletProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { 
+  Connection, 
+  PublicKey, 
+  Transaction, 
+  SystemProgram, 
+  LAMPORTS_PER_SOL 
+} from "@solana/web3.js";
+import { TREASURY_CONFIG, getTransactionSplit } from "@/config/treasury";
+import { createProtocolMemoInstruction } from "@/lib/solanaProtocol";
 
 interface ShopItem {
   id: string;
@@ -46,7 +55,7 @@ interface StickerContent {
 export default function StickerPackDetail() {
   const { packId } = useParams<{ packId: string }>();
   const navigate = useNavigate();
-  const { isConnected } = useWallet();
+  const { isConnected, address, getSolanaProvider, network } = useWallet();
   const { profile, loading: profileLoading } = useUserProfile();
   const userId = profile?.id ?? null;
 
@@ -129,27 +138,114 @@ export default function StickerPackDetail() {
 
   const handlePurchase = async () => {
     if (!isConnected) {
-      toast.error("Please connect your wallet to purchase");
+      toast.error("Please connect your Solana wallet to purchase");
       navigate("/auth");
       return;
     }
 
     if (!userId) {
       toast.error("Please complete your profile to purchase");
-      navigate("/profile-setup");
+      navigate("/edit-profile");
       return;
     }
 
     if (!pack) return;
 
+    // Free sticker pack - just record purchase
+    if (pack.price_mon <= 0) {
+      setIsPurchasing(true);
+      try {
+        const { error } = await supabase.from("shop_purchases").insert({
+          item_id: pack.id,
+          user_id: userId,
+          price_paid: 0,
+          currency: "SOL",
+          tx_hash: "free_claim",
+        });
+
+        if (error) {
+          if (error.code === "23505") {
+            toast.error("You already own this sticker pack!");
+            setHasPurchased(true);
+          } else {
+            throw error;
+          }
+          return;
+        }
+
+        setHasPurchased(true);
+        toast.success("Sticker pack claimed successfully!");
+      } catch (err) {
+        console.error("Claim error:", err);
+        toast.error("Failed to claim sticker pack");
+      } finally {
+        setIsPurchasing(false);
+      }
+      return;
+    }
+
+    // Paid sticker pack - process SOL payment
     setIsPurchasing(true);
     try {
-      // Insert purchase record
+      const solanaProvider = getSolanaProvider();
+      if (!solanaProvider) {
+        toast.error("Solana wallet not available");
+        setIsPurchasing(false);
+        return;
+      }
+      
+      const rpcUrl = network === "mainnet" 
+        ? "https://api.mainnet-beta.solana.com" 
+        : "https://api.devnet.solana.com";
+      const connection = new Connection(rpcUrl, "confirmed");
+      
+      const fromPubkey = new PublicKey(address!);
+      const treasuryPubkey = new PublicKey(TREASURY_CONFIG.treasuryWallet);
+      
+      // Calculate amounts
+      const totalLamports = Math.floor(pack.price_mon * LAMPORTS_PER_SOL);
+      const { platformAmount, creatorAmount } = getTransactionSplit(pack.price_mon, "shop");
+      const platformLamports = Math.floor(platformAmount * LAMPORTS_PER_SOL);
+      
+      // Create transaction
+      const transaction = new Transaction();
+      
+      // Add transfer to treasury
+      transaction.add(
+        SystemProgram.transfer({
+          fromPubkey,
+          toPubkey: treasuryPubkey,
+          lamports: totalLamports,
+        })
+      );
+      
+      // Add protocol memo
+      transaction.add(
+        createProtocolMemoInstruction("shop:item_purchase", {
+          item: pack.id,
+          type: "sticker_pack",
+        })
+      );
+      
+      // Get recent blockhash
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = fromPubkey;
+      
+      // Sign and send
+      const signedTx = await solanaProvider.signTransaction(transaction);
+      const signature = await connection.sendRawTransaction(signedTx.serialize());
+      
+      // Wait for confirmation
+      await connection.confirmTransaction(signature, "confirmed");
+      
+      // Record purchase in database
       const { error } = await supabase.from("shop_purchases").insert({
         item_id: pack.id,
         user_id: userId,
         price_paid: pack.price_mon,
         currency: "SOL",
+        tx_hash: signature,
       });
 
       if (error) {
@@ -164,9 +260,13 @@ export default function StickerPackDetail() {
 
       setHasPurchased(true);
       toast.success("Sticker pack purchased successfully!");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Purchase error:", err);
-      toast.error("Failed to complete purchase");
+      if (err.message?.includes("User rejected")) {
+        toast.error("Transaction cancelled");
+      } else {
+        toast.error("Failed to complete purchase");
+      }
     } finally {
       setIsPurchasing(false);
     }
@@ -212,7 +312,7 @@ export default function StickerPackDetail() {
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <main className="container mx-auto px-4 pt-24 pb-12">
+      <main className="container mx-auto px-4 pt-24 pb-24 md:pb-12">
         {/* Breadcrumb Navigation */}
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
