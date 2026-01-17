@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.resolve-streak-challenges]
 verify_jwt = false
+
+[functions.verify-solana-tx]
+verify_jwt = false
