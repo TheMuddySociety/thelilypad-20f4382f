@@ -3,7 +3,7 @@ import { useWallet } from "@/providers/WalletProvider";
 import { FlaskConical, Droplets, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const TESTNET_FAUCET_URL = "https://faucet.monad.xyz";
+const TESTNET_FAUCET_URL = "https://faucet.solana.com";
 
 export const TestnetBanner: React.FC = () => {
   const { network } = useWallet();
