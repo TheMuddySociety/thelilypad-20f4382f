@@ -234,12 +234,8 @@ export const useSolanaLaunch = () => {
                 createIx = await createCoreCandyMachine(umi, {
                     candyMachine,
                     collection: collectionMint,
+                    collectionUpdateAuthority: umi.identity,
                     itemsAvailable,
-                    sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
-                    creators: metadata.creators.map(c => ({
-                        address: publicKey(c.address),
-                        percentageShare: c.share
-                    })),
                     configLineSettings: some({
                         prefixName: "",
                         nameLength: 32,
@@ -247,7 +243,6 @@ export const useSolanaLaunch = () => {
                         uriLength: 200,
                         isSequential: false,
                     }),
-                    groups: groups.length > 0 ? groups : undefined,
                 });
             } else {
                 toast.loading(`Initializing Legacy Candy Machine...`, { id: 'cm-create' });

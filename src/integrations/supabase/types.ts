@@ -2507,6 +2507,84 @@ export type Database = {
         }
         Relationships: []
       }
+      user_profiles: {
+        Row: {
+          avatar_url: string | null
+          banner_url: string | null
+          bio: string | null
+          categories: string[] | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          is_collector: boolean | null
+          is_creator: boolean | null
+          is_streamer: boolean | null
+          is_verified: boolean | null
+          payout_wallet_address: string | null
+          playlist_ids: string[] | null
+          profile_setup_completed: boolean | null
+          schedule: Json | null
+          social_discord: string | null
+          social_instagram: string | null
+          social_tiktok: string | null
+          social_twitter: string | null
+          social_youtube: string | null
+          updated_at: string | null
+          user_id: string | null
+          wallet_address: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          banner_url?: string | null
+          bio?: string | null
+          categories?: string[] | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          is_collector?: boolean | null
+          is_creator?: boolean | null
+          is_streamer?: boolean | null
+          is_verified?: boolean | null
+          payout_wallet_address?: string | null
+          playlist_ids?: string[] | null
+          profile_setup_completed?: boolean | null
+          schedule?: Json | null
+          social_discord?: string | null
+          social_instagram?: string | null
+          social_tiktok?: string | null
+          social_twitter?: string | null
+          social_youtube?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          wallet_address: string
+        }
+        Update: {
+          avatar_url?: string | null
+          banner_url?: string | null
+          bio?: string | null
+          categories?: string[] | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          is_collector?: boolean | null
+          is_creator?: boolean | null
+          is_streamer?: boolean | null
+          is_verified?: boolean | null
+          payout_wallet_address?: string | null
+          playlist_ids?: string[] | null
+          profile_setup_completed?: boolean | null
+          schedule?: Json | null
+          social_discord?: string | null
+          social_instagram?: string | null
+          social_tiktok?: string | null
+          social_twitter?: string | null
+          social_youtube?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

@@ -16,6 +16,16 @@ export interface UserProfile {
     bio: string | null;
     avatar_url: string | null;
     banner_url: string | null;
+    social_twitter: string | null;
+    social_discord: string | null;
+    social_instagram: string | null;
+    social_youtube: string | null;
+    social_tiktok: string | null;
+    schedule: unknown;
+    categories: string[] | null;
+    payout_wallet_address: string | null;
+    playlist_ids: string[] | null;
+    is_verified: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -45,8 +55,7 @@ export const useUserProfile = () => {
                     .maybeSingle();
 
                 if (fetchError) {
-                    // If table doesn't exist, we might be in Lovable Cloud without sync
-                    // If admin, we gracefully provide a mock profile
+                    // If admin, provide a mock profile
                     if (address === ADMIN_WALLET_ADDRESS) {
                         setProfile({
                             id: 'admin-temp-id',
@@ -60,6 +69,16 @@ export const useUserProfile = () => {
                             bio: 'Administrator Bypass Mode',
                             avatar_url: null,
                             banner_url: null,
+                            social_twitter: null,
+                            social_discord: null,
+                            social_instagram: null,
+                            social_youtube: null,
+                            social_tiktok: null,
+                            schedule: [],
+                            categories: [],
+                            payout_wallet_address: null,
+                            playlist_ids: [],
+                            is_verified: true,
                             created_at: new Date().toISOString(),
                             updated_at: new Date().toISOString()
                         });
@@ -69,10 +88,10 @@ export const useUserProfile = () => {
                     throw fetchError;
                 }
 
-                setProfile(data);
-            } catch (err: any) {
+                setProfile(data as UserProfile | null);
+            } catch (err: unknown) {
                 console.error('Error fetching user profile:', err);
-                setError(err.message);
+                setError(err instanceof Error ? err.message : 'Unknown error');
                 setProfile(null);
             } finally {
                 setLoading(false);
@@ -118,7 +137,7 @@ export const useUserProfile = () => {
 
         if (address === ADMIN_WALLET_ADDRESS) {
             console.log('Admin Bypass: Mocking profile creation');
-            const mockProfile = {
+            const mockProfile: UserProfile = {
                 id: 'admin-temp-id',
                 wallet_address: address,
                 user_id: null,
@@ -130,6 +149,16 @@ export const useUserProfile = () => {
                 bio: 'Administrator Bypass Mode',
                 avatar_url: null,
                 banner_url: null,
+                social_twitter: null,
+                social_discord: null,
+                social_instagram: null,
+                social_youtube: null,
+                social_tiktok: null,
+                schedule: [],
+                categories: [],
+                payout_wallet_address: null,
+                playlist_ids: [],
+                is_verified: true,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             };
@@ -151,8 +180,8 @@ export const useUserProfile = () => {
 
         if (insertError) throw insertError;
 
-        setProfile(data);
-        return data;
+        setProfile(data as UserProfile);
+        return data as UserProfile;
     };
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
@@ -169,15 +198,15 @@ export const useUserProfile = () => {
 
         const { data, error: updateError } = await supabase
             .from('user_profiles')
-            .update(updates)
+            .update(updates as Record<string, unknown>)
             .eq('wallet_address', address)
             .select()
             .single();
 
         if (updateError) throw updateError;
 
-        setProfile(data);
-        return data;
+        setProfile(data as UserProfile);
+        return data as UserProfile;
     };
 
     return {
