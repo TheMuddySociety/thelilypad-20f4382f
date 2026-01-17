@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { publicKey, generateSigner, some, percentAmount, dateTime, sol, Signer } from '@metaplex-foundation/umi';
+import { publicKey, generateSigner, some, percentAmount, dateTime, sol, Signer, PublicKey } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import {
     createCollectionV1 as createCoreCollection,
@@ -8,6 +8,7 @@ import {
     createNft,
     TokenStandard,
     findMetadataPda,
+    fetchMetadata,
 } from '@metaplex-foundation/mpl-token-metadata';
 import {
     create,
@@ -21,6 +22,22 @@ import {
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
 import { toast } from 'sonner';
+
+// Helper to wait for transaction confirmation
+const waitForConfirmation = async (umi: any, signature: Uint8Array, maxRetries = 30): Promise<boolean> => {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const result = await umi.rpc.getSignatureStatuses([signature]);
+            if (result[0]?.confirmationStatus === 'confirmed' || result[0]?.confirmationStatus === 'finalized') {
+                return true;
+            }
+        } catch (e) {
+            console.log(`Waiting for confirmation... attempt ${i + 1}/${maxRetries}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    return false;
+};
 
 export interface LaunchpadPhase {
     id: string; // group label
@@ -125,11 +142,24 @@ export const useSolanaLaunch = () => {
                     break;
             }
 
+            // Wait for confirmation before returning
+            if (result?.signature) {
+                toast.loading(`Confirming transaction...`, { id: 'sol-deploy' });
+                const confirmed = await waitForConfirmation(umi, result.signature);
+                if (!confirmed) {
+                    console.warn("Transaction may not be fully confirmed yet");
+                }
+                
+                // Additional wait for state propagation
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+
             toast.success(`Successfully deployed collection!`, { id: 'sol-deploy' });
             return {
                 signature: result?.signature,
                 address: collectionSigner.publicKey.toString(),
-                collectionAddress: collectionSigner.publicKey.toString()
+                collectionAddress: collectionSigner.publicKey.toString(),
+                collectionSigner: collectionSigner, // Return the signer for CM creation
             };
         } catch (err: any) {
             console.error("Solana deployment error:", err);
@@ -183,6 +213,37 @@ export const useSolanaLaunch = () => {
         try {
             const umi = await getUmi();
             const candyMachine = generateSigner(umi);
+            const collectionMint = publicKey(collectionAddress);
+
+            toast.loading(`Verifying collection...`, { id: 'cm-create' });
+
+            // For legacy standard, verify the collection metadata exists and we're the update authority
+            if (standard === 'token-metadata') {
+                const metadataPda = findMetadataPda(umi, { mint: collectionMint });
+                
+                try {
+                    const collectionMetadata = await fetchMetadata(umi, metadataPda);
+                    console.log("=== COLLECTION VERIFICATION ===");
+                    console.log("Collection Mint:", collectionAddress);
+                    console.log("Metadata PDA:", metadataPda[0].toString());
+                    console.log("Update Authority:", collectionMetadata.updateAuthority.toString());
+                    console.log("Our Identity:", umi.identity.publicKey.toString());
+                    console.log("Match:", collectionMetadata.updateAuthority.toString() === umi.identity.publicKey.toString());
+                    console.log("================================");
+                    
+                    if (collectionMetadata.updateAuthority.toString() !== umi.identity.publicKey.toString()) {
+                        throw new Error(`Update authority mismatch. Collection authority: ${collectionMetadata.updateAuthority.toString()}, Your wallet: ${umi.identity.publicKey.toString()}`);
+                    }
+                } catch (fetchErr: any) {
+                    if (fetchErr.message?.includes('Update authority mismatch')) {
+                        throw fetchErr;
+                    }
+                    console.error("Failed to fetch collection metadata:", fetchErr);
+                    // Wait a bit more and retry
+                    toast.loading(`Waiting for collection confirmation...`, { id: 'cm-create' });
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                }
+            }
 
             toast.loading(`Initializing Candy Machine...`, { id: 'cm-create' });
 
@@ -225,7 +286,6 @@ export const useSolanaLaunch = () => {
                 };
             });
 
-            const collectionMint = publicKey(collectionAddress);
             let createIx;
 
             if (standard === 'core') {
