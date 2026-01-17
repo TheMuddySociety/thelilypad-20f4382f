@@ -19,12 +19,12 @@ import { toast } from "sonner";
 import { useSEO } from "@/hooks/useSEO";
 import { useWallet } from "@/providers/WalletProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { 
-  Connection, 
-  PublicKey, 
-  Transaction, 
-  SystemProgram, 
-  LAMPORTS_PER_SOL 
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  SystemProgram,
+  LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import { TREASURY_CONFIG, getTransactionSplit } from "@/config/treasury";
 import { createProtocolMemoInstruction } from "@/lib/solanaProtocol";
@@ -57,7 +57,8 @@ export default function StickerPackDetail() {
   const navigate = useNavigate();
   const { isConnected, address, getSolanaProvider, network } = useWallet();
   const { profile, loading: profileLoading } = useUserProfile();
-  const userId = profile?.id ?? null;
+  // Prefer auth.users ID if available (for standard auth), otherwise profile ID (for wallet-only)
+  const userId = profile?.user_id || profile?.id || null;
 
   const [pack, setPack] = useState<ShopItem | null>(null);
   const [stickers, setStickers] = useState<StickerContent[]>([]);
@@ -155,9 +156,16 @@ export default function StickerPackDetail() {
     if (pack.price_mon <= 0) {
       setIsPurchasing(true);
       try {
+        // Prefer auth.users ID if available (for RLS), otherwise profile ID
+        const purchaseUserId = profile?.user_id || profile?.id;
+
+        if (!purchaseUserId) {
+          throw new Error("User ID not found");
+        }
+
         const { error } = await supabase.from("shop_purchases").insert({
           item_id: pack.id,
-          user_id: userId,
+          user_id: purchaseUserId,
           price_paid: 0,
           currency: "SOL",
           tx_hash: "free_claim",
@@ -175,9 +183,9 @@ export default function StickerPackDetail() {
 
         setHasPurchased(true);
         toast.success("Sticker pack claimed successfully!");
-      } catch (err) {
+      } catch (err: any) {
         console.error("Claim error:", err);
-        toast.error("Failed to claim sticker pack");
+        toast.error(err.message || "Failed to claim sticker pack");
       } finally {
         setIsPurchasing(false);
       }
@@ -193,23 +201,23 @@ export default function StickerPackDetail() {
         setIsPurchasing(false);
         return;
       }
-      
-      const rpcUrl = network === "mainnet" 
-        ? "https://api.mainnet-beta.solana.com" 
+
+      const rpcUrl = network === "mainnet"
+        ? "https://api.mainnet-beta.solana.com"
         : "https://api.devnet.solana.com";
       const connection = new Connection(rpcUrl, "confirmed");
-      
+
       const fromPubkey = new PublicKey(address!);
       const treasuryPubkey = new PublicKey(TREASURY_CONFIG.treasuryWallet);
-      
+
       // Calculate amounts
       const totalLamports = Math.floor(pack.price_mon * LAMPORTS_PER_SOL);
       const { platformAmount, creatorAmount } = getTransactionSplit(pack.price_mon, "shop");
       const platformLamports = Math.floor(platformAmount * LAMPORTS_PER_SOL);
-      
+
       // Create transaction
       const transaction = new Transaction();
-      
+
       // Add transfer to treasury
       transaction.add(
         SystemProgram.transfer({
@@ -218,7 +226,7 @@ export default function StickerPackDetail() {
           lamports: totalLamports,
         })
       );
-      
+
       // Add protocol memo
       transaction.add(
         createProtocolMemoInstruction("shop:item_purchase", {
@@ -226,23 +234,29 @@ export default function StickerPackDetail() {
           type: "sticker_pack",
         })
       );
-      
+
       // Get recent blockhash
       const { blockhash } = await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = fromPubkey;
-      
+
       // Sign and send
       const signedTx = await solanaProvider.signTransaction(transaction);
       const signature = await connection.sendRawTransaction(signedTx.serialize());
-      
+
       // Wait for confirmation
       await connection.confirmTransaction(signature, "confirmed");
-      
+
       // Record purchase in database
+      const purchaseUserId = profile?.user_id || profile?.id;
+
+      if (!purchaseUserId) {
+        throw new Error("User ID not found");
+      }
+
       const { error } = await supabase.from("shop_purchases").insert({
         item_id: pack.id,
-        user_id: userId,
+        user_id: purchaseUserId,
         price_paid: pack.price_mon,
         currency: "SOL",
         tx_hash: signature,
@@ -311,7 +325,7 @@ export default function StickerPackDetail() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="container mx-auto px-4 pt-24 pb-24 md:pb-12">
         {/* Breadcrumb Navigation */}
         <Breadcrumb className="mb-6">
@@ -350,8 +364,8 @@ export default function StickerPackDetail() {
                     <Sticker className="w-20 h-20 text-primary" />
                   </div>
                 )}
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className={`absolute top-3 right-3 ${tierColors[pack.tier] || tierColors.basic}`}
                 >
                   <Sparkles className="w-3 h-3 mr-1" />
@@ -393,7 +407,7 @@ export default function StickerPackDetail() {
                     Owned
                   </Button>
                 ) : (
-                  <Button 
+                  <Button
                     onClick={handlePurchase}
                     disabled={isPurchasing}
                     className="w-full gap-2"
@@ -421,8 +435,8 @@ export default function StickerPackDetail() {
             {stickers.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {stickers.map((sticker) => (
-                  <Card 
-                    key={sticker.id} 
+                  <Card
+                    key={sticker.id}
                     className="overflow-hidden hover:border-primary/50 transition-colors group"
                   >
                     <div className="aspect-square relative overflow-hidden bg-muted p-4">
