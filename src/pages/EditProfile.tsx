@@ -46,7 +46,7 @@ const EditProfile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { address, isConnected } = useWallet();
-  const { profile, loading: profileLoading, updateProfile } = useUserProfile();
+  const { profile, loading: profileLoading, saveProfile } = useUserProfile();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -122,7 +122,8 @@ const EditProfile = () => {
     setSaving(true);
 
     try {
-      await updateProfile({
+      // Use saveProfile which does upsert - creates profile if doesn't exist
+      const savedProfile = await saveProfile({
         display_name: displayName || null,
         bio: bio || null,
         avatar_url: avatarUrl || null,
@@ -136,16 +137,22 @@ const EditProfile = () => {
         categories: categories,
         payout_wallet_address: payoutWalletAddress || null,
         playlist_ids: playlistIds,
+        // Preserve existing role flags or default to collector
+        is_collector: profile?.is_collector ?? true,
+        is_creator: profile?.is_creator ?? false,
+        is_streamer: profile?.is_streamer ?? false,
       });
 
       toast({
         title: "Profile saved!",
-        description: "Your profile has been updated."
+        description: displayName 
+          ? "Your profile has been updated." 
+          : "Profile saved! Add a display name to hide your wallet address."
       });
 
       // Navigate based on profile type
-      if (profile?.is_streamer) {
-        navigate(`/streamer/${profile.user_id || address}`);
+      if (savedProfile?.is_streamer) {
+        navigate(`/streamer/${savedProfile.user_id || address}`);
       } else {
         navigate('/');
       }
@@ -418,13 +425,24 @@ const EditProfile = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="displayName">Display Name</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="displayName">Display Name</Label>
+                  {!displayName && (
+                    <span className="text-xs text-amber-500 flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      Recommended to hide wallet address
+                    </span>
+                  )}
+                </div>
                 <Input
                   id="displayName"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your streamer name"
+                  placeholder="Choose a display name to hide your wallet"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Setting a display name will hide your wallet address from public view.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bio">Bio</Label>

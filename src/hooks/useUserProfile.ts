@@ -139,12 +139,40 @@ export const useUserProfile = () => {
         return data as UserProfile;
     };
 
+    // Upsert profile - creates if doesn't exist, updates if exists
+    const saveProfile = async (updates: Partial<UserProfile>) => {
+        if (!address) {
+            throw new Error('Wallet not connected');
+        }
+
+        const upsertData = {
+            wallet_address: address,
+            ...updates,
+            profile_setup_completed: true,
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error: upsertError } = await (supabase
+            .from('user_profiles') as any)
+            .upsert(upsertData, {
+                onConflict: 'wallet_address'
+            })
+            .select()
+            .single();
+
+        if (upsertError) throw upsertError;
+
+        setProfile(data as UserProfile);
+        return data as UserProfile;
+    };
+
     return {
         profile,
         loading,
         error,
         createProfile,
         updateProfile,
+        saveProfile,
         hasProfile: !!profile,
         profileComplete: profile?.profile_setup_completed ?? false
     };
