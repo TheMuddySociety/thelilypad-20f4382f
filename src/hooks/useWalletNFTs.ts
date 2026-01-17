@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { getDasUmi } from "@/utils/dasApi";
 import { getSolanaRpcUrl, NetworkType } from "@/config/solana";
 import { publicKey } from "@metaplex-foundation/umi";
-import { DasApiAsset } from "@metaplex-foundation/digital-asset-standard-api";
+import { DasApiAsset, DasApiAssetList } from "@metaplex-foundation/digital-asset-standard-api";
 
 export interface NFT {
   tokenId: string;
@@ -74,12 +74,12 @@ export function useWalletNFTs(
         const limit = 12;
 
         // Fetch assets using DAS API
-        const assets = await umi.rpc.getAssetsByOwner({
+        const assets = await (umi.rpc as any).getAssetsByOwner({
           owner,
           page,
           limit,
           sortBy: { sortBy: 'created', sortDirection: 'desc' }
-        });
+        }) as DasApiAssetList;
 
         // Map DAS assets to our NFT interface
         const mappedNfts: NFT[] = assets.items.map((asset: DasApiAsset) => {
@@ -90,8 +90,8 @@ export function useWalletNFTs(
 
           // Get image URL
           const image =
-            asset.content.links?.image ||
-            asset.content.files?.find((f: any) => f.mime?.startsWith('image/'))?.uri ||
+            (asset.content.links as any)?.image ||
+            (asset.content.files as any[])?.find((f: any) => f.mime?.startsWith('image/'))?.uri ||
             asset.content.json_uri ||
             "";
 
@@ -228,7 +228,7 @@ export function useSolanaAsset(assetAddress: string | null, isDevnet: boolean = 
       const umi = getDasUmi(rpcUrl);
       const assetId = publicKey(assetAddress);
 
-      const dasAsset = await umi.rpc.getAsset(assetId);
+      const dasAsset = await (umi.rpc as any).getAsset(assetId) as DasApiAsset;
 
       // Map single asset
       const collectionGroup = dasAsset.grouping.find(
@@ -236,8 +236,8 @@ export function useSolanaAsset(assetAddress: string | null, isDevnet: boolean = 
       );
 
       const image =
-        dasAsset.content.links?.image ||
-        dasAsset.content.files?.find((f: any) => f.mime?.startsWith('image/'))?.uri ||
+        (dasAsset.content.links as any)?.image ||
+        (dasAsset.content.files as any[])?.find((f: any) => f.mime?.startsWith('image/'))?.uri ||
         dasAsset.content.json_uri ||
         "";
 
