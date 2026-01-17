@@ -81,8 +81,6 @@ interface CreateCollectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCollectionCreated?: () => void;
-  onCollectionCreated?: () => void;
-  // Previously accepted defaultChain but now hardcoded to solana
 }
 
 interface MintPhase {
@@ -548,12 +546,9 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     } else {
       // Reset recovery dialog state when modal closes
       setShowRecoveryDialog(false);
-      // Reset blockchain to default when re-opening without draft
-      if (!hasDraft) {
-        setBlockchain(defaultChain);
-      }
+      // No need to reset blockchain - locked to solana
     }
-  }, [open, modalWalkthrough.autoStartIfNeeded, defaultChain, hasDraft]);
+  }, [open, modalWalkthrough.autoStartIfNeeded, hasDraft]);
 
 
   const loadDraft = () => {
@@ -586,7 +581,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         setSocialTelegram(draft.socialTelegram || "");
         // Restore collection type
         setCollectionType(draft.collectionType || "generative");
-        setBlockchain(draft.blockchain || "monad");
+        // blockchain is locked to solana
         setSolanaStandard(draft.solanaStandard || "core");
 
         // Restore 1-of-1 artworks from storage URLs
@@ -986,22 +981,32 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
     setIsDeploying(true);
 
     try {
-      // Get current user or wallet
-      const { data: { user } } = await supabase.auth.getUser();
-
-      const creatorId = user?.id || address;
-
-      if (!creatorId) {
+      // Fetch user profile by wallet address to get proper UUID
+      if (!address) {
         toast.error("Please connect your wallet to create a collection");
         setIsDeploying(false);
         return;
       }
 
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('wallet_address', address)
+        .maybeSingle();
+
+      if (!profile) {
+        toast.error("Please complete your profile setup before creating a collection");
+        setIsDeploying(false);
+        return;
+      }
+
+      const creatorId = profile.id; // This is a proper UUID
+
       // Upload image to storage if there's a new file
       let finalImageUrl = imagePreview;
       if (imageFile) {
-        // Use a generic folder if no user ID (or use address)
-        const uploadPath = user?.id || address || 'anonymous';
+        // Use profile ID or address for upload path
+        const uploadPath = creatorId || address || 'anonymous';
         const uploadedUrl = await uploadImageToStorage(uploadPath);
         if (uploadedUrl) {
           finalImageUrl = uploadedUrl;
@@ -1011,7 +1016,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       // Upload banner to storage if there's a new file
       let finalBannerUrl = bannerPreview;
       if (bannerFile) {
-        const uploadedBannerUrl = await uploadBannerToStorage(user.id);
+        const uploadedBannerUrl = await uploadBannerToStorage(creatorId);
         if (uploadedBannerUrl) {
           finalBannerUrl = uploadedBannerUrl;
         }
@@ -1306,49 +1311,23 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
           {/* Step 1: Collection Details */}
           {currentStep === 1 && (
             <div className="space-y-6" data-walkthrough="collection-details">
-              {/* Blockchain Selector */}
+              {/* Blockchain Indicator - Locked to Solana */}
               <div className="space-y-3">
-                <Label>Target Blockchain *</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <Card
-                    className={`cursor-pointer transition-all hover:border-primary/50 ${blockchain === "monad"
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "border-border"
-                      }`}
-                    onClick={() => setBlockchain("monad")}
-                  >
-                    <CardContent className="p-4 flex items-center justify-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                        <Globe className="w-5 h-5 text-primary" />
-                      </div>
-                      <div className="text-left">
-                        <h4 className="font-semibold text-sm">Monad</h4>
-                        <p className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">EVM compatible</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card
-                    className={`cursor-pointer transition-all hover:border-primary/50 ${blockchain === "solana"
-                      ? "border-primary bg-[#14F195]/5 ring-1 ring-[#14F195]/50"
-                      : "border-border"
-                      }`}
-                    onClick={() => setBlockchain("solana")}
-                  >
-                    <CardContent className="p-4 flex items-center justify-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#14F195]/20 flex items-center justify-center">
-                        <Zap className="w-5 h-5 text-[#14F195]" />
-                      </div>
-                      <div className="text-left">
-                        <h4 className="font-semibold text-sm">Solana</h4>
-                        <p className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">Metaplex lifecycle</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                <Label>Target Blockchain</Label>
+                <Card className="border-primary bg-[#14F195]/5 ring-1 ring-[#14F195]/50">
+                  <CardContent className="p-4 flex items-center justify-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#14F195]/20 flex items-center justify-center">
+                      <Zap className="w-5 h-5 text-[#14F195]" />
+                    </div>
+                    <div className="text-left">
+                      <h4 className="font-semibold text-sm">Solana</h4>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">Metaplex lifecycle</p>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
-              {/* Solana Standard Selector (only if Solana is selected) */}
+              {/* Solana Standard Selector */}
               {blockchain === "solana" && (
                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
                   <Label>Solana NFT Standard *</Label>
