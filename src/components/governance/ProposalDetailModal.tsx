@@ -241,8 +241,8 @@ export const ProposalDetailModal: React.FC<ProposalDetailModalProps> = ({
                 <Separator />
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-muted-foreground">Transaction:</span>
-                  <a 
-                    href={`https://testnet.monadexplorer.com/tx/${proposal.tx_hash}`}
+                <a 
+                    href={`https://explorer.solana.com/tx/${proposal.tx_hash}?cluster=devnet`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline flex items-center gap-1"
