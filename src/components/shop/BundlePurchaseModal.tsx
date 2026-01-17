@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { toast } from "sonner";
 import {
   Package,
@@ -24,11 +25,17 @@ import {
   Sparkles,
   AlertCircle,
   ExternalLink,
-  Info
+  Info,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { isUserRejection, getErrorMessage } from "@/lib/errorUtils";
-import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  SystemProgram,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
 import { getSolanaRpcUrl } from "@/config/solana";
 
 // Platform treasury address for receiving bundle payments (Solana)
@@ -74,28 +81,35 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
   onPurchaseComplete,
 }) => {
   const navigate = useNavigate();
-  const { address, isConnected, connect, balance, network, getSolanaProvider, setTransactionPending } = useWallet();
+  const {
+    address,
+    isConnected,
+    connect,
+    balance,
+    network,
+    getSolanaProvider,
+    setTransactionPending,
+  } = useWallet();
+  const { profile, loading: profileLoading } = useUserProfile();
+  const userId = profile?.id ?? null;
+
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [ownedItems, setOwnedItems] = useState<string[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
-  const [purchaseStep, setPurchaseStep] = useState<"idle" | "confirming" | "processing" | "complete">("idle");
+  const [purchaseStep, setPurchaseStep] = useState<
+    "idle" | "confirming" | "processing" | "complete"
+  >("idle");
 
   // Price in SOL (use bundle_price_sol if available, otherwise estimate)
   const priceInSol = bundle.bundle_price_sol || bundle.bundle_price * 0.01; // Rough estimate
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id || null);
-    };
-    checkAuth();
-  }, []);
-
-  useEffect(() => {
     const checkExistingPurchases = async () => {
-      if (!userId || !open) return;
+      if (!open) return;
+      // If wallet is connected, wait for profile to resolve so userId is stable
+      if (isConnected && profileLoading) return;
+      if (!userId) return;
 
       // Check if user already owns the bundle
       const { data: bundlePurchase } = await supabase
@@ -110,7 +124,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
       }
 
       // Check which individual items user already owns
-      const itemIds = bundleItems.map(bi => bi.item_id);
+      const itemIds = bundleItems.map((bi) => bi.item_id);
       const { data: purchases } = await supabase
         .from("shop_purchases")
         .select("item_id")
@@ -118,12 +132,12 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         .in("item_id", itemIds);
 
       if (purchases) {
-        setOwnedItems(purchases.map(p => p.item_id));
+        setOwnedItems(purchases.map((p) => p.item_id));
       }
     };
 
     checkExistingPurchases();
-  }, [userId, open, bundle.id, bundleItems]);
+  }, [userId, isConnected, profileLoading, open, bundle.id, bundleItems]);
 
   const handlePurchase = async () => {
     if (!isConnected || !address) {
@@ -132,7 +146,8 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
     }
 
     if (!userId) {
-      toast.error("Please sign in to purchase");
+      toast.error("Please complete your profile to purchase");
+      navigate("/profile-setup");
       return;
     }
 

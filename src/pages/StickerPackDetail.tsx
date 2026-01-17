@@ -17,6 +17,8 @@ import { Sticker, Loader2, ShoppingCart, Check, Sparkles, ArrowLeft } from "luci
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSEO } from "@/hooks/useSEO";
+import { useWallet } from "@/providers/WalletProvider";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface ShopItem {
   id: string;
@@ -44,30 +46,25 @@ interface StickerContent {
 export default function StickerPackDetail() {
   const { packId } = useParams<{ packId: string }>();
   const navigate = useNavigate();
+  const { isConnected } = useWallet();
+  const { profile, loading: profileLoading } = useUserProfile();
+  const userId = profile?.id ?? null;
+
   const [pack, setPack] = useState<ShopItem | null>(null);
   const [stickers, setStickers] = useState<StickerContent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
 
   useSEO({
     title: pack ? `${pack.name} | The Lily Pad` : "Sticker Pack | The Lily Pad",
-    description: pack?.description || "View this sticker pack on The Lily Pad marketplace."
+    description: pack?.description || "View this sticker pack on The Lily Pad marketplace.",
   });
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id || null);
-    };
-    checkAuth();
-  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!packId) return;
-      
+
       setIsLoading(true);
       try {
         // Fetch pack details
@@ -114,6 +111,8 @@ export default function StickerPackDetail() {
             .maybeSingle();
 
           setHasPurchased(!!purchaseData);
+        } else {
+          setHasPurchased(false);
         }
       } catch (err) {
         console.error("Error:", err);
@@ -122,13 +121,22 @@ export default function StickerPackDetail() {
       }
     };
 
+    // Wait for profile resolution when wallet is connected
+    if (isConnected && profileLoading) return;
+
     fetchData();
-  }, [packId, userId, navigate]);
+  }, [packId, userId, isConnected, profileLoading, navigate]);
 
   const handlePurchase = async () => {
-    if (!userId) {
-      toast.error("Please sign in to purchase");
+    if (!isConnected) {
+      toast.error("Please connect your wallet to purchase");
       navigate("/auth");
+      return;
+    }
+
+    if (!userId) {
+      toast.error("Please complete your profile to purchase");
+      navigate("/profile-setup");
       return;
     }
 
@@ -137,13 +145,12 @@ export default function StickerPackDetail() {
     setIsPurchasing(true);
     try {
       // Insert purchase record
-      const { error } = await supabase
-        .from("shop_purchases")
-        .insert({
-          item_id: pack.id,
-          user_id: userId,
-          price_paid: pack.price_mon,
-        });
+      const { error } = await supabase.from("shop_purchases").insert({
+        item_id: pack.id,
+        user_id: userId,
+        price_paid: pack.price_mon,
+        currency: "SOL",
+      });
 
       if (error) {
         if (error.code === "23505") {
