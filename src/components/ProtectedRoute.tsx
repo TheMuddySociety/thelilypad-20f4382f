@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { isConnected, isConnecting } = useWallet();
+  const { isConnected, isConnecting, isTransactionPending } = useWallet();
   const { profile, loading: profileLoading } = useUserProfile();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const location = useLocation();
@@ -23,8 +23,9 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  // Redirect to auth if not connected
-  if (!isConnected) {
+  // Don't redirect if a transaction is pending (prevents redirect during wallet signing)
+  // Also redirect to auth if not connected
+  if (!isConnected && !isTransactionPending) {
     return <Navigate to="/auth" replace />;
   }
 
