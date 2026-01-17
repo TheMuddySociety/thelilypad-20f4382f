@@ -13,6 +13,7 @@
   "dependencies": {
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
+    "@gsap/react": "^2.1.2",
     "@hookform/resolvers": "^3.10.0",
     "@metaplex-foundation/mpl-bubblegum": "^5.0.2",
     "@metaplex-foundation/mpl-candy-machine": "^6.1.0",
@@ -64,6 +65,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.25",
+    "gsap": "^3.14.2",
     "hls.js": "^1.6.15",
     "input-otp": "^1.4.2",
     "js-sha3": "^0.9.3",
