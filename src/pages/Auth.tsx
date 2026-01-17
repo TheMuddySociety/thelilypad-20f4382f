@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
-import authBranding from "@/assets/auth-branding.png";
+import authBranding from "@/assets/auth-branding.webp";
 
 // Phantom icon
 const PhantomIcon = () => (
