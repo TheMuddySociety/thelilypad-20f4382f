@@ -17,7 +17,10 @@ const formatVolume = (num: number): string => {
   return `${num.toFixed(2)} SOL`;
 };
 
+import { useNavigate } from "react-router-dom";
+
 export const HeroSection: React.FC = () => {
+  const navigate = useNavigate();
   const { stats, isLoading } = usePlatformStats();
 
   const statsData = [
@@ -83,11 +86,21 @@ export const HeroSection: React.FC = () => {
           className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center opacity-0 animate-fade-in px-4 sm:px-0"
           style={{ animationDelay: "0.8s" }}
         >
-          <Button variant="hero" size="lg" className="group w-full sm:w-auto">
+          <Button
+            variant="hero"
+            size="lg"
+            className="group w-full sm:w-auto"
+            onClick={() => navigate('/launchpad')}
+          >
             <Rocket className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform" />
             Launch Your Collection
           </Button>
-          <Button variant="heroOutline" size="lg" className="group w-full sm:w-auto">
+          <Button
+            variant="heroOutline"
+            size="lg"
+            className="group w-full sm:w-auto"
+            onClick={() => navigate('/marketplace')}
+          >
             <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
             Explore Marketplace
           </Button>
