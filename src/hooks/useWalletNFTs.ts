@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getDasUmi } from "@/utils/dasApi";
+import { getSolanaRpcUrl, NetworkType } from "@/config/solana";
+import { publicKey } from "@metaplex-foundation/umi";
+import { DasApiAsset } from "@metaplex-foundation/digital-asset-standard-api";
 
 export interface NFT {
   tokenId: string;
@@ -10,6 +14,8 @@ export interface NFT {
   image: string;
   collection: string;
   attributes: Array<{ trait_type: string; value: string }>;
+  standard?: string;
+  isCompressed?: boolean;
 }
 
 interface UseWalletNFTsResult {
@@ -23,8 +29,14 @@ interface UseWalletNFTsResult {
 }
 
 // Check if network is Solana
-const isSolanaNetwork = (network: string) => 
+const isSolanaNetwork = (network: string) =>
   network === "solana-mainnet" || network === "solana-devnet";
+
+const getNetworkType = (network: string): NetworkType => {
+  if (network === "solana-mainnet") return "mainnet";
+  if (network === "solana-devnet") return "devnet";
+  return "devnet"; // Default fallback
+};
 
 export function useWalletNFTs(
   walletAddress: string | null,
@@ -50,46 +62,110 @@ export function useWalletNFTs(
 
     try {
       const isSolana = isSolanaNetwork(network);
-      
-      const { data, error: fnError } = await supabase.functions.invoke("fetch-nfts", {
-        body: {
-          walletAddress,
-          network,
-          pageKey: loadMore && !isSolana ? pageKey : undefined,
-          page: loadMore && isSolana ? currentPage + 1 : 1,
-          isDevnet: network === "solana-devnet",
-        },
-      });
 
-      if (fnError) {
-        throw new Error(fnError.message || "Failed to fetch NFTs");
-      }
+      if (isSolana) {
+        const networkType = getNetworkType(network);
+        const rpcUrl = getSolanaRpcUrl(networkType);
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
+        // Initialize Umi with DAS API
+        const umi = getDasUmi(rpcUrl);
+        const owner = publicKey(walletAddress);
+        const page = loadMore ? currentPage + 1 : 1;
+        const limit = 12;
 
-      const newNfts = data.nfts || [];
-      
-      if (loadMore) {
-        setNfts((prev) => [...prev, ...newNfts]);
-        if (isSolana) {
-          setCurrentPage(data.page || currentPage + 1);
+        // Fetch assets using DAS API
+        const assets = await umi.rpc.getAssetsByOwner({
+          owner,
+          page,
+          limit,
+          sortBy: { sortBy: 'created', sortDirection: 'desc' }
+        });
+
+        // Map DAS assets to our NFT interface
+        const mappedNfts: NFT[] = assets.items.map((asset: DasApiAsset) => {
+          // Find collection grouping
+          const collectionGroup = asset.grouping.find(
+            (g: any) => g.group_key === 'collection'
+          );
+
+          // Get image URL
+          const image =
+            asset.content.links?.image ||
+            asset.content.files?.find((f: any) => f.mime?.startsWith('image/'))?.uri ||
+            asset.content.json_uri ||
+            "";
+
+          // Map attributes
+          const attributes = asset.content.metadata.attributes?.map((attr: any) => ({
+            trait_type: attr.trait_type || "Unknown",
+            value: attr.value?.toString() || ""
+          })) || [];
+
+          // Determine standard and compression
+          const isCompressed = asset.compression?.compressed || false;
+          let standard = "Standard";
+
+          if (asset.interface === "MplCoreAsset") standard = "Core";
+          else if (isCompressed) standard = "Compressed";
+          else if (asset.interface === "V1_NFT") standard = "Standard";
+
+          return {
+            tokenId: asset.id,
+            contractAddress: asset.id, // For Solana, the mint address is the contract address
+            name: asset.content.metadata.name || "Unknown Asset",
+            description: asset.content.metadata.description || "",
+            image,
+            collection: collectionGroup?.group_value || "Unknown Collection",
+            attributes,
+            standard,
+            isCompressed
+          };
+        });
+
+        if (loadMore) {
+          setNfts((prev) => [...prev, ...mappedNfts]);
+          setCurrentPage(page);
+        } else {
+          setNfts(mappedNfts);
+          setCurrentPage(1);
         }
+
+        setTotalCount(assets.total); // DAS returns total count
+        setHasMore(assets.total > page * limit);
+
       } else {
-        setNfts(newNfts);
-        setCurrentPage(1);
+        // Legacy Supabase/Alchemy path for non-Solana (or if we revert)
+        const { data, error: fnError } = await supabase.functions.invoke("fetch-nfts", {
+          body: {
+            walletAddress,
+            network,
+            pageKey: loadMore ? pageKey : undefined,
+            page: 0, // Alchemy doesn't use page numbers this way usually
+            isDevnet: false,
+          },
+        });
+
+        if (fnError) throw new Error(fnError.message);
+        if (data.error) throw new Error(data.error);
+
+        const newNfts = data.nfts || [];
+
+        if (loadMore) {
+          setNfts((prev) => [...prev, ...newNfts]);
+        } else {
+          setNfts(newNfts);
+        }
+
+        setTotalCount(data.totalCount || 0);
+        setPageKey(data.pageKey);
+        setHasMore(!!data.pageKey);
       }
-      
-      setTotalCount(data.totalCount || 0);
-      setPageKey(data.pageKey);
-      setHasMore(isSolana ? data.hasMore : !!data.pageKey);
+
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to fetch NFTs";
       setError(message);
       console.error("Error fetching NFTs:", err);
-      
-      // Only show toast on initial load failure, not on load more
+
       if (!loadMore) {
         toast.error("Failed to load NFTs");
       }
@@ -131,7 +207,7 @@ export function useWalletNFTs(
   };
 }
 
-// Hook to fetch a single Solana asset
+// Hook to fetch a single Solana asset using DAS
 export function useSolanaAsset(assetAddress: string | null, isDevnet: boolean = true) {
   const [asset, setAsset] = useState<NFT | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -147,22 +223,38 @@ export function useSolanaAsset(assetAddress: string | null, isDevnet: boolean = 
     setError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("fetch-nfts", {
-        body: {
-          assetAddress,
-          network: isDevnet ? "solana-devnet" : "solana-mainnet",
-        },
-      });
+      const networkType: NetworkType = isDevnet ? "devnet" : "mainnet";
+      const rpcUrl = getSolanaRpcUrl(networkType);
+      const umi = getDasUmi(rpcUrl);
+      const assetId = publicKey(assetAddress);
 
-      if (fnError) {
-        throw new Error(fnError.message || "Failed to fetch asset");
-      }
+      const dasAsset = await umi.rpc.getAsset(assetId);
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      // Map single asset
+      const collectionGroup = dasAsset.grouping.find(
+        (g: any) => g.group_key === 'collection'
+      );
 
-      setAsset(data.asset || null);
+      const image =
+        dasAsset.content.links?.image ||
+        dasAsset.content.files?.find((f: any) => f.mime?.startsWith('image/'))?.uri ||
+        dasAsset.content.json_uri ||
+        "";
+
+      const mappedAsset: NFT = {
+        tokenId: dasAsset.id,
+        contractAddress: dasAsset.id,
+        name: dasAsset.content.metadata.name || "Unknown Asset",
+        description: dasAsset.content.metadata.description || "",
+        image,
+        collection: collectionGroup?.group_value || "Unknown Collection",
+        attributes: dasAsset.content.metadata.attributes?.map((attr: any) => ({
+          trait_type: attr.trait_type || "Unknown",
+          value: attr.value?.toString() || ""
+        })) || []
+      };
+
+      setAsset(mappedAsset);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to fetch asset";
       setError(message);
@@ -180,6 +272,9 @@ export function useSolanaAsset(assetAddress: string | null, isDevnet: boolean = 
 }
 
 // Hook to fetch a Solana collection
+// Keeping this using the edge function for now as DAS getCollection logic is different/simpler but might not return full collection metadata object as expected by UI yet
+// Or we can map it if we really want to go full DAS.
+// For now, let's leave it as is to minimize regression risk on collection pages, unless requested.
 export function useSolanaCollection(collectionAddress: string | null, isDevnet: boolean = true) {
   const [collection, setCollection] = useState<{
     address: string;
