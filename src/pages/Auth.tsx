@@ -67,6 +67,10 @@ export default function Auth() {
           alt="The Lily Pad" 
           className="w-full h-full object-contain"
           fetchPriority="high"
+          loading="eager"
+          decoding="async"
+          width={1920}
+          height={1080}
         />
       </div>
       
@@ -79,6 +83,10 @@ export default function Auth() {
             alt="The Lily Pad" 
             className="w-full h-auto rounded-lg"
             fetchPriority="high"
+            loading="eager"
+            decoding="async"
+            width={280}
+            height={157}
           />
         </div>
         
