@@ -37,6 +37,7 @@ import {
   LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
 import { getSolanaRpcUrl } from "@/config/solana";
+import { createProtocolMemoInstruction } from "@/lib/solanaProtocol";
 
 // Platform treasury address for receiving bundle payments (Solana)
 const PLATFORM_TREASURY_ADDRESS = "11111111111111111111111111111112"; // Replace with actual treasury
@@ -179,6 +180,11 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
           lamports: Math.floor(priceInSol * LAMPORTS_PER_SOL),
         })
       );
+
+      // Add protocol memo for on-chain identification
+      transaction.add(createProtocolMemoInstruction('shop:bundle_purchase', {
+        bundle: bundle.id.slice(0, 8),
+      }));
 
       const { blockhash } = await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
