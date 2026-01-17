@@ -6,15 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { 
+import {
   Sticker,
-  Plus, 
-  Loader2, 
-  Lock, 
-  Users, 
-  Sparkles, 
-  Edit, 
-  Trash2, 
+  Plus,
+  Loader2,
+  Lock,
+  Users,
+  Sparkles,
+  Edit,
+  Trash2,
   Image as ImageIcon,
   Eye,
   EyeOff
@@ -44,7 +44,6 @@ interface ShopItem {
 
 export default function CreatorStickerPacks() {
   const navigate = useNavigate();
-  const [userId, setUserId] = useState<string | null>(null);
   const [followerCount, setFollowerCount] = useState<number>(0);
   const [stickerPacks, setStickerPacks] = useState<ShopItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,12 +51,12 @@ export default function CreatorStickerPacks() {
   const [selectedPack, setSelectedPack] = useState<ShopItem | null>(null);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
-  const { 
-    isUnlocked, 
-    isLoading: featureLockLoading, 
+  const {
+    isUnlocked,
+    isLoading: featureLockLoading,
     requiredFollowers,
     isFeatureEnabled,
-    progress 
+    progress
   } = useFeatureUnlock("sticker_packs", followerCount);
 
   useSEO({
@@ -65,18 +64,20 @@ export default function CreatorStickerPacks() {
     description: "Create and manage your sticker packs on The Lily Pad."
   });
 
+  const { isConnected } = useWallet();
+  const { profile, loading: profileLoading } = useUserProfile();
+
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("Please sign in to access this page");
-        navigate("/auth");
-        return;
-      }
-      setUserId(user.id);
-    };
-    checkAuth();
-  }, [navigate]);
+    if (!isConnected) {
+      toast.error("Please connect your wallet to access this page");
+      navigate("/auth");
+      return;
+    }
+
+    if (!profileLoading && profile) {
+      setUserId(profile.id);
+    }
+  }, [isConnected, profile, profileLoading, navigate]);
 
   useEffect(() => {
     if (!userId) return;
@@ -128,7 +129,7 @@ export default function CreatorStickerPacks() {
 
       if (error) throw error;
 
-      setStickerPacks(prev => 
+      setStickerPacks(prev =>
         prev.map(p => p.id === pack.id ? { ...p, is_active: !p.is_active } : p)
       );
       toast.success(pack.is_active ? "Pack hidden from marketplace" : "Pack visible in marketplace");
@@ -175,7 +176,7 @@ export default function CreatorStickerPacks() {
 
   const refreshPacks = async () => {
     if (!userId) return;
-    
+
     const { data: packs } = await supabase
       .from("shop_items")
       .select("*")
@@ -220,7 +221,7 @@ export default function CreatorStickerPacks() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="container mx-auto px-4 pt-24 pb-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
@@ -252,7 +253,7 @@ export default function CreatorStickerPacks() {
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold mb-1">Feature Locked</h3>
                   <p className="text-muted-foreground mb-4">
-                    You need {requiredFollowers} subscribers to unlock sticker pack creation. 
+                    You need {requiredFollowers} subscribers to unlock sticker pack creation.
                     Keep growing your channel!
                   </p>
                   <div className="space-y-2">
@@ -314,8 +315,8 @@ export default function CreatorStickerPacks() {
             {stickerPacks.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {stickerPacks.map((pack) => (
-                  <Card 
-                    key={pack.id} 
+                  <Card
+                    key={pack.id}
                     className={`overflow-hidden transition-colors ${!pack.is_active ? 'opacity-60' : ''}`}
                   >
                     <div className="aspect-square relative overflow-hidden bg-muted">
@@ -331,8 +332,8 @@ export default function CreatorStickerPacks() {
                         </div>
                       )}
                       <div className="absolute top-3 right-3 flex gap-2">
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={tierColors[pack.tier] || tierColors.basic}
                         >
                           <Sparkles className="w-3 h-3 mr-1" />
@@ -367,9 +368,9 @@ export default function CreatorStickerPacks() {
                       </div>
                       <Separator className="mb-4" />
                       <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="flex-1"
                           onClick={() => handleManagePack(pack)}
                         >
@@ -423,7 +424,7 @@ export default function CreatorStickerPacks() {
             <Lock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">Sticker Pack Creation Locked</h3>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Reach {requiredFollowers} subscribers to unlock the ability to create and sell your own sticker packs. 
+              Reach {requiredFollowers} subscribers to unlock the ability to create and sell your own sticker packs.
               Share your stream and grow your community!
             </p>
           </div>
