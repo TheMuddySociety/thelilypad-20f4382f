@@ -115,6 +115,33 @@ export const useSolanaLaunch = () => {
             console.log("👛 Wallet Address:", umi.identity.publicKey.toString());
             console.log("📦 Collection Standard:", standard);
             console.log("🎯 Collection Address (will be):", collectionSigner.publicKey.toString());
+
+            // Check for Metaplex programs availability
+            const MPL_CORE_ID = 'CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d';
+            const MPL_CM_ID = 'CndyV3LdqHUfDLmE5naZjVN8rBZz4tqhdefbAnjHG3JR';
+            // Core Candy Machine often uses a different ID or the same, let's verify connectivity
+            try {
+                const balance = await umi.rpc.getBalance(umi.identity.publicKey);
+                console.log("💰 Wallet Balance:", Number(balance.basisPoints) / 1e9, "SOL");
+
+                // Helper to check program
+                const checkProgram = async (id: string, name: string) => {
+                    const info = await umi.rpc.getAccount(publicKey(id));
+                    console.log(`🔎 Program Check [${name}]:`, info.exists ? "✅ Exists" : "❌ MISSING");
+                    if (!info.exists && network !== 'localnet') {
+                        console.warn(`WARNING: ${name} (${id}) not found on ${network}. This may cause simulation errors.`);
+                    }
+                };
+
+                await checkProgram('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr', 'Memo Program');
+                if (standard === 'core') {
+                    await checkProgram(MPL_CORE_ID, 'Metaplex Core');
+                    // Core CM ID - usually same as V3 or specific, depending on version. 
+                    // For now just logging Core.
+                }
+            } catch (e) {
+                console.error("Debug Check Failed:", e);
+            }
             console.log("============================");
 
             toast.loading(`Deploying ${metadata.name} on Solana ${network}...`, { id: 'sol-deploy' });
@@ -131,16 +158,16 @@ export const useSolanaLaunch = () => {
                         name: metadata.name,
                         uri: metadata.uri,
                     })
-                    .add({
-                        instruction: {
-                            programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
-                            keys: [],
-                            data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
-                        },
-                        bytesCreatedOnChain: 0,
-                        signers: [],
-                    })
-                    .sendAndConfirm(umi);
+                        .add({
+                            instruction: {
+                                programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
+                                keys: [],
+                                data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
+                            },
+                            bytesCreatedOnChain: 0,
+                            signers: [],
+                        })
+                        .sendAndConfirm(umi);
                     break;
 
                 case 'token-metadata':
@@ -154,16 +181,16 @@ export const useSolanaLaunch = () => {
                         sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
                         isCollection: true,
                     })
-                    .add({
-                        instruction: {
-                            programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
-                            keys: [],
-                            data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
-                        },
-                        bytesCreatedOnChain: 0,
-                        signers: [],
-                    })
-                    .sendAndConfirm(umi);
+                        .add({
+                            instruction: {
+                                programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
+                                keys: [],
+                                data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
+                            },
+                            bytesCreatedOnChain: 0,
+                            signers: [],
+                        })
+                        .sendAndConfirm(umi);
                     break;
             }
 
