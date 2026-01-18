@@ -562,9 +562,33 @@ export function AllowlistManager({
 
   // Update parent component
   const updatePhases = useCallback((newPhases: MintPhase[]) => {
-    setMintPhases(newPhases);
-    onAllowlistChange?.(newPhases);
-  }, [onAllowlistChange]);
+    // Recalculate merkle root for each phase
+    const phasesWithRoots = newPhases.map(phase => {
+      if (phase.entries.length === 0) {
+        return { ...phase, merkleRoot: undefined };
+      }
+
+      const leaves = phase.entries
+        .filter(e => isValidAddress(e.walletAddress))
+        .map(entry =>
+          merkleIncludeAmount
+            ? generateLeafWithAmount(entry.walletAddress, entry.maxMint)
+            : generateLeaf(entry.walletAddress)
+        );
+
+      if (leaves.length === 0) {
+        return { ...phase, merkleRoot: undefined };
+      }
+
+      const tree = new MerkleTree(leaves, (data: Buffer) => Buffer.from(keccak_256(data), 'hex'), { sortPairs: true });
+      const root = tree.getHexRoot();
+
+      return { ...phase, merkleRoot: root };
+    });
+
+    setMintPhases(phasesWithRoots);
+    onAllowlistChange?.(phasesWithRoots);
+  }, [onAllowlistChange, merkleIncludeAmount]);
 
   // Confirm CSV import
   const confirmCsvImport = useCallback(() => {

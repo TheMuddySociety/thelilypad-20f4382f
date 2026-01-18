@@ -75,6 +75,7 @@ import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrencySymbol, getExplorerUrl, isSolanaChain, getNetworkDisplayName, isTestnet as isChainTestnet } from "@/lib/chainUtils";
+import { getMerkleProof, AllowlistEntry } from "@/utils/merkle";
 
 interface Collection {
   id: string;
@@ -128,27 +129,27 @@ const solanaChainInfo = {
 };
 
 // Verify if address is in allowlist
-const verifyAllowlist = (address: string, allowlistAddresses: string[]): boolean => {
-  return allowlistAddresses.some(a => a.toLowerCase() === address.toLowerCase());
+const verifyAllowlist = (address: string, allowlistEntries: AllowlistEntry[]): boolean => {
+  return allowlistEntries.some(e => e.walletAddress.toLowerCase() === address.toLowerCase());
 };
 
 // Check if a phase is currently live based on dates OR manual isActive flag
 const isPhaseCurrentlyLive = (phase: Phase | null): boolean => {
   if (!phase) return false;
-  
+
   // If manually marked active, it's live
   if (phase.isActive) return true;
-  
+
   // Otherwise check date range
   const now = new Date();
   const startTime = phase.startTime ? new Date(phase.startTime) : null;
   const endTime = phase.endTime ? new Date(phase.endTime) : null;
-  
+
   // If start time is set and we're past it
   const hasStarted = !startTime || now >= startTime;
   // If end time is set and we haven't passed it
   const hasNotEnded = !endTime || now <= endTime;
-  
+
   return hasStarted && hasNotEnded;
 };
 
@@ -167,7 +168,36 @@ export default function CollectionDetail() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isAllowlistModalOpen, setIsAllowlistModalOpen] = useState(false);
-  const [allowlistAddresses, setAllowlistAddresses] = useState<string[]>([]);
+  const [allowlistEntries, setAllowlistEntries] = useState<AllowlistEntry[]>([]);
+
+  // Load allowlist entries for current phase
+  useEffect(() => {
+    const loadAllowlist = async () => {
+      if (!collectionId || !activePhase?.requiresAllowlist) {
+        setAllowlistEntries([]);
+        return;
+      }
+
+      try {
+        const { data } = await supabase
+          .from("allowlist_entries")
+          .select("wallet_address, max_mint")
+          .eq("collection_id", collectionId)
+          .eq("phase_name", activePhase.id);
+
+        if (data) {
+          setAllowlistEntries(data.map(e => ({
+            walletAddress: e.wallet_address,
+            maxMint: e.max_mint || 1
+          })));
+        }
+      } catch (err) {
+        console.error("Error loading allowlist:", err);
+      }
+    };
+
+    loadAllowlist();
+  }, [collectionId, activePhase]);
   const [showRevealModal, setShowRevealModal] = useState(false);
   const [revealedNfts, setRevealedNfts] = useState<Array<{
     tokenId: number;
@@ -195,17 +225,18 @@ export default function CollectionDetail() {
 
   const solanaMint = useSolanaMint();
 
-  // Helper for actual Solana minting transaction logic
   const performSolanaMint = async (
     cmAddress: string | undefined,
     standard: string,
     amount: number,
     phaseId: string,
+    mintArgs?: any,
     isForce: boolean = false
   ) => {
     let lastHash = null;
 
     for (let i = 0; i < amount; i++) {
+      // ... (loading logic)
       if (amount > 1) {
         toast.loading(`Minting NFT ${i + 1} of ${amount}...`, { id: 'sol-mint-progress' });
       } else {
@@ -216,7 +247,8 @@ export default function CollectionDetail() {
         ? await solanaMint.mintFromCandyMachine(
           cmAddress,
           collection!.contract_address!,
-          phaseId
+          phaseId,
+          mintArgs
         )
         : await solanaMint.mintNFT(
           (standard as any) || 'core',
@@ -545,11 +577,49 @@ export default function CollectionDetail() {
 
     try {
       if (isSolana) {
+        // Prepare mint args (guards)
+        const mintArgs: any = {};
+
+        // 1. Allowlist Guard
+        if (activePhase.requiresAllowlist) {
+          // Find user in allowlist
+          const allowlistEntry = allowlistEntries.find(
+            e => e.walletAddress.toLowerCase() === address.toLowerCase()
+          );
+
+          if (!allowlistEntry) {
+            toast.error("Not in Allowlist", {
+              description: "Your wallet is not authorized for this phase."
+            });
+            setIsMinting(false);
+            return;
+          }
+
+          // Generate Proof
+          // Note: We need to pass the FULL list to generate the tree, then get the proof for the user
+          try {
+            const { proof } = getMerkleProof(allowlistEntries, address);
+            mintArgs.allowList = { proof };
+          } catch (proofErr) {
+            console.error("Proof generation failed:", proofErr);
+            toast.error("Failed to generate allowlist proof");
+            setIsMinting(false);
+            return;
+          }
+        }
+
+        // 2. Mint Limit Guard (if configured)
+        // Note: The ID must match what was used in creation (currently hardcoded to 1 in useSolanaLaunch)
+        if (activePhase.maxPerWallet) {
+          mintArgs.mintLimit = { id: 1 };
+        }
+
         txHash = await performSolanaMint(
           activePhase.candyMachineAddress,
           collection.solana_standard || 'core',
           mintAmount,
-          activePhase.id
+          activePhase.id,
+          mintArgs
         );
         toast.success(`Successfully minted ${mintAmount} NFT${mintAmount > 1 ? 's' : ''}!`, { id: 'sol-mint-progress' });
       } else {
@@ -609,7 +679,8 @@ export default function CollectionDetail() {
         activePhase.candyMachineAddress,
         collection.solana_standard || 'core',
         1,
-        activePhase.id
+        activePhase.id,
+        undefined
       );
 
       if (txHash) {
@@ -651,6 +722,7 @@ export default function CollectionDetail() {
         collection.solana_standard || 'core',
         1,
         phases[0]?.id || 'public',
+        undefined,
         true
       );
 

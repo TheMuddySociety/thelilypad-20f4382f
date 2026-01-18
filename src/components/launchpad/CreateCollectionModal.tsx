@@ -1157,6 +1157,38 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       // Notify parent to refresh
       onCollectionCreated?.();
 
+      // Insert allowlist entries if any
+      const allowlistInserts: any[] = [];
+      const currentUserForAllowlist = (await supabase.auth.getUser()).data.user?.id;
+
+      if (currentUserForAllowlist && allowlistPhases.length > 0) {
+        for (const phase of allowlistPhases) {
+          if (phase.entries.length > 0) {
+            phase.entries.forEach(entry => {
+              allowlistInserts.push({
+                collection_id: data.id,
+                phase_name: phase.id,
+                wallet_address: entry.walletAddress,
+                max_mint: entry.maxMint,
+                created_by: currentUserForAllowlist,
+                notes: entry.notes
+              });
+            });
+          }
+        }
+
+        if (allowlistInserts.length > 0) {
+          const { error: allowlistError } = await supabase
+            .from('allowlist_entries')
+            .insert(allowlistInserts);
+
+          if (allowlistError) {
+            console.error("Error saving allowlist:", allowlistError);
+            toast.error("Collection created but allowlist save failed");
+          }
+        }
+      }
+
       // Clear draft and reset form
       clearDraft();
       setCurrentStep(1);
