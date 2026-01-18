@@ -796,6 +796,11 @@ const AdminDashboard: React.FC = () => {
             </Card>
           </TabsContent>
 
+          {/* Branding/Assets Tab */}
+          <TabsContent value="branding">
+            <SiteAssetsManager />
+          </TabsContent>
+
           {/* Collections Tab */}
           <TabsContent value="collections">
             <Card>
