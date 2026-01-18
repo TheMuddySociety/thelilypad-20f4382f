@@ -303,9 +303,10 @@ export const useSolanaLaunch = () => {
                     guards.allowList = some({ merkleRoot: new Uint8Array(Buffer.from(phase.merkleRoot, 'hex')) });
                 }
 
-                // Mint limit
+                // Mint limit - clamp to u16 max (65535) as required by Candy Machine guards
                 if (phase.maxPerWallet) {
-                    guards.mintLimit = some({ id: 1, limit: phase.maxPerWallet });
+                    const clampedLimit = Math.min(phase.maxPerWallet, 65535);
+                    guards.mintLimit = some({ id: 1, limit: clampedLimit });
                 }
 
                 return {
