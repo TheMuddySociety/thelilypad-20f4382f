@@ -128,7 +128,7 @@ export const useSolanaLaunch = () => {
                 const checkProgram = async (id: string, name: string) => {
                     const info = await umi.rpc.getAccount(publicKey(id));
                     console.log(`🔎 Program Check [${name}]:`, info.exists ? "✅ Exists" : "❌ MISSING");
-                    if (!info.exists && network !== 'localnet') {
+                    if (!info.exists) {
                         console.warn(`WARNING: ${name} (${id}) not found on ${network}. This may cause simulation errors.`);
                     }
                 };
@@ -172,25 +172,28 @@ export const useSolanaLaunch = () => {
 
                 case 'token-metadata':
                 default:
+                    // Clamp seller fee basis points to valid range (0-10000, representing 0-100%)
+                    const safeSellerFee = Math.min(Math.max(metadata.sellerFeeBasisPoints, 0), 10000);
+                    
                     // Create collection NFT with wallet as update authority
                     result = await createNft(umi, {
                         mint: collectionSigner,
                         name: metadata.name,
                         symbol: metadata.symbol,
                         uri: metadata.uri,
-                        sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
+                        sellerFeeBasisPoints: percentAmount(safeSellerFee / 100),
                         isCollection: true,
                     })
-                        .add({
-                            instruction: {
-                                programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
-                                keys: [],
-                                data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
-                            },
-                            bytesCreatedOnChain: 0,
-                            signers: [],
-                        })
-                        .sendAndConfirm(umi);
+                    .add({
+                        instruction: {
+                            programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
+                            keys: [],
+                            data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
+                        },
+                        bytesCreatedOnChain: 0,
+                        signers: [],
+                    })
+                    .sendAndConfirm(umi);
                     break;
             }
 
@@ -347,6 +350,17 @@ export const useSolanaLaunch = () => {
             // Log the standard being used
             console.log(`[CM] Initializing Candy Machine with standard: ${standard}`);
 
+            // Clamp itemsAvailable to u32 max (practical limit for Candy Machine)
+            // Note: Some serializers use shortU16 internally, so we also warn if > 65535
+            const safeItemsAvailable = Math.min(itemsAvailable, 4294967295);
+            if (itemsAvailable > 65535) {
+                console.warn(`[CM] Large supply (${itemsAvailable}) - some operations may have limits`);
+            }
+
+            // Clamp config line lengths to safe u8 values
+            const safeNameLength = Math.min(32, 255);
+            const safeUriLength = Math.min(200, 255);
+
             if (standard === 'core') {
                 toast.loading(`Initializing Core Candy Machine...`, { id: 'cm-create' });
                 // Use Metaplex Core Candy Machine
@@ -354,25 +368,28 @@ export const useSolanaLaunch = () => {
                     candyMachine,
                     collection: collectionMint,
                     collectionUpdateAuthority: umi.identity,
-                    itemsAvailable,
+                    itemsAvailable: safeItemsAvailable,
                     configLineSettings: some({
                         prefixName: "",
-                        nameLength: 32,
+                        nameLength: safeNameLength,
                         prefixUri: "",
-                        uriLength: 200,
+                        uriLength: safeUriLength,
                         isSequential: false,
                     }),
                 });
             } else {
                 toast.loading(`Initializing Legacy Candy Machine...`, { id: 'cm-create' });
+                // Clamp seller fee basis points to u16 max (0-10000 is valid range anyway)
+                const safeSellerFeeBasisPoints = Math.min(metadata.sellerFeeBasisPoints, 10000);
+                
                 // Use Legacy Candy Machine V3
                 createIx = await create(umi, {
                     candyMachine,
                     collectionMint,
                     collectionUpdateAuthority: umi.identity,
                     tokenStandard: TokenStandard.NonFungible,
-                    sellerFeeBasisPoints: percentAmount(metadata.sellerFeeBasisPoints / 100),
-                    itemsAvailable,
+                    sellerFeeBasisPoints: percentAmount(safeSellerFeeBasisPoints / 100),
+                    itemsAvailable: safeItemsAvailable,
                     creators: metadata.creators.map(c => ({
                         address: publicKey(c.address),
                         verified: c.address === umi.identity.publicKey.toString(),
@@ -380,9 +397,9 @@ export const useSolanaLaunch = () => {
                     })),
                     configLineSettings: some({
                         prefixName: "",
-                        nameLength: 32,
+                        nameLength: safeNameLength,
                         prefixUri: "",
-                        uriLength: 200,
+                        uriLength: safeUriLength,
                         isSequential: false,
                     }),
                     groups: groups.length > 0 ? groups : undefined,

@@ -346,31 +346,7 @@ export default function CollectionDetail() {
     }
   };
 
-  // Load allowlist addresses for current phase
-  useEffect(() => {
-    const loadAllowlist = async () => {
-      if (!collectionId || !activePhase?.requiresAllowlist) {
-        setAllowlistAddresses([]);
-        return;
-      }
-
-      try {
-        const { data } = await supabase
-          .from("allowlist_entries")
-          .select("wallet_address")
-          .eq("collection_id", collectionId)
-          .eq("phase_name", activePhase.id);
-
-        if (data) {
-          setAllowlistAddresses(data.map(e => e.wallet_address));
-        }
-      } catch (err) {
-        console.error("Error loading allowlist:", err);
-      }
-    };
-
-    loadAllowlist();
-  }, [collectionId, activePhase]);
+  // Note: allowlistEntries is already loaded in the earlier useEffect (lines 174-200)
 
   // Calculate if user has enough balance
   const totalCost = activePhase ? parseFloat(activePhase.price) * mintAmount : 0;
@@ -1383,7 +1359,7 @@ export default function CollectionDetail() {
                           <Shield className="w-3 h-3" />
                           Allowlist Status
                         </span>
-                        {address && verifyAllowlist(address, allowlistAddresses) ? (
+                        {address && verifyAllowlist(address, allowlistEntries) ? (
                           <Badge variant="outline" className="text-green-500 border-green-500/30 bg-green-500/10">
                             <Check className="w-3 h-3 mr-1" />
                             Eligible
@@ -1634,7 +1610,7 @@ export default function CollectionDetail() {
                     isWrongNetwork ||
                     hasInsufficientBalance ||
                     !collection?.contract_address ||
-                    (activePhase?.requiresAllowlist && address && !verifyAllowlist(address, allowlistAddresses))
+                    (activePhase?.requiresAllowlist && address && !verifyAllowlist(address, allowlistEntries))
                   }
                 >
                   {isMinting ? (
@@ -1676,7 +1652,7 @@ export default function CollectionDetail() {
                       <AlertTriangle className="w-4 h-4" />
                       Insufficient Balance
                     </>
-                  ) : activePhase?.requiresAllowlist && address && !verifyAllowlist(address, allowlistAddresses) ? (
+                  ) : activePhase?.requiresAllowlist && address && !verifyAllowlist(address, allowlistEntries) ? (
                     <>
                       <Shield className="w-4 h-4" />
                       Not on Allowlist
