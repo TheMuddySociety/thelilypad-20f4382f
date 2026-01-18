@@ -1,0 +1,108 @@
+{
+    "version": "0.1.0",
+    "name": "escrow_program",
+    "instructions": [
+        {
+            "name": "initializeListing",
+            "accounts": [
+                {
+                    "name": "escrowAccount",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "seller",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "assetAddress",
+                    "type": "publicKey"
+                },
+                {
+                    "name": "price",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "purchase",
+            "accounts": [
+                {
+                    "name": "escrowAccount",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "seller",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "buyer",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "asset",
+                    "isMut": false,
+                    "isSigner": false
+                },
+                {
+                    "name": "coreProgram",
+                    "isMut": false,
+                    "isSigner": false
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                },
+                {
+                    "name": "tokenProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "buyer",
+                    "type": "publicKey"
+                }
+            ]
+        }
+    ],
+    "accounts": [
+        {
+            "name": "escrowAccount",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "seller",
+                        "type": "publicKey"
+                    },
+                    {
+                        "name": "assetAddress",
+                        "type": "publicKey"
+                    },
+                    {
+                        "name": "price",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "isFilled",
+                        "type": "bool"
+                    }
+                ]
+            }
+        }
+    ]
+}
