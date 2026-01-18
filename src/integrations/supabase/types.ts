@@ -2171,6 +2171,39 @@ export type Database = {
           },
         ]
       }
+      site_assets: {
+        Row: {
+          asset_key: string
+          asset_type: string
+          asset_url: string
+          created_at: string
+          description: string | null
+          id: string
+          page: string
+          updated_at: string
+        }
+        Insert: {
+          asset_key: string
+          asset_type?: string
+          asset_url: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          page?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_key?: string
+          asset_type?: string
+          asset_url?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          page?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       streak_challenges: {
         Row: {
           challenged_id: string
