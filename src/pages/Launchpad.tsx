@@ -25,6 +25,7 @@ import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
+import { LaunchpadNavigation } from "@/components/launchpad/LaunchpadNavigation";
 import { useWallet, ChainType } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import lilypadLogo from "@/assets/lilypad-logo.png";
@@ -103,10 +104,9 @@ export default function Launchpad() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  // Default and locked to Solana
-  // Default and locked to Solana
-  const selectedChain = "solana";
-  const selectedPlatform = "solana";
+  // Chain selection for navigation menu
+  const [selectedChain, setSelectedChain] = useState<"solana" | "monad">("solana");
+  const selectedPlatform = selectedChain;
 
   // Get current user or wallet
   useEffect(() => {
@@ -220,10 +220,15 @@ export default function Launchpad() {
   const fetchCollections = async () => {
     setIsLoading(true);
     try {
+      // Fetch collections based on selected chain
+      const chainFilters = selectedChain === "solana" 
+        ? ["solana", "solana-devnet", "solana-mainnet"]
+        : ["monad", "monad-testnet", "monad-mainnet"];
+      
       const { data, error } = await supabase
         .from("collections")
         .select("*")
-        .in("chain", ["solana", "solana-devnet", "solana-mainnet"])
+        .in("chain", chainFilters)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
@@ -242,7 +247,7 @@ export default function Launchpad() {
   useEffect(() => {
     fetchCollections();
     loadDraft();
-  }, [selectedPlatform]);
+  }, [selectedChain]);
 
   // Reload draft when modal closes
   useEffect(() => {
@@ -255,9 +260,6 @@ export default function Launchpad() {
   const filteredCollections = collections.filter((collection) => {
     if (activeTab === "all") return true;
     if (activeTab === "drafts") return false; // Drafts handled separately
-
-    // Filter for Solana collections only
-    if (!collection.chain.includes("solana")) return false;
 
     return collection.status === activeTab;
   });
@@ -343,7 +345,7 @@ export default function Launchpad() {
 
       <main className="container mx-auto px-4 pt-24 pb-12">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8" data-walkthrough="header">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6" data-walkthrough="header">
           <div className="flex items-center gap-4">
             <img
               src={lilypadLogo}
@@ -364,8 +366,8 @@ export default function Launchpad() {
                   {isTestnet ? "Solana Devnet" : "Solana Mainnet"}
                 </Badge>
               </div>
-              <p className="text-muted-foreground mb-4">
-                Launch your NFT collection on Solana
+              <p className="text-muted-foreground">
+                Launch your NFT collection on Solana or Monad
               </p>
             </div>
           </div>
@@ -378,6 +380,19 @@ export default function Launchpad() {
             <Plus className="w-5 h-5" />
             Create Collection
           </Button>
+        </div>
+
+        {/* Contract Navigation Menu */}
+        <div className="mb-8 overflow-x-auto" data-walkthrough="navigation">
+          <LaunchpadNavigation 
+            selectedChain={selectedChain}
+            onChainChange={(chain) => {
+              if (chain === "monad") {
+                toast.info("Monad EVM support is coming soon. Collections will be available when Monad launches.");
+              }
+              setSelectedChain(chain);
+            }}
+          />
         </div>
 
         {/* Stats */}
@@ -605,7 +620,51 @@ export default function Launchpad() {
         {/* Collections Grid - only show when not on drafts tab */}
         {activeTab !== "drafts" && (
           <>
-            {isLoading ? (
+            {/* Monad Coming Soon Placeholder */}
+            {selectedChain === "monad" ? (
+              <div className="text-center py-16">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-purple-500/20 to-purple-500/5 mb-6">
+                  <Zap className="w-10 h-10 text-purple-500" />
+                </div>
+                <h3 className="text-2xl font-bold mb-3">Monad EVM Coming Soon</h3>
+                <p className="text-muted-foreground max-w-md mx-auto mb-6">
+                  Deploy your NFT collections on Monad's high-performance EVM blockchain. 
+                  Use familiar Solidity contracts with LilyPad's no-code launchpad tools.
+                </p>
+                <div className="flex flex-wrap justify-center gap-3 mb-8">
+                  <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/30">
+                    ERC-721 Standard
+                  </Badge>
+                  <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/30">
+                    Multi-Phase Minting
+                  </Badge>
+                  <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/30">
+                    Allowlist Support
+                  </Badge>
+                  <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/30">
+                    Royalty Enforcement
+                  </Badge>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSelectedChain("solana")}
+                    className="gap-2"
+                  >
+                    <Globe className="w-4 h-4" />
+                    Launch on Solana Instead
+                  </Button>
+                  <Button 
+                    variant="secondary"
+                    className="gap-2"
+                    disabled
+                  >
+                    <Clock className="w-4 h-4" />
+                    Expected Q2 2026
+                  </Button>
+                </div>
+              </div>
+            ) : isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
@@ -803,7 +862,7 @@ export default function Launchpad() {
               </div>
             )}
 
-            {!isLoading && filteredCollections.length === 0 && (
+            {!isLoading && selectedChain === "solana" && filteredCollections.length === 0 && (
               <div className="text-center py-12">
                 <Rocket className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-2">No collections found</h3>
