@@ -108,6 +108,14 @@ export default function Launchpad() {
   const [selectedChain, setSelectedChain] = useState<"solana" | "monad">("solana");
   const selectedPlatform = selectedChain;
 
+  // Selected standard for new collection
+  const [createModalDefaultStandard, setCreateModalDefaultStandard] = useState<any>('core');
+
+  const handleStandardSelect = (standard: string) => {
+    setCreateModalDefaultStandard(standard as any);
+    setIsCreateModalOpen(true);
+  };
+
   // Get current user or wallet
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -221,10 +229,10 @@ export default function Launchpad() {
     setIsLoading(true);
     try {
       // Fetch collections based on selected chain
-      const chainFilters = selectedChain === "solana" 
+      const chainFilters = selectedChain === "solana"
         ? ["solana", "solana-devnet", "solana-mainnet"]
         : ["monad", "monad-testnet", "monad-mainnet"];
-      
+
       const { data, error } = await supabase
         .from("collections")
         .select("*")
@@ -254,6 +262,7 @@ export default function Launchpad() {
     if (!isCreateModalOpen) {
       loadDraft();
       setEditingDraft(false);
+      setCreateModalDefaultStandard('core'); // Reset standard on close
     }
   }, [isCreateModalOpen]);
 
@@ -343,6 +352,18 @@ export default function Launchpad() {
       <Navbar />
       <LaunchpadWalkthrough walkthrough={walkthrough} />
 
+      {/* Create Modal */}
+      <CreateCollectionModal
+        open={isCreateModalOpen}
+        onOpenChange={setIsCreateModalOpen}
+        onCollectionCreated={() => {
+          fetchCollections();
+          setIsCreateModalOpen(false);
+          toast.success("Collection created successfully!");
+        }}
+        defaultStandard={createModalDefaultStandard}
+      />
+
       <main className="container mx-auto px-4 pt-24 pb-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6" data-walkthrough="header">
@@ -384,7 +405,7 @@ export default function Launchpad() {
 
         {/* Contract Navigation Menu */}
         <div className="mb-8 overflow-x-auto" data-walkthrough="navigation">
-          <LaunchpadNavigation 
+          <LaunchpadNavigation
             selectedChain={selectedChain}
             onChainChange={(chain) => {
               if (chain === "monad") {
@@ -392,6 +413,7 @@ export default function Launchpad() {
               }
               setSelectedChain(chain);
             }}
+            onSelectStandard={handleStandardSelect}
           />
         </div>
 
@@ -628,7 +650,7 @@ export default function Launchpad() {
                 </div>
                 <h3 className="text-2xl font-bold mb-3">Monad EVM Coming Soon</h3>
                 <p className="text-muted-foreground max-w-md mx-auto mb-6">
-                  Deploy your NFT collections on Monad's high-performance EVM blockchain. 
+                  Deploy your NFT collections on Monad's high-performance EVM blockchain.
                   Use familiar Solidity contracts with LilyPad's no-code launchpad tools.
                 </p>
                 <div className="flex flex-wrap justify-center gap-3 mb-8">
@@ -646,15 +668,15 @@ export default function Launchpad() {
                   </Badge>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => setSelectedChain("solana")}
                     className="gap-2"
                   >
                     <Globe className="w-4 h-4" />
                     Launch on Solana Instead
                   </Button>
-                  <Button 
+                  <Button
                     variant="secondary"
                     className="gap-2"
                     disabled

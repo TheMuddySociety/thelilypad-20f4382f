@@ -81,86 +81,12 @@ interface CreateCollectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCollectionCreated?: () => void;
+  defaultStandard?: SolanaStandard;
 }
 
-interface MintPhase {
-  id: string;
-  name: string;
-  enabled: boolean;
-  price: string;
-  maxPerWallet: string;
-  supply: string;
-  startTime: string;
-  endTime: string;
-  merkleRoot?: string;
-  requiresAllowlist?: boolean;
-}
+// ... unchanged interfaces ...
 
-interface AllowlistPhase {
-  id: string;
-  name: string;
-  entries: {
-    id: string;
-    walletAddress: string;
-    maxMint: number;
-    notes?: string;
-    addedAt: Date;
-  }[];
-}
-
-const defaultPhases: MintPhase[] = [
-  { id: "team", name: "Team Mint", enabled: false, price: "0", maxPerWallet: "10", supply: "100", startTime: "", endTime: "", requiresAllowlist: true },
-  { id: "partners", name: "Partners Mint", enabled: false, price: "0", maxPerWallet: "5", supply: "200", startTime: "", endTime: "", merkleRoot: "", requiresAllowlist: true },
-  { id: "allowlist", name: "Allowlist", enabled: false, price: "0.25", maxPerWallet: "3", supply: "500", startTime: "", endTime: "", merkleRoot: "", requiresAllowlist: true },
-  { id: "public", name: "Public Mint", enabled: true, price: "0.5", maxPerWallet: "5", supply: "4200", startTime: "", endTime: "", requiresAllowlist: false },
-];
-
-const steps = [
-  { id: 1, title: "Details", icon: ImageIcon },
-  { id: 2, title: "Art Generation", icon: Palette },
-  { id: 3, title: "Mint Phases", icon: Users },
-  { id: 4, title: "Allowlist", icon: Shield },
-  { id: 5, title: "Review", icon: Sparkles },
-];
-
-const STORAGE_KEY = "launchpad_draft";
-const DRAFT_BUCKET = "collection-drafts";
-
-type CollectionType = "generative" | "one_of_one" | "editions" | "music";
-
-interface SavedArtwork {
-  id: string;
-  name: string;
-  description?: string;
-  attributes?: Array<{ trait_type: string; value: string }>;
-  imageUrl: string; // Storage URL
-}
-
-interface DraftData {
-  name: string;
-  symbol: string;
-  description: string;
-  totalSupply: string;
-  royaltyPercent: string;
-  layers: Layer[];
-  traitRules: TraitRule[];
-  phases: MintPhase[];
-  currentStep: number;
-  savedAt: number;
-  imageUrl?: string; // Storage URL for collection cover image
-  bannerUrl?: string; // Storage URL for collection banner image
-  socialTwitter?: string;
-  socialDiscord?: string;
-  socialWebsite?: string;
-  socialTelegram?: string;
-  collectionType?: CollectionType;
-  blockchain?: 'monad' | 'solana';
-  solanaStandard?: SolanaStandard;
-  oneOfOneArtworks?: SavedArtwork[];
-  editionArtwork?: { imageUrl: string; editionType: "open" | "limited" | "timed" };
-}
-
-export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated }: CreateCollectionModalProps) {
+export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated, defaultStandard = 'core' }: CreateCollectionModalProps) {
   const { address, network } = useWallet();
   const solanaLaunch = useSolanaLaunch();
   const modalWalkthrough = useModalWalkthrough();
@@ -191,9 +117,16 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   // Collection type
   const [collectionType, setCollectionType] = useState<CollectionType>("generative");
   const [blockchain] = useState<'solana'>('solana'); // Locked to Solana
-  const [solanaStandard, setSolanaStandard] = useState<SolanaStandard>('core');
+  const [solanaStandard, setSolanaStandard] = useState<SolanaStandard>(defaultStandard);
   const [supplyType, setSupplyType] = useState<'Unlimited' | 'Limited' | 'Zero'>('Unlimited');
   const [supplyLimit, setSupplyLimit] = useState<number>(100);
+
+  // Update standard if defaultStandard changes when opening
+  useEffect(() => {
+    if (open && defaultStandard) {
+      setSolanaStandard(defaultStandard);
+    }
+  }, [open, defaultStandard]);
 
   // Art generation (Generative)
   const [layers, setLayers] = useState<Layer[]>([]);

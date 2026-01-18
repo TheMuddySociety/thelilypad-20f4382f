@@ -5,16 +5,14 @@ import {
     createV1 as createCore,
 } from '@metaplex-foundation/mpl-core';
 import {
-    createNft as createTokenMetadata,
-    TokenStandard,
-} from '@metaplex-foundation/mpl-token-metadata';
-import {
     mintToCollectionV1 as mintBubblegum,
 } from '@metaplex-foundation/mpl-bubblegum';
 import {
-    mintV2,
     fetchCandyMachine,
 } from '@metaplex-foundation/mpl-candy-machine';
+import {
+    mintV1 as mintCoreV1,
+} from '@metaplex-foundation/mpl-core-candy-machine';
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
 import { toast } from 'sonner';
@@ -60,7 +58,7 @@ export const useSolanaMint = () => {
             let result;
             const nftSigner = generateSigner(umi);
 
-            toast.loading(`Minting your NFT on Solana...`, { id: 'sol-mint' });
+            toast.loading(`Minting your NFT (Core)...`, { id: 'sol-mint' });
 
             // Create memo instruction for protocol identification
             const memoData = buildProtocolMemo('mint:nft', { standard });
@@ -76,27 +74,18 @@ export const useSolanaMint = () => {
 
             switch (standard) {
                 case 'core':
+                case 'token-metadata': // Fallback to Core for legacy requests
+                    if (standard === 'token-metadata') {
+                        console.warn("Legacy 'token-metadata' requested. Upgrading to 'core' automatically.");
+                    }
                     result = await createCore(umi, {
                         asset: nftSigner,
                         collection: publicKey(collectionAddress),
                         name: metadata.name,
                         uri: metadata.uri,
                     })
-                    .add(memoInstruction)
-                    .sendAndConfirm(umi);
-                    break;
-
-                case 'token-metadata':
-                    result = await createTokenMetadata(umi, {
-                        mint: nftSigner as any,
-                        name: metadata.name,
-                        uri: metadata.uri,
-                        sellerFeeBasisPoints: percentAmount(0),
-                        isCollection: false,
-                        collection: some({ key: publicKey(collectionAddress), verified: false }),
-                    })
-                    .add(memoInstruction)
-                    .sendAndConfirm(umi);
+                        .add(memoInstruction)
+                        .sendAndConfirm(umi);
                     break;
 
                 case 'bubblegum':
@@ -114,8 +103,8 @@ export const useSolanaMint = () => {
                             creators: [{ address: umi.identity.publicKey, verified: true, share: 100 }],
                         },
                     })
-                    .add(memoInstruction)
-                    .sendAndConfirm(umi);
+                        .add(memoInstruction)
+                        .sendAndConfirm(umi);
                     break;
 
                 default:
@@ -149,11 +138,11 @@ export const useSolanaMint = () => {
         try {
             const umi = await getUmi();
             const nftMint = generateSigner(umi);
+            // In Core CM, we don't need 'nftMint' signer passed usually? 
+            // Warning: createCoreCandyMachine mintV1 MIGHT expect 'asset' signer. Checking docs/types:
+            // It typically takes 'asset' (Signer).
 
-            toast.loading(`Minting from Candy Machine...`, { id: 'cm-mint' });
-
-            // Allowlist mint args handling
-            // If mintArgs are provided (e.g. proof), we should construct proper guard args
+            toast.loading(`Minting from Candy Machine (Core)...`, { id: 'cm-mint' });
 
             const candyMachine = await fetchCandyMachine(umi, publicKey(candyMachineAddress));
 
@@ -169,13 +158,12 @@ export const useSolanaMint = () => {
                 signers: [],
             };
 
-            const tx = await mintV2(umi, {
+            // Use Core Mint V1
+            const tx = await mintCoreV1(umi, {
                 candyMachine: candyMachine.publicKey,
-                minter: umi.identity,
-                nftMint,
-                collectionMint: publicKey(collectionAddress),
-                collectionUpdateAuthority: umi.identity.publicKey,
-                group: groupLabel,
+                asset: nftMint,
+                collection: publicKey(collectionAddress),
+                group: groupLabel ? some(groupLabel) : undefined, // Check if group expects option or string. Usually Option<String>
                 mintArgs: mintArgs || {}
             }).add(memoInstruction);
 

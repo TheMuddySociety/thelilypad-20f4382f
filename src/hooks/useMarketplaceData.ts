@@ -54,6 +54,7 @@ export interface NFTListing {
     image_url: string | null;
     collection_id: string | null;
     owner_address: string;
+    contract_address?: string; // Added for Solana Core Asset Address
     collection?: {
       name: string;
       contract_address: string | null;

@@ -77,6 +77,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCurrencySymbol, getExplorerUrl, isSolanaChain, getNetworkDisplayName, isTestnet as isChainTestnet } from "@/lib/chainUtils";
 import { getMerkleProof, AllowlistEntry } from "@/utils/merkle";
 
+// Metaplex Imports for Source of Truth
+import { deserialize, publicKey } from "@metaplex-foundation/umi";
+import { fetchCandyMachine } from "@metaplex-foundation/mpl-core-candy-machine";
+import { initializeUmi } from "@/config/solana";
+
 interface Collection {
   id: string;
   name: string;
@@ -263,6 +268,13 @@ export default function CollectionDetail() {
       setMintTxHash(lastHash);
     }
 
+    // Force a supply poll after minting to update UI immediately
+    if (cmAddress) {
+      // We'll let the polling interval catch it or manually trigger refresh
+      // But waiting a sec is good
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
     return lastHash;
   };
 
@@ -363,32 +375,57 @@ export default function CollectionDetail() {
   const [isLivePolling, setIsLivePolling] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Real-time supply polling during active mints
+  // Real-time supply polling - SOURCE OF TRUTH: ON-CHAIN
   useEffect(() => {
     if (!collection || !collectionId) return;
 
-    // Only poll if collection isn't sold out and has a deployed contract
-    const shouldPoll = liveSupply < totalSupply && collection.contract_address;
+    // Use Contract as Source of Truth if deployed
+    // If we have a contract_address (Candy Machine), we prefer fetching from chain
+    const shouldUseOnChain = collection.contract_address && isSolana;
 
-    if (!shouldPoll) {
-      setIsLivePolling(false);
-      return;
-    }
+    // Only poll if not sold out (or simple interval)
+    setIsLivePolling(shouldUseOnChain || liveSupply < totalSupply);
 
-    setIsLivePolling(true);
+    // Initial Umi instance for polling
+    const umi = initializeUmi(network);
 
     const pollSupply = async () => {
       try {
-        const { data, error } = await supabase
-          .from("collections")
-          .select("minted")
-          .eq("id", collectionId)
-          .maybeSingle();
+        if (shouldUseOnChain) {
+          // POLL FROM CHAIN (Candy Machine)
+          // Note: collection.contract_address is the CM address in our current flow for CM-based mints
+          // Wait, logic check: in useSolanaLaunch, we return 'address' as CM address map to 'contract_address' in DB
+          // So we can blindly fetch Account at contract_address
+          try {
+            const candyMachine = await fetchCandyMachine(umi, publicKey(collection.contract_address!));
+            const itemsAvailable = Number(candyMachine.itemsAvailable);
+            const itemsRedeemed = Number(candyMachine.itemsRedeemed);
 
-        if (!error && data && data.minted !== collection.minted) {
-          // Update collection with new minted count
-          setCollection(prev => prev ? { ...prev, minted: data.minted } : prev);
-          setLastUpdated(new Date());
+            // Update Local State if changed
+            if (collection.minted !== itemsRedeemed || collection.total_supply !== itemsAvailable) {
+              setCollection(prev => prev ? {
+                ...prev,
+                minted: itemsRedeemed,
+                total_supply: itemsAvailable
+              } : prev);
+              setLastUpdated(new Date());
+            }
+          } catch (chainErr) {
+            console.error("Failed to fetch on-chain CM:", chainErr);
+            // Fallback to Supabase if chain fails? Or just log.
+          }
+        } else {
+          // POLL FROM DB (Legacy/Fallback)
+          const { data, error } = await supabase
+            .from("collections")
+            .select("minted")
+            .eq("id", collectionId)
+            .maybeSingle();
+
+          if (!error && data && data.minted !== collection.minted) {
+            setCollection(prev => prev ? { ...prev, minted: data.minted } : prev);
+            setLastUpdated(new Date());
+          }
         }
       } catch (err) {
         console.error("Error polling supply:", err);
@@ -405,9 +442,9 @@ export default function CollectionDetail() {
       clearInterval(interval);
       setIsLivePolling(false);
     };
-  }, [collectionId, collection?.contract_address, liveSupply, totalSupply]);
+  }, [collectionId, collection?.contract_address, isSolana, network]); // Don't depend on liveSupply/totalSupply to avoid re-creating interval CONSTANTLY
 
-  // Subscribe to real-time updates for the collection
+  // Subscribe to real-time updates for the collection (DB fallback/sync)
   useEffect(() => {
     if (!collectionId) return;
 
@@ -422,10 +459,15 @@ export default function CollectionDetail() {
           filter: `id=eq.${collectionId}`
         },
         (payload) => {
-          console.log('Real-time update:', payload);
+          // Only update from DB if we are NOT using on-chain source of truth
+          // Or if the update provides OTHER fields.
+          // For now, let's allow it but On-Chain poll will override it quickly if active.
           if (payload.new && typeof payload.new.minted === 'number') {
-            setCollection(prev => prev ? { ...prev, minted: payload.new.minted } : prev);
-            setLastUpdated(new Date());
+            // Optional: Check if we prefer chain data
+            if (!collection?.contract_address) {
+              setCollection(prev => prev ? { ...prev, minted: payload.new.minted } : prev);
+              setLastUpdated(new Date());
+            }
           }
         }
       )
@@ -434,7 +476,7 @@ export default function CollectionDetail() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [collectionId]);
+  }, [collectionId, collection?.contract_address]);
 
   const phases = getPhases();
   const mintProgress = totalSupply > 0 ? (liveSupply / totalSupply) * 100 : 0;
