@@ -150,7 +150,7 @@ export const useSolanaLaunch = () => {
 
             // Wait for confirmation
             toast.loading(`Verifying deployment...`, { id: 'sol-deploy' });
-            await waitForConfirmation(umi, collectionSigner.publicKey.bytes);
+            await waitForConfirmation(umi, new Uint8Array(Buffer.from(collectionSigner.publicKey.toString())));
 
             toast.success(`Core Collection Deployed!`, { id: 'sol-deploy' });
             return {
@@ -206,11 +206,13 @@ export const useSolanaLaunch = () => {
             });
 
             // STRICT: Core Candy Machine Only
-            await createCoreCandyMachine(umi, {
+            // Note: Core Candy Machine does not support guard groups in the same way as v3
+            // Guards must be added separately via createCandyGuard if needed
+            const cmBuilder = createCoreCandyMachine(umi, {
                 candyMachine,
                 collection: collectionMint,
                 collectionUpdateAuthority: umi.identity,
-                itemsAvailable: Math.min(itemsAvailable, 4294967295),
+                itemsAvailable: BigInt(Math.min(itemsAvailable, 4294967295)),
                 configLineSettings: some({
                     prefixName: "",
                     nameLength: 32,
@@ -218,8 +220,9 @@ export const useSolanaLaunch = () => {
                     uriLength: 200,
                     isSequential: false,
                 }),
-                groups: groups.length > 0 ? groups : undefined,
-            }).sendAndConfirm(umi);
+            });
+
+            await cmBuilder.sendAndConfirm(umi);
 
             toast.success(`Candy Machine Ready!`, { id: 'cm-create' });
             return { address: candyMachine.publicKey.toString() };

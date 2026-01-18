@@ -78,7 +78,7 @@ import { getCurrencySymbol, getExplorerUrl, isSolanaChain, getNetworkDisplayName
 import { getMerkleProof, AllowlistEntry } from "@/utils/merkle";
 
 // Metaplex Imports for Source of Truth
-import { deserialize, publicKey } from "@metaplex-foundation/umi";
+import { publicKey } from "@metaplex-foundation/umi";
 import { fetchCandyMachine } from "@metaplex-foundation/mpl-core-candy-machine";
 import { initializeUmi } from "@/config/solana";
 
@@ -398,8 +398,9 @@ export default function CollectionDetail() {
           // So we can blindly fetch Account at contract_address
           try {
             const candyMachine = await fetchCandyMachine(umi, publicKey(collection.contract_address!));
-            const itemsAvailable = Number(candyMachine.itemsAvailable);
-            const itemsRedeemed = Number(candyMachine.itemsRedeemed);
+            // Core Candy Machine uses 'data' sub-object for some fields
+            const itemsAvailable = Number(candyMachine.data?.itemsAvailable ?? candyMachine.itemsAvailable ?? 0);
+            const itemsRedeemed = Number(candyMachine.itemsRedeemed ?? 0);
 
             // Update Local State if changed
             if (collection.minted !== itemsRedeemed || collection.total_supply !== itemsAvailable) {

@@ -9,7 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Loader2, Info } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useWallet } from "@/providers/WalletProvider";
+import { useSolanaCoreTransfer } from "@/hooks/useSolanaCoreTransfer";
 
 interface Listing {
   id: string;
@@ -25,6 +26,7 @@ interface Listing {
     image_url: string | null;
     collection_id: string | null;
     owner_address: string;
+    contract_address?: string; // Solana Core Asset Address
     collection?: {
       name: string;
       contract_address: string | null;
