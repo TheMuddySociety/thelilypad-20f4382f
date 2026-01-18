@@ -84,7 +84,101 @@ interface CreateCollectionModalProps {
   defaultStandard?: SolanaStandard;
 }
 
-// ... unchanged interfaces ...
+// Type definitions
+type CollectionType = "generative" | "one_of_one" | "editions" | "music";
+
+interface MintPhase {
+  id: string;
+  name: string;
+  enabled: boolean;
+  price: string;
+  supply: number | string;
+  maxPerWallet: string;
+  startTime: string | null;
+  endTime: string | null;
+  requiresAllowlist: boolean;
+  merkleRoot?: string;
+}
+
+interface AllowlistEntry {
+  id: string;
+  walletAddress: string;
+  maxMint: number;
+  notes?: string;
+  addedAt: Date;
+}
+
+interface AllowlistPhase {
+  id: string;
+  name: string;
+  entries: AllowlistEntry[];
+  merkleRoot?: string;
+}
+
+interface SavedArtwork {
+  id: string;
+  name: string;
+  description?: string;
+  attributes?: { trait_type: string; value: string }[];
+  imageUrl: string;
+}
+
+interface DraftData {
+  name: string;
+  symbol: string;
+  description: string;
+  totalSupply: string;
+  royaltyPercent: string;
+  imagePreview?: string | null;
+  bannerPreview?: string | null;
+  imageUrl?: string | null;
+  bannerUrl?: string | null;
+  collectionType: CollectionType;
+  blockchain: 'solana';
+  solanaStandard: string;
+  phases: MintPhase[];
+  layers?: Layer[];
+  traitRules?: TraitRule[];
+  oneOfOneArtworks?: SavedArtwork[];
+  musicTracks?: MusicTrack[];
+  editionArtwork?: { file?: File; preview?: string; imageUrl?: string; editionType?: "open" | "limited" | "timed" } | null;
+  editionType?: "open" | "limited" | "timed";
+  socialTwitter?: string;
+  socialDiscord?: string;
+  socialWebsite?: string;
+  socialTelegram?: string;
+  savedAt: number;
+  step?: number;
+  currentStep?: number;
+  allowlistPhases?: AllowlistPhase[];
+  supplyType?: 'Unlimited' | 'Limited' | 'Zero';
+  supplyLimit?: number;
+}
+
+const STORAGE_KEY = "create-collection-draft";
+const DRAFT_BUCKET = "collection-drafts";
+
+const defaultPhases: MintPhase[] = [
+  {
+    id: "public",
+    name: "Public Mint",
+    enabled: true,
+    price: "0.1",
+    supply: 0,
+    maxPerWallet: "5",
+    startTime: null,
+    endTime: null,
+    requiresAllowlist: false,
+  },
+];
+
+const steps = [
+  { id: 1, title: "Basic Info", icon: Wallet },
+  { id: 2, title: "Mint Phases", icon: Users },
+  { id: 3, title: "Artwork", icon: Layers },
+  { id: 4, title: "Metadata", icon: Tags },
+  { id: 5, title: "Deploy", icon: Sparkles },
+];
 
 export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated, defaultStandard = 'core' }: CreateCollectionModalProps) {
   const { address, network } = useWallet();
@@ -515,7 +609,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
         // Restore collection type
         setCollectionType(draft.collectionType || "generative");
         // blockchain is locked to solana
-        setSolanaStandard(draft.solanaStandard || "core");
+        setSolanaStandard((draft.solanaStandard as SolanaStandard) || "core");
 
         // Restore 1-of-1 artworks from storage URLs
         if (draft.oneOfOneArtworks && draft.oneOfOneArtworks.length > 0) {
@@ -958,13 +1052,18 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       let solanaAddress = null;
       let candyMachineAddress = null;
 
+      // Use a default placeholder URI if no image is provided - prevents serialization errors
+      const DEFAULT_PLACEHOLDER_URI = "https://arweave.net/placeholder";
+      const safeImageUri = finalImageUrl && finalImageUrl.length > 0 ? finalImageUrl : DEFAULT_PLACEHOLDER_URI;
+      const safeBannerUri = finalBannerUrl && finalBannerUrl.length > 0 ? finalBannerUrl : null;
+
       if (blockchain === 'solana') {
         try {
           // 1. Deploy Collection NFT
           const solanaResult = await solanaLaunch.createCollection({
             name,
             symbol,
-            imageUri: finalImageUrl || '', // In a real app, this should be a metadata JSON URI
+            imageUri: safeImageUri,
             royaltyBasisPoints: parseFloat(royaltyPercent) * 100,
             standard: solanaStandard,
             // Pass supply config for token-metadata
@@ -997,15 +1096,14 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
               {
                 name,
                 symbol,
-                uri: finalImageUrl || '',
+                uri: safeImageUri,
                 sellerFeeBasisPoints: parseFloat(royaltyPercent) * 100,
-                creators: [{ address: address, share: 100 }] // Use connected wallet address
+                creators: [{ address: address, share: 100 }]
               },
-              solanaStandard // Pass the selected standard
+              solanaStandard
             );
             candyMachineAddress = cmResult.address;
           }
-
         } catch (err) {
           // Error handled in hook (toast shown)
           setIsDeploying(false);
@@ -1019,7 +1117,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
         name: p.name,
         price: p.price,
         maxPerWallet: parseInt(p.maxPerWallet) || 1,
-        supply: parseInt(p.supply) || 0,
+        supply: parseInt(String(p.supply)) || 0,
         startTime: p.startTime || null,
         endTime: p.endTime || null,
         requiresAllowlist: p.requiresAllowlist,
