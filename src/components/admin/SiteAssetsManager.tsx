@@ -56,10 +56,10 @@ export const SiteAssetsManager: React.FC = () => {
   const fetchAssets = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("site_assets")
+      const { data, error } = await (supabase
+        .from("site_assets" as any)
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })) as { data: SiteAsset[] | null; error: any };
 
       if (error) throw error;
       setAssets(data || []);
@@ -123,15 +123,15 @@ export const SiteAssetsManager: React.FC = () => {
         .getPublicUrl(fileName);
 
       // 3. Save to Database
-      const { error: dbError } = await supabase
-        .from("site_assets")
+      const { error: dbError } = await (supabase
+        .from("site_assets" as any)
         .insert({
           asset_key: assetKey,
           asset_url: publicUrl,
           asset_type: selectedFile.type.startsWith('video/') ? 'video' : 'image',
           page: assetPage,
           description: description || null
-        });
+        })) as { error: any };
 
       if (dbError) throw dbError;
 
@@ -169,10 +169,10 @@ export const SiteAssetsManager: React.FC = () => {
 
     try {
       // 1. Delete from DB
-      const { error: dbError } = await supabase
-        .from("site_assets")
+      const { error: dbError } = await (supabase
+        .from("site_assets" as any)
         .delete()
-        .eq("id", asset.id);
+        .eq("id", asset.id)) as { error: any };
 
       if (dbError) throw dbError;
 
