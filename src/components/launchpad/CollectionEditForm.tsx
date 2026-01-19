@@ -382,11 +382,6 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("File must be less than 10MB");
-      return;
-    }
-
     setUnrevealedFile(file);
     const reader = new FileReader();
     reader.onloadend = () => {

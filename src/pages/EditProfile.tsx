@@ -199,15 +199,6 @@ const EditProfile = () => {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please upload an image smaller than 5MB.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     const reader = new FileReader();
     reader.onload = () => {
       setSelectedImageSrc(reader.result as string);

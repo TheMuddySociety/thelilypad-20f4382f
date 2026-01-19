@@ -676,12 +676,6 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be less than 5MB");
-      return;
-    }
-
     setImageFile(file);
 
     // Show preview immediately
@@ -699,12 +693,6 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
     // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error("Please upload an image file");
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Banner must be less than 5MB");
       return;
     }
 
@@ -728,11 +716,6 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
     Array.from(files).forEach((file) => {
       if (!file.type.startsWith('image/')) {
         toast.error(`${file.name} is not an image file`);
-        return;
-      }
-
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`${file.name} exceeds 10MB limit`);
         return;
       }
 
