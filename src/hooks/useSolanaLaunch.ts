@@ -222,7 +222,7 @@ export const useSolanaLaunch = () => {
                 }),
             });
 
-            await cmBuilder.sendAndConfirm(umi);
+            await (await cmBuilder).sendAndConfirm(umi);
 
             toast.success(`Candy Machine Ready!`, { id: 'cm-create' });
             return { address: candyMachine.publicKey.toString() };

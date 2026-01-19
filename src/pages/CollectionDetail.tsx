@@ -399,7 +399,7 @@ export default function CollectionDetail() {
           try {
             const candyMachine = await fetchCandyMachine(umi, publicKey(collection.contract_address!));
             // Core Candy Machine uses 'data' sub-object for some fields
-            const itemsAvailable = Number(candyMachine.data?.itemsAvailable ?? candyMachine.itemsAvailable ?? 0);
+            const itemsAvailable = Number((candyMachine as any).data?.itemsAvailable ?? (candyMachine as any).itemsAvailable ?? 0);
             const itemsRedeemed = Number(candyMachine.itemsRedeemed ?? 0);
 
             // Update Local State if changed
