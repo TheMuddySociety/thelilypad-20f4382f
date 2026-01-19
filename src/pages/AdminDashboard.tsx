@@ -538,62 +538,62 @@ const AdminDashboard: React.FC = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="users" className="space-y-4 sm:space-y-6">
-          <ScrollArea className="w-full">
-            <TabsList className="inline-flex w-max gap-1 p-1">
-              <TabsTrigger value="users" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+          <div className="w-full overflow-x-auto pb-2">
+            <TabsList className="inline-flex h-auto min-w-max gap-1 p-1 bg-muted/50 flex-wrap sm:flex-nowrap">
+              <TabsTrigger value="users" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Users</span>
+                <span>Users</span>
               </TabsTrigger>
-              <TabsTrigger value="collections" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="collections" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Layers className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Collections</span>
+                <span>Collections</span>
               </TabsTrigger>
-              <TabsTrigger value="featured" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="featured" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Featured</span>
+                <span>Featured</span>
               </TabsTrigger>
-              <TabsTrigger value="buyback" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="buyback" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Buyback</span>
+                <span>Buyback</span>
               </TabsTrigger>
-              <TabsTrigger value="raffles" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="raffles" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Ticket className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Raffles</span>
+                <span>Raffles</span>
               </TabsTrigger>
-              <TabsTrigger value="blindboxes" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="blindboxes" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Gift className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Boxes</span>
+                <span>Boxes</span>
               </TabsTrigger>
-              <TabsTrigger value="packs" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="packs" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Sticker className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Packs</span>
+                <span>Packs</span>
               </TabsTrigger>
-              <TabsTrigger value="bundles" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="bundles" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Package className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Bundles</span>
+                <span>Bundles</span>
               </TabsTrigger>
-              <TabsTrigger value="streams" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="streams" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Video className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Streams</span>
+                <span>Streams</span>
               </TabsTrigger>
-              <TabsTrigger value="moderation" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="moderation" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <ShieldCheck className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Moderation</span>
+                <span>Moderation</span>
               </TabsTrigger>
-              <TabsTrigger value="feature-locks" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="feature-locks" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Lock className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Locks</span>
+                <span>Locks</span>
               </TabsTrigger>
-              <TabsTrigger value="cardstack" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="cardstack" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Layers3 className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">CardStack</span>
+                <span>CardStack</span>
               </TabsTrigger>
-              <TabsTrigger value="branding" className="gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm">
+              <TabsTrigger value="branding" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Branding</span>
+                <span>Branding</span>
               </TabsTrigger>
             </TabsList>
-          </ScrollArea>
+          </div>
 
           {/* Users Tab */}
           <TabsContent value="users">
