@@ -10,8 +10,10 @@ import { MarketplacePreview } from "@/components/sections/MarketplacePreview";
 import { HowItWorks } from "@/components/sections/HowItWorks";
 import { CommunityBenefits } from "@/components/sections/CommunityBenefits";
 import { FeaturedCardStack } from "@/components/sections/FeaturedCardStack";
+import { TestimonialsSection } from "@/components/sections/TestimonialsSection";
 import { Footer } from "@/components/sections/Footer";
 import { useSEO } from "@/hooks/useSEO";
+
 
 const Index: React.FC = () => {
   useSEO({
@@ -49,6 +51,7 @@ const Index: React.FC = () => {
       <MarketplacePreview />
       <HowItWorks />
       <CommunityBenefits />
+      <TestimonialsSection />
       <Footer />
     </main>
   );

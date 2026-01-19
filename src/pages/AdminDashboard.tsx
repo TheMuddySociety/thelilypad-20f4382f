@@ -39,7 +39,8 @@ import {
   Gift,
   Lock,
   Layers3,
-  ImageIcon
+  ImageIcon,
+  Twitter
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { FeaturedCollectionsManager } from '@/components/admin/FeaturedCollectionsManager';
@@ -53,6 +54,7 @@ import BlindBoxManager from '@/components/admin/BlindBoxManager';
 import { FeatureLocksManager } from '@/components/admin/FeatureLocksManager';
 import { CardStackManager } from '@/components/admin/CardStackManager';
 import { SiteAssetsManager } from '@/components/admin/SiteAssetsManager';
+import { TestimonialsManager } from '@/components/admin/TestimonialsManager';
 
 interface AdminUser {
   id: string;
@@ -587,6 +589,10 @@ const AdminDashboard: React.FC = () => {
               <TabsTrigger value="cardstack" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Layers3 className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>CardStack</span>
+              </TabsTrigger>
+              <TabsTrigger value="testimonials" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
+                <Twitter className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span>Testimonials</span>
               </TabsTrigger>
               <TabsTrigger value="branding" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -1222,6 +1228,11 @@ const AdminDashboard: React.FC = () => {
           {/* CardStack Tab */}
           <TabsContent value="cardstack">
             <CardStackManager />
+          </TabsContent>
+
+          {/* Testimonials Tab */}
+          <TabsContent value="testimonials">
+            <TestimonialsManager />
           </TabsContent>
 
           {/* Branding Tab */}
