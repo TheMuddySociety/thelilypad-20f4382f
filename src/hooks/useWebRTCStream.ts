@@ -1,6 +1,11 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useStreamPermissions } from '@/hooks/useStreamPermissions';
+import { validateStreamMetadata } from '@/lib/validation';
+import { captureStreamError, captureStreamEvent } from '@/lib/errorTracking';
+import { createStreamPerformanceTracker } from '@/lib/performanceMonitoring';
+
 
 export type StreamSource = 'camera' | 'screen';
 export type StreamQuality = '480p' | '720p' | '1080p';
@@ -40,6 +45,8 @@ const qualitySettings: Record<StreamQuality, { width: number; height: number; fr
 
 export const useWebRTCStream = () => {
   const { toast } = useToast();
+  const { permissions, requestStreamPermission } = useStreamPermissions();
+
   const [state, setState] = useState<StreamState>({
     isStreaming: false,
     isConnecting: false,
@@ -53,9 +60,11 @@ export const useWebRTCStream = () => {
     isPipEnabled: false,
     cameraFacing: 'user',
   });
-  
+
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const pipStreamRef = useRef<MediaStream | null>(null);
+  const performanceTrackerRef = useRef<ReturnType<typeof createStreamPerformanceTracker> | null>(null);
+
 
   // Check if screen sharing is supported
   const isScreenShareSupported = useCallback(() => {
@@ -63,18 +72,18 @@ export const useWebRTCStream = () => {
   }, []);
 
   const getMediaStream = useCallback(async (
-    source: StreamSource, 
+    source: StreamSource,
     quality: StreamQuality = '720p',
     facing: CameraFacing = 'user'
   ): Promise<MediaStream> => {
     const settings = qualitySettings[quality];
-    
+
     if (source === 'screen') {
       // Check if screen sharing is supported (not available on mobile)
       if (!isScreenShareSupported()) {
         throw new Error('Screen sharing is not supported on this device. Please use a desktop browser for screen sharing.');
       }
-      
+
       // Get screen share with system audio if available
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
@@ -94,11 +103,11 @@ export const useWebRTCStream = () => {
             autoGainControl: true,
           },
         });
-        
+
         // Combine screen video with microphone audio
         const audioTracks = [...screenStream.getAudioTracks(), ...micStream.getAudioTracks()];
         const videoTracks = screenStream.getVideoTracks();
-        
+
         return new MediaStream([...videoTracks, ...audioTracks]);
       } catch {
         // If mic access fails, just use screen stream
@@ -126,17 +135,39 @@ export const useWebRTCStream = () => {
     const source = options?.source || 'camera';
     const quality = options?.quality || '720p';
     const metadata = options?.metadata;
-    
+
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     try {
-      // Get current user
+      // 1. Check permissions first
+      const hasPermission = await requestStreamPermission();
+      if (!hasPermission) {
+        throw new Error('Permission denied to create stream');
+      }
+
+      // 2. Validate metadata if provided
+      if (metadata) {
+        const validation = validateStreamMetadata(metadata);
+        if (!validation.isValid) {
+          const firstError = Object.values(validation.errors)[0];
+          throw new Error(firstError || 'Invalid stream metadata');
+        }
+      }
+
+      // 3. Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('You must be logged in to stream');
       }
 
-      // Get media based on source and quality
+      // 4. Log stream start attempt
+      await captureStreamEvent('stream_start_attempt', undefined, {
+        source,
+        quality,
+        has_metadata: !!metadata,
+      });
+
+      // 5. Get media based on source and quality
       const stream = await getMediaStream(source, quality);
 
       mediaStreamRef.current = stream;
@@ -208,7 +239,7 @@ export const useWebRTCStream = () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to start stream';
       console.error('Stream error:', error);
-      
+
       // Stop any media tracks
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach(track => track.stop());
@@ -321,8 +352,8 @@ export const useWebRTCStream = () => {
       // Update the media stream reference
       mediaStreamRef.current = newStream;
 
-      setState(prev => ({ 
-        ...prev, 
+      setState(prev => ({
+        ...prev,
         isSwitchingSource: false,
         source: newSource,
       }));
@@ -382,15 +413,15 @@ export const useWebRTCStream = () => {
           },
           audio: false, // Audio already from main stream
         });
-        
+
         pipStreamRef.current = cameraStream;
         setState(prev => ({ ...prev, isPipEnabled: true }));
-        
+
         toast({
           title: 'Camera overlay enabled',
           description: 'Your camera is now visible as an overlay.',
         });
-        
+
         return cameraStream;
       } catch (error) {
         console.error('Failed to enable PiP:', error);
@@ -423,7 +454,7 @@ export const useWebRTCStream = () => {
 
     try {
       const newFacing: CameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
-      
+
       // Stop current video tracks
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getVideoTracks().forEach(track => track.stop());
@@ -431,21 +462,21 @@ export const useWebRTCStream = () => {
 
       // Get new camera stream with opposite facing mode
       const newStream = await getMediaStream('camera', '720p', newFacing);
-      
+
       // Keep existing audio tracks if any
       if (mediaStreamRef.current) {
         const existingAudioTracks = mediaStreamRef.current.getAudioTracks();
         const newVideoTracks = newStream.getVideoTracks();
         mediaStreamRef.current = new MediaStream([...newVideoTracks, ...existingAudioTracks]);
-        
+
         // Stop the audio from the new stream since we're keeping the old one
         newStream.getAudioTracks().forEach(track => track.stop());
       } else {
         mediaStreamRef.current = newStream;
       }
 
-      setState(prev => ({ 
-        ...prev, 
+      setState(prev => ({
+        ...prev,
         isSwitchingCamera: false,
         cameraFacing: newFacing,
       }));
