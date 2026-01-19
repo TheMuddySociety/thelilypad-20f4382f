@@ -392,15 +392,7 @@ export default function Launchpad() {
               </p>
             </div>
           </div>
-          <Button
-            onClick={() => setIsCreateModalOpen(true)}
-            size="lg"
-            className="gap-2"
-            data-walkthrough="create-button"
-          >
-            <Plus className="w-5 h-5" />
-            Create Collection
-          </Button>
+{/* Create button removed - use LaunchpadNavigation menu to select contract type */}
         </div>
 
         {/* Contract Navigation Menu */}
