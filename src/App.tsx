@@ -13,6 +13,7 @@ import { MiniPlayer } from "./components/music/MiniPlayer";
 import { MobileBottomNav } from "./components/MobileBottomNav";
 import FrogLoader from "./components/FrogLoader";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { PWAUpdateNotification } from "./components/PWAUpdateNotification";
 
 // Lazy load ALL pages to reduce initial bundle and improve FID
 const Index = lazy(() => import("./pages/Index"));
@@ -144,6 +145,7 @@ const App = () => (
               </Suspense>
               <MobileBottomNav />
               <MiniPlayer />
+              <PWAUpdateNotification />
             </BrowserRouter>
           </TooltipProvider>
         </AudioPlayerProvider>
