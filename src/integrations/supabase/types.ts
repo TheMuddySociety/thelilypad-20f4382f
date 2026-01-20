@@ -2489,6 +2489,57 @@ export type Database = {
           },
         ]
       }
+      testimonials: {
+        Row: {
+          avatar_url: string | null
+          content: string
+          created_at: string
+          created_by: string | null
+          display_order: number
+          handle: string
+          id: string
+          is_active: boolean
+          likes: number
+          retweets: number
+          tweet_url: string | null
+          updated_at: string
+          username: string
+          verified: boolean
+        }
+        Insert: {
+          avatar_url?: string | null
+          content: string
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          handle: string
+          id?: string
+          is_active?: boolean
+          likes?: number
+          retweets?: number
+          tweet_url?: string | null
+          updated_at?: string
+          username: string
+          verified?: boolean
+        }
+        Update: {
+          avatar_url?: string | null
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          handle?: string
+          id?: string
+          is_active?: boolean
+          likes?: number
+          retweets?: number
+          tweet_url?: string | null
+          updated_at?: string
+          username?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       user_nonces: {
         Row: {
           nonce: number
