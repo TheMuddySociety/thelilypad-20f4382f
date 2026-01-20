@@ -122,23 +122,9 @@ export function createStreamPerformanceTracker(streamId: string): StreamPerforma
     };
 
     const recordMetricsSnapshot = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-
-            // Log to audit with performance metrics
-            await supabase.rpc('log_stream_audit', {
-                p_stream_id: streamId,
-                p_user_id: user?.id || null,
-                p_action: 'performance_snapshot',
-                p_event_type: 'system',
-                p_severity: 'info',
-                p_details: metrics,
-                p_metadata: {
-                    timestamp: new Date().toISOString(),
-                },
-            });
-        } catch (error) {
-            console.error('[Performance Tracking Failed]', error);
+        // Log to console in development
+        if (import.meta.env.DEV) {
+            console.log('[Performance Snapshot]', metrics);
         }
     };
 
@@ -190,23 +176,16 @@ export async function monitorWebRTCQuality(
         const packetLossRate = totalPackets > 0 ? (packetsLost / totalPackets) * 100 : 0;
 
         // Log quality metrics
-        await supabase.rpc('log_stream_audit', {
-            p_stream_id: streamId,
-            p_user_id: null,
-            p_action: 'quality_metrics',
-            p_event_type: 'system',
-            p_severity: 'info',
-            p_details: {
+        if (import.meta.env.DEV) {
+            console.log('[WebRTC Quality]', {
+                streamId,
                 bytes_received: totalBytesReceived,
                 bytes_sent: totalBytesSent,
                 packet_loss_rate: packetLossRate,
                 jitter,
                 round_trip_time: roundTripTime,
-            },
-            p_metadata: {
-                timestamp: new Date().toISOString(),
-            },
-        });
+            });
+        }
 
         // Alert if quality is poor
         if (packetLossRate > 5 || roundTripTime > 300) {
@@ -223,7 +202,7 @@ export async function monitorWebRTCQuality(
 /**
  * Track media device performance
  */
-export function trackMediaDeviceMetrics(stream: MediaStream, streamId: string): () => void {
+export function trackMediaDeviceMetrics(stream: MediaStream, _streamId: string): () => void {
     const videoTrack = stream.getVideoTracks()[0];
     const audioTrack = stream.getAudioTracks()[0];
 
@@ -283,23 +262,9 @@ export async function measureStreamLatency(streamId: string): Promise<number | n
 }
 
 /**
- * Get performance statistics
+ * Get performance statistics (returns null since audit logs table doesn't exist)
  */
-export async function getPerformanceStats(streamId: string) {
-    try {
-        const { data, error } = await supabase
-            .from('stream_audit_logs')
-            .select('details, created_at')
-            .eq('stream_id', streamId)
-            .eq('action', 'performance_snapshot')
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-        if (error) throw error;
-
-        return data;
-    } catch (error) {
-        console.error('Error fetching performance stats:', error);
-        return null;
-    }
+export async function getPerformanceStats(_streamId: string) {
+    // Return null since audit logs table is not implemented
+    return null;
 }

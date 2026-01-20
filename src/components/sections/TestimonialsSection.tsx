@@ -3,13 +3,26 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { TestimonialCardProps } from "@/components/ui/twitter-testimonial-cards";
 
+interface TestimonialData {
+    id: string;
+    username: string;
+    handle: string;
+    content: string;
+    avatar_url: string | null;
+    verified: boolean;
+    likes: number;
+    retweets: number;
+    tweet_url: string | null;
+    created_at: string;
+}
+
 export const TestimonialsSection = () => {
     // Fetch testimonials from database
     const { data: testimonials } = useQuery({
         queryKey: ['testimonials'],
         queryFn: async () => {
             const { data, error } = await supabase
-                .from('testimonials')
+                .from('testimonials' as any)
                 .select('*')
                 .eq('is_active', true)
                 .order('display_order', { ascending: true })
@@ -20,7 +33,7 @@ export const TestimonialsSection = () => {
                 return null;
             }
 
-            return data;
+            return (data || []) as unknown as TestimonialData[];
         },
     });
 

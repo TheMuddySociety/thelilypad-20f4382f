@@ -1,9 +1,7 @@
 /**
  * Error Tracking and Logging Utility for Streaming
- * Captures errors with context and logs to database
+ * Captures errors with context and logs them
  */
-
-import { supabase } from '@/integrations/supabase/client';
 
 export type ErrorSeverity = 'info' | 'warning' | 'error' | 'critical';
 export type ErrorCategory =
@@ -90,7 +88,7 @@ function determineSeverity(error: Error, category: ErrorCategory): ErrorSeverity
 }
 
 /**
- * Capture and log error to database
+ * Capture and log error
  */
 export async function captureStreamError(
     error: Error | string,
@@ -102,34 +100,15 @@ export async function captureStreamError(
         const category = categorizeError(errorObj);
         const finalSeverity = severity || determineSeverity(errorObj, category);
 
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-
         // Build context
         const fullContext: ErrorContext = {
             ...context,
-            userId: context?.userId || user?.id,
             userAgent: navigator.userAgent,
             url: window.location.href,
             timestamp: new Date().toISOString(),
         };
 
-        // Log to database via audit log
-        await supabase.rpc('log_stream_audit', {
-            p_stream_id: context?.streamId || null,
-            p_user_id: fullContext.userId || null,
-            p_action: 'error_occurred',
-            p_event_type: 'system',
-            p_severity: finalSeverity,
-            p_details: {
-                message: errorObj.message,
-                category,
-                stack: errorObj.stack,
-            },
-            p_metadata: fullContext,
-        });
-
-        // Log to console in development
+        // Log to console
         if (import.meta.env.DEV) {
             console.error('[Stream Error]', {
                 message: errorObj.message,
@@ -138,9 +117,11 @@ export async function captureStreamError(
                 context: fullContext,
                 stack: errorObj.stack,
             });
+        } else {
+            // In production, log minimal info
+            console.error(`[Stream Error] ${category}: ${errorObj.message}`);
         }
     } catch (loggingError) {
-        // Fallback to console if database logging fails
         console.error('[Error Tracking Failed]', loggingError);
         console.error('[Original Error]', error);
     }
@@ -155,23 +136,8 @@ export async function captureStreamEvent(
     details?: Record<string, unknown>
 ): Promise<void> {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        await supabase.rpc('log_stream_audit', {
-            p_stream_id: streamId || null,
-            p_user_id: user?.id || null,
-            p_action: action,
-            p_event_type: 'user_action',
-            p_severity: 'info',
-            p_details: details || {},
-            p_metadata: {
-                timestamp: new Date().toISOString(),
-                user_agent: navigator.userAgent,
-            },
-        });
-
         if (import.meta.env.DEV) {
-            console.log('[Stream Event]', action, details);
+            console.log('[Stream Event]', action, { streamId, ...details });
         }
     } catch (error) {
         console.error('[Event Tracking Failed]', error);
@@ -216,24 +182,10 @@ export async function logSecurityEvent(
     details: Record<string, unknown>
 ): Promise<void> {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        await supabase.rpc('log_stream_audit', {
-            p_stream_id: null,
-            p_user_id: user?.id || null,
-            p_action: action,
-            p_event_type: 'security',
-            p_severity: severity,
-            p_details: details,
-            p_metadata: {
-                timestamp: new Date().toISOString(),
-                ip_address: null, // Would need backend to capture
-                user_agent: navigator.userAgent,
-            },
-        });
-
         if (import.meta.env.DEV) {
             console.warn('[Security Event]', action, severity, details);
+        } else {
+            console.warn(`[Security] ${action} (${severity})`);
         }
     } catch (error) {
         console.error('[Security Logging Failed]', error);
@@ -241,36 +193,15 @@ export async function logSecurityEvent(
 }
 
 /**
- * Get error statistics for admin dashboard
+ * Get error statistics (returns mock data since audit logs table doesn't exist)
  */
-export async function getErrorStatistics(timeRange: 'hour' | 'day' | 'week' = 'day') {
-    const intervals: Record<typeof timeRange, string> = {
-        hour: '1 hour',
-        day: '24 hours',
-        week: '7 days',
+export async function getErrorStatistics(_timeRange: 'hour' | 'day' | 'week' = 'day') {
+    // Return empty stats since audit logs table is not implemented
+    return {
+        critical: 0,
+        error: 0,
+        warning: 0,
+        info: 0,
+        total: 0,
     };
-
-    try {
-        const { data, error } = await supabase
-            .from('stream_audit_logs')
-            .select('action, severity, created_at')
-            .gte('created_at', `now() - interval '${intervals[timeRange]}'`)
-            .eq('event_type', 'system');
-
-        if (error) throw error;
-
-        // Group by severity
-        const stats = {
-            critical: data?.filter(log => log.severity === 'critical').length || 0,
-            error: data?.filter(log => log.severity === 'error').length || 0,
-            warning: data?.filter(log => log.severity === 'warning').length || 0,
-            info: data?.filter(log => log.severity === 'info').length || 0,
-            total: data?.length || 0,
-        };
-
-        return stats;
-    } catch (error) {
-        console.error('Error fetching statistics:', error);
-        return null;
-    }
 }

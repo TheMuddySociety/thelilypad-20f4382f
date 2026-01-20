@@ -23,12 +23,14 @@ export const STREAM_CONSTRAINTS = {
             'Education',
             'IRL',
             'Tech',
-        ],
+        ] as const,
     },
     DESCRIPTION: {
         MAX_LENGTH: 500,
     },
 } as const;
+
+export type StreamCategory = typeof STREAM_CONSTRAINTS.CATEGORY.ALLOWED[number];
 
 // Banned words/phrases for stream titles
 const BANNED_PHRASES = [
@@ -134,8 +136,9 @@ export function validateStreamCategory(category: string | null): ValidationResul
     }
 
     const sanitized = sanitizeInput(category);
+    const allowedCategories: readonly string[] = STREAM_CONSTRAINTS.CATEGORY.ALLOWED;
 
-    if (!STREAM_CONSTRAINTS.CATEGORY.ALLOWED.includes(sanitized)) {
+    if (!allowedCategories.includes(sanitized)) {
         return {
             isValid: false,
             error: 'Invalid category selected',
@@ -345,7 +348,7 @@ export function validateRoomId(roomId: string): ValidationResult {
  * Content security policy helper
  * Generates safe CSP headers for stream metadata
  */
-export function generateSafeCSP(metadata: StreamMetadata): string {
+export function generateSafeCSP(_metadata: StreamMetadata): string {
     const directives = [
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // For React

@@ -62,12 +62,12 @@ export const TestimonialsManager = () => {
         queryKey: ['admin-testimonials'],
         queryFn: async () => {
             const { data, error } = await supabase
-                .from('testimonials')
+                .from('testimonials' as any)
                 .select('*')
                 .order('display_order', { ascending: true });
 
             if (error) throw error;
-            return data as Testimonial[];
+            return (data || []) as unknown as Testimonial[];
         },
     });
 
@@ -76,15 +76,15 @@ export const TestimonialsManager = () => {
         mutationFn: async (data: typeof formData) => {
             if (editingTestimonial) {
                 const { error } = await supabase
-                    .from('testimonials')
-                    .update(data)
+                    .from('testimonials' as any)
+                    .update(data as any)
                     .eq('id', editingTestimonial.id);
                 if (error) throw error;
             } else {
                 const maxOrder = testimonials?.reduce((max, t) => Math.max(max, t.display_order), 0) || 0;
                 const { error } = await supabase
-                    .from('testimonials')
-                    .insert({ ...data, display_order: maxOrder + 1 });
+                    .from('testimonials' as any)
+                    .insert({ ...data, display_order: maxOrder + 1 } as any);
                 if (error) throw error;
             }
         },
@@ -111,7 +111,7 @@ export const TestimonialsManager = () => {
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
             const { error } = await supabase
-                .from('testimonials')
+                .from('testimonials' as any)
                 .delete()
                 .eq('id', id);
             if (error) throw error;
@@ -130,8 +130,8 @@ export const TestimonialsManager = () => {
     const reorderMutation = useMutation({
         mutationFn: async ({ id, newOrder }: { id: string; newOrder: number }) => {
             const { error } = await supabase
-                .from('testimonials')
-                .update({ display_order: newOrder })
+                .from('testimonials' as any)
+                .update({ display_order: newOrder } as any)
                 .eq('id', id);
             if (error) throw error;
         },
@@ -389,15 +389,16 @@ export const TestimonialsManager = () => {
                                 </div>
                                 <div className="flex gap-2">
                                     <Button
-                                        variant="outline"
-                                        size="sm"
+                                        variant="ghost"
+                                        size="icon"
                                         onClick={() => handleEdit(testimonial)}
                                     >
                                         <Edit className="h-4 w-4" />
                                     </Button>
                                     <Button
-                                        variant="destructive"
-                                        size="sm"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-destructive hover:text-destructive"
                                         onClick={() => deleteMutation.mutate(testimonial.id)}
                                     >
                                         <Trash2 className="h-4 w-4" />
@@ -407,9 +408,11 @@ export const TestimonialsManager = () => {
                         ))}
                     </div>
                 ) : (
-                    <p className="text-center text-muted-foreground py-8">
-                        No testimonials yet. Click "Add Testimonial" to create one.
-                    </p>
+                    <div className="text-center py-12 text-muted-foreground">
+                        <Twitter className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p className="mb-2">No testimonials yet</p>
+                        <p className="text-sm">Add testimonials to display on the landing page</p>
+                    </div>
                 )}
             </CardContent>
         </Card>
