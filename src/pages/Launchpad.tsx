@@ -25,7 +25,7 @@ import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
-import { LaunchpadNavigation } from "@/components/launchpad/LaunchpadNavigation";
+
 import { useWallet, ChainType } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import lilypadLogo from "@/assets/lilypad-logo.png";
@@ -111,10 +111,7 @@ export default function Launchpad() {
   // Selected standard for new collection
   const [createModalDefaultStandard, setCreateModalDefaultStandard] = useState<any>('core');
 
-  const handleStandardSelect = (standard: string) => {
-    setCreateModalDefaultStandard(standard as any);
-    setIsCreateModalOpen(true);
-  };
+
 
   // Get current user or wallet
   useEffect(() => {
@@ -392,21 +389,31 @@ export default function Launchpad() {
               </p>
             </div>
           </div>
-{/* Create button removed - use LaunchpadNavigation menu to select contract type */}
+          {/* Create button removed - use LaunchpadNavigation menu to select contract type */}
         </div>
 
-        {/* Contract Navigation Menu */}
-        <div className="mb-8 overflow-x-auto" data-walkthrough="navigation">
-          <LaunchpadNavigation
-            selectedChain={selectedChain}
-            onChainChange={(chain) => {
-              if (chain === "monad") {
-                toast.info("Monad EVM support is coming soon. Collections will be available when Monad launches.");
-              }
-              setSelectedChain(chain);
-            }}
-            onSelectStandard={handleStandardSelect}
-          />
+        {/* Navigation & Actions */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8" data-walkthrough="navigation">
+          <div className="flex items-center gap-4 w-full sm:w-auto">
+            <ChainSelector
+              selectedChain={selectedChain}
+              onChainChange={(chain) => {
+                if (chain === "monad") {
+                  toast.info("Monad EVM support is coming soon. Collections will be available when Monad launches.");
+                }
+                setSelectedChain(chain);
+              }}
+            />
+          </div>
+
+          <Button
+            size="lg"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="w-full sm:w-auto gap-2 shadow-lg hover:shadow-xl transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            Create Collection
+          </Button>
         </div>
 
         {/* Stats */}
