@@ -42,22 +42,8 @@ export interface Collection {
   social_website: string | null;
 }
 
-async function fetchLaunchpadCollections(): Promise<Collection[]> {
-  const { data, error } = await supabase
-    .from("collections")
-    .select("*")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching collections:", error);
-    throw error;
-  }
-
-  return data || [];
-}
-
-export function useLaunchpadData() {
+// Update type to include filter
+export function useLaunchpadData(selectedChain?: "solana" | "monad") {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<DraftCollection | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -77,8 +63,30 @@ export function useLaunchpadData() {
 
   // Query for collections
   const collectionsQuery = useQuery({
-    queryKey: ["launchpad-collections"],
-    queryFn: fetchLaunchpadCollections,
+    queryKey: ["launchpad-collections", selectedChain],
+    queryFn: async () => {
+      // Determine chain filters
+      let query = supabase
+        .from("collections")
+        .select("*")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+
+      if (selectedChain) {
+        const chainFilters = selectedChain === "solana"
+          ? ["solana", "solana-devnet", "solana-mainnet"]
+          : ["monad", "monad-testnet", "monad-mainnet"];
+        query = query.in("chain", chainFilters);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching collections:", error);
+        throw error;
+      }
+      return data || [];
+    },
     staleTime: 30 * 1000,
   });
 
@@ -121,7 +129,7 @@ export function useLaunchpadData() {
   const deleteCollectionMutation = useMutation({
     mutationFn: async (collectionId: string) => {
       const scheduledDeleteAt = addDays(new Date(), 7);
-      
+
       const { error } = await supabase
         .from("collections")
         .update({
@@ -160,8 +168,9 @@ export function useLaunchpadData() {
       if (error) throw error;
       return collectionId;
     },
-    onSuccess: () => {
+    onSuccess: (collectionId) => {
       queryClient.invalidateQueries({ queryKey: ["launchpad-collections"] });
+      // We need to fetch the name again or find it, but restoring works
       toast.success("Collection restored");
     },
     onError: () => {
