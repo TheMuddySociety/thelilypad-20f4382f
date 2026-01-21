@@ -74,8 +74,8 @@ import { useWallet } from "@/providers/WalletProvider";
 import { formatDistanceToNow } from "date-fns";
 import { ModalWalkthrough } from "@/components/walkthrough/LaunchpadWalkthrough";
 import { useModalWalkthrough } from "@/hooks/useLaunchpadWalkthrough";
-import { 
-  SolanaStandard, 
+import {
+  SolanaStandard,
   SOLANA_STANDARDS,
   SOLANA_STANDARDS_CONFIG,
   getStandardFeatures,
@@ -271,6 +271,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
 
   // Allowlist management
   const [allowlistPhases, setAllowlistPhases] = useState<AllowlistPhase[]>([]);
+
+  // File input refs
+  const imageInputRef = React.useRef<HTMLInputElement>(null);
+  const bannerInputRef = React.useRef<HTMLInputElement>(null);
 
   // Helper: upload a single image (returns original URL if not a data URL or on error)
   const uploadSingleImage = async (
@@ -1391,13 +1395,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                     {Object.values(SOLANA_STANDARDS_CONFIG).map((config) => {
                       const isSelected = solanaStandard === config.id;
                       const features = config.features;
-                      
+
                       return (
                         <Card
                           key={config.id}
-                          className={`cursor-pointer transition-all hover:border-primary/50 ${
-                            isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"
-                          }`}
+                          className={`cursor-pointer transition-all hover:border-primary/50 ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"
+                            }`}
                           onClick={() => {
                             setSolanaStandard(config.id);
                             // Auto-adjust collection type if current type not supported
@@ -1408,9 +1411,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                         >
                           <CardContent className="p-4">
                             <div className="flex items-start gap-3">
-                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
-                              }`}>
+                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
+                                }`}>
                                 {config.icon === 'sparkles' && <Sparkles className="w-5 h-5" />}
                                 {config.icon === 'file-text' && <Settings2 className="w-5 h-5" />}
                                 {config.icon === 'boxes' && <Layers className="w-5 h-5" />}
@@ -1420,7 +1422,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h4 className="font-semibold text-sm">{config.name}</h4>
-                                  <Badge 
+                                  <Badge
                                     variant={features.badge.variant as any}
                                     className="text-[10px] px-1.5 py-0"
                                   >
@@ -1431,7 +1433,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                                   </span>
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-1">{config.description}</p>
-                                
+
                                 {/* Feature Tags */}
                                 <div className="flex flex-wrap gap-1 mt-2">
                                   {features.supportsMusic && (
@@ -1467,7 +1469,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       );
                     })}
                   </div>
-                  
+
                   {/* Standard-Specific Tips */}
                   {solanaStandard && (
                     <Alert className="bg-primary/5 border-primary/20">
@@ -1540,13 +1542,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                     const isSupported = standardSupportsType(solanaStandard, 'generative');
                     return (
                       <Card
-                        className={`transition-all ${
-                          !isSupported 
-                            ? "opacity-40 cursor-not-allowed border-border" 
-                            : collectionType === "generative"
-                              ? "cursor-pointer border-primary bg-primary/5 ring-1 ring-primary"
-                              : "cursor-pointer hover:border-primary/50 border-border"
-                        }`}
+                        className={`transition-all ${!isSupported
+                          ? "opacity-40 cursor-not-allowed border-border"
+                          : collectionType === "generative"
+                            ? "cursor-pointer border-primary bg-primary/5 ring-1 ring-primary"
+                            : "cursor-pointer hover:border-primary/50 border-border"
+                          }`}
                         onClick={() => {
                           if (isSupported) {
                             setCollectionType("generative");
@@ -1572,13 +1573,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                     const isSupported = standardSupportsType(solanaStandard, 'one_of_one');
                     return (
                       <Card
-                        className={`transition-all ${
-                          !isSupported 
-                            ? "opacity-40 cursor-not-allowed border-border" 
-                            : collectionType === "one_of_one"
-                              ? "cursor-pointer border-primary bg-primary/5 ring-1 ring-primary"
-                              : "cursor-pointer hover:border-primary/50 border-border"
-                        }`}
+                        className={`transition-all ${!isSupported
+                          ? "opacity-40 cursor-not-allowed border-border"
+                          : collectionType === "one_of_one"
+                            ? "cursor-pointer border-primary bg-primary/5 ring-1 ring-primary"
+                            : "cursor-pointer hover:border-primary/50 border-border"
+                          }`}
                         onClick={() => {
                           if (isSupported) {
                             setCollectionType("one_of_one");
@@ -1604,13 +1604,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                     const isSupported = standardSupportsType(solanaStandard, 'editions');
                     return (
                       <Card
-                        className={`transition-all ${
-                          !isSupported 
-                            ? "opacity-40 cursor-not-allowed border-border" 
-                            : collectionType === "editions"
-                              ? "cursor-pointer border-primary bg-primary/5 ring-1 ring-primary"
-                              : "cursor-pointer hover:border-primary/50 border-border"
-                        }`}
+                        className={`transition-all ${!isSupported
+                          ? "opacity-40 cursor-not-allowed border-border"
+                          : collectionType === "editions"
+                            ? "cursor-pointer border-primary bg-primary/5 ring-1 ring-primary"
+                            : "cursor-pointer hover:border-primary/50 border-border"
+                          }`}
                         onClick={() => {
                           if (isSupported) {
                             setCollectionType("editions");
@@ -1636,13 +1635,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                     const isSupported = standardSupportsType(solanaStandard, 'music');
                     return (
                       <Card
-                        className={`transition-all ${
-                          !isSupported 
-                            ? "opacity-40 cursor-not-allowed border-border" 
-                            : collectionType === "music"
-                              ? "cursor-pointer border-primary bg-primary/5 ring-1 ring-primary"
-                              : "cursor-pointer hover:border-primary/50 border-border"
-                        }`}
+                        className={`transition-all ${!isSupported
+                          ? "opacity-40 cursor-not-allowed border-border"
+                          : collectionType === "music"
+                            ? "cursor-pointer border-primary bg-primary/5 ring-1 ring-primary"
+                            : "cursor-pointer hover:border-primary/50 border-border"
+                          }`}
                         onClick={() => {
                           if (isSupported) {
                             setCollectionType("music");
@@ -1663,13 +1661,13 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                     );
                   })()}
                 </div>
-                
+
                 {/* Unsupported type warning */}
                 {solanaStandard && !standardSupportsType(solanaStandard, collectionType) && (
                   <Alert variant="destructive" className="py-2">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription className="text-xs">
-                      {SOLANA_STANDARDS_CONFIG[solanaStandard].name} doesn't support {collectionType.replace('_', ' ')} collections. 
+                      {SOLANA_STANDARDS_CONFIG[solanaStandard].name} doesn't support {collectionType.replace('_', ' ')} collections.
                       Please select a supported type above.
                     </AlertDescription>
                   </Alert>
@@ -1681,7 +1679,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                 <Label>Collection Banner</Label>
                 <div
                   className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors relative overflow-hidden"
-                  onClick={() => document.getElementById("banner-upload")?.click()}
+                  onClick={() => bannerInputRef.current?.click()}
                 >
                   {bannerPreview ? (
                     <div className="relative">
@@ -1695,6 +1693,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                           e.stopPropagation();
                           setBannerPreview(null);
                           setBannerFile(null);
+                          if (bannerInputRef.current) bannerInputRef.current.value = '';
                         }}
                       >
                         <X className="h-3 w-3" />
@@ -1709,11 +1708,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                     </div>
                   )}
                   <input
-                    id="banner-upload"
+                    ref={bannerInputRef}
                     type="file"
                     accept="image/*"
                     className="hidden"
                     onChange={handleBannerUpload}
+                    onClick={(e) => { (e.target as HTMLInputElement).value = '' }}
                   />
                 </div>
               </div>
@@ -1723,7 +1723,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                 <Label>Collection Image *</Label>
                 <div
                   className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => document.getElementById("image-upload")?.click()}
+                  onClick={() => imageInputRef.current?.click()}
                 >
                   {imagePreview ? (
                     <img src={imagePreview} alt="Preview" className="w-32 h-32 object-cover rounded-lg mx-auto" />
@@ -1736,11 +1736,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                     </>
                   )}
                   <input
-                    id="image-upload"
+                    ref={imageInputRef}
                     type="file"
                     accept="image/*"
                     className="hidden"
                     onChange={handleImageUpload}
+                    onClick={(e) => { (e.target as HTMLInputElement).value = '' }}
                   />
                 </div>
               </div>
