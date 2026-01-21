@@ -123,7 +123,7 @@ export const useSolanaLaunch = () => {
                     address: publicKey(c.address),
                     percentage: c.share
                 })),
-                ruleSet: { type: 'None' } // No extra rules for now
+                ruleSet: { __kind: 'None' } // No extra rules for now
             };
 
             // Create memo instruction
@@ -243,15 +243,17 @@ export const useSolanaLaunch = () => {
     const createCollection = useCallback(async (params: CreateCollectionParams) => {
         // Force Metadata defaults for Core compatibility if not provided
         // We need creators passed in params in future refactor, for now default to current user
-        // This wrapper is getting deprecated by the strict types above but needed for UI compatibility
+        const umi = await getUmi();
+        const currentUser = umi.identity.publicKey.toString();
+
         return deploySolanaCollection('core', {
             name: params.name,
             symbol: params.symbol,
             uri: params.uri || params.imageUri || '',
             sellerFeeBasisPoints: params.sellerFeeBasisPoints || 0,
-            creators: [] // Will need to be fetched or passed
+            creators: [{ address: currentUser, share: 100 }] // Default to current user
         });
-    }, [deploySolanaCollection]);
+    }, [deploySolanaCollection, getUmi]);
 
     return {
         isLoading,
