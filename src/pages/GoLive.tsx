@@ -23,7 +23,7 @@ import { StreamControls } from "@/components/streaming/StreamControls";
 import { useWebRTCStream, StreamSource, StreamQuality } from "@/hooks/useWebRTCStream";
 import { useStreamPresence } from "@/hooks/useStreamPresence";
 import { useAdaptiveStreamQuality } from "@/hooks/useAdaptiveStreamQuality";
-import { 
+import {
   Radio,
   Settings,
   Video,
@@ -45,7 +45,7 @@ export default function GoLive() {
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  
+
   // Browser stream metadata
   const [browserStreamTitle, setBrowserStreamTitle] = useState("");
   const [browserStreamCategory, setBrowserStreamCategory] = useState("");
@@ -96,28 +96,28 @@ export default function GoLive() {
 
   const [pipStream, setPipStream] = useState<MediaStream | null>(null);
   const [showFlipButton, setShowFlipButton] = useState(false);
-  
+
   // Stream duration timer
   const [streamDuration, setStreamDuration] = useState(0);
   const streamStartTimeRef = useRef<number | null>(null);
 
   // Track viewer count for active stream
   const { viewerCount, isConnected: presenceConnected } = useStreamPresence(isStreaming ? roomId : undefined);
-  
+
   // Check for multiple cameras on mount
   useEffect(() => {
     hasMultipleCameras().then(setShowFlipButton);
   }, [hasMultipleCameras]);
-  
+
   // Stream duration timer effect
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
-    
+
     if (isStreaming) {
       if (!streamStartTimeRef.current) {
         streamStartTimeRef.current = Date.now();
       }
-      
+
       intervalId = setInterval(() => {
         if (streamStartTimeRef.current) {
           const elapsed = Math.floor((Date.now() - streamStartTimeRef.current) / 1000);
@@ -128,20 +128,20 @@ export default function GoLive() {
       streamStartTimeRef.current = null;
       setStreamDuration(0);
     }
-    
+
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
       }
     };
   }, [isStreaming]);
-  
+
   // Format duration as HH:MM:SS
   const formatDuration = (seconds: number): string => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    
+
     if (hrs > 0) {
       return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
@@ -156,20 +156,36 @@ export default function GoLive() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate("/auth");
-      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate("/auth");
-      }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []); // Removed navigate dependency and redirect logic
+
+  // ... (existing code)
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="max-w-md w-full text-center space-y-4">
+          <div className="p-4 rounded-full bg-yellow-500/10 text-yellow-500 mx-auto w-fit">
+            <Activity className="w-8 h-8" />
+          </div>
+          <h1 className="text-2xl font-bold">Authentication Required</h1>
+          <p className="text-muted-foreground">
+            You are connected to Solana, but not signed into the streaming server.
+            Please ensure you have completed the sign-in process.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Button onClick={() => window.location.reload()}>Retry Connection</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Update media stream reference when streaming
   useEffect(() => {
@@ -265,31 +281,31 @@ export default function GoLive() {
         'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png',
         'https://www.cloudflare.com/favicon.ico',
       ];
-      
+
       let totalSpeed = 0;
       let successfulTests = 0;
-      
+
       for (const url of testUrls) {
         try {
           const startTime = performance.now();
-          const response = await fetch(url + '?t=' + Date.now(), { 
+          const response = await fetch(url + '?t=' + Date.now(), {
             mode: 'no-cors',
             cache: 'no-store'
           });
           const endTime = performance.now();
-          
+
           // Estimate based on typical file sizes and time
           const estimatedSizeKB = 15;
           const timeSeconds = (endTime - startTime) / 1000;
           const speedMbps = (estimatedSizeKB * 8) / (timeSeconds * 1000);
-          
+
           totalSpeed += speedMbps;
           successfulTests++;
         } catch {
           // Individual test failed, continue with others
         }
       }
-      
+
       // If fetch tests fail, use Navigation Timing API as fallback
       if (successfulTests === 0) {
         const connection = (navigator as any).connection;
@@ -298,11 +314,11 @@ export default function GoLive() {
           successfulTests = 1;
         }
       }
-      
+
       if (successfulTests > 0) {
         const avgSpeed = totalSpeed / successfulTests;
         setInternetSpeed(Math.round(avgSpeed * 10) / 10);
-        
+
         // Recommend quality based on estimated upload speed
         let recommended: StreamQuality;
         if (avgSpeed >= 25) {
@@ -312,10 +328,10 @@ export default function GoLive() {
         } else {
           recommended = '480p';
         }
-        
+
         setRecommendedQuality(recommended);
         setStreamQuality(recommended);
-        
+
         toast({
           title: "Speed test complete",
           description: `Detected ~${Math.round(avgSpeed)} Mbps. Recommended: ${recommended}`,
@@ -358,7 +374,7 @@ export default function GoLive() {
         thumbnailUrl = uploadedUrl;
       }
     }
-    
+
     const result = await startStream({
       source: streamSource,
       quality: streamQuality,
@@ -384,13 +400,39 @@ export default function GoLive() {
   };
 
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="min-h-[80vh] flex flex-col items-center justify-center p-4">
+          <Card className="max-w-md w-full border-border/50 shadow-xl">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center mb-4">
+                <Activity className="w-6 h-6 text-yellow-500" />
+              </div>
+              <CardTitle>Authentication Required</CardTitle>
+              <CardDescription>
+                Streaming requires an active session. Please sign in to verify your identity.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <Button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' }).catch(console.error)} variant="outline" className="w-full">
+                Sign in with Google
+              </Button>
+              <p className="text-xs text-center text-muted-foreground my-2">
+                Note: We are updating our wallet-only auth. For now, please sign in with Email/Social to stream.
+              </p>
+              <Button variant="ghost" onClick={() => window.location.reload()}>Retry Loading</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="container mx-auto px-3 sm:px-4 pt-20 sm:pt-24 pb-8 sm:pb-12">
         <div className="max-w-5xl mx-auto">
           {/* Header */}
@@ -425,11 +467,10 @@ export default function GoLive() {
                         <button
                           type="button"
                           onClick={() => setStreamSource('camera')}
-                          className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
-                            streamSource === 'camera'
-                              ? 'border-primary bg-primary/10'
-                              : 'border-border hover:border-primary/50'
-                          }`}
+                          className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${streamSource === 'camera'
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-primary/50'
+                            }`}
                         >
                           <Camera className="h-6 w-6" />
                           <span className="text-sm font-medium">Camera</span>
@@ -439,13 +480,12 @@ export default function GoLive() {
                           type="button"
                           onClick={() => isScreenShareSupported && setStreamSource('screen')}
                           disabled={!isScreenShareSupported}
-                          className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
-                            !isScreenShareSupported 
-                              ? 'opacity-50 cursor-not-allowed border-border'
-                              : streamSource === 'screen'
-                                ? 'border-primary bg-primary/10'
-                                : 'border-border hover:border-primary/50'
-                          }`}
+                          className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${!isScreenShareSupported
+                            ? 'opacity-50 cursor-not-allowed border-border'
+                            : streamSource === 'screen'
+                              ? 'border-primary bg-primary/10'
+                              : 'border-border hover:border-primary/50'
+                            }`}
                         >
                           <Monitor className="h-6 w-6" />
                           <span className="text-sm font-medium">Screen</span>
@@ -486,7 +526,7 @@ export default function GoLive() {
                           )}
                         </Button>
                       </div>
-                      
+
                       {/* Speed test result */}
                       {internetSpeed !== null && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
@@ -499,16 +539,15 @@ export default function GoLive() {
                           )}
                         </div>
                       )}
-                      
+
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           type="button"
                           onClick={() => setStreamQuality('480p')}
-                          className={`relative flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
-                            streamQuality === '480p'
-                              ? 'border-primary bg-primary/10'
-                              : 'border-border hover:border-primary/50'
-                          }`}
+                          className={`relative flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${streamQuality === '480p'
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-primary/50'
+                            }`}
                         >
                           {recommendedQuality === '480p' && (
                             <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">
@@ -521,11 +560,10 @@ export default function GoLive() {
                         <button
                           type="button"
                           onClick={() => setStreamQuality('720p')}
-                          className={`relative flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
-                            streamQuality === '720p'
-                              ? 'border-primary bg-primary/10'
-                              : 'border-border hover:border-primary/50'
-                          }`}
+                          className={`relative flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${streamQuality === '720p'
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-primary/50'
+                            }`}
                         >
                           {recommendedQuality === '720p' && (
                             <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">
@@ -538,11 +576,10 @@ export default function GoLive() {
                         <button
                           type="button"
                           onClick={() => setStreamQuality('1080p')}
-                          className={`relative flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
-                            streamQuality === '1080p'
-                              ? 'border-primary bg-primary/10'
-                              : 'border-border hover:border-primary/50'
-                          }`}
+                          className={`relative flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${streamQuality === '1080p'
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-primary/50'
+                            }`}
                         >
                           {recommendedQuality === '1080p' && (
                             <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">
@@ -553,7 +590,7 @@ export default function GoLive() {
                           <span className="text-xs text-muted-foreground">1920×1080</span>
                         </button>
                       </div>
-                      
+
                       {/* Auto-adjust quality toggle */}
                       <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30 border border-border/50">
                         <div className="flex items-center gap-2">
@@ -584,8 +621,8 @@ export default function GoLive() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="stream-category">Category</Label>
-                      <Select 
-                        value={browserStreamCategory} 
+                      <Select
+                        value={browserStreamCategory}
                         onValueChange={setBrowserStreamCategory}
                       >
                         <SelectTrigger id="stream-category">
@@ -604,7 +641,7 @@ export default function GoLive() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     {/* Thumbnail Upload */}
                     <div className="space-y-2">
                       <Label>Stream Thumbnail</Label>
@@ -615,7 +652,7 @@ export default function GoLive() {
                         onChange={handleThumbnailSelect}
                         className="hidden"
                       />
-                      
+
                       {browserStreamThumbnail ? (
                         <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border">
                           <img
@@ -673,14 +710,14 @@ export default function GoLive() {
                     )}
                   </div>
                   <CardDescription>
-                    {isStreaming 
+                    {isStreaming
                       ? `You're live${currentSource === 'screen' ? ' (Screen Share)' : ' (Camera)'}! ${browserStreamCategory ? `Category: ${browserStreamCategory}` : ''}`
                       : "Click 'Go Live' to start streaming from your camera."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
                   <div className="relative">
-                    <BrowserStreamPreview 
+                    <BrowserStreamPreview
                       stream={mediaStream}
                       isLive={isStreaming}
                       className="aspect-video"
@@ -695,7 +732,7 @@ export default function GoLive() {
                       }}
                     />
                   </div>
-                  
+
                   {/* Source Switcher and Quality Stats - Only visible while streaming */}
                   {isStreaming && (
                     <div className="space-y-3">
@@ -713,10 +750,9 @@ export default function GoLive() {
                             {connectionStats.rtt !== null && (
                               <div className="flex items-center gap-1.5">
                                 <span className="text-xs text-muted-foreground">Latency:</span>
-                                <span className={`text-xs font-medium ${
-                                  connectionStats.rtt < 100 ? 'text-green-500' :
+                                <span className={`text-xs font-medium ${connectionStats.rtt < 100 ? 'text-green-500' :
                                   connectionStats.rtt < 300 ? 'text-yellow-500' : 'text-red-500'
-                                }`}>
+                                  }`}>
                                   {Math.round(connectionStats.rtt)}ms
                                 </span>
                               </div>
@@ -737,7 +773,7 @@ export default function GoLive() {
                           )}
                         </div>
                       )}
-                      
+
                       {/* Source Switch Buttons */}
                       <div className="flex flex-wrap gap-2">
                         <Button
@@ -795,7 +831,7 @@ export default function GoLive() {
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Stream Controls */}
                   <StreamControls
                     isStreaming={isStreaming}
@@ -804,7 +840,7 @@ export default function GoLive() {
                     onStop={handleBrowserStreamStop}
                     roomId={roomId}
                   />
-                  
+
                   {/* Show WebRTC error if any */}
                   {webrtcError && (
                     <p className="text-sm text-destructive">{webrtcError}</p>
@@ -820,11 +856,11 @@ export default function GoLive() {
                 <Card className="h-[400px] flex flex-col items-center justify-center glass-card border-border/50">
                   <Radio className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground text-center">
-                    Chat will appear here<br/>when you go live
+                    Chat will appear here<br />when you go live
                   </p>
                 </Card>
               )}
-              
+
               {/* Live Chat when streaming */}
               {isStreaming && roomId && (
                 <Card className="h-[400px] flex flex-col glass-card border-border/50">
