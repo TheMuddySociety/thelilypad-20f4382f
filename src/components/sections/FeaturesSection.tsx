@@ -1,20 +1,51 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  Layers, 
-  Radio, 
-  Trophy, 
-  Gavel, 
-  Gift, 
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Layers,
+  Radio,
+  Trophy,
+  Gavel,
+  Gift,
   Music,
-  ArrowRight
+  ArrowRight,
+  Zap,
+  Star,
+  Shield,
+  Rocket
 } from "lucide-react";
 
-const features = [
+interface Feature {
+  id: string;
+  icon: string | any;
+  title: string;
+  description: string;
+  bullets: string[];
+  cta: string;
+  href: string;
+  imagePosition: "left" | "right" | string;
+  accent: "primary" | "secondary" | "accent" | string;
+  image_url?: string | null;
+}
+
+const ICON_MAP: Record<string, any> = {
+  Layers,
+  Radio,
+  Trophy,
+  Gavel,
+  Gift,
+  Music,
+  Zap,
+  Star,
+  Shield,
+  Rocket
+};
+
+const defaultFeatures: Feature[] = [
   {
     id: "generator",
-    icon: Layers,
+    icon: "Layers",
     title: "NFT Generator Studio",
     description: "Create stunning generative art collections with our powerful no-code generator.",
     bullets: ["Layer uploads", "Rarity tools", "Metadata builder", "Preview engine", "One-click Solana deployment"],
@@ -25,7 +56,7 @@ const features = [
   },
   {
     id: "streams",
-    icon: Radio,
+    icon: "Radio",
     title: "Creator Livestreams",
     description: "Go live and connect with your community. Host reveals, auctions, Q&As, and accept tips.",
     bullets: ["Live streaming", "Real-time chat", "Tip system", "Auction integration", "Community building"],
@@ -36,7 +67,7 @@ const features = [
   },
   {
     id: "rewards",
-    icon: Trophy,
+    icon: "Trophy",
     title: "Creator Rewards System",
     description: "Earn from your activity, engagement, and volume on the platform.",
     bullets: ["Activity rewards", "Volume bonuses", "Tier progression", "Exclusive perks", "Leaderboard rankings"],
@@ -47,7 +78,7 @@ const features = [
   },
   {
     id: "auctions",
-    icon: Gavel,
+    icon: "Gavel",
     title: "Auctions Hub",
     description: "Multiple auction formats to maximize your sales potential.",
     bullets: ["Timed auctions", "Dutch auctions", "English auctions", "Livestream-linked", "Reserve prices"],
@@ -58,7 +89,7 @@ const features = [
   },
   {
     id: "raffles",
-    icon: Gift,
+    icon: "Gift",
     title: "Raffles & Blind Boxes",
     description: "Create excitement with mystery mechanics and fair raffles.",
     bullets: ["Customizable raffles", "Blind box reveals", "Multiple winners", "Entry limits", "Fair randomization"],
@@ -69,7 +100,7 @@ const features = [
   },
   {
     id: "media",
-    icon: Music,
+    icon: "Music",
     title: "Audio/Music/Video NFTs",
     description: "Mint and sell multimedia NFTs with full playback support.",
     bullets: ["Audio NFTs", "Music collections", "Video content", "Cover art required", "Streaming preview"],
@@ -94,6 +125,48 @@ const getAccentColors = (accent: string) => {
 };
 
 export const FeaturesSection: React.FC = () => {
+  const [features, setFeatures] = useState<Feature[]>(defaultFeatures);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFeatures = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("landing_page_features")
+          .select("*")
+          .eq("is_active", true)
+          .order("display_order", { ascending: true });
+
+        if (error) {
+          console.error("Error fetching features, using defaults:", error);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          const mappedFeatures: Feature[] = data.map((item: any) => ({
+            id: item.id,
+            icon: item.icon,
+            title: item.title,
+            description: item.description,
+            bullets: item.bullets || [],
+            cta: item.cta_text,
+            href: item.cta_link,
+            imagePosition: item.image_position,
+            accent: item.accent,
+            image_url: item.image_url
+          }));
+          setFeatures(mappedFeatures);
+        }
+      } catch (err) {
+        console.error("Failed to load features", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeatures();
+  }, []);
+
   return (
     <section className="py-24 relative">
       <div className="container mx-auto px-6">
@@ -106,54 +179,67 @@ export const FeaturesSection: React.FC = () => {
             Everything you need to launch, grow, and monetize your NFT collections.
           </p>
         </div>
-        
+
         {/* Feature blocks */}
         <div className="space-y-24">
-          {features.map((feature, index) => (
-            <div
-              key={feature.id}
-              className={`flex flex-col ${
-                feature.imagePosition === "right" ? "lg:flex-row" : "lg:flex-row-reverse"
-              } gap-12 items-center`}
-            >
-              {/* Content side */}
-              <div className="flex-1 space-y-6">
-                <div className={`inline-flex items-center gap-3 px-4 py-2 rounded-full bg-gradient-to-r ${getAccentColors(feature.accent)} border`}>
-                  <feature.icon className="w-5 h-5" />
-                  <span className="font-semibold text-sm">{feature.title}</span>
-                </div>
-                
-                <h3 className="text-3xl md:text-4xl font-bold">{feature.title}</h3>
-                
-                <p className="text-muted-foreground text-lg">{feature.description}</p>
-                
-                <ul className="space-y-3">
-                  {feature.bullets.map((bullet) => (
-                    <li key={bullet} className="flex items-center gap-3 text-foreground/80">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                      {bullet}
-                    </li>
-                  ))}
-                </ul>
-                
-                <Button variant="default" className="group mt-4" asChild>
-                  <Link to={feature.href}>
-                    {feature.cta}
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </Button>
-              </div>
-              
-              {/* Visual side */}
-              <div className="flex-1 w-full">
-                <div className="glass-card p-8 aspect-video flex items-center justify-center">
-                  <div className={`w-32 h-32 rounded-2xl bg-gradient-to-br ${getAccentColors(feature.accent)} flex items-center justify-center`}>
-                    <feature.icon className="w-16 h-16 text-foreground/50" />
+          {features.map((feature, index) => {
+            const IconComponent = ICON_MAP[feature.icon] || Layers;
+
+            return (
+              <div
+                key={feature.id}
+                className={`flex flex-col ${feature.imagePosition === "right" ? "lg:flex-row" : "lg:flex-row-reverse"
+                  } gap-12 items-center`}
+              >
+                {/* Content side */}
+                <div className="flex-1 space-y-6">
+                  <div className={`inline-flex items-center gap-3 px-4 py-2 rounded-full bg-gradient-to-r ${getAccentColors(feature.accent)} border`}>
+                    <IconComponent className="w-5 h-5" />
+                    <span className="font-semibold text-sm">{feature.title}</span>
                   </div>
+
+                  <h3 className="text-3xl md:text-4xl font-bold">{feature.title}</h3>
+
+                  <p className="text-muted-foreground text-lg">{feature.description}</p>
+
+                  <ul className="space-y-3">
+                    {feature.bullets.map((bullet, i) => (
+                      <li key={i} className="flex items-center gap-3 text-foreground/80">
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                        {bullet}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button variant="default" className="group mt-4" asChild>
+                    <Link to={feature.href}>
+                      {feature.cta}
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </Link>
+                  </Button>
+                </div>
+
+                {/* Visual side */}
+                <div className="flex-1 w-full">
+                  {feature.image_url ? (
+                    <div className="glass-card p-4 aspect-video flex items-center justify-center overflow-hidden">
+                      <img
+                        src={feature.image_url}
+                        alt={feature.title}
+                        className="w-full h-full object-cover rounded-xl hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
+                  ) : (
+                    <div className="glass-card p-8 aspect-video flex items-center justify-center">
+                      <div className={`w-32 h-32 rounded-2xl bg-gradient-to-br ${getAccentColors(feature.accent)} flex items-center justify-center`}>
+                        <IconComponent className="w-16 h-16 text-foreground/50" />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
