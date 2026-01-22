@@ -161,7 +161,7 @@ export const useSolanaMint = () => {
                 candyMachine: candyMachine.publicKey,
                 mintAuthority: umi.identity,
                 asset: nftMint,
-                collection: publicKey(collectionAddress),
+                collection: candyMachine.collectionMint, // Use correct collection from CM state
                 assetOwner: umi.identity.publicKey,
                 plugins: [],
             }).add(memoInstruction);

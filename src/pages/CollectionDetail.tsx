@@ -633,8 +633,18 @@ export default function CollectionDetail() {
           mintArgs.mintLimit = { id: 1 };
         }
 
+        // Fallback: If phase has no CM address, try using the collection contract address
+        // (This handles cases where CM address was saved in contract_address field)
+        const targetCmAddress = activePhase.candyMachineAddress || collection.contract_address;
+
+        if (!targetCmAddress) {
+          toast.error("No Candy Machine address found");
+          setIsMinting(false);
+          return;
+        }
+
         txHash = await performSolanaMint(
-          activePhase.candyMachineAddress,
+          targetCmAddress,
           collection.solana_standard || 'core',
           mintAmount,
           activePhase.id,

@@ -1137,7 +1137,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
         .insert([{
           creator_id: creatorId,
           creator_address: address || '', // Use wallet address for Solana
-          contract_address: solanaAddress,
+          contract_address: candyMachineAddress || solanaAddress, // Prefer CM address for Launchpad collections
           name,
           symbol,
           description,
