@@ -25,6 +25,10 @@ import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
+import { ChainSelector } from "@/components/ChainSelector";
+import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
+import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
+import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 
 import { useWallet, ChainType } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +38,9 @@ import { formatDistanceToNow, addDays } from "date-fns";
 import { useSEO } from "@/hooks/useSEO";
 import { LaunchpadWalkthrough } from "@/components/walkthrough/LaunchpadWalkthrough";
 import { useLaunchpadWalkthrough } from "@/hooks/useLaunchpadWalkthrough";
-import { useLaunchpadData, getCollectionPrice, getCollectionProgress, getHealthStatus, getStepLabel } from "@/hooks/useLaunchpadData";
+import { useLaunchpadData, getCollectionPrice, getCollectionProgress, getHealthStatus, getStepLabel, getPhaseNames } from "@/hooks/useLaunchpadData";
+import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
+import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 
 // Status helpers
 const statusColors = {
@@ -55,8 +61,10 @@ export default function Launchpad() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
 
-  // Chain selection
-  const [selectedChain, setSelectedChain] = useState<"solana" | "monad">("solana");
+  // Chain selection - note: ChainType from WalletProvider only supports "solana" currently
+  // Using a local type for UI purposes that can show Monad as coming soon
+  type LaunchpadChainType = "solana";
+  const [selectedChain, setSelectedChain] = useState<LaunchpadChainType>("solana");
 
   // Use the new hook for data fetching and management
   const {
@@ -67,6 +75,7 @@ export default function Launchpad() {
     deleteDraft,
     currentUserId,
     deleteCollection,
+    isDeleting,
     restoreCollection,
     getFilteredCollections,
   } = useLaunchpadData(selectedChain);
@@ -140,7 +149,7 @@ export default function Launchpad() {
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         onCollectionCreated={() => {
-          fetchCollections();
+          loadDraft();
           setIsCreateModalOpen(false);
           toast.success("Collection created successfully!");
         }}
@@ -184,9 +193,6 @@ export default function Launchpad() {
             <ChainSelector
               selectedChain={selectedChain}
               onChainChange={(chain) => {
-                if (chain === "monad") {
-                  toast.info("Monad EVM support is coming soon. Collections will be available when Monad launches.");
-                }
                 setSelectedChain(chain);
               }}
             />
@@ -427,51 +433,7 @@ export default function Launchpad() {
         {/* Collections Grid - only show when not on drafts tab */}
         {activeTab !== "drafts" && (
           <>
-            {/* Monad Coming Soon Placeholder */}
-            {selectedChain === "monad" ? (
-              <div className="text-center py-16">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-purple-500/20 to-purple-500/5 mb-6">
-                  <Zap className="w-10 h-10 text-purple-500" />
-                </div>
-                <h3 className="text-2xl font-bold mb-3">Monad EVM Coming Soon</h3>
-                <p className="text-muted-foreground max-w-md mx-auto mb-6">
-                  Deploy your NFT collections on Monad's high-performance EVM blockchain.
-                  Use familiar Solidity contracts with LilyPad's no-code launchpad tools.
-                </p>
-                <div className="flex flex-wrap justify-center gap-3 mb-8">
-                  <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/30">
-                    ERC-721 Standard
-                  </Badge>
-                  <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/30">
-                    Multi-Phase Minting
-                  </Badge>
-                  <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/30">
-                    Allowlist Support
-                  </Badge>
-                  <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/30">
-                    Royalty Enforcement
-                  </Badge>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedChain("solana")}
-                    className="gap-2"
-                  >
-                    <Globe className="w-4 h-4" />
-                    Launch on Solana Instead
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="gap-2"
-                    disabled
-                  >
-                    <Clock className="w-4 h-4" />
-                    Expected Q2 2026
-                  </Button>
-                </div>
-              </div>
-            ) : isLoading ? (
+            {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
@@ -596,10 +558,9 @@ export default function Launchpad() {
                             </div>
                             <Progress value={progress.percentage} className="h-1.5" />
                             <div className="flex items-center gap-1">
-                              {progress.steps.map((step, i) => {
-                                const StepIcon = step.icon;
-                                return (
-                                  <TooltipProvider key={step.name}>
+                            {progress.steps.map((step, i) => {
+                              return (
+                                <TooltipProvider key={step.name}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <div
@@ -609,7 +570,6 @@ export default function Launchpad() {
                                       </TooltipTrigger>
                                       <TooltipContent>
                                         <div className="flex items-center gap-1.5">
-                                          <StepIcon className="w-3 h-3" />
                                           <span>{step.name}</span>
                                           {step.complete ? (
                                             <Check className="w-3 h-3 text-green-500" />
@@ -690,7 +650,7 @@ export default function Launchpad() {
           open={isCreateModalOpen}
           onOpenChange={setIsCreateModalOpen}
           onCollectionCreated={() => {
-            fetchCollections();
+            loadDraft();
             setIsCreateModalOpen(false);
           }}
         />
