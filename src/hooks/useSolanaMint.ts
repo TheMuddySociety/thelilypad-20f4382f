@@ -9,9 +9,7 @@ import {
 } from '@metaplex-foundation/mpl-bubblegum';
 import {
     fetchCandyMachine,
-} from '@metaplex-foundation/mpl-core-candy-machine';
-import {
-    mintV1 as mintCoreV1,
+    mintAssetFromCandyMachine,
 } from '@metaplex-foundation/mpl-core-candy-machine';
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
@@ -158,13 +156,14 @@ export const useSolanaMint = () => {
                 signers: [],
             };
 
-            // Use Core Mint V1
-            const tx = await mintCoreV1(umi, {
+            // Use guardless mint (no Candy Guard required)
+            const tx = await mintAssetFromCandyMachine(umi, {
                 candyMachine: candyMachine.publicKey,
+                mintAuthority: umi.identity,
                 asset: nftMint,
                 collection: publicKey(collectionAddress),
-                group: groupLabel ? some(groupLabel) : undefined, // Check if group expects option or string. Usually Option<String>
-                mintArgs: mintArgs || {}
+                assetOwner: umi.identity.publicKey,
+                plugins: [],
             }).add(memoInstruction);
 
             const result = await tx.sendAndConfirm(umi);
