@@ -9,7 +9,7 @@ import {
 } from '@metaplex-foundation/mpl-bubblegum';
 import {
     fetchCandyMachine,
-} from '@metaplex-foundation/mpl-candy-machine';
+} from '@metaplex-foundation/mpl-core-candy-machine';
 import {
     mintV1 as mintCoreV1,
 } from '@metaplex-foundation/mpl-core-candy-machine';
