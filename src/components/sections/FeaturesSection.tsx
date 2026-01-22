@@ -129,42 +129,9 @@ export const FeaturesSection: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchFeatures = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("landing_page_features")
-          .select("*")
-          .eq("is_active", true)
-          .order("display_order", { ascending: true });
-
-        if (error) {
-          console.error("Error fetching features, using defaults:", error);
-          return;
-        }
-
-        if (data && data.length > 0) {
-          const mappedFeatures: Feature[] = data.map((item: any) => ({
-            id: item.id,
-            icon: item.icon,
-            title: item.title,
-            description: item.description,
-            bullets: item.bullets || [],
-            cta: item.cta_text,
-            href: item.cta_link,
-            imagePosition: item.image_position,
-            accent: item.accent,
-            image_url: item.image_url
-          }));
-          setFeatures(mappedFeatures);
-        }
-      } catch (err) {
-        console.error("Failed to load features", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFeatures();
+    // NOTE: The landing_page_features table doesn't exist yet
+    // Using default features for now. This can be enabled when the table is created.
+    setLoading(false);
   }, []);
 
   return (

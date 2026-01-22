@@ -57,93 +57,20 @@ import { SiteAssetsManager } from '@/components/admin/SiteAssetsManager';
 import { TestimonialsManager } from '@/components/admin/TestimonialsManager';
 
 import { FeatureSectionManager } from '@/components/admin/FeatureSectionManager';
+import { Star, Trophy } from 'lucide-react';
 
-// ... (existing imports)
-
-// Inside AdminDashboard component
-// ... (existing state)
-
-return (
-  <div className="min-h-screen bg-background">
-    <Navbar />
-    <div className="container mx-auto px-4 py-8 pt-24">
-      <div className="flex flex-col md:flex-row justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage platform settings, users, and content</p>
-        </div>
-        <div className="flex gap-2">
-          {/* Stats cards ... */}
-        </div>
-      </div>
-
-      <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="flex flex-wrap h-auto gap-2 bg-transparent justify-start w-full overflow-x-auto pb-2">
-          <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
-          <TabsTrigger value="collections" className="gap-2"><Layers className="w-4 h-4" /> Collections</TabsTrigger>
-          <TabsTrigger value="streams" className="gap-2"><Video className="w-4 h-4" /> Streams</TabsTrigger>
-          <TabsTrigger value="moderation" className="gap-2"><ShieldCheck className="w-4 h-4" /> Moderation</TabsTrigger>
-          <TabsTrigger value="featured" className="gap-2"><Star className="w-4 h-4" /> Featured</TabsTrigger>
-          <TabsTrigger value="stack" className="gap-2"><Layers3 className="w-4 h-4" /> Card Stack</TabsTrigger>
-          <TabsTrigger value="landing_features" className="gap-2"><Sparkles className="w-4 h-4" /> Features</TabsTrigger>
-          <TabsTrigger value="rewards" className="gap-2"><Trophy className="w-4 h-4" /> Rewards</TabsTrigger>
-          <TabsTrigger value="buyback" className="gap-2"><TrendingUp className="w-4 h-4" /> Buyback</TabsTrigger>
-          <TabsTrigger value="stickers" className="gap-2"><Sticker className="w-4 h-4" /> Stickers</TabsTrigger>
-          <TabsTrigger value="bundles" className="gap-2"><Package className="w-4 h-4" /> Bundles</TabsTrigger>
-          <TabsTrigger value="raffles" className="gap-2"><Ticket className="w-4 h-4" /> Raffles</TabsTrigger>
-          <TabsTrigger value="blindboxes" className="gap-2"><Gift className="w-4 h-4" /> Blind Boxes</TabsTrigger>
-          <TabsTrigger value="locks" className="gap-2"><Lock className="w-4 h-4" /> Feature Locks</TabsTrigger>
-          <TabsTrigger value="assets" className="gap-2"><ImageIcon className="w-4 h-4" /> Site Assets</TabsTrigger>
-          <TabsTrigger value="testimonials" className="gap-2"><Users className="w-4 h-4" /> Testimonials</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="users">
-          {/* ... Users Content ... */}
-          {/* Since I can't overwrite the whole file easily, I'll rely on correct splicing.
-                I need to make sure I am placing the new tab trigger and content correctly.
-                The prompt asked for "AdminDashboard", I will use a larger block replacement to ensure structure.
-             */}
-          {/* Re-writing the render part for brevity in replacement? No, replace_file_content is better with context. */}
-          {/* I will only show the TabsList and the new TabsContent structure in replacement */}
-        </TabsContent>
-
-        {/* ... other tabs ... */}
-
-        <TabsContent value="featured" className="space-y-6">
-          <FeaturedCollectionsManager />
-        </TabsContent>
-
-        <TabsContent value="stack" className="space-y-6">
-          <CardStackManager />
-        </TabsContent>
-
-        <TabsContent value="landing_features" className="space-y-6">
-          <FeatureSectionManager />
-        </TabsContent>
-
-        <TabsContent value="rewards" className="space-y-6">
-          <div className="grid gap-6">
-            <RewardsAllocationManager />
-            <RewardDistributionHistory />
-          </div>
-        </TabsContent>
-
-        {/* ... other tabs continue ... */}
-
-        <TabsContent value="assets" className="space-y-6">
-          <SiteAssetsManager />
-        </TabsContent>
-
-        <TabsContent value="testimonials" className="space-y-6">
-          <TestimonialsManager />
-        </TabsContent>
-      </Tabs>
-    </div>
-  </div>
-);
-};
-
-export default AdminDashboard;
+interface AdminUser {
+  id: string;
+  email: string;
+  created_at: string;
+  role: string | null;
+  is_banned: boolean;
+  profile: {
+    display_name: string | null;
+    avatar_url: string | null;
+    is_verified: boolean;
+  } | null;
+}
 
 interface Collection {
   id: string;
