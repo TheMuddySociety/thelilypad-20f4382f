@@ -114,28 +114,15 @@ export const useSolanaLaunch = () => {
 
             toast.loading(`Deploying ${metadata.name} (Core)...`, { id: 'sol-deploy' });
 
-            // Prepare Plugins
-            // 1. Royalties Plugin
-            const royaltiesPlugin = {
-                type: 'Royalties',
-                basisPoints: Math.min(metadata.sellerFeeBasisPoints, 10000),
-                creators: metadata.creators.map(c => ({
-                    address: publicKey(c.address),
-                    percentage: c.share
-                })),
-                ruleSet: { __kind: 'None' } // No extra rules for now
-            };
-
             // Create memo instruction
             const memoData = buildProtocolMemo('launchpad:deploy_collection', { standard: 'core' });
 
-            // Create Collection V1 (Core)
-            // We use 'createCollectionV1' which creates an Asset that acts as a collection
+            // Create Collection V1 (Core) - simplified without plugins for now
+            // Royalties can be added via updateCollectionV1 after creation if needed
             await createCoreCollection(umi, {
                 collection: collectionSigner,
                 name: metadata.name,
                 uri: metadata.uri,
-                plugins: [royaltiesPlugin as any], // Cast to any to avoid strict typing issues with specific plugin shapes if needed
             })
                 .add({
                     instruction: {
