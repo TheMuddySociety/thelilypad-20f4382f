@@ -1,9 +1,30 @@
 // Platform Treasury Configuration for On-Chain Transactions
+import { PublicKey } from '@solana/web3.js';
 
-// Platform treasury wallet address (receives all platform fees)
-export const TREASURY_CONFIG = {
+// Platform wallet addresses for fee distribution
+export const PLATFORM_WALLETS = {
   // Main treasury wallet for receiving platform fees
-  treasuryWallet: 'LiLYPAdXjQnVSmHsuf2RVdU2Zk3hMWxPFxbM6EYpump',
+  treasury: '2cS7yyypbtxQ4qBdZRYtXDEDTQJZK34h4RPmXxz4sKHk',
+  
+  // Team allocation wallet
+  team: 'FuvA3GMUtCjDXJgFJPZnAAru2cmK3fG3dNjBhTXodsFH',
+  
+  // Default creator/build wallet
+  creator: '5m1ANTPnTsfQCDp8TyDKJYx8BWiEzt1Gomshsc2V3HNe',
+  
+  // Buyback pool funds
+  buybackPool: 'CRg5KBtoxtHPmHcGDMiCqPrCLe8edKTiUyaHHowYhyvV',
+} as const;
+
+// Get PublicKey for a platform wallet
+export function getPlatformWalletPubkey(wallet: keyof typeof PLATFORM_WALLETS): PublicKey {
+  return new PublicKey(PLATFORM_WALLETS[wallet]);
+}
+
+// Platform Treasury Configuration for On-Chain Transactions
+export const TREASURY_CONFIG = {
+  // Main treasury wallet for receiving platform fees (legacy, use PLATFORM_WALLETS.treasury)
+  treasuryWallet: PLATFORM_WALLETS.treasury,
   
   // Fee percentages (in basis points, 100 = 1%)
   fees: {
@@ -34,6 +55,13 @@ export const TREASURY_CONFIG = {
     tips: {
       platformFee: 0, // 0% fee on tips - 100% goes to creator
     },
+    
+    // Launchpad/Minting fees
+    launchpad: {
+      platformFee: 500, // 5% platform fee on mints
+      buybackAllocation: 100, // 1% goes to buyback pool (from platform fee)
+      teamAllocation: 100, // 1% goes to team (from platform fee)
+    },
   },
   
   // Minimum transaction amounts (in SOL)
@@ -44,6 +72,7 @@ export const TREASURY_CONFIG = {
     raffleEntry: 0.001,
     blindBox: 0.01,
     tip: 0.001,
+    mint: 0.001,
   },
 };
 
@@ -78,6 +107,30 @@ export function getTransactionSplit(
     platformAmount,
     creatorAmount,
     total: amount,
+  };
+}
+
+// Get detailed launchpad fee breakdown
+export function getLaunchpadFeeSplit(mintPrice: number): {
+  creatorAmount: number;
+  treasuryAmount: number;
+  teamAmount: number;
+  buybackAmount: number;
+  total: number;
+} {
+  const { launchpad } = TREASURY_CONFIG.fees;
+  const platformFeeAmount = (mintPrice * launchpad.platformFee) / 10000;
+  const teamAmount = (mintPrice * launchpad.teamAllocation) / 10000;
+  const buybackAmount = (mintPrice * launchpad.buybackAllocation) / 10000;
+  const treasuryAmount = platformFeeAmount - teamAmount - buybackAmount;
+  const creatorAmount = mintPrice - platformFeeAmount;
+  
+  return {
+    creatorAmount,
+    treasuryAmount,
+    teamAmount,
+    buybackAmount,
+    total: mintPrice,
   };
 }
 

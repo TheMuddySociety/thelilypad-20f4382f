@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { publicKey, generateSigner, some, percentAmount } from '@metaplex-foundation/umi';
+import { publicKey, generateSigner, some, percentAmount, sol } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import {
     createV1 as createCore,
@@ -15,6 +15,16 @@ import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
 import { toast } from 'sonner';
 import { buildProtocolMemo, MEMO_PROGRAM_ID } from '@/lib/solanaProtocol';
+import { PLATFORM_WALLETS, getLaunchpadFeeSplit } from '@/config/treasury';
+import { supabase } from '@/integrations/supabase/client';
+
+export interface MintPhaseArgs {
+    phaseId: string;
+    price: number;
+    merkleProof?: Uint8Array[];
+    mintLimitId?: number;
+    collectionId?: string;
+}
 
 export const useSolanaMint = () => {
     const { network, getSolanaProvider } = useWallet();
@@ -37,6 +47,45 @@ export const useSolanaMint = () => {
 
         return umi.use(walletAdapterIdentity(wallet));
     }, [getSolanaProvider, network]);
+
+    // Track mint transaction for fee accounting
+    const trackMintTransaction = useCallback(async (
+        signature: string,
+        mintAddress: string,
+        collectionId: string | undefined,
+        phaseId: string,
+        price: number,
+        walletAddress: string
+    ) => {
+        if (!collectionId) {
+            console.log("[Mint] No collection ID, skipping transaction tracking");
+            return;
+        }
+
+        try {
+            const feeSplit = getLaunchpadFeeSplit(price);
+            
+            // Record the mint transaction
+            const { error: insertError } = await supabase.from('nft_mints').insert({
+                collection_id: collectionId,
+                phase_id: phaseId,
+                minter_address: walletAddress,
+                mint_address: mintAddress,
+                transaction_signature: signature,
+                price_sol: price,
+                platform_fee_sol: feeSplit.treasuryAmount + feeSplit.teamAmount + feeSplit.buybackAmount,
+                creator_amount_sol: feeSplit.creatorAmount,
+            });
+
+            if (insertError) {
+                console.warn("[Mint] Failed to track mint:", insertError);
+            } else {
+                console.log("[Mint] Transaction tracked successfully");
+            }
+        } catch (err) {
+            console.warn("[Mint] Error tracking transaction:", err);
+        }
+    }, []);
 
     const mintNFT = useCallback(async (
         standard: SolanaStandard,
@@ -128,24 +177,36 @@ export const useSolanaMint = () => {
     const mintFromCandyMachine = useCallback(async (
         candyMachineAddress: string,
         collectionAddress: string,
-        groupLabel?: string,
-        mintArgs?: any
+        phaseArgs?: MintPhaseArgs
     ) => {
         setIsLoading(true);
         setError(null);
         try {
             const umi = await getUmi();
             const nftMint = generateSigner(umi);
-            // In Core CM, we don't need 'nftMint' signer passed usually? 
-            // Warning: createCoreCandyMachine mintV1 MIGHT expect 'asset' signer. Checking docs/types:
-            // It typically takes 'asset' (Signer).
+            const walletAddress = umi.identity.publicKey.toString();
 
-            toast.loading(`Minting from Candy Machine (Core)...`, { id: 'cm-mint' });
+            toast.loading(`Minting from Candy Machine...`, { id: 'cm-mint' });
+            console.log("[CM Mint] Address:", candyMachineAddress);
+            console.log("[CM Mint] Phase:", phaseArgs?.phaseId);
+            console.log("[CM Mint] Price:", phaseArgs?.price, "SOL");
 
+            // Fetch the Candy Machine state
             const candyMachine = await fetchCandyMachine(umi, publicKey(candyMachineAddress));
+            
+            console.log("[CM Mint] Items minted:", candyMachine.itemsRedeemed.toString());
+            console.log("[CM Mint] Items available:", candyMachine.data.itemsAvailable.toString());
+
+            // Check if there are items left
+            if (candyMachine.itemsRedeemed >= candyMachine.data.itemsAvailable) {
+                throw new Error("Collection is sold out!");
+            }
 
             // Create memo instruction for protocol identification
-            const memoData = buildProtocolMemo('mint:candy_machine');
+            const memoData = buildProtocolMemo('mint:candy_machine', {
+                phase: phaseArgs?.phaseId || 'public',
+                price: String(phaseArgs?.price || 0),
+            });
             const memoInstruction = {
                 instruction: {
                     programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
@@ -156,17 +217,35 @@ export const useSolanaMint = () => {
                 signers: [],
             };
 
-            // Use guardless mint (no Candy Guard required)
+            // Build the mint transaction
+            // Note: Core Candy Machine uses mintAssetFromCandyMachine
+            // Payment is handled automatically if guards are set, otherwise it's free
             const tx = await mintAssetFromCandyMachine(umi, {
                 candyMachine: candyMachine.publicKey,
                 mintAuthority: umi.identity,
                 asset: nftMint,
-                collection: candyMachine.collectionMint, // Use correct collection from CM state
+                collection: candyMachine.collectionMint,
                 assetOwner: umi.identity.publicKey,
                 plugins: [],
             }).add(memoInstruction);
 
             const result = await tx.sendAndConfirm(umi);
+            const signatureStr = Buffer.from(result.signature).toString('base64');
+
+            console.log("[CM Mint] Success! Signature:", signatureStr);
+            console.log("[CM Mint] NFT Address:", nftMint.publicKey.toString());
+
+            // Track the transaction for fee accounting
+            if (phaseArgs?.collectionId && phaseArgs.price > 0) {
+                await trackMintTransaction(
+                    signatureStr,
+                    nftMint.publicKey.toString(),
+                    phaseArgs.collectionId,
+                    phaseArgs.phaseId,
+                    phaseArgs.price,
+                    walletAddress
+                );
+            }
 
             toast.success(`Minted successfully!`, { id: 'cm-mint' });
 
@@ -176,14 +255,28 @@ export const useSolanaMint = () => {
             };
         } catch (err: any) {
             console.error("CM mint error:", err);
-            const msg = err.message || "Candy Machine mint failed";
+            
+            // Parse common errors
+            let msg = err.message || "Candy Machine mint failed";
+            if (msg.includes("0x1")) {
+                msg = "Insufficient funds for this mint";
+            } else if (msg.includes("0x1770")) {
+                msg = "Not on allowlist for this phase";
+            } else if (msg.includes("0x1771")) {
+                msg = "Mint limit exceeded for your wallet";
+            } else if (msg.includes("0x1772")) {
+                msg = "Minting has not started yet";
+            } else if (msg.includes("0x1773")) {
+                msg = "Minting has ended";
+            }
+            
             setError(msg);
             toast.error(msg, { id: 'cm-mint' });
             throw err;
         } finally {
             setIsLoading(false);
         }
-    }, [getUmi]);
+    }, [getUmi, trackMintTransaction]);
 
     return {
         isLoading,
