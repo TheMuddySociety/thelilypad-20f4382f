@@ -1621,6 +1621,53 @@ export type Database = {
           },
         ]
       }
+      nft_mints: {
+        Row: {
+          collection_id: string | null
+          created_at: string
+          creator_amount_sol: number
+          id: string
+          mint_address: string
+          minter_address: string
+          phase_id: string | null
+          platform_fee_sol: number
+          price_sol: number
+          transaction_signature: string
+        }
+        Insert: {
+          collection_id?: string | null
+          created_at?: string
+          creator_amount_sol?: number
+          id?: string
+          mint_address: string
+          minter_address: string
+          phase_id?: string | null
+          platform_fee_sol?: number
+          price_sol?: number
+          transaction_signature: string
+        }
+        Update: {
+          collection_id?: string | null
+          created_at?: string
+          creator_amount_sol?: number
+          id?: string
+          mint_address?: string
+          minter_address?: string
+          phase_id?: string | null
+          platform_fee_sol?: number
+          price_sol?: number
+          transaction_signature?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nft_mints_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nft_offers: {
         Row: {
           created_at: string
