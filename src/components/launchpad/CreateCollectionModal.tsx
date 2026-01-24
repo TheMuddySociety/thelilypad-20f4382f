@@ -157,6 +157,7 @@ interface DraftData {
   socialDiscord?: string;
   socialWebsite?: string;
   socialTelegram?: string;
+  treasuryWallet?: string;
   savedAt: number;
   step?: number;
   currentStep?: number;
@@ -209,6 +210,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
   const [description, setDescription] = useState("");
   const [totalSupply, setTotalSupply] = useState("5000");
   const [royaltyPercent, setRoyaltyPercent] = useState("5");
+  const [treasuryWallet, setTreasuryWallet] = useState<string>("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
 
@@ -396,7 +398,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       id: artwork.id,
       name: artwork.name,
       description: artwork.metadata?.description,
-      attributes: artwork.metadata?.traits?.map(t => ({ trait_type: t.trait_type, value: t.value })),
+      attributes: artwork.metadata?.traits?.map(t => ({ trait_type: t.trait_type, value: t.value })) || [],
       imageUrl: artworkUrlMap.get(artwork.id) || artwork.preview,
     }));
 
@@ -445,6 +447,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
           socialDiscord,
           socialWebsite,
           socialTelegram,
+          treasuryWallet,
           collectionType,
           blockchain,
           solanaStandard,
@@ -499,6 +502,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
         socialDiscord,
         socialWebsite,
         socialTelegram,
+        treasuryWallet,
         collectionType,
         blockchain,
         solanaStandard,
@@ -551,7 +555,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       }
       return false;
     }
-  }, [name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, imagePreview, bannerPreview, oneOfOneArtworks, editionArtwork, editionType, musicTracks, socialTwitter, socialDiscord, socialWebsite, socialTelegram, collectionType, blockchain, solanaStandard, uploadDraftImages]);
+  }, [name, symbol, description, totalSupply, royaltyPercent, layers, traitRules, phases, currentStep, imagePreview, bannerPreview, oneOfOneArtworks, editionArtwork, editionType, musicTracks, socialTwitter, socialDiscord, socialWebsite, socialTelegram, treasuryWallet, collectionType, blockchain, solanaStandard, uploadDraftImages]);
 
   // Manual save handler
   const handleManualSave = async () => {
@@ -620,6 +624,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
         setSocialDiscord(draft.socialDiscord || "");
         setSocialWebsite(draft.socialWebsite || "");
         setSocialTelegram(draft.socialTelegram || "");
+        setTreasuryWallet(draft.treasuryWallet || "");
         // Restore collection type
         setCollectionType(draft.collectionType || "generative");
         // blockchain is locked to solana
@@ -1097,7 +1102,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                 sellerFeeBasisPoints: parseFloat(royaltyPercent) * 100,
                 creators: [{ address: address, share: 100 }]
               },
-              solanaStandard
+              solanaStandard,
+              treasuryWallet || undefined
             );
             candyMachineAddress = cmResult.address;
           }
@@ -1161,6 +1167,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
           social_discord: socialDiscord || null,
           social_website: socialWebsite || null,
           social_telegram: socialTelegram || null,
+          treasury_wallet: treasuryWallet || null,
         }])
         .select()
         .single();
@@ -1237,6 +1244,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
       setSocialDiscord("");
       setSocialWebsite("");
       setSocialTelegram("");
+      setTreasuryWallet("");
       setCollectionType("generative");
       setOneOfOneArtworks([]);
       setMusicTracks([]);
@@ -1857,6 +1865,18 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       placeholder="https://t.me/yourcollection"
                       value={socialTelegram}
                       onChange={(e) => setSocialTelegram(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="treasuryWallet" className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <DollarSign className="w-3 h-3 text-green-500" />
+                      Treasury Wallet (Optional)
+                    </Label>
+                    <Input
+                      id="treasuryWallet"
+                      placeholder="Enter SOL wallet address for proceeds"
+                      value={treasuryWallet}
+                      onChange={(e) => setTreasuryWallet(e.target.value)}
                     />
                   </div>
                 </div>
