@@ -66,7 +66,8 @@ export const useSolanaMint = () => {
             const feeSplit = getLaunchpadFeeSplit(price);
 
             // Record the mint transaction
-            const { error: insertError } = await supabase.from('nft_mints').insert({
+            // Note: Using type assertion since nft_mints table may not be in generated types yet
+            const { error: insertError } = await (supabase as any).from('nft_mints').insert({
                 collection_id: collectionId,
                 phase_id: phaseId,
                 minter_address: walletAddress,
@@ -177,8 +178,13 @@ export const useSolanaMint = () => {
     const mintFromCandyMachine = useCallback(async (
         candyMachineAddress: string,
         collectionAddress: string,
-        phaseArgs?: MintPhaseArgs
+        phaseIdOrArgs?: string | MintPhaseArgs,
+        legacyMintArgs?: any
     ) => {
+        // Support both old signature (string, string, string, object) and new (string, string, MintPhaseArgs)
+        const phaseArgs: MintPhaseArgs | undefined = typeof phaseIdOrArgs === 'string' 
+            ? { phaseId: phaseIdOrArgs, price: legacyMintArgs?.price || 0, collectionId: legacyMintArgs?.collectionId }
+            : phaseIdOrArgs;
         setIsLoading(true);
         setError(null);
         try {

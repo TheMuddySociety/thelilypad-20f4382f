@@ -139,23 +139,41 @@ const verifyAllowlist = (address: string, allowlistEntries: AllowlistEntry[]): b
 };
 
 // Check if a phase is currently live based on dates OR manual isActive flag
-const isPhaseCurrentlyLive = (phase: Phase | null): boolean => {
+const isPhaseCurrentlyLive = (phase: Phase | null, collectionStatus?: string, hasContract?: boolean): boolean => {
   if (!phase) return false;
 
   // If manually marked active, it's live
   if (phase.isActive) return true;
 
-  // Otherwise check date range
+  // For deployed collections with "live" or "upcoming" status, default to allowing minting
+  // if no explicit isActive=false and no restrictive dates are set
+  const isDeployedAndActive = hasContract && (collectionStatus === 'live' || collectionStatus === 'upcoming');
+
+  // Parse dates
   const now = new Date();
   const startTime = phase.startTime ? new Date(phase.startTime) : null;
   const endTime = phase.endTime ? new Date(phase.endTime) : null;
+
+  // Validate dates - if end is before start, treat as misconfigured and ignore dates
+  const datesAreValid = !startTime || !endTime || endTime > startTime;
+  
+  if (!datesAreValid) {
+    // Dates are misconfigured (end before start), fall back to deployment status
+    return isDeployedAndActive;
+  }
 
   // If start time is set and we're past it
   const hasStarted = !startTime || now >= startTime;
   // If end time is set and we haven't passed it
   const hasNotEnded = !endTime || now <= endTime;
 
-  return hasStarted && hasNotEnded;
+  // If dates are properly set, use them
+  if (startTime || endTime) {
+    return hasStarted && hasNotEnded;
+  }
+
+  // No dates set - use deployment status
+  return isDeployedAndActive;
 };
 
 export default function CollectionDetail() {
@@ -582,7 +600,7 @@ export default function CollectionDetail() {
     }
 
     // Prevent sending transactions when the phase is not active (common cause of "mint failed")
-    if (!isPhaseCurrentlyLive(activePhase)) {
+    if (!isPhaseCurrentlyLive(activePhase, collection?.status, !!collection?.contract_address)) {
       toast.error("Mint is not active", {
         description: "This phase is currently inactive. Wait for it to start, or ask the creator to activate the mint phase.",
       });
@@ -1655,7 +1673,7 @@ export default function CollectionDetail() {
                     isMinting ||
                     isSwitchingNetwork ||
                     !activePhase ||
-                    !isPhaseCurrentlyLive(activePhase) ||
+                    !isPhaseCurrentlyLive(activePhase, collection?.status, !!collection?.contract_address) ||
                     isSoldOut ||
                     exceedsSupply ||
                     (activePhase.minted || 0) >= (activePhase.supply || 0) ||
@@ -1678,7 +1696,7 @@ export default function CollectionDetail() {
                     </>
                   ) : !activePhase ? (
                     "No Phase Available"
-                  ) : !isPhaseCurrentlyLive(activePhase) ? (
+                  ) : !isPhaseCurrentlyLive(activePhase, collection?.status, !!collection?.contract_address) ? (
                     <>
                       <AlertTriangle className="w-4 h-4" />
                       Mint Not Active
