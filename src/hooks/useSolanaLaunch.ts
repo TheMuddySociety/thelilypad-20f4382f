@@ -1,25 +1,25 @@
 import { useState, useCallback } from 'react';
-import { publicKey, generateSigner, some, percentAmount, dateTime, sol, Signer, PublicKey, transactionBuilder, none } from '@metaplex-foundation/umi';
+import { 
+    publicKey, 
+    generateSigner, 
+    some, 
+    sol, 
+    Signer, 
+    transactionBuilder, 
+    none,
+    dateTime
+} from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import {
     createCollectionV1 as createCoreCollection,
 } from '@metaplex-foundation/mpl-core';
 import {
-    createNft,
-    TokenStandard,
-    findMetadataPda,
-    fetchMetadata,
-} from '@metaplex-foundation/mpl-token-metadata';
-import {
-    create,
-    createCandyGuard,
-    GuardGroupArgs,
-    DefaultGuardSetArgs,
-} from '@metaplex-foundation/mpl-candy-machine';
-import {
     createCandyMachine as createCoreCandyMachine,
     fetchCandyMachine,
     addConfigLines,
+    createCandyGuard as createCoreCandyGuard,
+    wrap,
+    findCandyGuardPda,
     DefaultGuardSetArgs as CoreDefaultGuardSetArgs,
     GuardGroupArgs as CoreGuardGroupArgs,
 } from '@metaplex-foundation/mpl-core-candy-machine';
@@ -27,7 +27,7 @@ import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
 import { toast } from 'sonner';
 import { buildProtocolMemo, MEMO_PROGRAM_ID } from '@/lib/solanaProtocol';
-import { PLATFORM_WALLETS } from '@/config/treasury';
+import { PLATFORM_WALLETS, getLaunchpadFeeSplit } from '@/config/treasury';
 
 // Helper to wait for transaction confirmation
 const waitForConfirmation = async (umi: any, signature: Uint8Array, maxRetries = 30): Promise<boolean> => {
@@ -44,6 +44,10 @@ const waitForConfirmation = async (umi: any, signature: Uint8Array, maxRetries =
     }
     return false;
 };
+
+// Clamp value to prevent serialization overflow
+const clampU32 = (value: number): number => Math.min(value, 4294967295);
+const clampU16 = (value: number): number => Math.min(value, 65535);
 
 export interface LaunchpadPhase {
     id: string; // group label
@@ -70,6 +74,165 @@ interface CreateCollectionParams {
 
 // Store collection signer for Candy Machine creation
 let lastCollectionSigner: Signer | null = null;
+
+/**
+ * Build guard configuration for a single phase
+ */
+function buildGuardSetForPhase(
+    phase: LaunchpadPhase,
+    treasuryWallet: string
+): Partial<CoreDefaultGuardSetArgs> {
+    const guards: Partial<CoreDefaultGuardSetArgs> = {};
+
+    // SOL Payment guard - pricing
+    if (phase.price > 0) {
+        guards.solPayment = some({
+            lamports: sol(phase.price),
+            destination: publicKey(treasuryWallet),
+        });
+    }
+
+    // Start Date guard
+    if (phase.startTime) {
+        guards.startDate = some({
+            date: dateTime(phase.startTime),
+        });
+    }
+
+    // End Date guard
+    if (phase.endTime) {
+        guards.endDate = some({
+            date: dateTime(phase.endTime),
+        });
+    }
+
+    // Mint Limit guard - per wallet limit
+    if (phase.maxPerWallet && phase.maxPerWallet > 0) {
+        // Each phase needs a unique ID for mint limit tracking
+        const limitId = parseInt(phase.id.replace(/\D/g, '') || '1', 10) % 256;
+        guards.mintLimit = some({
+            id: limitId,
+            limit: clampU16(phase.maxPerWallet),
+        });
+    }
+
+    // Allowlist guard - merkle root for whitelist
+    if (phase.merkleRoot) {
+        // Convert hex string to Uint8Array (32 bytes)
+        const rootHex = phase.merkleRoot.startsWith('0x') 
+            ? phase.merkleRoot.slice(2) 
+            : phase.merkleRoot;
+        const merkleRootBytes = new Uint8Array(
+            rootHex.match(/.{1,2}/g)?.map((byte: string) => parseInt(byte, 16)) || []
+        );
+        
+        if (merkleRootBytes.length === 32) {
+            guards.allowList = some({
+                merkleRoot: merkleRootBytes,
+            });
+        }
+    }
+
+    return guards;
+}
+
+/**
+ * Build guard groups from launchpad phases
+ */
+function buildGuardGroups(
+    phases: LaunchpadPhase[],
+    treasuryWallet: string
+): CoreGuardGroupArgs<CoreDefaultGuardSetArgs>[] {
+    return phases.map((phase) => {
+        const guards = buildGuardSetForPhase(phase, treasuryWallet);
+        
+        return {
+            label: phase.id,
+            guards: {
+                // Set all guards to none by default, then override with phase-specific guards
+                botTax: none(),
+                solPayment: guards.solPayment || none(),
+                tokenPayment: none(),
+                startDate: guards.startDate || none(),
+                thirdPartySigner: none(),
+                tokenGate: none(),
+                gatekeeper: none(),
+                endDate: guards.endDate || none(),
+                allowList: guards.allowList || none(),
+                mintLimit: guards.mintLimit || none(),
+                nftPayment: none(),
+                redeemedAmount: none(),
+                addressGate: none(),
+                nftGate: none(),
+                nftBurn: none(),
+                tokenBurn: none(),
+                freezeSolPayment: none(),
+                freezeTokenPayment: none(),
+                programGate: none(),
+                allocation: none(),
+                token2022Payment: none(),
+                solFixedFee: none(),
+                nftMintLimit: none(),
+                edition: none(),
+                assetPayment: none(),
+                assetBurn: none(),
+                assetMintLimit: none(),
+                assetBurnMulti: none(),
+                assetPaymentMulti: none(),
+                assetGate: none(),
+                vanityMint: none(),
+            },
+        };
+    });
+}
+
+/**
+ * Build default guards (applied when no group is specified)
+ */
+function buildDefaultGuards(
+    defaultPrice: number,
+    treasuryWallet: string
+): CoreDefaultGuardSetArgs {
+    return {
+        botTax: some({
+            lamports: sol(0.01), // 0.01 SOL bot tax
+            lastInstruction: true,
+        }),
+        solPayment: defaultPrice > 0 ? some({
+            lamports: sol(defaultPrice),
+            destination: publicKey(treasuryWallet),
+        }) : none(),
+        tokenPayment: none(),
+        startDate: none(),
+        thirdPartySigner: none(),
+        tokenGate: none(),
+        gatekeeper: none(),
+        endDate: none(),
+        allowList: none(),
+        mintLimit: none(),
+        nftPayment: none(),
+        redeemedAmount: none(),
+        addressGate: none(),
+        nftGate: none(),
+        nftBurn: none(),
+        tokenBurn: none(),
+        freezeSolPayment: none(),
+        freezeTokenPayment: none(),
+        programGate: none(),
+        allocation: none(),
+        token2022Payment: none(),
+        solFixedFee: none(),
+        nftMintLimit: none(),
+        edition: none(),
+        assetPayment: none(),
+        assetBurn: none(),
+        assetMintLimit: none(),
+        assetBurnMulti: none(),
+        assetPaymentMulti: none(),
+        assetGate: none(),
+        vanityMint: none(),
+    };
+}
 
 export const useSolanaLaunch = () => {
     const { network, getSolanaProvider } = useWallet();
@@ -122,8 +285,7 @@ export const useSolanaLaunch = () => {
             // Create memo instruction
             const memoData = buildProtocolMemo('launchpad:deploy_collection', { standard: 'core' });
 
-            // Create Collection V1 (Core) - simplified without plugins for now
-            // Royalties can be added via updateCollectionV1 after creation if needed
+            // Create Collection V1 (Core)
             await createCoreCollection(umi, {
                 collection: collectionSigner,
                 name: metadata.name,
@@ -146,7 +308,7 @@ export const useSolanaLaunch = () => {
 
             toast.success(`Core Collection Deployed!`, { id: 'sol-deploy' });
             return {
-                signature: new Uint8Array(0), // Placeholder, strictly properly handled above
+                signature: new Uint8Array(0),
                 address: collectionSigner.publicKey.toString(),
                 collectionAddress: collectionSigner.publicKey.toString(),
                 collectionSigner: collectionSigner,
@@ -180,19 +342,28 @@ export const useSolanaLaunch = () => {
         try {
             const umi = await getUmi();
             const candyMachine = generateSigner(umi);
+            const candyGuard = generateSigner(umi);
             const collectionMint = publicKey(collectionAddress);
+
+            // Determine treasury wallet for payment guards
+            const treasuryWallet = PLATFORM_WALLETS.treasury;
+            
+            // Calculate primary price from phases
+            const primaryPhase = phases.find(p => p.price > 0) || phases[0];
+            const primaryPrice = primaryPhase?.price || 0;
 
             toast.loading(`Creating Core Candy Machine...`, { id: 'cm-create' });
             console.log("[CM] Creating Core Candy Machine for:", collectionAddress);
             console.log("[CM] Items available:", itemsAvailable);
             console.log("[CM] Phases:", phases);
+            console.log("[CM] Treasury wallet:", treasuryWallet);
 
             // Step 1: Create the Core Candy Machine
             const cmBuilder = createCoreCandyMachine(umi, {
                 candyMachine,
                 collection: collectionMint,
                 collectionUpdateAuthority: umi.identity,
-                itemsAvailable: BigInt(Math.min(itemsAvailable, 4294967295)),
+                itemsAvailable: BigInt(clampU32(itemsAvailable)),
                 configLineSettings: some({
                     prefixName: "",
                     nameLength: 32,
@@ -221,29 +392,60 @@ export const useSolanaLaunch = () => {
             await (await cmBuilder).add(memoInstruction).sendAndConfirm(umi);
 
             console.log("[CM] Candy Machine created:", candyMachine.publicKey.toString());
-            toast.loading(`Candy Machine created! Setting up guards...`, { id: 'cm-create' });
+            toast.loading(`Candy Machine created! Creating guards...`, { id: 'cm-create' });
 
-            // Step 2: Build guard groups from phases
-            // Note: Core Candy Machine has guards built into the CM itself via guards field
-            // For now, we'll track the CM address and handle guards during minting
-            // Full guard wrapping requires mpl-core-candy-machine guard support
-
-            // Determine the primary price from phases (for display/validation purposes)
-            const primaryPhase = phases.find(p => p.price > 0) || phases[0];
-            const primaryPrice = primaryPhase?.price || 0;
-
-            console.log("[CM] Primary phase price:", primaryPrice, "SOL");
-            console.log("[CM] Treasury wallet:", PLATFORM_WALLETS.treasury);
-
-            // Store phase configurations for use during minting
-            // The frontend will pass phase info when calling mint
+            // Step 2: Create Candy Guard with phase-based groups
+            console.log("[CM] Building guard configuration...");
             
-            toast.success(`Candy Machine Ready!`, { id: 'cm-create' });
+            // Build default guards (fallback when no group specified)
+            const defaultGuards = buildDefaultGuards(primaryPrice, treasuryWallet);
+            
+            // Build guard groups from phases
+            const guardGroups = buildGuardGroups(phases, treasuryWallet);
+            
+            console.log("[CM] Default guards:", defaultGuards);
+            console.log("[CM] Guard groups:", guardGroups.length, "phases");
+
+            // Create the Candy Guard
+            // The base signer is used to derive the candyGuard PDA
+            const createGuardBuilder = createCoreCandyGuard(umi, {
+                base: candyGuard,
+                guards: defaultGuards,
+                groups: guardGroups.length > 0 ? guardGroups : undefined,
+            });
+
+            await createGuardBuilder.sendAndConfirm(umi);
+            
+            // Derive the Candy Guard PDA from the base signer
+            const candyGuardPda = findCandyGuardPda(umi, { base: candyGuard.publicKey });
+            console.log("[CM] Candy Guard created at PDA:", candyGuardPda[0].toString());
+            
+            toast.loading(`Guards created! Wrapping Candy Machine...`, { id: 'cm-create' });
+
+            // Step 3: Wrap the Candy Machine with the Candy Guard
+            // This links them together so guards are enforced during minting
+            const wrapBuilder = wrap(umi, {
+                candyGuard: candyGuardPda,
+                candyMachine: candyMachine.publicKey,
+                candyMachineAuthority: umi.identity,
+            });
+
+            await wrapBuilder.sendAndConfirm(umi);
+            console.log("[CM] Candy Machine wrapped with Guard successfully!");
+
+            // Log fee distribution info
+            const feeSplit = getLaunchpadFeeSplit(primaryPrice);
+            console.log("[CM] Fee distribution for price", primaryPrice, "SOL:");
+            console.log("  - Creator:", feeSplit.creatorAmount, "SOL");
+            console.log("  - Treasury:", feeSplit.treasuryAmount, "SOL");
+            console.log("  - Team:", feeSplit.teamAmount, "SOL");
+            console.log("  - Buyback:", feeSplit.buybackAmount, "SOL");
+            
+            toast.success(`Candy Machine Ready with Guards!`, { id: 'cm-create' });
             
             return { 
                 address: candyMachine.publicKey.toString(),
-                // Guard address would be separate if using wrapped guards
-                // For Core CM, guards are part of the CM config
+                candyGuardAddress: candyGuardPda[0].toString(),
             };
 
         } catch (err: any) {
@@ -260,8 +462,6 @@ export const useSolanaLaunch = () => {
 
     // Simplified wrapper
     const createCollection = useCallback(async (params: CreateCollectionParams) => {
-        // Force Metadata defaults for Core compatibility if not provided
-        // We need creators passed in params in future refactor, for now default to current user
         const umi = await getUmi();
         const currentUser = umi.identity.publicKey.toString();
 
@@ -270,7 +470,7 @@ export const useSolanaLaunch = () => {
             symbol: params.symbol,
             uri: params.uri || params.imageUri || '',
             sellerFeeBasisPoints: params.sellerFeeBasisPoints || 0,
-            creators: [{ address: currentUser, share: 100 }] // Default to current user
+            creators: [{ address: currentUser, share: 100 }]
         });
     }, [deploySolanaCollection, getUmi]);
 
