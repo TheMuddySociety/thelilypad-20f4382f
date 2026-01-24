@@ -118,7 +118,7 @@ export const useCreatorCurrency = (userId?: string) => {
 };
 
 // Helper hook for shop item currency display
-export const useCurrencyDisplay = (currency: CurrencyType, priceMonad?: number, priceSol?: number) => {
+export const useCurrencyDisplay = (currency: CurrencyType, priceSol?: number) => {
   const getDisplayPrice = () => {
     // Always use SOL now
     return { amount: priceSol || priceMonad || 0, symbol: "SOL", icon: "◎" };

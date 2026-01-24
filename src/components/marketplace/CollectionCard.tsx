@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
+
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { Rocket, Clock, CheckCircle, Sparkles, TrendingUp, Flame, Ban, Image as ImageIcon } from "lucide-react";
@@ -26,37 +26,37 @@ interface CollectionCardProps {
   hotMintCount?: number;
 }
 
-export const CollectionCard: React.FC<CollectionCardProps> = ({ 
-  collection, 
-  index, 
-  hotMintCount 
+export const CollectionCard: React.FC<CollectionCardProps> = ({
+  collection,
+  index,
+  hotMintCount
 }) => {
   const navigate = useNavigate();
   const { isInProgram } = useBuybackProgram();
-  
+
   const StatusIcon = statusIcons[collection.status as keyof typeof statusIcons] || Sparkles;
   const isNew = isCollectionNew(collection);
   const isHot = !!hotMintCount;
   const isSoldOut = collection.total_supply > 0 && collection.minted >= collection.total_supply;
   const inBuybackProgram = isInProgram(collection.id);
-  
+
   const showSoldOutBadge = isSoldOut;
   const showHotBadge = isHot && !isSoldOut;
   const showNewBadge = isNew && !isHot && !isSoldOut;
   const hasSpecialBadge = showSoldOutBadge || showHotBadge || showNewBadge;
-  
-  const ringClass = showSoldOutBadge 
-    ? 'ring-2 ring-gray-500/50' 
-    : showHotBadge 
-      ? 'ring-2 ring-pink-500/50' 
-      : isNew 
-        ? 'ring-2 ring-orange-500/50' 
-        : inBuybackProgram 
-          ? 'ring-2 ring-primary/50' 
+
+  const ringClass = showSoldOutBadge
+    ? 'ring-2 ring-gray-500/50'
+    : showHotBadge
+      ? 'ring-2 ring-pink-500/50'
+      : isNew
+        ? 'ring-2 ring-orange-500/50'
+        : inBuybackProgram
+          ? 'ring-2 ring-primary/50'
           : '';
 
   return (
-    <Card 
+    <Card
       className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group animate-fade-in ${ringClass}`}
       style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'backwards' }}
       onClick={() => navigate(`/launchpad/${collection.id}`)}
@@ -74,7 +74,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
             <Rocket className="w-12 h-12 text-muted-foreground" />
           </div>
         )}
-        
+
         {/* Sold Out badge */}
         {showSoldOutBadge && (
           <Badge className="absolute top-3 left-3 bg-gradient-to-r from-gray-600 to-gray-800 text-white border-0 shadow-lg">
@@ -82,7 +82,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
             Sold Out
           </Badge>
         )}
-        
+
         {/* Hot badge */}
         {showHotBadge && (
           <Badge className="absolute top-3 left-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0 animate-pulse shadow-lg">
@@ -90,7 +90,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
             Hot 🔥 {hotMintCount} mints
           </Badge>
         )}
-        
+
         {/* New badge */}
         {showNewBadge && (
           <Badge className="absolute top-3 left-3 bg-gradient-to-r from-orange-500 to-red-500 text-white border-0 animate-pulse shadow-lg">
@@ -98,38 +98,38 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
             New
           </Badge>
         )}
-        
+
         {/* LilyPad Verification */}
         {collection.contract_address && (
           <div className={`absolute ${hasSpecialBadge ? 'bottom-3 left-3' : 'top-3 left-3'}`}>
-            <LilyPadVerificationBadge contractAddress={collection.contract_address} size="sm" />
+
           </div>
         )}
-        
+
         {/* Buyback Program Badge */}
         {inBuybackProgram && (
           <div className="absolute bottom-3 right-3">
             <BuybackProgramBadge className="shadow-lg" />
           </div>
         )}
-        
+
         {/* Status badge */}
-        <Badge 
-          variant="outline" 
+        <Badge
+          variant="outline"
           className={`absolute top-3 right-3 ${statusColors[collection.status as keyof typeof statusColors] || statusColors.upcoming}`}
         >
           <StatusIcon className="w-3 h-3 mr-1" />
           {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
         </Badge>
       </div>
-      
+
       <CardHeader className="pb-2">
         <CardTitle className="text-lg truncate">{collection.name}</CardTitle>
         <CardDescription>
           by {collection.creator_address.slice(0, 6)}...{collection.creator_address.slice(-4)}
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent>
         <div className="flex items-center justify-between text-sm mb-2">
           <span className="text-muted-foreground">Price</span>
@@ -140,7 +140,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
           <span className="font-medium">{collection.minted} / {collection.total_supply}</span>
         </div>
         <div className="w-full bg-muted rounded-full h-1.5 mt-3">
-          <div 
+          <div
             className="bg-primary h-1.5 rounded-full transition-all"
             style={{ width: `${collection.total_supply > 0 ? (collection.minted / collection.total_supply) * 100 : 0}%` }}
           />

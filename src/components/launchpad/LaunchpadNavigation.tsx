@@ -24,8 +24,7 @@ import {
 } from "lucide-react";
 
 interface LaunchpadNavigationProps {
-  selectedChain: "solana" | "monad";
-  onChainChange: (chain: "solana" | "monad") => void;
+  onSelectStandard?: (standard: string) => void;
   onSelectStandard?: (standard: string) => void;
   className?: string;
 }
@@ -62,30 +61,7 @@ const solanaFeatures = [
   },
 ];
 
-// Monad/EVM-specific features
-const monadFeatures = [
-  {
-    title: "LilyPad NFT",
-    href: "#lilypad-nft",
-    description: "Full-featured ERC721 with phases, allowlists, and royalties.",
-    icon: Rocket,
-    comingSoon: true,
-  },
-  {
-    title: "Simple NFT",
-    href: "#simple-nft",
-    description: "Minimal ERC721 implementation for quick deployments.",
-    icon: Zap,
-    comingSoon: true,
-  },
-  {
-    title: "Upgradeable NFT",
-    href: "#upgradeable-nft",
-    description: "UUPS proxy pattern for future contract upgrades.",
-    icon: Shield,
-    comingSoon: true,
-  },
-];
+
 
 // Collection types available
 const collectionTypes = [
@@ -115,7 +91,7 @@ const collectionTypes = [
   },
 ];
 
-export function LaunchpadNavigation({ selectedChain, onChainChange, onSelectStandard, className }: LaunchpadNavigationProps) {
+export function LaunchpadNavigation({ onSelectStandard, className }: LaunchpadNavigationProps) {
   const location = useLocation();
 
   const handleStandardClick = (e: React.MouseEvent, id: string) => {
@@ -139,11 +115,9 @@ export function LaunchpadNavigation({ selectedChain, onChainChange, onSelectStan
             <NavigationMenuTrigger
               className={cn(
                 "gap-2 h-10 px-4 text-sm font-medium",
-                selectedChain === "solana"
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "bg-secondary hover:bg-secondary/80"
+                "bg-primary text-primary-foreground hover:bg-primary/90"
               )}
-              onClick={() => onChainChange("solana")}
+              onClick={() => { }}
             >
               <Globe className="w-4 h-4" />
               <span className="hidden sm:inline">Solana Contracts</span>
@@ -169,57 +143,7 @@ export function LaunchpadNavigation({ selectedChain, onChainChange, onSelectStan
             </NavigationMenuContent>
           </NavigationMenuItem>
 
-          {/* Monad/EVM Contracts Menu */}
-          <NavigationMenuItem>
-            <NavigationMenuTrigger
-              className={cn(
-                "gap-2 h-10 px-4 text-sm font-medium",
-                selectedChain === "monad"
-                  ? "bg-purple-600 text-white hover:bg-purple-700"
-                  : "bg-secondary hover:bg-secondary/80"
-              )}
-              onClick={() => onChainChange("monad")}
-            >
-              <Zap className="w-4 h-4" />
-              <span className="hidden sm:inline">Monad Contracts</span>
-              <span className="sm:hidden">Monad</span>
-              <Badge variant="outline" className="ml-1 h-5 text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30">
-                Soon
-              </Badge>
-            </NavigationMenuTrigger>
-            <NavigationMenuContent>
-              <ul className="grid w-[350px] gap-3 p-4 sm:w-[450px] md:w-[550px] md:grid-cols-2 bg-popover border border-border rounded-md shadow-xl z-50">
-                <li className="row-span-3">
-                  <div className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-purple-500/20 to-purple-500/5 p-6 no-underline outline-none border border-purple-500/20">
-                    <Zap className="h-8 w-8 text-purple-400" />
-                    <div className="mb-2 mt-4 text-lg font-medium text-purple-400">
-                      Monad EVM
-                    </div>
-                    <p className="text-sm leading-tight text-muted-foreground">
-                      High-performance EVM-compatible blockchain. Deploy Solidity smart contracts.
-                    </p>
-                    <Badge
-                      variant="outline"
-                      className="mt-4 w-fit bg-amber-500/10 text-amber-400 border-amber-500/30"
-                    >
-                      Coming Q2 2026
-                    </Badge>
-                  </div>
-                </li>
-                {monadFeatures.map((feature) => (
-                  <ListItem
-                    key={feature.title}
-                    title={feature.title}
-                    href={feature.href}
-                    icon={feature.icon}
-                    disabled={feature.comingSoon}
-                  >
-                    {feature.description}
-                  </ListItem>
-                ))}
-              </ul>
-            </NavigationMenuContent>
-          </NavigationMenuItem>
+
 
           {/* Collection Types Menu */}
           <NavigationMenuItem>

@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
+
 import { Tag, ShoppingCart, Shield, Image as ImageIcon } from "lucide-react";
 import { MarketplaceCardSkeleton } from "@/components/LoadingSkeletons";
 import { EmptyState } from "@/components/common";
@@ -54,11 +54,11 @@ export const ListingsGrid: React.FC<ListingsGridProps> = ({
           </Badge>
         )}
       </div>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {listings.map((listing, index) => (
-          <Card 
-            key={listing.id} 
+          <Card
+            key={listing.id}
             className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group animate-fade-in"
             style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'backwards' }}
             onClick={() => onSelectListing(listing)}
@@ -76,23 +76,18 @@ export const ListingsGrid: React.FC<ListingsGridProps> = ({
                   <ImageIcon className="w-12 h-12 text-muted-foreground" />
                 </div>
               )}
-              
-              <Badge 
-                variant="outline" 
+
+              <Badge
+                variant="outline"
                 className="absolute top-3 right-3 bg-green-500/20 text-green-400 border-green-500/30"
               >
                 <Tag className="w-3 h-3 mr-1" />
                 For Sale
               </Badge>
-              
-              <div className="absolute top-3 left-3">
-                <LilyPadVerificationBadge 
-                  contractAddress={listing.nft.collection?.contract_address} 
-                  size="sm"
-                />
-              </div>
+
+
             </div>
-            
+
             <CardHeader className="pb-2">
               <CardTitle className="text-lg truncate">
                 {listing.nft.name || `Token #${listing.nft.token_id}`}
@@ -101,7 +96,7 @@ export const ListingsGrid: React.FC<ListingsGridProps> = ({
                 <CardDescription>{listing.nft.collection.name}</CardDescription>
               )}
             </CardHeader>
-            
+
             <CardContent>
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-muted-foreground">Price</span>

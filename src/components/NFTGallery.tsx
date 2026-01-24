@@ -39,8 +39,8 @@ interface NFTGalleryProps {
   showFilters?: boolean;
 }
 
-export function NFTGallery({ 
-  collectionId, 
+export function NFTGallery({
+  collectionId,
   collectionName,
   collectionImage,
   unrevealedImage,
@@ -66,7 +66,7 @@ export function NFTGallery({
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentUserId(session?.user?.id ?? null);
     });
-    
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setCurrentUserId(session?.user?.id ?? null);
     });
@@ -174,7 +174,7 @@ export function NFTGallery({
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(nft => 
+      result = result.filter(nft =>
         nft.name?.toLowerCase().includes(query) ||
         nft.token_id.toString().includes(query)
       );
@@ -196,7 +196,7 @@ export function NFTGallery({
     // Sort
     switch (sortBy) {
       case "minted_at":
-        result = [...result].sort((a, b) => 
+        result = [...result].sort((a, b) =>
           new Date(b.minted_at).getTime() - new Date(a.minted_at).getTime()
         );
         break;
@@ -216,18 +216,18 @@ export function NFTGallery({
   };
 
   const explorerUrl = (hash: string) => {
-    return `https://testnet.monadexplorer.com/tx/${hash}`;
+    return `https://explorer.solana.com/tx/${hash}`;
   };
 
-  const tokenExplorerUrl = (tokenId: number) => {
+  const tokenExplorerUrl = (tokenId: number | string) => {
     if (!contractAddress) return null;
-    return `https://testnet.monadexplorer.com/token/${contractAddress}?a=${tokenId}`;
+    return `https://explorer.solana.com/address/${contractAddress}`;
   };
 
   const getRarityBadge = (score: number) => {
     const maxScore = nfts.length > 0 ? nfts[0]?.attributes?.length || 1 : 1;
     const percentage = (score / maxScore) * 100;
-    
+
     if (percentage >= 80) return { label: "Legendary", color: "text-yellow-500 border-yellow-500/30 bg-yellow-500/10" };
     if (percentage >= 60) return { label: "Epic", color: "text-purple-500 border-purple-500/30 bg-purple-500/10" };
     if (percentage >= 40) return { label: "Rare", color: "text-blue-500 border-blue-500/30 bg-blue-500/10" };
@@ -257,9 +257,9 @@ export function NFTGallery({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">NFT Gallery</CardTitle>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-8 w-8"
             onClick={handleRefresh}
             disabled={isRefreshing}
@@ -322,7 +322,7 @@ export function NFTGallery({
                       )}
                     </Button>
                   )}
-                  
+
                   {/* View Toggle */}
                   <div className="flex items-center border rounded-lg p-0.5">
                     <Button
@@ -343,9 +343,9 @@ export function NFTGallery({
                     </Button>
                   </div>
 
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-8 w-8"
                     onClick={handleRefresh}
                     disabled={isRefreshing}
@@ -406,8 +406,8 @@ export function NFTGallery({
                 <div className="text-center py-12">
                   <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No NFTs match your filters</p>
-                  <Button 
-                    variant="link" 
+                  <Button
+                    variant="link"
                     onClick={() => {
                       setSearchQuery("");
                       handleClearAllTraits();
@@ -460,7 +460,7 @@ export function NFTGallery({
                         )}
                         {/* Rarity Badge - only show if revealed */}
                         {nft.is_revealed && nft.attributes.length > 0 && (
-                          <Badge 
+                          <Badge
                             variant="outline"
                             className={`absolute top-2 right-2 text-[10px] ${rarity.color}`}
                           >
@@ -564,8 +564,8 @@ export function NFTGallery({
                       Token #{selectedNft.token_id}
                     </Badge>
                     {selectedNft.attributes.length > 0 && (
-                      <Badge 
-                        variant="outline" 
+                      <Badge
+                        variant="outline"
                         className={`mb-2 ${getRarityBadge((selectedNft as any).rarityScore || 0).color}`}
                       >
                         {getRarityBadge((selectedNft as any).rarityScore || 0).label}
@@ -596,7 +596,7 @@ export function NFTGallery({
                       <h4 className="font-medium mb-2">Attributes</h4>
                       <div className="grid grid-cols-2 gap-2">
                         {selectedNft.attributes.map((attr, i) => (
-                          <div 
+                          <div
                             key={i}
                             className="bg-muted/50 rounded-lg p-2 text-center cursor-pointer hover:bg-muted transition-colors"
                             onClick={(e) => {

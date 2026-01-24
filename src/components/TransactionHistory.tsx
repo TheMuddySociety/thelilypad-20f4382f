@@ -99,7 +99,7 @@ export function TransactionHistory({ userId, collectionId, limit = 10 }: Transac
   };
 
   const explorerUrl = (hash: string) => {
-    return `https://testnet.monadexplorer.com/tx/${hash}`;
+    return `https://explorer.solana.com/tx/${hash}`;
   };
 
   if (isLoading) {
@@ -168,7 +168,7 @@ export function TransactionHistory({ userId, collectionId, limit = 10 }: Transac
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <div className="font-medium">
-                  {tx.price_paid > 0 ? `${tx.price_paid} MON` : "Free"}
+                  {tx.price_paid > 0 ? `${tx.price_paid} SOL` : "Free"}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(tx.created_at), { addSuffix: true })}

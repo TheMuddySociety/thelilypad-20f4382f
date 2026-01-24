@@ -10,6 +10,7 @@ import {
 import {
     fetchCandyMachine,
     mintAssetFromCandyMachine,
+    findCandyGuardPda,
 } from '@metaplex-foundation/mpl-core-candy-machine';
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
@@ -200,24 +201,32 @@ export const useSolanaMint = () => {
             // Fetch the Candy Machine state
             const candyMachine = await fetchCandyMachine(umi, publicKey(candyMachineAddress));
 
-            // Verify that the wallet signing the transaction is the authority of the Candy Machine
-            const candyAuthority = candyMachine.authority?.toString();
-            const walletPubKey = umi.identity.publicKey.toString();
-            if (candyAuthority && candyAuthority !== walletPubKey) {
-                throw new Error(
-                    `Candy Machine authority mismatch.\n` +
-                    `Expected authority: ${candyAuthority}\n` +
-                    `Connected wallet: ${walletPubKey}\n` +
-                    `Make sure you are using the wallet that created the Candy Machine or redeploy the Candy Machine with this wallet as its authority.`
-                );
-            }
-
             console.log("[CM Mint] Items minted:", candyMachine.itemsRedeemed.toString());
             console.log("[CM Mint] Items available:", candyMachine.data.itemsAvailable.toString());
 
             // Check if there are items left
             if (candyMachine.itemsRedeemed >= candyMachine.data.itemsAvailable) {
                 throw new Error("Collection is sold out!");
+            }
+
+            // Determine if we need to use a Candy Guard
+            // In Core Candy Machine, if the mintAuthority is the Candy Guard PDA, it's a "wrapped" machine
+            const candyGuardPda = findCandyGuardPda(umi, { base: candyMachine.publicKey });
+            const isWrapped = candyMachine.mintAuthority.toString() === candyGuardPda[0].toString();
+
+            console.log("[CM Mint] Wrapped:", isWrapped);
+
+            // Build mint arguments for guards
+            const mintArgs: any = {};
+            if (phaseArgs?.phaseId) {
+                // If it's a guarded mint, we might need specific guard inputs
+                // For example, if there's an allowList, we need the merkleProof
+                if (phaseArgs.merkleProof) {
+                    mintArgs.allowList = some({ merkleRoot: phaseArgs.merkleProof });
+                }
+
+                // solPayment usually doesn't need extra args in the instruction data 
+                // but the SDK handles the treasury destination automatically if the guard is active
             }
 
             // Create memo instruction for protocol identification
@@ -236,15 +245,14 @@ export const useSolanaMint = () => {
             };
 
             // Build the mint transaction
-            // Note: Core Candy Machine uses mintAssetFromCandyMachine
-            // Payment is handled automatically if guards are set, otherwise it's free
-            const tx = await mintAssetFromCandyMachine(umi, {
+            // For collectors, we must pass the candyGuard and the group label if it's wrapped
+            const tx = mintAssetFromCandyMachine(umi, {
                 candyMachine: candyMachine.publicKey,
-                mintAuthority: umi.identity,
                 asset: nftMint,
                 collection: candyMachine.collectionMint,
-                assetOwner: umi.identity.publicKey,
-                plugins: [],
+                candyGuard: isWrapped ? candyGuardPda[0] : undefined,
+                group: phaseArgs?.phaseId ? some(phaseArgs.phaseId) : none(),
+                mintArgs: mintArgs,
             }).add(memoInstruction);
 
             const result = await tx.sendAndConfirm(umi);

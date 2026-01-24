@@ -26,7 +26,7 @@ import { NFTRevealModal } from "@/components/NFTRevealModal";
 import { MintProcessOverlay } from "@/components/MintProcessOverlay";
 import { MintCountdown } from "@/components/MintCountdown";
 import { RevealCountdown } from "@/components/RevealCountdown";
-import { LilyPadVerificationBadge } from "@/components/LilyPadVerificationBadge";
+
 import { BackToTop } from "@/components/BackToTop";
 import { BuybackProgramInfo } from "@/components/BuybackProgramInfo";
 import {
@@ -106,8 +106,8 @@ interface Collection {
   social_website: string | null;
   social_telegram: string | null;
   collection_type?: string;
-  blockchain?: 'monad' | 'solana';
-  chain?: 'monad' | 'solana';
+  blockchain?: 'solana';
+  chain?: 'solana';
   solana_standard?: string;
   layers_metadata?: unknown;
   artworks_metadata?: unknown;
@@ -156,7 +156,7 @@ const isPhaseCurrentlyLive = (phase: Phase | null, collectionStatus?: string, ha
 
   // Validate dates - if end is before start, treat as misconfigured and ignore dates
   const datesAreValid = !startTime || !endTime || endTime > startTime;
-  
+
   if (!datesAreValid) {
     // Dates are misconfigured (end before start), fall back to deployment status
     return isDeployedAndActive;
@@ -300,7 +300,7 @@ export default function CollectionDetail() {
 
   // Determine chain from collection data
   const collectionChain = collection?.chain || collection?.blockchain || 'solana';
-  const isSolana = isSolanaChain(collectionChain);
+  const isSolana = true;
   const currency = getCurrencySymbol(collectionChain);
   const collectionNetwork = getNetworkDisplayName(collectionChain);
   const isCollectionTestnet = isChainTestnet(collectionChain);
@@ -521,15 +521,13 @@ export default function CollectionDetail() {
   };
 
   const handleSwitchNetwork = async () => {
-    // Solana auto-switching logic is handled by standard wallet adapters usually
-    // or we just show a toast to switch manually
     toast.info("Please switch to Solana in your wallet");
   };
 
   // Initialize contract phase (owner only)
   // Initialize contract phase (owner only) - Placeholder or removed for Solana
   const handleInitializeContract = async () => {
-    toast.info("Coming soon for Solana");
+    // Solana CM initialization is handled during deployment
   };
 
   // Calculate remaining supply
@@ -1057,12 +1055,7 @@ export default function CollectionDetail() {
                     )}
                     {collectionNetwork}
                   </Badge>
-                  {/* LilyPad Verification Badge */}
-                  <LilyPadVerificationBadge
-                    contractAddress={collection.contract_address}
-                    showDetails={true}
-                    size="md"
-                  />
+
                 </div>
                 <p className="text-muted-foreground mb-3">{collection.symbol}</p>
                 {collection.contract_address && (
@@ -1746,24 +1739,10 @@ export default function CollectionDetail() {
 
 
                 {isTestnet && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-amber-500">
-                        <FlaskConical className="w-4 h-4" />
-                        <span className="text-sm font-medium">Testnet Mode</span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/20"
-                        onClick={() => window.open("https://faucet.monad.xyz", "_blank")}
-                      >
-                        <Droplets className="w-3 h-3 mr-1" />
-                        Get Test MON
-                      </Button>
-                    </div>
-                    <p className="text-xs text-amber-500/80 mt-2">
-                      You're on testnet. Get free test tokens from the faucet to mint.
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-center">
+                    <p className="text-sm font-medium text-amber-500 mb-1">Solana Devnet Mode</p>
+                    <p className="text-xs text-amber-500/80">
+                      Using Devnet for testing. Ensure your wallet is set to Devnet.
                     </p>
                   </div>
                 )}

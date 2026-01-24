@@ -29,7 +29,7 @@ import {
   StickerPacksGrid,
   HomepageFeaturedCollections,
 } from "@/components/marketplace";
-import frognadBanner from "@/assets/frognad-banner.png";
+
 
 export default function Marketplace() {
   const { chainType } = useWallet();
@@ -56,7 +56,7 @@ export default function Marketplace() {
 
   useSEO({
     title: "Lily Marketplace | The Lily Pad",
-    description: "Browse NFT collections, listings, and sticker packs on Lily Marketplace. Discover unique digital collectibles on Monad and Solana."
+    description: "Browse NFT collections, listings, and sticker packs on Lily Marketplace. Discover unique digital collectibles on Solana."
   });
 
   // Filter collections
@@ -123,24 +123,7 @@ export default function Marketplace() {
           />
         </div>
 
-        {/* Platform NFT Collection Coming Soon Banner */}
-        <div className="relative mb-8 rounded-xl overflow-hidden">
-          <img
-            src={frognadBanner}
-            alt="The Lily Pad Frognad Collection"
-            className="w-full h-auto object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4 text-center sm:text-left">
-            <Badge className="bg-emerald-500/90 text-white border-none mb-2">
-              <Sparkles className="w-3 h-3 mr-1" />
-              Coming Soon
-            </Badge>
-            <p className="text-white font-semibold text-lg sm:text-xl drop-shadow-lg">
-              The Lily Pad own platform NFT collection coming soon.
-            </p>
-          </div>
-        </div>
+
 
         {/* Homepage Featured Collections - Admin curated (up to 5) */}
         <div className="mb-8">

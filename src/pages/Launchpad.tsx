@@ -25,7 +25,7 @@ import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
-import { ChainSelector } from "@/components/ChainSelector";
+
 import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
@@ -61,11 +61,6 @@ export default function Launchpad() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
 
-  // Chain selection - note: ChainType from WalletProvider only supports "solana" currently
-  // Using a local type for UI purposes that can show Monad as coming soon
-  type LaunchpadChainType = "solana";
-  const [selectedChain, setSelectedChain] = useState<LaunchpadChainType>("solana");
-
   // Use the new hook for data fetching and management
   const {
     collections,
@@ -78,7 +73,7 @@ export default function Launchpad() {
     isDeleting,
     restoreCollection,
     getFilteredCollections,
-  } = useLaunchpadData(selectedChain);
+  } = useLaunchpadData("solana");
 
   const [editingDraft, setEditingDraft] = useState(false);
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
@@ -93,7 +88,7 @@ export default function Launchpad() {
 
   useSEO({
     title: "NFT Launchpad | The Lily Pad",
-    description: "Launch your NFT collection on Solana & Monad. Create generative art, set mint phases, manage allowlists, and deploy with no-code tools."
+    description: "Launch your NFT collection on Solana. Create generative art, set mint phases, manage allowlists, and deploy with no-code tools."
   });
 
   const handleDeleteCollection = async (collectionId: string) => {
@@ -180,7 +175,7 @@ export default function Launchpad() {
                 </Badge>
               </div>
               <p className="text-muted-foreground">
-                Launch your NFT collection on Solana or Monad
+                Launch your NFT collection on Solana
               </p>
             </div>
           </div>
@@ -190,12 +185,7 @@ export default function Launchpad() {
         {/* Navigation & Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8" data-walkthrough="navigation">
           <div className="flex items-center gap-4 w-full sm:w-auto">
-            <ChainSelector
-              selectedChain={selectedChain}
-              onChainChange={(chain) => {
-                setSelectedChain(chain);
-              }}
-            />
+            <LaunchpadNavigation onSelectStandard={setCreateModalDefaultStandard} />
           </div>
 
           <Button
@@ -466,17 +456,10 @@ export default function Launchpad() {
                           </div>
                         )}
                         <div className="absolute top-3 right-3 flex gap-2">
-                          {collection.chain.includes("solana") ? (
-                            <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-md border-white/10 h-6">
-                              <Globe className="w-3 h-3 mr-1" />
-                              SOL
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-purple-500/50 text-white backdrop-blur-md border-white/10 h-6">
-                              <Zap className="w-3 h-3 mr-1" />
-                              MON
-                            </Badge>
-                          )}
+                          <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-md border-white/10 h-6">
+                            <Globe className="w-3 h-3 mr-1" />
+                            SOL
+                          </Badge>
                           {canEdit && (
                             <>
                               <Badge
@@ -558,9 +541,9 @@ export default function Launchpad() {
                             </div>
                             <Progress value={progress.percentage} className="h-1.5" />
                             <div className="flex items-center gap-1">
-                            {progress.steps.map((step, i) => {
-                              return (
-                                <TooltipProvider key={step.name}>
+                              {progress.steps.map((step, i) => {
+                                return (
+                                  <TooltipProvider key={step.name}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <div

@@ -7,7 +7,7 @@ import { getCollectionPrice as getPriceFromUtils } from "@/lib/chainUtils";
 
 const ITEMS_PER_PAGE = 12;
 
-export type ChainFilter = "monad" | "solana" | "all";
+export type ChainFilter = "solana";
 
 export interface Collection {
   id: string;
@@ -152,10 +152,8 @@ async function fetchCollectionsPage(pageParam: number, chain: ChainFilter): Prom
     .in("status", ["active", "minting", "soldout", "live"])
     .order("created_at", { ascending: false });
 
-  // Filter by chain if not "all"
-  if (chain !== "all") {
-    query = query.eq("chain", chain);
-  }
+  // Always filter by solana-related chain identifiers
+  query = query.in("chain", ["solana", "solana-devnet", "solana-mainnet"]);
 
   const { data: collectionsData, error: collectionsError } = await query.range(
     pageParam * ITEMS_PER_PAGE,
@@ -180,7 +178,7 @@ async function fetchCollectionsPage(pageParam: number, chain: ChainFilter): Prom
   };
 }
 
-export function useMarketplaceData(chain: ChainFilter = "all") {
+export function useMarketplaceData(chain: ChainFilter = "solana") {
   const queryClient = useQueryClient();
 
   // Base data query (stickers, listings, hot collections)

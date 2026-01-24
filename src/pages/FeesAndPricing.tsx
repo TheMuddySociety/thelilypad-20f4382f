@@ -25,13 +25,13 @@ import { Coins, Fuel, Percent, Info, Shield, HelpCircle, Sparkles } from "lucide
 const FeesAndPricing: React.FC = () => {
   useSEO({
     title: "Fees & Pricing | The Lily Pad",
-    description: "Understand all platform fees, gas costs, and creator royalties on The Lily Pad NFT marketplace on Monad.",
+    description: "Understand all platform fees, gas costs, and creator royalties on The Lily Pad NFT marketplace on Solana.",
   });
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="container mx-auto px-4 py-12 max-w-5xl">
         {/* Hero Section */}
         <div className="text-center mb-12">
@@ -69,7 +69,7 @@ const FeesAndPricing: React.FC = () => {
                   </div>
                   <Badge variant="secondary" className="text-lg px-3 py-1">2.5%</Badge>
                 </div>
-                
+
                 <div className="flex justify-between items-center p-4 rounded-lg bg-muted/30">
                   <div>
                     <p className="font-medium">Marketplace Fee</p>
@@ -77,7 +77,7 @@ const FeesAndPricing: React.FC = () => {
                   </div>
                   <Badge variant="secondary" className="text-lg px-3 py-1">2.5%</Badge>
                 </div>
-                
+
                 <div className="flex justify-between items-center p-4 rounded-lg bg-muted/30">
                   <div>
                     <p className="font-medium">Listing Fee</p>
@@ -101,10 +101,10 @@ const FeesAndPricing: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Creators can set royalties between <strong>0% and 10%</strong> on their collections. 
+                  Creators can set royalties between <strong>0% and 10%</strong> on their collections.
                   These royalties are paid to creators on every secondary sale.
                 </p>
-                
+
                 <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
                   <div className="flex items-start gap-3">
                     <Shield className="w-5 h-5 text-primary mt-0.5" />
@@ -133,10 +133,10 @@ const FeesAndPricing: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Gas fees are paid directly to network validators for processing transactions. 
+                  Gas fees are paid directly to network validators for processing transactions.
                   The Lily Pad does not receive any portion of gas fees.
                 </p>
-                
+
                 <div className="p-4 rounded-lg bg-muted/30">
                   <p className="text-sm font-medium mb-2">How Gas is Calculated</p>
                   <code className="text-xs bg-background p-2 rounded block">
@@ -173,14 +173,14 @@ const FeesAndPricing: React.FC = () => {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="p-3 rounded-lg bg-muted/30">
-                    <p className="text-xs text-muted-foreground mb-1">Testnet</p>
-                    <p className="font-medium text-sm">Lower gas prices</p>
+                    <p className="text-xs text-muted-foreground mb-1">Devnet</p>
+                    <p className="font-medium text-sm">Minimal gas costs</p>
                     <p className="text-xs text-muted-foreground">Free test tokens from faucet</p>
                   </div>
                   <div className="p-3 rounded-lg bg-muted/30">
                     <p className="text-xs text-muted-foreground mb-1">Mainnet</p>
                     <p className="font-medium text-sm">Standard gas prices</p>
-                    <p className="text-xs text-muted-foreground">Real MON required</p>
+                    <p className="text-xs text-muted-foreground">Real SOL required</p>
                   </div>
                 </div>
               </CardContent>
@@ -194,27 +194,27 @@ const FeesAndPricing: React.FC = () => {
                   Example Cost Breakdown
                 </CardTitle>
                 <CardDescription>
-                  Minting 1 NFT at 0.50 MON
+                  Minting 1 NFT at 0.50 SOL
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 font-mono text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Mint Cost:</span>
-                    <span>0.5000 MON</span>
+                    <span>0.5000 SOL</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">+ Platform Fee (2.5%):</span>
-                    <span>0.0125 MON</span>
+                    <span>0.0125 SOL</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">+ Gas Fee (est.):</span>
-                    <span>~0.0002 MON</span>
+                    <span>~0.0002 SOL</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between font-bold">
                     <span>Total:</span>
-                    <span className="text-primary">~0.5127 MON</span>
+                    <span className="text-primary">~0.5127 SOL</span>
                   </div>
                 </div>
               </CardContent>
@@ -236,21 +236,21 @@ const FeesAndPricing: React.FC = () => {
                       The platform fee is deducted from the seller's proceeds. For mints, this comes from the collection creator's revenue. For secondary sales, this comes from the seller's sale amount.
                     </AccordionContent>
                   </AccordionItem>
-                  
+
                   <AccordionItem value="waive-fee">
                     <AccordionTrigger>Can creators waive the platform fee?</AccordionTrigger>
                     <AccordionContent>
                       The platform fee is a standard rate that applies to all transactions. However, creators can adjust their mint prices to account for fees when pricing their collections.
                     </AccordionContent>
                   </AccordionItem>
-                  
+
                   <AccordionItem value="gas-fluctuate">
                     <AccordionTrigger>Why do gas fees fluctuate?</AccordionTrigger>
                     <AccordionContent>
-                      Gas fees are determined by network demand. When many users are transacting on Monad, gas prices increase due to competition for block space. Gas prices typically decrease during lower-activity periods.
+                      Gas fees are determined by network demand. When many users are transacting on Solana, gas prices increase due to competition for block space. Gas prices typically decrease during lower-activity periods.
                     </AccordionContent>
                   </AccordionItem>
-                  
+
                   <AccordionItem value="hidden-fees">
                     <AccordionTrigger>Are there any hidden fees?</AccordionTrigger>
                     <AccordionContent>
@@ -273,7 +273,7 @@ const FeesAndPricing: React.FC = () => {
           <div className="lg:col-span-2">
             <div className="lg:sticky lg:top-24">
               <FeeCalculator />
-              
+
               {/* Disclaimers */}
               <Card className="mt-6 bg-muted/20">
                 <CardContent className="pt-6">

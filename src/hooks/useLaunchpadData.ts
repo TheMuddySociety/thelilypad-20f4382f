@@ -43,7 +43,7 @@ export interface Collection {
 }
 
 // Update type to include filter
-export function useLaunchpadData(selectedChain?: "solana" | "monad") {
+export function useLaunchpadData(selectedChain: "solana" = "solana") {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<DraftCollection | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -72,12 +72,8 @@ export function useLaunchpadData(selectedChain?: "solana" | "monad") {
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
-      if (selectedChain) {
-        const chainFilters = selectedChain === "solana"
-          ? ["solana", "solana-devnet", "solana-mainnet"]
-          : ["monad", "monad-testnet", "monad-mainnet"];
-        query = query.in("chain", chainFilters);
-      }
+      const chainFilters = ["solana", "solana-devnet", "solana-mainnet"];
+      query = query.in("chain", chainFilters);
 
       const { data, error } = await query;
 
@@ -211,7 +207,7 @@ export function getCollectionPrice(collection: Collection): string {
   const phases = collection.phases as any[];
   if (!phases || phases.length === 0) return "TBA";
   const publicPhase = phases.find((p) => p.id === "public") || phases[0];
-  return publicPhase?.price ? `${publicPhase.price} MON` : "Free";
+  return publicPhase?.price ? `${publicPhase.price} SOL` : "Free";
 }
 
 // Helper to get phase names
