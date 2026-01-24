@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
-import { 
-    publicKey, 
-    generateSigner, 
-    some, 
-    sol, 
-    Signer, 
-    transactionBuilder, 
+import {
+    publicKey,
+    generateSigner,
+    some,
+    sol,
+    Signer,
+    transactionBuilder,
     none,
     dateTime
 } from '@metaplex-foundation/umi';
@@ -119,13 +119,13 @@ function buildGuardSetForPhase(
     // Allowlist guard - merkle root for whitelist
     if (phase.merkleRoot) {
         // Convert hex string to Uint8Array (32 bytes)
-        const rootHex = phase.merkleRoot.startsWith('0x') 
-            ? phase.merkleRoot.slice(2) 
+        const rootHex = phase.merkleRoot.startsWith('0x')
+            ? phase.merkleRoot.slice(2)
             : phase.merkleRoot;
         const merkleRootBytes = new Uint8Array(
             rootHex.match(/.{1,2}/g)?.map((byte: string) => parseInt(byte, 16)) || []
         );
-        
+
         if (merkleRootBytes.length === 32) {
             guards.allowList = some({
                 merkleRoot: merkleRootBytes,
@@ -145,7 +145,7 @@ function buildGuardGroups(
 ): CoreGuardGroupArgs<CoreDefaultGuardSetArgs>[] {
     return phases.map((phase) => {
         const guards = buildGuardSetForPhase(phase, treasuryWallet);
-        
+
         return {
             label: phase.id,
             guards: {
@@ -335,7 +335,8 @@ export const useSolanaLaunch = () => {
             sellerFeeBasisPoints: number;
             creators: { address: string; share: number }[];
         },
-        standard: SolanaStandard = 'core'
+        standard: SolanaStandard = 'core',
+        optionalTreasuryWallet?: string
     ): Promise<{ address: string; candyGuardAddress?: string }> => {
         setIsLoading(true);
         setError(null);
@@ -346,8 +347,9 @@ export const useSolanaLaunch = () => {
             const collectionMint = publicKey(collectionAddress);
 
             // Determine treasury wallet for payment guards
-            const treasuryWallet = PLATFORM_WALLETS.treasury;
-            
+            // Use optionalTreasuryWallet if provided, otherwise fallback to platform defaults
+            const treasuryWallet = optionalTreasuryWallet || PLATFORM_WALLETS.treasury;
+
             // Calculate primary price from phases
             const primaryPhase = phases.find(p => p.price > 0) || phases[0];
             const primaryPrice = primaryPhase?.price || 0;
@@ -374,7 +376,7 @@ export const useSolanaLaunch = () => {
             });
 
             // Add protocol memo
-            const memoData = buildProtocolMemo('launchpad:create_candy_machine', { 
+            const memoData = buildProtocolMemo('launchpad:create_candy_machine', {
                 collection: collectionAddress.slice(0, 8),
                 items: String(itemsAvailable)
             });
@@ -396,13 +398,13 @@ export const useSolanaLaunch = () => {
 
             // Step 2: Create Candy Guard with phase-based groups
             console.log("[CM] Building guard configuration...");
-            
+
             // Build default guards (fallback when no group specified)
             const defaultGuards = buildDefaultGuards(primaryPrice, treasuryWallet);
-            
+
             // Build guard groups from phases
             const guardGroups = buildGuardGroups(phases, treasuryWallet);
-            
+
             console.log("[CM] Default guards:", defaultGuards);
             console.log("[CM] Guard groups:", guardGroups.length, "phases");
 
@@ -415,11 +417,11 @@ export const useSolanaLaunch = () => {
             });
 
             await createGuardBuilder.sendAndConfirm(umi);
-            
+
             // Derive the Candy Guard PDA from the base signer
             const candyGuardPda = findCandyGuardPda(umi, { base: candyGuard.publicKey });
             console.log("[CM] Candy Guard created at PDA:", candyGuardPda[0].toString());
-            
+
             toast.loading(`Guards created! Wrapping Candy Machine...`, { id: 'cm-create' });
 
             // Step 3: Wrap the Candy Machine with the Candy Guard
@@ -440,10 +442,10 @@ export const useSolanaLaunch = () => {
             console.log("  - Treasury:", feeSplit.treasuryAmount, "SOL");
             console.log("  - Team:", feeSplit.teamAmount, "SOL");
             console.log("  - Buyback:", feeSplit.buybackAmount, "SOL");
-            
+
             toast.success(`Candy Machine Ready with Guards!`, { id: 'cm-create' });
-            
-            return { 
+
+            return {
                 address: candyMachine.publicKey.toString(),
                 candyGuardAddress: candyGuardPda[0].toString(),
             };

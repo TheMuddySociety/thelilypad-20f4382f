@@ -182,7 +182,7 @@ export const useSolanaMint = () => {
         legacyMintArgs?: any
     ) => {
         // Support both old signature (string, string, string, object) and new (string, string, MintPhaseArgs)
-        const phaseArgs: MintPhaseArgs | undefined = typeof phaseIdOrArgs === 'string' 
+        const phaseArgs: MintPhaseArgs | undefined = typeof phaseIdOrArgs === 'string'
             ? { phaseId: phaseIdOrArgs, price: legacyMintArgs?.price || 0, collectionId: legacyMintArgs?.collectionId }
             : phaseIdOrArgs;
         setIsLoading(true);
@@ -201,8 +201,8 @@ export const useSolanaMint = () => {
             const candyMachine = await fetchCandyMachine(umi, publicKey(candyMachineAddress));
 
             // Verify that the wallet signing the transaction is the authority of the Candy Machine
-            const candyAuthority = candyMachine.authority?.toBase58();
-            const walletPubKey = umi.identity.publicKey.toBase58();
+            const candyAuthority = candyMachine.authority?.toString();
+            const walletPubKey = umi.identity.publicKey.toString();
             if (candyAuthority && candyAuthority !== walletPubKey) {
                 throw new Error(
                     `Candy Machine authority mismatch.\n` +
