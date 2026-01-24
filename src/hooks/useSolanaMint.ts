@@ -64,7 +64,7 @@ export const useSolanaMint = () => {
 
         try {
             const feeSplit = getLaunchpadFeeSplit(price);
-            
+
             // Record the mint transaction
             const { error: insertError } = await supabase.from('nft_mints').insert({
                 collection_id: collectionId,
@@ -193,7 +193,19 @@ export const useSolanaMint = () => {
 
             // Fetch the Candy Machine state
             const candyMachine = await fetchCandyMachine(umi, publicKey(candyMachineAddress));
-            
+
+            // Verify that the wallet signing the transaction is the authority of the Candy Machine
+            const candyAuthority = candyMachine.authority?.toBase58();
+            const walletPubKey = umi.identity.publicKey.toBase58();
+            if (candyAuthority && candyAuthority !== walletPubKey) {
+                throw new Error(
+                    `Candy Machine authority mismatch.\n` +
+                    `Expected authority: ${candyAuthority}\n` +
+                    `Connected wallet: ${walletPubKey}\n` +
+                    `Make sure you are using the wallet that created the Candy Machine or redeploy the Candy Machine with this wallet as its authority.`
+                );
+            }
+
             console.log("[CM Mint] Items minted:", candyMachine.itemsRedeemed.toString());
             console.log("[CM Mint] Items available:", candyMachine.data.itemsAvailable.toString());
 
@@ -255,7 +267,7 @@ export const useSolanaMint = () => {
             };
         } catch (err: any) {
             console.error("CM mint error:", err);
-            
+
             // Parse common errors
             let msg = err.message || "Candy Machine mint failed";
             if (msg.includes("0x1")) {
@@ -269,7 +281,7 @@ export const useSolanaMint = () => {
             } else if (msg.includes("0x1773")) {
                 msg = "Minting has ended";
             }
-            
+
             setError(msg);
             toast.error(msg, { id: 'cm-mint' });
             throw err;
