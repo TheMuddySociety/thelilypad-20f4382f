@@ -3,27 +3,30 @@ import { useNavigate } from "react-router-dom";
 import { useWallet } from "@/providers/WalletProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail, Github } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Separator } from "@/components/ui/separator";
 
 const fallbackAuthBranding = "/auth-branding.webp";
 
 // Phantom icon
 const PhantomIcon = () => (
   <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="128" height="128" rx="26" fill="url(#paint0_linear)"/>
-    <path d="M110.5 64.6C110.5 90.5 89.3 111.5 63.2 111.5H33.6C31.5 111.5 29.8 109.8 29.8 107.7V63.1C29.8 41.1 47.9 23.2 70.1 23.2C92.3 23.2 110.5 41.1 110.5 63.1V64.6Z" fill="url(#paint1_linear)"/>
-    <path d="M86.7 64.5C86.7 68.3 83.6 71.4 79.8 71.4C76 71.4 72.9 68.3 72.9 64.5C72.9 60.7 76 57.6 79.8 57.6C83.6 57.6 86.7 60.7 86.7 64.5Z" fill="white"/>
-    <path d="M64.5 64.5C64.5 68.3 61.4 71.4 57.6 71.4C53.8 71.4 50.7 68.3 50.7 64.5C50.7 60.7 53.8 57.6 57.6 57.6C61.4 57.6 64.5 60.7 64.5 64.5Z" fill="white"/>
+    <rect width="128" height="128" rx="26" fill="url(#paint0_linear)" />
+    <path d="M110.5 64.6C110.5 90.5 89.3 111.5 63.2 111.5H33.6C31.5 111.5 29.8 109.8 29.8 107.7V63.1C29.8 41.1 47.9 23.2 70.1 23.2C92.3 23.2 110.5 41.1 110.5 63.1V64.6Z" fill="url(#paint1_linear)" />
+    <path d="M86.7 64.5C86.7 68.3 83.6 71.4 79.8 71.4C76 71.4 72.9 68.3 72.9 64.5C72.9 60.7 76 57.6 79.8 57.6C83.6 57.6 86.7 60.7 86.7 64.5Z" fill="white" />
+    <path d="M64.5 64.5C64.5 68.3 61.4 71.4 57.6 71.4C53.8 71.4 50.7 68.3 50.7 64.5C50.7 60.7 53.8 57.6 57.6 57.6C61.4 57.6 64.5 60.7 64.5 64.5Z" fill="white" />
     <defs>
       <linearGradient id="paint0_linear" x1="64" y1="0" x2="64" y2="128" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#534BB1"/>
-        <stop offset="1" stopColor="#551BF9"/>
+        <stop stopColor="#534BB1" />
+        <stop offset="1" stopColor="#551BF9" />
       </linearGradient>
       <linearGradient id="paint1_linear" x1="70.15" y1="23.2" x2="70.15" y2="111.5" gradientUnits="userSpaceOnUse">
-        <stop stopColor="white"/>
-        <stop offset="1" stopColor="white" stopOpacity="0.82"/>
+        <stop stopColor="white" />
+        <stop offset="1" stopColor="white" stopOpacity="0.82" />
       </linearGradient>
     </defs>
   </svg>
@@ -33,7 +36,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const { connect, isConnected, isConnecting, address } = useWallet();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
-  
+
   // Fetch dynamic auth branding from site_assets, fallback to local
   const { assetUrl: authBranding } = useSiteAsset('auth_branding', fallbackAuthBranding);
 
@@ -61,14 +64,33 @@ export default function Auth() {
   };
 
   const isLoading = isConnecting || isConnectingWallet;
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
+
+  const handleSocialConnect = async (provider: 'google' | 'github') => {
+    setIsSocialLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      console.error(`${provider} connect error:`, error);
+      toast.error(error.message || `Failed to connect with ${provider}`);
+    } finally {
+      setIsSocialLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left side - Hero Image (Desktop) */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-emerald-50 to-emerald-100 items-center justify-center p-8">
-        <img 
-          src={authBranding || fallbackAuthBranding} 
-          alt="The Lily Pad" 
+        <img
+          src={authBranding || fallbackAuthBranding}
+          alt="The Lily Pad"
           className="w-full h-full object-contain"
           fetchPriority="high"
           loading="eager"
@@ -77,14 +99,14 @@ export default function Auth() {
           height={1080}
         />
       </div>
-      
+
       {/* Right side - Wallet Connect */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 bg-background">
         {/* Mobile Branding */}
         <div className="lg:hidden mb-6 w-full max-w-[280px]">
-          <img 
-            src={authBranding || fallbackAuthBranding} 
-            alt="The Lily Pad" 
+          <img
+            src={authBranding || fallbackAuthBranding}
+            alt="The Lily Pad"
             className="w-full h-auto rounded-lg"
             fetchPriority="high"
             loading="eager"
@@ -93,7 +115,7 @@ export default function Auth() {
             height={157}
           />
         </div>
-        
+
         <Card className="w-full max-w-md border-border/50 shadow-xl">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">Welcome to The Lily Pad</CardTitle>
@@ -115,9 +137,38 @@ export default function Auth() {
               Connect with Phantom
             </Button>
 
+            <div className="flex items-center gap-3 py-2">
+              <Separator className="flex-1" />
+              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">or</span>
+              <Separator className="flex-1" />
+            </div>
+
+            {/* Social Login for Session-based features */}
+            <div className="grid grid-cols-1 gap-3">
+              <Button
+                variant="outline"
+                onClick={() => handleSocialConnect('google')}
+                disabled={isLoading || isSocialLoading}
+                className="h-11"
+              >
+                <img src="https://www.google.com/favicon.ico" className="w-4 h-4 mr-2" alt="Google" />
+                Sign in with Google
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleSocialConnect('github')}
+                disabled={isLoading || isSocialLoading}
+                className="h-11"
+              >
+                <Github className="w-4 h-4 mr-2" />
+                Sign in with GitHub
+              </Button>
+            </div>
+
             {/* Info text */}
             <p className="text-xs text-muted-foreground text-center pt-2">
-              Phantom supports multiple sign-in options including Google, Apple, and passkeys directly within the wallet.
+              Sign in with social media is required for streaming and admin tools.
+              Phantom supports multiple sign-in options including Google, Apple, and passkeys directly.
             </p>
           </CardContent>
         </Card>

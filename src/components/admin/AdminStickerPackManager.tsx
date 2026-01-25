@@ -82,7 +82,7 @@ export const AdminStickerPackManager: React.FC = () => {
         .select('*')
         .eq('creator_type', 'platform')
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       return data as OfficialPack[];
     },
@@ -112,7 +112,10 @@ export const AdminStickerPackManager: React.FC = () => {
     try {
       // Get current user for creator_id (admin)
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) {
+        toast.error("Not authenticated with Supabase. Please sign in to perform admin actions.");
+        throw new Error("Not authenticated with Supabase session");
+      }
 
       let imageUrl: string | null = null;
 
@@ -120,7 +123,7 @@ export const AdminStickerPackManager: React.FC = () => {
       if (imageFile) {
         const fileExt = imageFile.name.split(".").pop();
         const fileName = `platform/${Date.now()}-${brand}-cover.${fileExt}`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from("shop-items")
           .upload(fileName, imageFile);
@@ -135,10 +138,10 @@ export const AdminStickerPackManager: React.FC = () => {
       }
 
       // Create the pack with platform creator_type
-      const packName = brand === "lilypad" 
-        ? `🪷 ${name}` 
-        : brand === "frognad" 
-          ? `🐸 ${name}` 
+      const packName = brand === "lilypad"
+        ? `🪷 ${name}`
+        : brand === "frognad"
+          ? `🐸 ${name}`
           : name;
 
       const { error } = await supabase.from("shop_items").insert({
@@ -235,292 +238,316 @@ export const AdminStickerPackManager: React.FC = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Leaf className="w-5 h-5 text-primary" />
-              Official Packs
-            </CardTitle>
-            <CardDescription>
-              Create and manage Lily Pad & Frognad official sticker, emote, and emoji packs
-            </CardDescription>
-          </div>
-          <Button onClick={() => setCreateModalOpen(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Create Pack
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[400px]">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin" />
+    <div className="space-y-6">
+      {/* Session warning for wallet-only admins */}
+      {!isLoading && !supabase.auth.getSession() && (
+        <Card className="border-amber-500/50 bg-amber-500/10">
+          <CardHeader className="p-4 flex flex-row items-center gap-3">
+            <Leaf className="w-5 h-5 text-amber-500" />
+            <div className="flex-1">
+              <CardTitle className="text-sm font-medium text-amber-500">Supabase Session Missing</CardTitle>
+              <CardDescription className="text-xs">
+                You are connected via admin wallet, but need to sign in with email/social to manage official packs.
+              </CardDescription>
             </div>
-          ) : officialPacks && officialPacks.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pack</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Tier</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Sales</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {officialPacks.map((pack) => (
-                  <TableRow key={pack.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        {pack.image_url ? (
-                          <img
-                            src={pack.image_url}
-                            alt={pack.name}
-                            className="w-10 h-10 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                            <Sticker className="w-5 h-5 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-medium">{pack.name}</p>
-                          {pack.description && (
-                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                              {pack.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getCategoryBadge(pack.category)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {pack.tier}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {pack.price_mon > 0 ? `${pack.price_mon} SOL` : 'Free'}
-                    </TableCell>
-                    <TableCell>{pack.total_sales}</TableCell>
-                    <TableCell>
-                      <Badge variant={pack.is_active ? "default" : "secondary"}>
-                        {pack.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(pack.created_at), 'MMM d, yyyy')}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenManage(pack)}
-                          className="gap-1"
-                        >
-                          <Settings className="w-4 h-4" />
-                          Manage
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleActive(pack.id, pack.is_active)}
-                        >
-                          {pack.is_active ? "Deactivate" : "Activate"}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(pack.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <Leaf className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No official packs created yet</p>
-              <p className="text-sm">Create your first Lily Pad or Frognad pack</p>
-            </div>
-          )}
-        </ScrollArea>
-      </CardContent>
-
-      {/* Create Modal */}
-      <Dialog open={createModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Leaf className="w-5 h-5 text-primary" />
-              Create Official Pack
-            </DialogTitle>
-            <DialogDescription>
-              Create a new Lily Pad or Frognad official pack
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleCreate} className="space-y-4">
-            {/* Brand Selection */}
-            <div className="grid grid-cols-3 gap-2">
-              {(Object.keys(brandLabels) as PackBrand[]).map((b) => (
-                <Button
-                  key={b}
-                  type="button"
-                  variant={brand === b ? "default" : "outline"}
-                  className={`gap-2 ${brand === b ? brandLabels[b].color : ''}`}
-                  onClick={() => setBrand(b)}
-                >
-                  {b === "lilypad" && "🪷"}
-                  {b === "frognad" && "🐸"}
-                  {b === "custom" && "✨"}
-                  {brandLabels[b].label.split(' ')[0]}
-                </Button>
-              ))}
-            </div>
-
-            {/* Pack Type */}
-            <div className="grid grid-cols-3 gap-2">
-              {(Object.keys(packTypeLabels) as PackType[]).map((type) => (
-                <Button
-                  key={type}
-                  type="button"
-                  variant={packType === type ? "default" : "outline"}
-                  className="gap-2"
-                  onClick={() => setPackType(type)}
-                >
-                  {packTypeLabels[type].icon}
-                  {packTypeLabels[type].label.split(' ')[0]}
-                </Button>
-              ))}
-            </div>
-
-            {/* Cover Image */}
-            <div className="space-y-2">
-              <Label>Cover Image</Label>
-              <div 
-                className="aspect-video relative overflow-hidden rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 transition-colors cursor-pointer"
-                onClick={() => document.getElementById("admin-pack-cover-input")?.click()}
-              >
-                {imagePreview ? (
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
-                    <Upload className="w-8 h-8 mb-2" />
-                    <span className="text-sm">Click to upload cover image</span>
-                  </div>
-                )}
-              </div>
-              <input
-                id="admin-pack-cover-input"
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="hidden"
-              />
-            </div>
-
-            {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="admin-pack-name">Pack Name *</Label>
-              <div className="flex items-center gap-2">
-                <span className="text-lg">
-                  {brand === "lilypad" ? "🪷" : brand === "frognad" ? "🐸" : ""}
-                </span>
-                <Input
-                  id="admin-pack-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., Summer Collection"
-                  maxLength={50}
-                />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="admin-pack-description">Description</Label>
-              <Textarea
-                id="admin-pack-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your pack..."
-                rows={3}
-                maxLength={500}
-              />
-            </div>
-
-            {/* Tier and Price */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="admin-pack-tier">Tier</Label>
-                <Select value={tier} onValueChange={setTier}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basic">Basic</SelectItem>
-                    <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="exclusive">Exclusive</SelectItem>
-                    <SelectItem value="legendary">Legendary</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="admin-pack-price">Price (SOL)</Label>
-                <Input
-                  id="admin-pack-price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="0 = Free"
-                />
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={handleCloseModal} className="flex-1">
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting} className="flex-1">
-                {isSubmitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : null}
-                Create {packTypeLabels[packType].label}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Manage Pack Modal */}
-      {selectedPack && (
-        <ManageStickerPackModal
-          open={manageModalOpen}
-          onOpenChange={setManageModalOpen}
-          pack={selectedPack}
-          onUpdate={handleManageUpdate}
-        />
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs border-amber-500/50 hover:bg-amber-500/20"
+              onClick={() => window.location.href = "/auth"}
+            >
+              Sign In
+            </Button>
+          </CardHeader>
+        </Card>
       )}
-    </Card>
-  );
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Leaf className="w-5 h-5 text-primary" />
+                Official Packs
+              </CardTitle>
+              <CardDescription>
+                Create and manage Lily Pad & Frognad official sticker, emote, and emoji packs
+              </CardDescription>
+            </div>
+            <Button onClick={() => setCreateModalOpen(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Create Pack
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[400px]">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin" />
+              </div>
+            ) : officialPacks && officialPacks.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pack</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Tier</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Sales</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {officialPacks.map((pack) => (
+                    <TableRow key={pack.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          {pack.image_url ? (
+                            <img
+                              src={pack.image_url}
+                              alt={pack.name}
+                              className="w-10 h-10 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                              <Sticker className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium">{pack.name}</p>
+                            {pack.description && (
+                              <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                {pack.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{getCategoryBadge(pack.category)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          {pack.tier}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {pack.price_mon > 0 ? `${pack.price_mon} SOL` : 'Free'}
+                      </TableCell>
+                      <TableCell>{pack.total_sales}</TableCell>
+                      <TableCell>
+                        <Badge variant={pack.is_active ? "default" : "secondary"}>
+                          {pack.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(pack.created_at), 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenManage(pack)}
+                            className="gap-1"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Manage
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleActive(pack.id, pack.is_active)}
+                          >
+                            {pack.is_active ? "Deactivate" : "Activate"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(pack.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Leaf className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No official packs created yet</p>
+                <p className="text-sm">Create your first Lily Pad or Frognad pack</p>
+              </div>
+            )}
+          </ScrollArea>
+        </CardContent>
+
+        {/* Create Modal */}
+        <Dialog open={createModalOpen} onOpenChange={handleCloseModal}>
+          <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Leaf className="w-5 h-5 text-primary" />
+                Create Official Pack
+              </DialogTitle>
+              <DialogDescription>
+                Create a new Lily Pad or Frognad official pack
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleCreate} className="space-y-4">
+              {/* Brand Selection */}
+              <div className="grid grid-cols-3 gap-2">
+                {(Object.keys(brandLabels) as PackBrand[]).map((b) => (
+                  <Button
+                    key={b}
+                    type="button"
+                    variant={brand === b ? "default" : "outline"}
+                    className={`gap-2 ${brand === b ? brandLabels[b].color : ''}`}
+                    onClick={() => setBrand(b)}
+                  >
+                    {b === "lilypad" && "🪷"}
+                    {b === "frognad" && "🐸"}
+                    {b === "custom" && "✨"}
+                    {brandLabels[b].label.split(' ')[0]}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Pack Type */}
+              <div className="grid grid-cols-3 gap-2">
+                {(Object.keys(packTypeLabels) as PackType[]).map((type) => (
+                  <Button
+                    key={type}
+                    type="button"
+                    variant={packType === type ? "default" : "outline"}
+                    className="gap-2"
+                    onClick={() => setPackType(type)}
+                  >
+                    {packTypeLabels[type].icon}
+                    {packTypeLabels[type].label.split(' ')[0]}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Cover Image */}
+              <div className="space-y-2">
+                <Label>Cover Image</Label>
+                <div
+                  className="aspect-video relative overflow-hidden rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 transition-colors cursor-pointer"
+                  onClick={() => document.getElementById("admin-pack-cover-input")?.click()}
+                >
+                  {imagePreview ? (
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+                      <Upload className="w-8 h-8 mb-2" />
+                      <span className="text-sm">Click to upload cover image</span>
+                    </div>
+                  )}
+                </div>
+                <input
+                  id="admin-pack-cover-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+              </div>
+
+              {/* Name */}
+              <div className="space-y-2">
+                <Label htmlFor="admin-pack-name">Pack Name *</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">
+                    {brand === "lilypad" ? "🪷" : brand === "frognad" ? "🐸" : ""}
+                  </span>
+                  <Input
+                    id="admin-pack-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g., Summer Collection"
+                    maxLength={50}
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="admin-pack-description">Description</Label>
+                <Textarea
+                  id="admin-pack-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe your pack..."
+                  rows={3}
+                  maxLength={500}
+                />
+              </div>
+
+              {/* Tier and Price */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="admin-pack-tier">Tier</Label>
+                  <Select value={tier} onValueChange={setTier}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="basic">Basic</SelectItem>
+                      <SelectItem value="premium">Premium</SelectItem>
+                      <SelectItem value="exclusive">Exclusive</SelectItem>
+                      <SelectItem value="legendary">Legendary</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="admin-pack-price">Price (SOL)</Label>
+                  <Input
+                    id="admin-pack-price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="0 = Free"
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={handleCloseModal} className="flex-1">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting} className="flex-1">
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : null}
+                  Create {packTypeLabels[packType].label}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Manage Pack Modal */}
+        {selectedPack && (
+          <ManageStickerPackModal
+            open={manageModalOpen}
+            onOpenChange={setManageModalOpen}
+            pack={selectedPack}
+            onUpdate={handleManageUpdate}
+          />
+        )}
+      </Card>
+      );
 };
