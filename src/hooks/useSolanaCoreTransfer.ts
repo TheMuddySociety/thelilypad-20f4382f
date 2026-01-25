@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { publicKey } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import { transferV1 } from '@metaplex-foundation/mpl-core';
+import { SendTransactionError } from '@solana/web3.js';
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi } from '@/config/solana';
 import { toast } from 'sonner';
@@ -60,6 +61,17 @@ export const useSolanaCoreTransfer = () => {
             };
         } catch (err: any) {
             console.error("Solana transfer error:", err);
+
+            if (err instanceof SendTransactionError) {
+                console.error("--- TRANSACTION LOGS ---");
+                try {
+                    const logs = await err.getLogs();
+                    console.error(logs);
+                } catch (logErr) {
+                    console.error("Could not fetch logs from SendTransactionError:", logErr);
+                }
+            }
+
             const msg = err.message || "Failed to transfer asset";
 
             // Helpful error handling for P2P mismatch

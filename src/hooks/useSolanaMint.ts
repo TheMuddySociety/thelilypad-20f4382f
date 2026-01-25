@@ -8,6 +8,7 @@ import {
     mintAssetFromCandyMachine,
     findCandyGuardPda,
 } from '@metaplex-foundation/mpl-core-candy-machine';
+import { SendTransactionError } from '@solana/web3.js';
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
 import { toast } from 'sonner';
@@ -130,6 +131,17 @@ export const useSolanaMint = () => {
         } catch (err: any) {
             console.error("Solana minting error:", err);
             const msg = err.message || "Failed to mint on Solana";
+
+            if (err instanceof SendTransactionError) {
+                console.error("--- TRANSACTION LOGS ---");
+                try {
+                    const logs = await err.getLogs();
+                    console.error(logs);
+                } catch (logErr) {
+                    console.error("Could not fetch logs from SendTransactionError:", logErr);
+                }
+            }
+
             setError(msg);
             toast.error(msg, { id: 'sol-mint' });
             throw err;
@@ -246,6 +258,17 @@ export const useSolanaMint = () => {
 
             // Parse common errors
             let msg = err.message || "Candy Machine mint failed";
+
+            if (err instanceof SendTransactionError) {
+                console.error("--- TRANSACTION LOGS ---");
+                try {
+                    const logs = await err.getLogs();
+                    console.error(logs);
+                } catch (logErr) {
+                    console.error("Could not fetch logs from SendTransactionError:", logErr);
+                }
+            }
+
             if (msg.includes("0x1")) {
                 msg = "Insufficient funds for this mint";
             } else if (msg.includes("0x1770")) {

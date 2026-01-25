@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import { create, fetchAsset, fetchCollection } from '@metaplex-foundation/mpl-core';
+import { SendTransactionError } from '@solana/web3.js';
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi } from '@/config/solana';
 import { generateSigner, publicKey } from '@metaplex-foundation/umi';
@@ -41,8 +42,19 @@ export const useMplCore = () => {
             const result = await transaction.sendAndConfirm(umi);
 
             return { signature: result.signature, assetAddress: asset.publicKey };
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error creating NFT:", error);
+
+            if (error instanceof SendTransactionError) {
+                console.error("--- TRANSACTION LOGS ---");
+                try {
+                    const logs = await error.getLogs();
+                    console.error(logs);
+                } catch (logErr) {
+                    console.error("Could not fetch logs from SendTransactionError:", logErr);
+                }
+            }
+
             throw error;
         }
     };
