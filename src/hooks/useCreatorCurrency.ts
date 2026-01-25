@@ -121,7 +121,7 @@ export const useCreatorCurrency = (userId?: string) => {
 export const useCurrencyDisplay = (currency: CurrencyType, priceSol?: number) => {
   const getDisplayPrice = () => {
     // Always use SOL now
-    return { amount: priceSol || priceMonad || 0, symbol: "SOL", icon: "◎" };
+    return { amount: priceSol || 0, symbol: "SOL", icon: "◎" };
   };
 
   const formatPrice = (amount: number, symbol: string) => {
