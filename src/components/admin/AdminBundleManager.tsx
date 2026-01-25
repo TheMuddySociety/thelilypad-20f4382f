@@ -139,10 +139,10 @@ export const AdminBundleManager: React.FC = () => {
     setIsSubmitting(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
-      const creatorId = userData.user?.id || profile?.id;
+      const creatorId = userData.user?.id;
 
       if (!creatorId) {
-        throw new Error("User profile not found. Please connect your wallet.");
+        throw new Error("You must be signed in to create bundles.");
       }
 
       const { originalPrice, bundlePrice } = calculatePrices();
@@ -156,7 +156,7 @@ export const AdminBundleManager: React.FC = () => {
           discount_percent: discountPercent,
           original_price: originalPrice,
           bundle_price: bundlePrice,
-          created_by: userData.user.id,
+          created_by: creatorId,
           is_limited_time: isLimitedTime,
           starts_at: isLimitedTime && startsAt ? new Date(startsAt).toISOString() : null,
           expires_at: isLimitedTime && expiresAt ? new Date(expiresAt).toISOString() : null,

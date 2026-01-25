@@ -153,8 +153,6 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
     }
 
     const userBalance = parseFloat(balance || "0");
-
-    const userBalance = parseFloat(balance || "0");
     if (userBalance < priceInSol) {
       toast.error(`Insufficient balance. You need ${priceInSol.toFixed(4)} SOL`);
       return;

@@ -112,10 +112,10 @@ export const AdminStickerPackManager: React.FC = () => {
     try {
       // Get creator ID (auth user or profile id for wallet-only)
       const { data: { user } } = await supabase.auth.getUser();
-      const creatorId = user?.id || profile?.id;
+        const creatorId = user?.id;
 
       if (!creatorId) {
-        throw new Error("User profile not found. Please connect your wallet.");
+          throw new Error("You must be signed in to create official packs.");
       }
 
       let imageUrl: string | null = null;
