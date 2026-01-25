@@ -316,14 +316,9 @@ export const useSolanaLaunch = () => {
         } catch (err: any) {
             console.error("Core Deployment Error:", err);
 
-            if (err instanceof SendTransactionError) {
+            if (err instanceof SendTransactionError && err.logs) {
                 console.error("--- TRANSACTION LOGS ---");
-                try {
-                    const logs = await err.getLogs();
-                    console.error(logs);
-                } catch (logErr) {
-                    console.error("Could not fetch logs from SendTransactionError:", logErr);
-                }
+                console.error(err.logs);
             }
 
             const msg = err.message || "Failed to deploy Core collection";
@@ -463,14 +458,9 @@ export const useSolanaLaunch = () => {
         } catch (err: any) {
             console.error("Candy Machine creation error:", err);
 
-            if (err instanceof SendTransactionError) {
+            if (err instanceof SendTransactionError && err.logs) {
                 console.error("--- TRANSACTION LOGS ---");
-                try {
-                    const logs = await err.getLogs();
-                    console.error(logs);
-                } catch (logErr) {
-                    console.error("Could not fetch logs from SendTransactionError:", logErr);
-                }
+                console.error(err.logs);
             }
 
             const msg = err.message || "Failed to create Candy Machine";

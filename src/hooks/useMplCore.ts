@@ -45,14 +45,9 @@ export const useMplCore = () => {
         } catch (error: any) {
             console.error("Error creating NFT:", error);
 
-            if (error instanceof SendTransactionError) {
+            if (error instanceof SendTransactionError && error.logs) {
                 console.error("--- TRANSACTION LOGS ---");
-                try {
-                    const logs = await error.getLogs();
-                    console.error(logs);
-                } catch (logErr) {
-                    console.error("Could not fetch logs from SendTransactionError:", logErr);
-                }
+                console.error(error.logs);
             }
 
             throw error;

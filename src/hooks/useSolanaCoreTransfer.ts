@@ -62,14 +62,9 @@ export const useSolanaCoreTransfer = () => {
         } catch (err: any) {
             console.error("Solana transfer error:", err);
 
-            if (err instanceof SendTransactionError) {
+            if (err instanceof SendTransactionError && err.logs) {
                 console.error("--- TRANSACTION LOGS ---");
-                try {
-                    const logs = await err.getLogs();
-                    console.error(logs);
-                } catch (logErr) {
-                    console.error("Could not fetch logs from SendTransactionError:", logErr);
-                }
+                console.error(err.logs);
             }
 
             const msg = err.message || "Failed to transfer asset";
