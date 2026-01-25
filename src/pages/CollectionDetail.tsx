@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { useSEO } from "@/hooks/useSEO";
 // EVM hooks removed
+import { LaunchpadMintSection } from '@/components/launchpad/LaunchpadMintSection';
 import { useSolanaMint } from "@/hooks/useSolanaMint";
 import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import {
@@ -960,6 +961,14 @@ export default function CollectionDetail() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
+        {/* Mint Section */}
+        {collection && (
+          <LaunchpadMintSection
+            collection={collection}
+            phases={getPhases()}
+            onMintSuccess={fetchCollection}
+          />
+        )}
 
         {/* Edit button row */}
         <div className="flex items-center justify-end mb-4">
