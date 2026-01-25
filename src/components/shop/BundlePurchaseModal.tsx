@@ -153,6 +153,8 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
     }
 
     const userBalance = parseFloat(balance || "0");
+
+    const userBalance = parseFloat(balance || "0");
     if (userBalance < priceInSol) {
       toast.error(`Insufficient balance. You need ${priceInSol.toFixed(4)} SOL`);
       return;
@@ -196,12 +198,18 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
 
       setTxHash(signature);
 
-      // Record purchase in database
+      // Prefer auth user_id, fallback to profile id for wallet-only
+      const purchaseUserId = profile?.user_id || profile?.id;
+
+      if (!purchaseUserId) {
+        throw new Error("User profile not found. Please connect your wallet.");
+      }
+
       const { error: purchaseError } = await supabase
         .from("shop_bundle_purchases")
         .insert({
           bundle_id: bundle.id,
-          user_id: userId,
+          user_id: purchaseUserId,
           price_paid: priceInSol,
           tx_hash: signature,
           currency: "SOL",
@@ -212,7 +220,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
       // Add individual items to user's purchases
       const itemPurchases = bundleItems.map(bi => ({
         item_id: bi.item_id,
-        user_id: userId,
+        user_id: purchaseUserId,
         price_paid: 0, // Part of bundle
         tx_hash: signature,
         currency: "SOL",
@@ -260,6 +268,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
+
           {/* Bundle Image */}
           {bundle.image_url && (
             <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted">

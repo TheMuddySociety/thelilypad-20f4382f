@@ -13,7 +13,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Sticker, Loader2, ShoppingCart, Check, Sparkles } from "lucide-react";
+import { Sticker, Loader2, ShoppingCart, Check, Sparkles, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSEO } from "@/hooks/useSEO";
@@ -146,7 +146,7 @@ export default function StickerPackDetail() {
 
     if (!userId) {
       toast.error("Please complete your profile to purchase");
-      navigate("/edit-profile");
+      navigate("/profile-setup");
       return;
     }
 
@@ -156,11 +156,11 @@ export default function StickerPackDetail() {
     if (pack.price_mon <= 0) {
       setIsPurchasing(true);
       try {
-        // Prefer auth.users ID if available (for RLS), otherwise profile ID
+        // Prefer auth user_id, fallback to profile id for wallet-only
         const purchaseUserId = profile?.user_id || profile?.id;
 
         if (!purchaseUserId) {
-          throw new Error("User ID not found");
+          throw new Error("User profile not found. Please connect your wallet.");
         }
 
         const { error } = await supabase.from("shop_purchases").insert({
@@ -247,11 +247,11 @@ export default function StickerPackDetail() {
       // Wait for confirmation
       await connection.confirmTransaction(signature, "confirmed");
 
-      // Record purchase in database
+      // Prefer auth user_id, fallback to profile id for wallet-only
       const purchaseUserId = profile?.user_id || profile?.id;
 
       if (!purchaseUserId) {
-        throw new Error("User ID not found");
+        throw new Error("User profile not found. Please connect your wallet.");
       }
 
       const { error } = await supabase.from("shop_purchases").insert({

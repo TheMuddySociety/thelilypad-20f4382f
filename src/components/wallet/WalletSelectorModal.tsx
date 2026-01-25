@@ -15,7 +15,6 @@ import type { InjectedWalletInfo } from "@phantom/browser-sdk";
 
 export type WalletType = "phantom" | "solana";
 export type ChainType = "solana";
-export type OAuthProvider = "google" | "apple";
 
 interface WalletOption {
   id: WalletType;
@@ -29,20 +28,14 @@ interface WalletSelectorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (walletType: WalletType) => void;
-  onOAuthSelect?: (provider: OAuthProvider) => void;
   isConnecting: boolean;
 }
 
-const oauthOptions = [
-  { id: "google" as OAuthProvider, name: "Continue with Google", icon: "🔵" },
-  { id: "apple" as OAuthProvider, name: "Continue with Apple", icon: "🍎" },
-];
 
 export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
   open,
   onOpenChange,
   onSelect,
-  onOAuthSelect,
   isConnecting,
 }) => {
   const [walletOptions, setWalletOptions] = useState<WalletOption[]>([]);
@@ -135,41 +128,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
             </Badge>
           </div>
 
-          {/* OAuth Options */}
-          {onOAuthSelect && (
-            <>
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground text-center">
-                  Quick sign in
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {oauthOptions.map((option) => (
-                    <Button
-                      key={option.id}
-                      variant="outline"
-                      className="w-full justify-start gap-2"
-                      onClick={() => onOAuthSelect(option.id)}
-                      disabled={isConnecting}
-                    >
-                      <span>{option.icon}</span>
-                      <span className="text-sm">{option.id === "google" ? "Google" : "Apple"}</span>
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <Separator />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    or with wallet
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
 
           {/* Wallet Options */}
           <div className="space-y-2">

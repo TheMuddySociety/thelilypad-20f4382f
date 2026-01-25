@@ -3,12 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useWallet } from "@/providers/WalletProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Mail, Github } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { Separator } from "@/components/ui/separator";
 
 const fallbackAuthBranding = "/auth-branding.webp";
 
@@ -64,25 +61,6 @@ export default function Auth() {
   };
 
   const isLoading = isConnecting || isConnectingWallet;
-  const [isSocialLoading, setIsSocialLoading] = useState(false);
-
-  const handleSocialConnect = async (provider: 'google' | 'github') => {
-    setIsSocialLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      console.error(`${provider} connect error:`, error);
-      toast.error(error.message || `Failed to connect with ${provider}`);
-    } finally {
-      setIsSocialLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -137,38 +115,9 @@ export default function Auth() {
               Connect with Phantom
             </Button>
 
-            <div className="flex items-center gap-3 py-2">
-              <Separator className="flex-1" />
-              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">or</span>
-              <Separator className="flex-1" />
-            </div>
-
-            {/* Social Login for Session-based features */}
-            <div className="grid grid-cols-1 gap-3">
-              <Button
-                variant="outline"
-                onClick={() => handleSocialConnect('google')}
-                disabled={isLoading || isSocialLoading}
-                className="h-11"
-              >
-                <img src="https://www.google.com/favicon.ico" className="w-4 h-4 mr-2" alt="Google" />
-                Sign in with Google
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleSocialConnect('github')}
-                disabled={isLoading || isSocialLoading}
-                className="h-11"
-              >
-                <Github className="w-4 h-4 mr-2" />
-                Sign in with GitHub
-              </Button>
-            </div>
-
             {/* Info text */}
             <p className="text-xs text-muted-foreground text-center pt-2">
-              Sign in with social media is required for streaming and admin tools.
-              Phantom supports multiple sign-in options including Google, Apple, and passkeys directly.
+              Phantom supports multiple sign-in options including Google, Apple, and passkeys directly within the wallet.
             </p>
           </CardContent>
         </Card>

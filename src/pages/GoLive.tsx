@@ -39,10 +39,14 @@ import {
   SwitchCamera
 } from "lucide-react";
 import { LiveChat } from "@/components/LiveChat";
+import { useWallet } from "@/providers/WalletProvider";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 export default function GoLive() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isConnected, address } = useWallet();
+  const { profile, loading: profileLoading } = useUserProfile();
   const [user, setUser] = useState<any>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
@@ -399,7 +403,7 @@ export default function GoLive() {
     removeThumbnail();
   };
 
-  if (!user) {
+  if (!user && !isConnected) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -411,16 +415,13 @@ export default function GoLive() {
               </div>
               <CardTitle>Authentication Required</CardTitle>
               <CardDescription>
-                Streaming requires an active session. Please sign in to verify your identity.
+                Streaming requires an active wallet connection. Please connect your wallet to start streaming.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <Button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' }).catch(console.error)} variant="outline" className="w-full">
-                Sign in with Google
+              <Button onClick={() => navigate("/auth")} variant="default" className="w-full">
+                Connect Wallet
               </Button>
-              <p className="text-xs text-center text-muted-foreground my-2">
-                Note: We are updating our wallet-only auth. For now, please sign in with Email/Social to stream.
-              </p>
               <Button variant="ghost" onClick={() => window.location.reload()}>Retry Loading</Button>
             </CardContent>
           </Card>
