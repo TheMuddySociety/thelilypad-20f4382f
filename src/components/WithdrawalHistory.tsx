@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  History, 
-  Gift, 
-  Image as ImageIcon, 
-  Sparkles, 
+import {
+  History,
+  Gift,
+  Image as ImageIcon,
+  Sparkles,
   CheckCircle,
   Calendar
 } from "lucide-react";
@@ -225,7 +225,7 @@ export const WithdrawalHistory: React.FC = () => {
           Withdrawal History
           {totalClaimed > 0 && (
             <Badge variant="secondary" className="ml-auto">
-              {totalClaimed.toFixed(4)} MON Total
+              {totalClaimed.toFixed(4)} SOL Total
             </Badge>
           )}
         </CardTitle>
@@ -254,7 +254,7 @@ export const WithdrawalHistory: React.FC = () => {
                       </span>
                     </div>
                     <Badge variant="outline" className="text-xs">
-                      {group.total.toFixed(4)} MON
+                      {group.total.toFixed(4)} SOL
                     </Badge>
                   </div>
 
@@ -289,7 +289,7 @@ export const WithdrawalHistory: React.FC = () => {
 
                           <div className="text-right">
                             <p className={`text-sm font-bold ${config.color}`}>
-                              +{withdrawal.amount.toFixed(4)} MON
+                              +{withdrawal.amount.toFixed(4)} SOL
                             </p>
                             <p className="text-[10px] text-muted-foreground">
                               {format(new Date(withdrawal.claimedAt), "h:mm a")}

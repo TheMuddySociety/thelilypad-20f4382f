@@ -83,11 +83,11 @@ export function ArtworkUploader({
   const [isDragging, setIsDragging] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  
+
   // Selection mode for batch editing
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  
+
   // Batch edit modal
   const [isBatchEditOpen, setIsBatchEditOpen] = useState(false);
   const [namingPattern, setNamingPattern] = useState<NamingPattern>("prefix");
@@ -95,28 +95,28 @@ export function ArtworkUploader({
   const [batchDescription, setBatchDescription] = useState("");
   const [applyDescription, setApplyDescription] = useState(false);
   const [startNumber, setStartNumber] = useState(1);
-  
+
   // Batch trait editing
   const [applyTraits, setApplyTraits] = useState(false);
   const [traitMode, setTraitMode] = useState<"append" | "replace" | "remove">("append");
   const [batchTraits, setBatchTraits] = useState<TraitAttribute[]>([]);
-  
+
   // Drag-and-drop reordering
   const [reorderDragIndex, setReorderDragIndex] = useState<number | null>(null);
   const [reorderDropIndex, setReorderDropIndex] = useState<number | null>(null);
-  
+
   // Preview mode
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  
+
   // Stats panel
   const [isStatsOpen, setIsStatsOpen] = useState(false);
-  
+
   // Compute trait statistics
   const traitStats = useMemo(() => {
     const allTraits = artworks.flatMap(a => a.attributes || []);
     const totalTraits = allTraits.length;
     const artworksWithTraits = artworks.filter(a => a.attributes && a.attributes.length > 0).length;
-    
+
     // Rarity distribution
     const rarityCount: Record<string, number> = {
       legendary: 0,
@@ -125,15 +125,15 @@ export function ArtworkUploader({
       uncommon: 0,
       common: 0
     };
-    
+
     // Trait type distribution
     const traitTypeCount: Record<string, { count: number; values: Record<string, number> }> = {};
-    
+
     allTraits.forEach(trait => {
       // Count rarity
       const rarity = trait.rarity || "common";
       rarityCount[rarity] = (rarityCount[rarity] || 0) + 1;
-      
+
       // Count trait types and values
       const type = trait.trait_type.toLowerCase().trim();
       if (type) {
@@ -147,12 +147,12 @@ export function ArtworkUploader({
         }
       }
     });
-    
+
     // Sort trait types by count
     const sortedTraitTypes = Object.entries(traitTypeCount)
       .sort((a, b) => b[1].count - a[1].count)
       .slice(0, 10);
-    
+
     return {
       totalTraits,
       artworksWithTraits,
@@ -171,7 +171,7 @@ export function ArtworkUploader({
   const processFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files);
     const imageFiles = fileArray.filter(file => file.type.startsWith('image/'));
-    
+
     if (imageFiles.length === 0) {
       toast.error("Please upload image files only");
       return;
@@ -195,11 +195,11 @@ export function ArtworkUploader({
 
         const id = `artwork-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-        
+
         try {
           const fileExt = file.name.split('.').pop();
           const fileName = `${creatorId}/artwork/${id}.${fileExt}`;
-          
+
           const { error: uploadError } = await supabase.storage
             .from('collection-images')
             .upload(fileName, file, {
@@ -245,7 +245,7 @@ export function ArtworkUploader({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files) {
       processFiles(e.dataTransfer.files);
     }
@@ -301,7 +301,7 @@ export function ArtworkUploader({
 
   const deleteSelected = async () => {
     const selectedArtworks = artworks.filter(a => selectedIds.has(a.id));
-    
+
     for (const artwork of selectedArtworks) {
       if (artwork.imageUrl && artwork.imageUrl.includes('collection-images')) {
         try {
@@ -316,7 +316,7 @@ export function ArtworkUploader({
         }
       }
     }
-    
+
     onArtworksChange(artworks.filter(a => !selectedIds.has(a.id)));
     setSelectedIds(new Set());
     setIsSelectionMode(false);
@@ -326,7 +326,7 @@ export function ArtworkUploader({
   // Batch edit logic
   const applyBatchEdit = () => {
     const selectedArtworksList = artworks.filter(a => selectedIds.has(a.id));
-    
+
     if (selectedArtworksList.length === 0) {
       toast.error("No artworks selected");
       return;
@@ -334,10 +334,10 @@ export function ArtworkUploader({
 
     const updatedArtworks = artworks.map((artwork, globalIndex) => {
       if (!selectedIds.has(artwork.id)) return artwork;
-      
+
       const selectedIndex = selectedArtworksList.findIndex(a => a.id === artwork.id);
       let newName = artwork.name;
-      
+
       switch (namingPattern) {
         case "prefix":
           if (batchNameValue) {
@@ -382,7 +382,7 @@ export function ArtworkUploader({
             break;
         }
       }
-      
+
       return {
         ...artwork,
         name: newName,
@@ -442,7 +442,7 @@ export function ArtworkUploader({
   const handleReorderDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (reorderDragIndex === null || reorderDragIndex === dropIndex) {
       setReorderDragIndex(null);
       setReorderDropIndex(null);
@@ -452,7 +452,7 @@ export function ArtworkUploader({
     const newArtworks = [...artworks];
     const [draggedItem] = newArtworks.splice(reorderDragIndex, 1);
     newArtworks.splice(dropIndex, 0, draggedItem);
-    
+
     onArtworksChange(newArtworks);
     setReorderDragIndex(null);
     setReorderDropIndex(null);
@@ -468,11 +468,10 @@ export function ArtworkUploader({
     <div className="space-y-4">
       {/* Upload Area */}
       <div
-        className={`relative border-2 border-dashed rounded-lg p-8 transition-colors ${
-          isDragging 
-            ? 'border-primary bg-primary/5' 
+        className={`relative border-2 border-dashed rounded-lg p-8 transition-colors ${isDragging
+            ? 'border-primary bg-primary/5'
             : 'border-border hover:border-primary/50'
-        }`}
+          }`}
         onDragEnter={(e) => handleDrag(e, true)}
         onDragOver={(e) => handleDrag(e, true)}
         onDragLeave={(e) => handleDrag(e, false)}
@@ -498,8 +497,8 @@ export function ArtworkUploader({
                 </p>
               </div>
               <div className="flex gap-2 mt-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => document.getElementById('artwork-upload')?.click()}
                 >
@@ -532,7 +531,7 @@ export function ArtworkUploader({
               {maxItems - artworks.length} slots remaining
             </Badge>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {isSelectionMode ? (
               <>
@@ -545,8 +544,8 @@ export function ArtworkUploader({
                 <Button variant="outline" size="sm" onClick={deselectAll}>
                   Deselect
                 </Button>
-                <Button 
-                  variant="default" 
+                <Button
+                  variant="default"
                   size="sm"
                   onClick={() => setIsBatchEditOpen(true)}
                   disabled={selectedIds.size === 0}
@@ -554,8 +553,8 @@ export function ArtworkUploader({
                   <Pencil className="w-4 h-4 mr-2" />
                   Batch Edit
                 </Button>
-                <Button 
-                  variant="destructive" 
+                <Button
+                  variant="destructive"
                   size="sm"
                   onClick={deleteSelected}
                   disabled={selectedIds.size === 0}
@@ -569,7 +568,7 @@ export function ArtworkUploader({
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <Button 
+                <Button
                   variant={isPreviewMode ? "default" : "outline"}
                   size="sm"
                   onClick={() => setIsPreviewMode(!isPreviewMode)}
@@ -587,8 +586,8 @@ export function ArtworkUploader({
                   )}
                 </Button>
                 {!isPreviewMode && (
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => setIsSelectionMode(true)}
                   >
@@ -644,14 +643,14 @@ export function ArtworkUploader({
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Avg traits per artwork</span>
                     <span className="font-medium">
-                      {traitStats.artworksWithTraits > 0 
+                      {traitStats.artworksWithTraits > 0
                         ? (traitStats.totalTraits / traitStats.artworksWithTraits).toFixed(1)
                         : 0}
                     </span>
                   </div>
                 </CardContent>
               </Card>
-              
+
               {/* Rarity Distribution */}
               <Card>
                 <CardHeader className="pb-2">
@@ -669,23 +668,22 @@ export function ArtworkUploader({
                     { key: "common", label: "Common", color: "bg-muted-foreground" }
                   ].map(({ key, label, color }) => {
                     const count = traitStats.rarityCount[key] || 0;
-                    const percentage = traitStats.totalTraits > 0 
-                      ? (count / traitStats.totalTraits) * 100 
+                    const percentage = traitStats.totalTraits > 0
+                      ? (count / traitStats.totalTraits) * 100
                       : 0;
                     return (
                       <div key={key} className="space-y-1">
                         <div className="flex justify-between text-xs">
-                          <span className={`${
-                            key === "legendary" ? "text-yellow-600" :
-                            key === "epic" ? "text-purple-600" :
-                            key === "rare" ? "text-blue-600" :
-                            key === "uncommon" ? "text-green-600" :
-                            "text-muted-foreground"
-                          }`}>{label}</span>
+                          <span className={`${key === "legendary" ? "text-yellow-600" :
+                              key === "epic" ? "text-purple-600" :
+                                key === "rare" ? "text-blue-600" :
+                                  key === "uncommon" ? "text-green-600" :
+                                    "text-muted-foreground"
+                            }`}>{label}</span>
                           <span className="text-muted-foreground">{count} ({percentage.toFixed(1)}%)</span>
                         </div>
                         <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className={`h-full ${color} transition-all`}
                             style={{ width: `${percentage}%` }}
                           />
@@ -695,7 +693,7 @@ export function ArtworkUploader({
                   })}
                 </CardContent>
               </Card>
-              
+
               {/* Top Trait Types */}
               {traitStats.traitTypes.length > 0 && (
                 <Card className="md:col-span-2">
@@ -708,8 +706,8 @@ export function ArtworkUploader({
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                       {traitStats.traitTypes.map(([type, data]) => (
-                        <div 
-                          key={type} 
+                        <div
+                          key={type}
                           className="p-2 rounded-lg border border-border bg-muted/30"
                         >
                           <p className="text-xs font-medium capitalize truncate">{type}</p>
@@ -733,7 +731,7 @@ export function ArtworkUploader({
         <ScrollArea className="h-[400px] pr-4">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {artworks.map((artwork, index) => (
-              <Card 
+              <Card
                 key={artwork.id}
                 draggable={!isSelectionMode && editingId !== artwork.id}
                 onDragStart={(e) => handleReorderDragStart(e, index)}
@@ -741,9 +739,8 @@ export function ArtworkUploader({
                 onDragLeave={handleReorderDragLeave}
                 onDrop={(e) => handleReorderDrop(e, index)}
                 onDragEnd={handleReorderDragEnd}
-                className={`group relative overflow-hidden transition-all ${
-                  editingId === artwork.id ? 'ring-2 ring-primary' : ''
-                } ${selectedIds.has(artwork.id) ? 'ring-2 ring-primary bg-primary/5' : ''}
+                className={`group relative overflow-hidden transition-all ${editingId === artwork.id ? 'ring-2 ring-primary' : ''
+                  } ${selectedIds.has(artwork.id) ? 'ring-2 ring-primary bg-primary/5' : ''}
                 ${reorderDragIndex === index ? 'opacity-50 scale-95' : ''}
                 ${reorderDropIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''}
                 ${!isSelectionMode && editingId !== artwork.id ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
@@ -755,10 +752,10 @@ export function ArtworkUploader({
                     <GripVertical className="w-4 h-4 text-muted-foreground" />
                   </div>
                 )}
-                
+
                 <div className="aspect-square relative">
                   {artwork.imageUrl ? (
-                    <img 
+                    <img
                       src={artwork.imageUrl}
                       alt={artwork.name}
                       className="w-full h-full object-cover"
@@ -768,20 +765,19 @@ export function ArtworkUploader({
                       <ImageIcon className="w-8 h-8 text-muted-foreground" />
                     </div>
                   )}
-                  
+
                   {/* Selection Checkbox */}
                   {isSelectionMode && (
                     <div className="absolute top-2 right-2 z-10">
-                      <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
-                        selectedIds.has(artwork.id) 
-                          ? 'bg-primary border-primary text-primary-foreground' 
+                      <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${selectedIds.has(artwork.id)
+                          ? 'bg-primary border-primary text-primary-foreground'
                           : 'bg-background/80 border-border'
-                      }`}>
+                        }`}>
                         {selectedIds.has(artwork.id) && <Check className="w-4 h-4" />}
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Overlay Controls (hidden in selection mode) */}
                   {!isSelectionMode && (
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -811,8 +807,8 @@ export function ArtworkUploader({
                   )}
 
                   {/* Index Badge */}
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className="absolute bottom-2 left-2 text-xs"
                   >
                     #{index + 1}
@@ -837,7 +833,7 @@ export function ArtworkUploader({
                         rows={2}
                         onClick={(e) => e.stopPropagation()}
                       />
-                      
+
                       {/* Trait Attributes */}
                       <div className="space-y-2 pt-2 border-t border-border">
                         <div className="flex items-center justify-between">
@@ -861,7 +857,7 @@ export function ArtworkUploader({
                             Add
                           </Button>
                         </div>
-                        
+
                         {(artwork.attributes || []).map((attr, attrIndex) => (
                           <div key={attrIndex} className="flex gap-1 items-start">
                             <div className="flex-1 space-y-1">
@@ -923,16 +919,16 @@ export function ArtworkUploader({
                             </div>
                           </div>
                         ))}
-                        
+
                         {(!artwork.attributes || artwork.attributes.length === 0) && (
                           <p className="text-xs text-muted-foreground text-center py-1">
                             No traits added yet
                           </p>
                         )}
                       </div>
-                      
-                      <Button 
-                        size="sm" 
+
+                      <Button
+                        size="sm"
                         className="w-full"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -954,16 +950,15 @@ export function ArtworkUploader({
                       {artwork.attributes && artwork.attributes.length > 0 && (
                         <div className="flex flex-wrap gap-1 pt-1">
                           {artwork.attributes.slice(0, 3).map((attr, i) => (
-                            <Badge 
-                              key={i} 
-                              variant="outline" 
-                              className={`text-[10px] px-1.5 py-0 ${
-                                attr.rarity === "legendary" ? "border-yellow-500 text-yellow-600" :
-                                attr.rarity === "epic" ? "border-purple-500 text-purple-600" :
-                                attr.rarity === "rare" ? "border-blue-500 text-blue-600" :
-                                attr.rarity === "uncommon" ? "border-green-500 text-green-600" :
-                                ""
-                              }`}
+                            <Badge
+                              key={i}
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 ${attr.rarity === "legendary" ? "border-yellow-500 text-yellow-600" :
+                                  attr.rarity === "epic" ? "border-purple-500 text-purple-600" :
+                                    attr.rarity === "rare" ? "border-blue-500 text-blue-600" :
+                                      attr.rarity === "uncommon" ? "border-green-500 text-green-600" :
+                                        ""
+                                }`}
                             >
                               {attr.trait_type}: {attr.value}
                             </Badge>
@@ -993,18 +988,18 @@ export function ArtworkUploader({
               Preview Mode: This is how your NFTs will appear in the marketplace
             </span>
           </div>
-          
+
           <ScrollArea className="h-[500px] pr-4">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {artworks.map((artwork, index) => (
-                <Card 
+                <Card
                   key={artwork.id}
                   className="group overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 cursor-pointer"
                 >
                   {/* NFT Image */}
                   <div className="aspect-square relative overflow-hidden">
                     {artwork.imageUrl ? (
-                      <img 
+                      <img
                         src={artwork.imageUrl}
                         alt={artwork.name}
                         className="w-full h-full object-cover transition-transform group-hover:scale-105"
@@ -1014,7 +1009,7 @@ export function ArtworkUploader({
                         <ImageIcon className="w-12 h-12 text-muted-foreground" />
                       </div>
                     )}
-                    
+
                     {/* Verified Badge Placeholder */}
                     <div className="absolute top-3 left-3">
                       <Badge className="bg-primary/90 hover:bg-primary text-primary-foreground text-xs">
@@ -1022,7 +1017,7 @@ export function ArtworkUploader({
                       </Badge>
                     </div>
                   </div>
-                  
+
                   {/* NFT Info */}
                   <CardHeader className="pb-2 pt-3">
                     <CardTitle className="text-base truncate">
@@ -1032,14 +1027,14 @@ export function ArtworkUploader({
                       {collectionType === "one_of_one" ? "1 of 1" : "Edition"}
                     </CardDescription>
                   </CardHeader>
-                  
+
                   <CardContent className="pb-3">
                     {artwork.description && (
                       <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
                         {artwork.description}
                       </p>
                     )}
-                    
+
                     {/* Traits Display */}
                     {artwork.attributes && artwork.attributes.length > 0 && (
                       <div className="mb-3 space-y-1">
@@ -1049,26 +1044,24 @@ export function ArtworkUploader({
                         </p>
                         <div className="grid grid-cols-2 gap-1">
                           {artwork.attributes.slice(0, 4).map((attr, i) => (
-                            <div 
-                              key={i} 
-                              className={`p-1.5 rounded text-center border ${
-                                attr.rarity === "legendary" ? "bg-yellow-500/10 border-yellow-500/30" :
-                                attr.rarity === "epic" ? "bg-purple-500/10 border-purple-500/30" :
-                                attr.rarity === "rare" ? "bg-blue-500/10 border-blue-500/30" :
-                                attr.rarity === "uncommon" ? "bg-green-500/10 border-green-500/30" :
-                                "bg-muted/50 border-border"
-                              }`}
+                            <div
+                              key={i}
+                              className={`p-1.5 rounded text-center border ${attr.rarity === "legendary" ? "bg-yellow-500/10 border-yellow-500/30" :
+                                  attr.rarity === "epic" ? "bg-purple-500/10 border-purple-500/30" :
+                                    attr.rarity === "rare" ? "bg-blue-500/10 border-blue-500/30" :
+                                      attr.rarity === "uncommon" ? "bg-green-500/10 border-green-500/30" :
+                                        "bg-muted/50 border-border"
+                                }`}
                             >
                               <p className="text-[9px] text-muted-foreground uppercase tracking-wide truncate">
                                 {attr.trait_type}
                               </p>
-                              <p className={`text-[10px] font-medium truncate ${
-                                attr.rarity === "legendary" ? "text-yellow-600" :
-                                attr.rarity === "epic" ? "text-purple-600" :
-                                attr.rarity === "rare" ? "text-blue-600" :
-                                attr.rarity === "uncommon" ? "text-green-600" :
-                                ""
-                              }`}>
+                              <p className={`text-[10px] font-medium truncate ${attr.rarity === "legendary" ? "text-yellow-600" :
+                                  attr.rarity === "epic" ? "text-purple-600" :
+                                    attr.rarity === "rare" ? "text-blue-600" :
+                                      attr.rarity === "uncommon" ? "text-green-600" :
+                                        ""
+                                }`}>
                                 {attr.value}
                               </p>
                             </div>
@@ -1081,19 +1074,19 @@ export function ArtworkUploader({
                         )}
                       </div>
                     )}
-                    
+
                     {/* Mock Price Display */}
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span className="text-muted-foreground">Price</span>
-                      <span className="font-bold">-- MON</span>
+                      <span className="font-bold">-- SOL</span>
                     </div>
-                    
+
                     {/* Mock Buy Button */}
                     <Button className="w-full" size="sm" variant="outline" disabled>
                       <ShoppingCart className="w-4 h-4 mr-2" />
                       Buy Now
                     </Button>
-                    
+
                     {/* Token ID indicator */}
                     <div className="mt-2 pt-2 border-t border-border">
                       <p className="text-xs text-muted-foreground text-center">
@@ -1113,8 +1106,8 @@ export function ArtworkUploader({
         <div className="text-center py-8 text-muted-foreground">
           <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="text-sm">
-            No artwork uploaded yet. 
-            {collectionType === "one_of_one" 
+            No artwork uploaded yet.
+            {collectionType === "one_of_one"
               ? " Upload unique images for each NFT in your collection."
               : " Upload your edition artwork."}
           </p>
@@ -1133,7 +1126,7 @@ export function ArtworkUploader({
               Apply naming patterns and descriptions to multiple artworks at once.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {/* Naming Pattern */}
             <div className="space-y-3">
@@ -1152,18 +1145,18 @@ export function ArtworkUploader({
                   <SelectItem value="numbered">Numbered Sequence</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               <Input
                 value={batchNameValue}
                 onChange={(e) => setBatchNameValue(e.target.value)}
                 placeholder={
                   namingPattern === "prefix" ? "Prefix text..." :
-                  namingPattern === "suffix" ? "Suffix text..." :
-                  namingPattern === "replace" ? "New name..." :
-                  "Base name (e.g., 'Cosmic Frog')"
+                    namingPattern === "suffix" ? "Suffix text..." :
+                      namingPattern === "replace" ? "New name..." :
+                        "Base name (e.g., 'Cosmic Frog')"
                 }
               />
-              
+
               {namingPattern === "numbered" && (
                 <div className="flex items-center gap-2">
                   <Label className="flex items-center gap-2 whitespace-nowrap">
@@ -1179,7 +1172,7 @@ export function ArtworkUploader({
                   />
                 </div>
               )}
-              
+
               {/* Preview */}
               {batchNameValue && (
                 <div className="p-3 bg-muted rounded-lg">
@@ -1193,7 +1186,7 @@ export function ArtworkUploader({
                 </div>
               )}
             </div>
-            
+
             {/* Description */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -1207,7 +1200,7 @@ export function ArtworkUploader({
                   Update Description
                 </Label>
               </div>
-              
+
               {applyDescription && (
                 <Textarea
                   value={batchDescription}
@@ -1217,7 +1210,7 @@ export function ArtworkUploader({
                 />
               )}
             </div>
-            
+
             {/* Bulk Traits */}
             <div className="space-y-3 pt-2 border-t border-border">
               <div className="flex items-center gap-2">
@@ -1231,7 +1224,7 @@ export function ArtworkUploader({
                   Update Traits
                 </Label>
               </div>
-              
+
               {applyTraits && (
                 <div className="space-y-3">
                   <Select value={traitMode} onValueChange={(v) => setTraitMode(v as typeof traitMode)}>
@@ -1244,7 +1237,7 @@ export function ArtworkUploader({
                       <SelectItem value="remove">Remove (delete matching traits)</SelectItem>
                     </SelectContent>
                   </Select>
-                  
+
                   <div className="space-y-2">
                     {batchTraits.map((trait, index) => (
                       <div key={index} className="flex gap-2 items-start">
@@ -1291,7 +1284,7 @@ export function ArtworkUploader({
                         </Button>
                       </div>
                     ))}
-                    
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -1301,10 +1294,10 @@ export function ArtworkUploader({
                       <Plus className="w-4 h-4 mr-2" />
                       Add Trait
                     </Button>
-                    
+
                     {batchTraits.length === 0 && (
                       <p className="text-xs text-muted-foreground text-center">
-                        {traitMode === "remove" 
+                        {traitMode === "remove"
                           ? "Add trait types to remove from selected artworks"
                           : "Add traits to apply to selected artworks"}
                       </p>
@@ -1314,7 +1307,7 @@ export function ArtworkUploader({
               )}
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBatchEditOpen(false)}>
               Cancel

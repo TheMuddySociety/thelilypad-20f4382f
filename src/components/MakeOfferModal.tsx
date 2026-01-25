@@ -84,7 +84,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
     if (listingPrice && price >= listingPrice) {
       toast.error("Offer must be below the listing price", {
-        description: `Current listing price is ${listingPrice} MON`,
+        description: `Current listing price is ${listingPrice} SOL`,
       });
       return;
     }
@@ -124,7 +124,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       setOfferState("success");
 
       toast.success("Offer submitted!", {
-        description: `Your offer of ${price} MON has been sent`,
+        description: `Your offer of ${price} SOL has been sent`,
       });
 
       onOfferMade?.();
@@ -174,7 +174,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               >
                 <h3 className="text-xl font-semibold">Offer Sent!</h3>
                 <p className="text-muted-foreground mt-1">
-                  {submittedPrice} MON offer for {nft.name || `Token #${nft.token_id}`}
+                  {submittedPrice} SOL offer for {nft.name || `Token #${nft.token_id}`}
                 </p>
               </motion.div>
             </motion.div>
@@ -233,7 +233,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                     <p className="font-medium">{nft.name || `Token #${nft.token_id}`}</p>
                     {listingPrice && (
                       <p className="text-sm text-muted-foreground">
-                        Listed for {listingPrice} MON
+                        Listed for {listingPrice} SOL
                       </p>
                     )}
                   </div>
@@ -256,12 +256,12 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                       disabled={offerState === "submitting"}
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                      MON
+                      SOL
                     </span>
                   </div>
                   {listingPrice && (
                     <p className="text-xs text-muted-foreground">
-                      Must be less than {listingPrice} MON
+                      Must be less than {listingPrice} SOL
                     </p>
                   )}
                 </div>
@@ -351,8 +351,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     disabled={offerState === "submitting" || !isConnected}
                     className="min-w-[120px]"
                   >

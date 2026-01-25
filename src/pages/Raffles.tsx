@@ -33,11 +33,11 @@ interface Raffle {
 const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void }> = ({ raffle, onEnter }) => {
   const countdown = useBundleCountdown(raffle.start_date, raffle.end_date, true);
   const isActive = !countdown.isNotStarted && !countdown.isExpired && !raffle.is_drawn;
-  
+
   const getPrizeTypeLabel = (type: string) => {
     switch (type) {
       case 'nft': return 'NFT Prize';
-      case 'token': return 'MON Tokens';
+      case 'token': return 'SOL Tokens';
       case 'shop_item': return 'Shop Items';
       case 'mixed': return 'Mixed Prizes';
       default: return type;
@@ -48,8 +48,8 @@ const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void }
     <Card className="overflow-hidden hover:border-primary/50 transition-all duration-300 group">
       <div className="aspect-video relative overflow-hidden bg-muted">
         {raffle.image_url ? (
-          <img 
-            src={raffle.image_url} 
+          <img
+            src={raffle.image_url}
             alt={raffle.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
@@ -67,19 +67,19 @@ const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void }
           </Badge>
         </div>
       </div>
-      
+
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">{raffle.name}</CardTitle>
         {raffle.description && (
           <p className="text-sm text-muted-foreground line-clamp-2">{raffle.description}</p>
         )}
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="flex items-center gap-2">
             <Ticket className="w-4 h-4 text-primary" />
-            <span>{raffle.entry_price > 0 ? `${raffle.entry_price} MON` : 'Free Entry'}</span>
+            <span>{raffle.entry_price > 0 ? `${raffle.entry_price} SOL` : 'Free Entry'}</span>
           </div>
           <div className="flex items-center gap-2">
             <Trophy className="w-4 h-4 text-yellow-500" />
@@ -98,15 +98,15 @@ const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void }
             </div>
           )}
         </div>
-        
-        <Button 
-          className="w-full" 
+
+        <Button
+          className="w-full"
           disabled={!isActive}
           onClick={() => onEnter(raffle)}
         >
-          {countdown.isNotStarted ? "Starting Soon" : 
-           countdown.isExpired || raffle.is_drawn ? "Raffle Ended" : 
-           "Enter Raffle"}
+          {countdown.isNotStarted ? "Starting Soon" :
+            countdown.isExpired || raffle.is_drawn ? "Raffle Ended" :
+              "Enter Raffle"}
         </Button>
       </CardContent>
     </Card>
@@ -187,9 +187,9 @@ const Raffles: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {raffles.map((raffle) => (
-              <RaffleCard 
-                key={raffle.id} 
-                raffle={raffle} 
+              <RaffleCard
+                key={raffle.id}
+                raffle={raffle}
                 onEnter={setSelectedRaffle}
               />
             ))}

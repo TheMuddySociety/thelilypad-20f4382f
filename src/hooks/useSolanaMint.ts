@@ -222,12 +222,13 @@ export const useSolanaMint = () => {
             // Build the mint transaction
             // Core Candy Machine: mintAuthority is the candy guard PDA if wrapped
             // For unwrapped machines, the identity is the mint authority
-            // Note: If wrapped, we use the candyMachine.mintAuthority as-is (it's the guard PDA)
             const tx = mintAssetFromCandyMachine(umi, {
                 candyMachine: candyMachine.publicKey,
-                mintAuthority: umi.identity,
                 asset: nftMint,
                 collection: candyMachine.collectionMint,
+                candyGuard: isWrapped ? candyGuardPda[0] : undefined,
+                group: phaseArgs?.phaseId ? some(phaseArgs.phaseId) : none(),
+                mintArgs: mintArgs,
                 assetOwner: umi.identity.publicKey,
             }).add(memoInstruction);
 

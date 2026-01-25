@@ -70,7 +70,7 @@ const RaffleManager = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedRaffle, setSelectedRaffle] = useState<Raffle | null>(null);
-  
+
   // Form state
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -91,7 +91,7 @@ const RaffleManager = () => {
         .from("lily_raffles")
         .select("*")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return (data || []) as unknown as Raffle[];
     },
@@ -104,7 +104,7 @@ const RaffleManager = () => {
         .from("collections")
         .select("id, name")
         .order("name");
-      
+
       if (error) throw error;
       return data;
     },
@@ -119,7 +119,7 @@ const RaffleManager = () => {
         .select("*")
         .eq("raffle_id", selectedRaffle.id)
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data;
     },
@@ -169,7 +169,7 @@ const RaffleManager = () => {
         .from("lily_raffles")
         .update({ is_active: isActive })
         .eq("id", id);
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -191,7 +191,7 @@ const RaffleManager = () => {
         .from("lily_raffle_entries")
         .select("*")
         .eq("raffle_id", raffleId);
-      
+
       if (entriesError) throw entriesError;
       if (!entries?.length) throw new Error("No entries to draw from");
 
@@ -206,7 +206,7 @@ const RaffleManager = () => {
       // Draw winners (unique users)
       const winners: string[] = [];
       const shuffled = [...ticketPool].sort(() => Math.random() - 0.5);
-      
+
       for (const userId of shuffled) {
         if (!winners.includes(userId) && winners.length < raffle.winner_count) {
           winners.push(userId);
@@ -325,7 +325,7 @@ const RaffleManager = () => {
               <DialogTitle>Create New Raffle</DialogTitle>
               <DialogDescription>Set up a new raffle with prizes and entry requirements</DialogDescription>
             </DialogHeader>
-            
+
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -444,7 +444,7 @@ const RaffleManager = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="nft">NFT</SelectItem>
-                          <SelectItem value="token">MON Tokens</SelectItem>
+                          <SelectItem value="token">SOL Tokens</SelectItem>
                           <SelectItem value="shop_item">Shop Item</SelectItem>
                         </SelectContent>
                       </Select>
@@ -492,7 +492,7 @@ const RaffleManager = () => {
               <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={() => createMutation.mutate()}
                 disabled={createMutation.isPending || !name || !startDate || !endDate}
               >
@@ -532,13 +532,13 @@ const RaffleManager = () => {
                     <TableCell>
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </TableCell>
-                    <TableCell>{raffle.entry_price} MON</TableCell>
+                    <TableCell>{raffle.entry_price} SOL</TableCell>
                     <TableCell>{raffle.total_tickets} tickets</TableCell>
                     <TableCell>{format(new Date(raffle.end_date), "MMM d, yyyy HH:mm")}</TableCell>
                     <TableCell>
                       <Switch
                         checked={raffle.is_active}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           toggleActiveMutation.mutate({ id: raffle.id, isActive: checked })
                         }
                         disabled={raffle.is_drawn}
@@ -590,13 +590,13 @@ const RaffleManager = () => {
             <DialogTitle>{selectedRaffle?.name}</DialogTitle>
             <DialogDescription>{selectedRaffle?.description}</DialogDescription>
           </DialogHeader>
-          
+
           {selectedRaffle && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Entry Price</p>
-                  <p className="font-medium">{selectedRaffle.entry_price} MON</p>
+                  <p className="font-medium">{selectedRaffle.entry_price} SOL</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Total Entries</p>

@@ -29,7 +29,7 @@ const PLATFORM_FEE_PERCENT = 2.5;
 const BASE_GAS_LIMIT = 150000;
 const PER_NFT_GAS = 50000;
 
-// Gas price multipliers for different scenarios (in MON)
+// Gas price multipliers for different scenarios (in SOL)
 const GAS_PRICES = {
   testnet: {
     low: 0.0000000005,
@@ -64,28 +64,28 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
   const calculations = useMemo(() => {
     const mintCost = price * quantity;
     const platformFee = (mintCost * PLATFORM_FEE_PERCENT) / 100;
-    
+
     // Gas calculation based on scenario
     const gasLimit = BASE_GAS_LIMIT + (PER_NFT_GAS * quantity);
     const network = isTestnet ? "testnet" : "mainnet";
     const gasPrice = GAS_PRICES[network][gasScenario];
     const gasFee = gasLimit * gasPrice;
-    
+
     // Calculate range for all scenarios
     const gasFeeRange = {
       low: gasLimit * GAS_PRICES[network].low,
       high: gasLimit * GAS_PRICES[network].high,
     };
-    
+
     const totalCost = mintCost + platformFee + gasFee;
-    
+
     // Calculate per-NFT costs
     const costPerNft = totalCost / quantity;
-    
+
     // Calculate gas savings for bulk (compare to minting individually)
     const individualGasTotal = (BASE_GAS_LIMIT + PER_NFT_GAS) * quantity * gasPrice;
     const gasSavings = quantity > 1 ? ((individualGasTotal - gasFee) / individualGasTotal) * 100 : 0;
-    
+
     return {
       mintCost,
       platformFee,
@@ -102,7 +102,7 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
     setQuantity(prev => Math.min(maxQuantity, Math.max(1, prev + delta)));
   };
 
-  const formatMON = (value: number) => {
+  const formatSOL = (value: number) => {
     if (value < 0.0001) return "<0.0001";
     return value.toFixed(4);
   };
@@ -257,7 +257,7 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
         <div className="space-y-3">
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground">Mint Cost</span>
-            <span className="font-medium">{formatMON(calculations.mintCost)} MON</span>
+            <span className="font-medium">{formatSOL(calculations.mintCost)} SOL</span>
           </div>
 
           <div className="flex justify-between items-center text-sm">
@@ -273,7 +273,7 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
                 </TooltipContent>
               </Tooltip>
             </span>
-            <span className="font-medium">{formatMON(calculations.platformFee)} MON</span>
+            <span className="font-medium">{formatSOL(calculations.platformFee)} SOL</span>
           </div>
 
           <div className="flex justify-between items-center text-sm">
@@ -289,26 +289,26 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
                     Network fee paid to validators. Gas limit: ~{calculations.gasLimit.toLocaleString()}
                     <br />
                     <span className="text-muted-foreground">
-                      Range: {formatMON(calculations.gasFeeRange.low)} - {formatMON(calculations.gasFeeRange.high)} MON
+                      Range: {formatSOL(calculations.gasFeeRange.low)} - {formatSOL(calculations.gasFeeRange.high)} SOL
                     </span>
                   </p>
                 </TooltipContent>
               </Tooltip>
             </span>
-            <span className="font-medium">~{formatMON(calculations.gasFee)} MON</span>
+            <span className="font-medium">~{formatSOL(calculations.gasFee)} SOL</span>
           </div>
 
           <Separator />
 
           <div className="flex justify-between items-center">
             <span className="font-semibold">Total Estimated Cost</span>
-            <span className="font-bold text-lg text-primary">~{formatMON(calculations.totalCost)} MON</span>
+            <span className="font-bold text-lg text-primary">~{formatSOL(calculations.totalCost)} SOL</span>
           </div>
 
           {quantity > 1 && (
             <div className="flex justify-between items-center text-sm text-muted-foreground">
               <span>Per NFT</span>
-              <span>~{formatMON(calculations.costPerNft)} MON</span>
+              <span>~{formatSOL(calculations.costPerNft)} SOL</span>
             </div>
           )}
         </div>
@@ -324,8 +324,8 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
         )}
 
         {/* Link to Fees Page */}
-        <Link 
-          to="/fees" 
+        <Link
+          to="/fees"
           className="flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors group"
         >
           Learn more about fees

@@ -62,8 +62,8 @@ interface DonorLeaderboardProps {
   title?: string;
 }
 
-export const DonorLeaderboard = ({ 
-  streamerId, 
+export const DonorLeaderboard = ({
+  streamerId,
   limit = 10,
   title = "Top Supporters"
 }: DonorLeaderboardProps) => {
@@ -73,7 +73,7 @@ export const DonorLeaderboard = ({
   useEffect(() => {
     const fetchTopDonors = async () => {
       setLoading(true);
-      
+
       let query = supabase
         .from('earnings')
         .select('from_username, from_user_id, amount')
@@ -94,11 +94,11 @@ export const DonorLeaderboard = ({
 
       // Aggregate donations by donor
       const donorMap = new Map<string, TopDonor>();
-      
+
       data?.forEach((earning) => {
         const username = earning.from_username || 'Anonymous';
         const existing = donorMap.get(username);
-        
+
         if (existing) {
           existing.total_amount += Number(earning.amount);
           existing.donation_count += 1;
@@ -239,7 +239,7 @@ export const DonorLeaderboard = ({
             </div>
             <div className="text-right">
               <p className="font-bold text-primary">
-                {donor.total_amount.toFixed(4)} MON
+                {donor.total_amount.toFixed(4)} SOL
               </p>
             </div>
           </div>

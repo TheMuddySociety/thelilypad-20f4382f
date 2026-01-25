@@ -272,8 +272,8 @@ export const AdminBundleManager: React.FC = () => {
   };
 
   const toggleItemSelection = (itemId: string) => {
-    setSelectedItems(prev => 
-      prev.includes(itemId) 
+    setSelectedItems(prev =>
+      prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
         : [...prev, itemId]
     );
@@ -351,7 +351,7 @@ export const AdminBundleManager: React.FC = () => {
                       onCheckedChange={setIsLimitedTime}
                     />
                   </div>
-                  
+
                   {isLimitedTime && (
                     <div className="grid gap-4 pt-2 border-t">
                       <div>
@@ -407,7 +407,7 @@ export const AdminBundleManager: React.FC = () => {
                           {pack.category.replace("_", " ")}
                         </p>
                       </div>
-                      <Badge variant="secondary">{pack.price_mon} MON</Badge>
+                      <Badge variant="secondary">{pack.price_mon} SOL</Badge>
                     </div>
                   ))}
                   {officialPacks.length === 0 && (
@@ -423,15 +423,15 @@ export const AdminBundleManager: React.FC = () => {
                 <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Original Price:</span>
-                    <span className="line-through text-muted-foreground">{originalPrice} MON</span>
+                    <span className="line-through text-muted-foreground">{originalPrice} SOL</span>
                   </div>
                   <div className="flex justify-between text-sm text-green-600">
                     <span>Savings ({discountPercent}% off):</span>
-                    <span>-{savings.toFixed(2)} MON</span>
+                    <span>-{savings.toFixed(2)} SOL</span>
                   </div>
                   <div className="flex justify-between font-bold text-lg border-t pt-2">
                     <span>Bundle Price:</span>
-                    <span className="text-primary">{bundlePrice.toFixed(2)} MON</span>
+                    <span className="text-primary">{bundlePrice.toFixed(2)} SOL</span>
                   </div>
                 </div>
               )}
@@ -499,10 +499,10 @@ export const AdminBundleManager: React.FC = () => {
                   <TableCell>
                     <div className="space-y-1">
                       <p className="text-sm line-through text-muted-foreground">
-                        {bundle.original_price} MON
+                        {bundle.original_price} SOL
                       </p>
                       <p className="font-bold text-primary">
-                        {bundle.bundle_price} MON
+                        {bundle.bundle_price} SOL
                       </p>
                     </div>
                   </TableCell>
@@ -615,7 +615,7 @@ export const AdminBundleManager: React.FC = () => {
                   onCheckedChange={setIsLimitedTime}
                 />
               </div>
-              
+
               {isLimitedTime && (
                 <div className="grid gap-4 pt-2 border-t">
                   <div>

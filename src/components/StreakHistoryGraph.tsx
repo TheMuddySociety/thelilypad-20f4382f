@@ -56,7 +56,7 @@ export const StreakHistoryGraph = ({
       // Aggregate volume by day for each user
       const dailyData: DailyData[] = allDays.map((day) => {
         const dayStr = format(day, "yyyy-MM-dd");
-        
+
         const userDayVolume = volumeData
           ?.filter(
             (v) =>
@@ -147,7 +147,7 @@ export const StreakHistoryGraph = ({
                 }}
                 labelStyle={{ color: "hsl(var(--foreground))" }}
                 formatter={(value: number, name: string) => [
-                  `${value.toFixed(2)} MON`,
+                  `${value.toFixed(2)} SOL`,
                   name === "userVolume" ? userDisplayName : opponentDisplayName,
                 ]}
               />
@@ -191,18 +191,16 @@ export const StreakHistoryGraph = ({
           {chartData.map((day, i) => (
             <div
               key={day.date}
-              className={`w-6 h-6 rounded flex items-center justify-center text-xs ${
-                day.userActive && day.opponentActive
+              className={`w-6 h-6 rounded flex items-center justify-center text-xs ${day.userActive && day.opponentActive
                   ? "bg-yellow-500/20 text-yellow-500"
                   : day.userActive
-                  ? "bg-primary/20 text-primary"
-                  : day.opponentActive
-                  ? "bg-destructive/20 text-destructive"
-                  : "bg-muted/30 text-muted-foreground"
-              }`}
-              title={`${day.displayDate}: ${day.userActive ? "You traded" : ""}${
-                day.userActive && day.opponentActive ? " & " : ""
-              }${day.opponentActive ? "Opponent traded" : ""}`}
+                    ? "bg-primary/20 text-primary"
+                    : day.opponentActive
+                      ? "bg-destructive/20 text-destructive"
+                      : "bg-muted/30 text-muted-foreground"
+                }`}
+              title={`${day.displayDate}: ${day.userActive ? "You traded" : ""}${day.userActive && day.opponentActive ? " & " : ""
+                }${day.opponentActive ? "Opponent traded" : ""}`}
             >
               {day.userActive || day.opponentActive ? (
                 <Flame className="w-3 h-3" />

@@ -83,7 +83,7 @@ const BlindBoxManager = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedBox, setSelectedBox] = useState<BlindBox | null>(null);
-  
+
   // Form state
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -94,8 +94,8 @@ const BlindBoxManager = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [rewards, setRewards] = useState<Reward[]>([
-    { type: "token", name: "Small MON", value: "5", rarity: "common", weight: 50 },
-    { type: "token", name: "Medium MON", value: "25", rarity: "rare", weight: 15 },
+    { type: "token", name: "Small SOL", value: "5", rarity: "common", weight: 50 },
+    { type: "token", name: "Medium SOL", value: "25", rarity: "rare", weight: 15 },
   ]);
 
   const { data: blindBoxes, isLoading } = useQuery({
@@ -105,7 +105,7 @@ const BlindBoxManager = () => {
         .from("lily_blind_boxes")
         .select("*")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return (data || []) as unknown as BlindBox[];
     },
@@ -121,7 +121,7 @@ const BlindBoxManager = () => {
         .eq("blind_box_id", selectedBox.id)
         .order("created_at", { ascending: false })
         .limit(10);
-      
+
       if (error) throw error;
       return data;
     },
@@ -172,7 +172,7 @@ const BlindBoxManager = () => {
         .from("lily_blind_boxes")
         .update({ is_active: isActive })
         .eq("id", id);
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -208,7 +208,7 @@ const BlindBoxManager = () => {
     setStartDate("");
     setEndDate("");
     setRewards([
-      { type: "token", name: "Small MON", value: "5", rarity: "common", weight: 50 },
+      { type: "token", name: "Small SOL", value: "5", rarity: "common", weight: 50 },
     ]);
   };
 
@@ -277,7 +277,7 @@ const BlindBoxManager = () => {
               <DialogTitle>Create New Blind Box</DialogTitle>
               <DialogDescription>Set up a mystery box with random rewards</DialogDescription>
             </DialogHeader>
-            
+
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -381,7 +381,7 @@ const BlindBoxManager = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="nft">NFT</SelectItem>
-                          <SelectItem value="token">MON Tokens</SelectItem>
+                          <SelectItem value="token">SOL Tokens</SelectItem>
                           <SelectItem value="shop_item">Shop Item</SelectItem>
                         </SelectContent>
                       </Select>
@@ -438,7 +438,7 @@ const BlindBoxManager = () => {
               <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={() => createMutation.mutate()}
                 disabled={createMutation.isPending || !name || !startDate || !endDate}
               >
@@ -479,7 +479,7 @@ const BlindBoxManager = () => {
                     <TableCell>
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </TableCell>
-                    <TableCell>{box.price} MON</TableCell>
+                    <TableCell>{box.price} SOL</TableCell>
                     <TableCell>
                       <div className="w-24">
                         <div className="text-xs mb-1">
@@ -492,7 +492,7 @@ const BlindBoxManager = () => {
                     <TableCell>
                       <Switch
                         checked={box.is_active}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           toggleActiveMutation.mutate({ id: box.id, isActive: checked })
                         }
                       />
@@ -535,13 +535,13 @@ const BlindBoxManager = () => {
             </DialogTitle>
             <DialogDescription>{selectedBox?.description}</DialogDescription>
           </DialogHeader>
-          
+
           {selectedBox && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Price</p>
-                  <p className="font-medium">{selectedBox.price} MON</p>
+                  <p className="font-medium">{selectedBox.price} SOL</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Remaining</p>
@@ -570,7 +570,7 @@ const BlindBoxManager = () => {
                         <Badge variant="outline" className="text-xs capitalize">{reward.rarity}</Badge>
                       </div>
                       <span className="text-sm text-muted-foreground">
-                        {reward.type === "token" ? `${reward.value} MON` : reward.value}
+                        {reward.type === "token" ? `${reward.value} SOL` : reward.value}
                       </span>
                     </div>
                   ))}

@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  BarChart3, 
-  Activity, 
+import {
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Activity,
   Users,
   Layers,
   DollarSign,
@@ -72,24 +72,24 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
       const activeListings = listings?.filter(l => l.status === "active") || [];
       const soldListings = listings?.filter(l => l.status === "sold") || [];
       const recent24hSales = soldListings.filter(l => new Date(l.sold_at || l.created_at) > last24h);
-      
+
       // Floor price - lowest active listing
-      const floorPrice = activeListings.length > 0 
+      const floorPrice = activeListings.length > 0
         ? Math.min(...activeListings.map(l => Number(l.price)))
         : 0;
 
       // Total volume - sum of all sold listings
       const totalVolume = soldListings.reduce((sum, l) => sum + Number(l.price), 0);
-      
+
       // 24h volume
       const volume24h = recent24hSales.reduce((sum, l) => sum + Number(l.price), 0);
-      
+
       // Unique owners
       const uniqueOwners = new Set(mintedNfts?.map(n => n.owner_address) || []).size;
 
       // Average price
-      const avgPrice = soldListings.length > 0 
-        ? totalVolume / soldListings.length 
+      const avgPrice = soldListings.length > 0
+        ? totalVolume / soldListings.length
         : floorPrice;
 
       // Simulated floor change (in production would compare to previous day)
@@ -108,7 +108,7 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
 
       // Generate chart data from sold listings
       const salesByDate = new Map<string, { volume: number; sales: number; prices: number[] }>();
-      
+
       // Generate last 14 days
       for (let i = 13; i >= 0; i--) {
         const date = new Date();
@@ -170,39 +170,39 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
       {/* Stats Bar - Magic Eden Style */}
       <div className="bg-muted/30 border-b border-border">
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 divide-x divide-border">
-          <StatItem 
-            label="Floor Price" 
-            value={`${formatNumber(stats?.floorPrice || 0)} MON`}
+          <StatItem
+            label="Floor Price"
+            value={`${formatNumber(stats?.floorPrice || 0)} SOL`}
             change={stats?.floorChange24h}
           />
-          <StatItem 
-            label="24h Vol" 
-            value={`${formatNumber(stats?.volume24h || 0)} MON`}
+          <StatItem
+            label="24h Vol"
+            value={`${formatNumber(stats?.volume24h || 0)} SOL`}
           />
-          <StatItem 
-            label="24h Sales" 
+          <StatItem
+            label="24h Sales"
             value={stats?.sales24h?.toString() || "0"}
           />
-          <StatItem 
-            label="All Vol" 
-            value={`${formatNumber(stats?.totalVolume || 0)} MON`}
+          <StatItem
+            label="All Vol"
+            value={`${formatNumber(stats?.totalVolume || 0)} SOL`}
           />
-          <StatItem 
-            label="Avg Price" 
-            value={`${formatNumber(stats?.avgPrice || 0)} MON`}
+          <StatItem
+            label="Avg Price"
+            value={`${formatNumber(stats?.avgPrice || 0)} SOL`}
           />
-          <StatItem 
-            label="Listed / Supply" 
+          <StatItem
+            label="Listed / Supply"
             value={`${stats?.listed || 0} / ${totalSupply.toLocaleString()}`}
             subValue={`${((stats?.listed || 0) / (totalSupply || 1) * 100).toFixed(1)}%`}
           />
-          <StatItem 
-            label="Minted" 
+          <StatItem
+            label="Minted"
             value={`${minted.toLocaleString()}`}
             subValue={`${((minted / (totalSupply || 1)) * 100).toFixed(1)}%`}
           />
-          <StatItem 
-            label="Owners" 
+          <StatItem
+            label="Owners"
             value={(stats?.owners || 0).toString()}
           />
         </div>
@@ -213,22 +213,22 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="border-b border-border px-4">
             <TabsList className="bg-transparent h-12 p-0 space-x-1">
-              <TabsTrigger 
-                value="chart" 
+              <TabsTrigger
+                value="chart"
                 className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4"
               >
                 <BarChart3 className="w-4 h-4 mr-2" />
                 Chart
               </TabsTrigger>
-              <TabsTrigger 
-                value="analytics" 
+              <TabsTrigger
+                value="analytics"
                 className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4"
               >
                 <Activity className="w-4 h-4 mr-2" />
                 Analytics
               </TabsTrigger>
-              <TabsTrigger 
-                value="activity" 
+              <TabsTrigger
+                value="activity"
                 className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4"
               >
                 <ShoppingCart className="w-4 h-4 mr-2" />
@@ -243,38 +243,38 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis 
-                    dataKey="date" 
+                  <XAxis
+                    dataKey="date"
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
                     tickLine={false}
                   />
-                  <YAxis 
+                  <YAxis
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
                     tickLine={false}
                     tickFormatter={(value) => `${value}`}
                   />
-                  <Tooltip 
-                    contentStyle={{ 
+                  <Tooltip
+                    contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px'
                     }}
                     labelStyle={{ color: 'hsl(var(--foreground))' }}
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="volume" 
-                    stroke="hsl(var(--primary))" 
-                    fillOpacity={1} 
-                    fill="url(#volumeGradient)" 
-                    name="Volume (MON)"
+                  <Area
+                    type="monotone"
+                    dataKey="volume"
+                    stroke="hsl(var(--primary))"
+                    fillOpacity={1}
+                    fill="url(#volumeGradient)"
+                    name="Volume (SOL)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -289,19 +289,19 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis 
-                        dataKey="date" 
+                      <XAxis
+                        dataKey="date"
                         stroke="hsl(var(--muted-foreground))"
                         fontSize={10}
                         tickLine={false}
                       />
-                      <YAxis 
+                      <YAxis
                         stroke="hsl(var(--muted-foreground))"
                         fontSize={10}
                         tickLine={false}
                       />
-                      <Tooltip 
-                        contentStyle={{ 
+                      <Tooltip
+                        contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px'
@@ -315,22 +315,22 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
               <div className="space-y-4">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Key Metrics</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  <MetricCard 
+                  <MetricCard
                     icon={<DollarSign className="w-4 h-4" />}
                     label="Avg Price"
-                    value={`${formatNumber(stats?.avgPrice || 0)} MON`}
+                    value={`${formatNumber(stats?.avgPrice || 0)} SOL`}
                   />
-                  <MetricCard 
+                  <MetricCard
                     icon={<Layers className="w-4 h-4" />}
                     label="Listed Ratio"
                     value={`${((stats?.listed || 0) / (minted || 1) * 100).toFixed(1)}%`}
                   />
-                  <MetricCard 
+                  <MetricCard
                     icon={<Users className="w-4 h-4" />}
                     label="Unique Owners"
                     value={(stats?.owners || 0).toString()}
                   />
-                  <MetricCard 
+                  <MetricCard
                     icon={<Activity className="w-4 h-4" />}
                     label="Owner Ratio"
                     value={`${((stats?.owners || 0) / (minted || 1) * 100).toFixed(0)}%`}
@@ -349,14 +349,14 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
   );
 }
 
-function StatItem({ 
-  label, 
-  value, 
-  change, 
-  subValue 
-}: { 
-  label: string; 
-  value: string; 
+function StatItem({
+  label,
+  value,
+  change,
+  subValue
+}: {
+  label: string;
+  value: string;
   change?: number;
   subValue?: string;
 }) {
@@ -459,19 +459,19 @@ function RecentActivity({ collectionId }: { collectionId: string }) {
             </p>
           </div>
           <div className="text-right">
-            <p className="font-semibold text-sm">{Number(activity.price).toFixed(2)} MON</p>
+            <p className="font-semibold text-sm">{Number(activity.price).toFixed(2)} SOL</p>
             <p className="text-xs text-muted-foreground">
               {new Date(activity.created_at).toLocaleDateString()}
             </p>
           </div>
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className={
-              activity.status === "sold" 
+              activity.status === "sold"
                 ? "bg-green-500/10 text-green-500 border-green-500/30"
                 : activity.status === "active"
-                ? "bg-blue-500/10 text-blue-500 border-blue-500/30"
-                : "bg-muted text-muted-foreground"
+                  ? "bg-blue-500/10 text-blue-500 border-blue-500/30"
+                  : "bg-muted text-muted-foreground"
             }
           >
             {activity.status}

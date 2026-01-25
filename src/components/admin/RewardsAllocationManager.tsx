@@ -8,10 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  Trophy, 
-  Coins, 
-  Users, 
+import {
+  Trophy,
+  Coins,
+  Users,
   Calendar,
   Gift,
   AlertCircle,
@@ -90,7 +90,7 @@ export function RewardsAllocationManager() {
 
       // Aggregate by user
       const userVolumes = new Map<string, { total_volume: number; total_weighted_volume: number; trade_count: number }>();
-      
+
       data?.forEach(record => {
         if (!record.user_id) return;
         const existing = userVolumes.get(record.user_id) || { total_volume: 0, total_weighted_volume: 0, trade_count: 0 };
@@ -159,7 +159,7 @@ export function RewardsAllocationManager() {
       const rewards = topTraders.map((trader, index) => {
         const tier = DEFAULT_REWARD_TIERS[index];
         const rewardAmount = tier ? (pool * tier.percentage) / 100 : 0;
-        
+
         return {
           user_id: trader.user_id,
           reward_period_start: periodStart.toISOString(),
@@ -174,9 +174,9 @@ export function RewardsAllocationManager() {
       // Insert rewards
       const { error } = await supabase
         .from('volume_rewards')
-        .upsert(rewards, { 
+        .upsert(rewards, {
           onConflict: 'user_id,reward_period_start,reward_period_end',
-          ignoreDuplicates: false 
+          ignoreDuplicates: false
         });
 
       if (error) throw error;
@@ -228,7 +228,7 @@ export function RewardsAllocationManager() {
           Rewards Allocation
         </CardTitle>
         <CardDescription>
-          Allocate MON rewards to top volume traders for a specific period
+          Allocate SOL rewards to top volume traders for a specific period
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -250,7 +250,7 @@ export function RewardsAllocationManager() {
             </p>
           </div>
           <div className="space-y-2">
-            <Label>Total Reward Pool (MON)</Label>
+            <Label>Total Reward Pool (SOL)</Label>
             <Input
               type="number"
               value={totalRewardPool}
@@ -266,7 +266,7 @@ export function RewardsAllocationManager() {
           <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <p className="text-sm">
-              Rewards have already been allocated for this period ({existingAllocations.length} traders). 
+              Rewards have already been allocated for this period ({existingAllocations.length} traders).
               Allocating again will update existing rewards.
             </p>
           </div>
@@ -281,7 +281,7 @@ export function RewardsAllocationManager() {
             </h4>
             <Badge variant="outline">
               <Coins className="w-3 h-3 mr-1" />
-              {totalRewardPool} MON Pool
+              {totalRewardPool} SOL Pool
             </Badge>
           </div>
 
@@ -297,16 +297,15 @@ export function RewardsAllocationManager() {
                 const rank = index + 1;
                 const reward = calculateReward(rank);
                 const tier = DEFAULT_REWARD_TIERS[index];
-                
+
                 return (
                   <div key={trader.user_id} className="flex items-center justify-between p-3">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                        rank === 1 ? 'bg-yellow-500/20 text-yellow-500' :
-                        rank === 2 ? 'bg-gray-400/20 text-gray-400' :
-                        rank === 3 ? 'bg-amber-600/20 text-amber-600' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${rank === 1 ? 'bg-yellow-500/20 text-yellow-500' :
+                          rank === 2 ? 'bg-gray-400/20 text-gray-400' :
+                            rank === 3 ? 'bg-amber-600/20 text-amber-600' :
+                              'bg-muted text-muted-foreground'
+                        }`}>
                         {rank}
                       </div>
                       <Avatar className="w-8 h-8">
@@ -323,7 +322,7 @@ export function RewardsAllocationManager() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-primary">{reward.toFixed(2)} MON</p>
+                      <p className="font-semibold text-primary">{reward.toFixed(2)} SOL</p>
                       <p className="text-xs text-muted-foreground">{tier?.percentage || 0}% of pool</p>
                     </div>
                   </div>

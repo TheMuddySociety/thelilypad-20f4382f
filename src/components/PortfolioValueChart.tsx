@@ -43,16 +43,16 @@ export function PortfolioValueChart({ nfts, collectionStats }: PortfolioValueCha
     // Get date range - from first mint to today
     const firstMintDate = startOfDay(parseISO(sortedNfts[0].minted_at));
     const today = startOfDay(new Date());
-    
+
     // Limit to last 90 days if portfolio is older
     const startDate = firstMintDate < subDays(today, 90) ? subDays(today, 90) : firstMintDate;
-    
+
     // Generate all days in the range
     const allDays = eachDayOfInterval({ start: startDate, end: today });
 
     // Build cumulative data for each day
     let cumulativeNfts: NFT[] = [];
-    
+
     // Pre-populate with NFTs minted before start date
     sortedNfts.forEach(nft => {
       const mintedDate = startOfDay(parseISO(nft.minted_at));
@@ -93,16 +93,16 @@ export function PortfolioValueChart({ nfts, collectionStats }: PortfolioValueCha
   // Calculate trend
   const trend = useMemo(() => {
     if (chartData.length < 2) return { direction: 'neutral' as const, percent: 0 };
-    
+
     const firstValue = chartData[0].value;
     const lastValue = chartData[chartData.length - 1].value;
-    
+
     if (firstValue === 0) {
       return { direction: 'up' as const, percent: 100 };
     }
-    
+
     const percentChange = ((lastValue - firstValue) / firstValue) * 100;
-    
+
     return {
       direction: percentChange > 0 ? 'up' as const : percentChange < 0 ? 'down' as const : 'neutral' as const,
       percent: Math.abs(percentChange)
@@ -141,7 +141,7 @@ export function PortfolioValueChart({ nfts, collectionStats }: PortfolioValueCha
             )}
           </div>
         </div>
-        <p className="text-2xl font-bold">{currentValue.toFixed(2)} MON</p>
+        <p className="text-2xl font-bold">{currentValue.toFixed(2)} SOL</p>
         <p className="text-xs text-muted-foreground">Estimated based on current floor prices</p>
       </CardHeader>
       <CardContent>
@@ -158,14 +158,14 @@ export function PortfolioValueChart({ nfts, collectionStats }: PortfolioValueCha
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis 
-                dataKey="date" 
+              <XAxis
+                dataKey="date"
                 tick={{ fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
                 className="text-muted-foreground"
               />
-              <YAxis 
+              <YAxis
                 tick={{ fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
@@ -180,7 +180,7 @@ export function PortfolioValueChart({ nfts, collectionStats }: PortfolioValueCha
                     return (
                       <div className="bg-popover border rounded-lg shadow-lg p-3">
                         <p className="text-sm font-medium">{data.fullDate}</p>
-                        <p className="text-lg font-bold text-primary">{data.value.toFixed(2)} MON</p>
+                        <p className="text-lg font-bold text-primary">{data.value.toFixed(2)} SOL</p>
                         <p className="text-xs text-muted-foreground">{data.nftCount} NFTs</p>
                       </div>
                     );

@@ -92,7 +92,7 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
         .select("id, name, symbol")
         .eq("creator_id", userId)
         .order("name");
-      
+
       setCollections(data || []);
     };
 
@@ -176,13 +176,13 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
         const { error: coverError } = await supabase.storage
           .from("shop-items")
           .upload(coverPath, coverImage);
-        
+
         if (coverError) throw coverError;
-        
+
         const { data: coverData } = supabase.storage
           .from("shop-items")
           .getPublicUrl(coverPath);
-        
+
         coverUrl = coverData.publicUrl;
       }
 
@@ -214,11 +214,11 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
       for (let i = 0; i < contentFiles.length; i++) {
         const contentFile = contentFiles[i];
         const filePath = `${userId}/${itemData.id}/${crypto.randomUUID()}.${contentFile.file.name.split(".").pop()}`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from("shop-items")
           .upload(filePath, contentFile.file);
-        
+
         if (uploadError) throw uploadError;
 
         const { data: fileData } = supabase.storage
@@ -278,21 +278,19 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
           {STEPS.map((stepName, i) => (
             <div key={stepName} className="flex items-center">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                  i < step
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${i < step
                     ? "bg-primary text-primary-foreground"
                     : i === step
-                    ? "bg-primary/20 text-primary border-2 border-primary"
-                    : "bg-muted text-muted-foreground"
-                }`}
+                      ? "bg-primary/20 text-primary border-2 border-primary"
+                      : "bg-muted text-muted-foreground"
+                  }`}
               >
                 {i < step ? <Check className="w-4 h-4" /> : i + 1}
               </div>
               {i < STEPS.length - 1 && (
                 <div
-                  className={`w-12 sm:w-20 h-0.5 mx-1 ${
-                    i < step ? "bg-primary" : "bg-muted"
-                  }`}
+                  className={`w-12 sm:w-20 h-0.5 mx-1 ${i < step ? "bg-primary" : "bg-muted"
+                    }`}
                 />
               )}
             </div>
@@ -340,11 +338,10 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setCategory("sticker_pack")}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
-                      category === "sticker_pack"
+                    className={`p-4 rounded-lg border-2 transition-colors ${category === "sticker_pack"
                         ? "border-primary bg-primary/10"
                         : "border-border hover:border-primary/50"
-                    }`}
+                      }`}
                   >
                     <Sticker className="w-8 h-8 mx-auto mb-2 text-primary" />
                     <p className="font-medium">Sticker Pack</p>
@@ -353,11 +350,10 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setCategory("emoji_pack")}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
-                      category === "emoji_pack"
+                    className={`p-4 rounded-lg border-2 transition-colors ${category === "emoji_pack"
                         ? "border-primary bg-primary/10"
                         : "border-border hover:border-primary/50"
-                    }`}
+                      }`}
                   >
                     <Smile className="w-8 h-8 mx-auto mb-2 text-primary" />
                     <p className="font-medium">Emoji Pack</p>
@@ -412,7 +408,7 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
                 <p className="text-sm text-muted-foreground mb-3">
                   Upload PNG, GIF, or WebP files. You can upload multiple files at once.
                 </p>
-                
+
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
                   <Upload className="w-8 h-8 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground mt-2">
@@ -480,11 +476,10 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
                       key={t.value}
                       type="button"
                       onClick={() => setTier(t.value as any)}
-                      className={`p-3 rounded-lg border-2 transition-colors text-left ${
-                        tier === t.value
+                      className={`p-3 rounded-lg border-2 transition-colors text-left ${tier === t.value
                           ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <t.icon className="w-4 h-4 text-primary" />
@@ -498,7 +493,7 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
 
               {tier !== "free" && (
                 <div>
-                  <Label htmlFor="price">Price in $MON *</Label>
+                  <Label htmlFor="price">Price in $SOL *</Label>
                   <div className="relative mt-1">
                     <Input
                       id="price"
@@ -510,7 +505,7 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
                       className="pr-16"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                      MON
+                      SOL
                     </span>
                   </div>
                 </div>
@@ -596,7 +591,7 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
                 <div className="bg-muted/30 rounded-lg p-3">
                   <p className="text-muted-foreground">Price</p>
                   <p className="font-bold text-lg">
-                    {tier === "free" ? "Free" : `${priceMon} MON`}
+                    {tier === "free" ? "Free" : `${priceMon} SOL`}
                   </p>
                 </div>
                 <div className="bg-muted/30 rounded-lg p-3">

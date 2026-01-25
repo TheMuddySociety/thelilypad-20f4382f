@@ -95,7 +95,7 @@ export const MusicDetailModal: React.FC<MusicDetailModalProps> = ({
 
   const getPrice = () => {
     const phase = collection.phases?.[0];
-    if (phase?.price) return `${phase.price} MON`;
+    if (phase?.price) return `${phase.price} SOL`;
     return 'Free';
   };
 
@@ -201,11 +201,10 @@ export const MusicDetailModal: React.FC<MusicDetailModalProps> = ({
                   {tracks.map((track, index) => (
                     <div
                       key={track.id}
-                      className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
-                        currentTrack?.id === track.id
+                      className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${currentTrack?.id === track.id
                           ? 'bg-primary/10 text-primary'
                           : 'hover:bg-muted'
-                      }`}
+                        }`}
                       onClick={() => handlePlayTrack(track, index)}
                     >
                       <span className="text-xs text-muted-foreground w-4">

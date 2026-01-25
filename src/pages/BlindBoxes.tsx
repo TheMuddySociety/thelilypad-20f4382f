@@ -34,8 +34,8 @@ const BlindBoxCard: React.FC<{ box: BlindBox; onPurchase: (box: BlindBox) => voi
     <Card className="overflow-hidden hover:border-primary/50 transition-all duration-300 group">
       <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
         {box.image_url ? (
-          <img 
-            src={box.image_url} 
+          <img
+            src={box.image_url}
             alt={box.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
@@ -46,9 +46,9 @@ const BlindBoxCard: React.FC<{ box: BlindBox; onPurchase: (box: BlindBox) => voi
         )}
         <div className="absolute top-3 left-3 flex gap-2">
           <Badge variant={isActive ? "default" : "secondary"}>
-            {countdown.isNotStarted ? "Coming Soon" : 
-             countdown.isExpired ? "Ended" : 
-             box.remaining_supply === 0 ? "Sold Out" : "Available"}
+            {countdown.isNotStarted ? "Coming Soon" :
+              countdown.isExpired ? "Ended" :
+                box.remaining_supply === 0 ? "Sold Out" : "Available"}
           </Badge>
         </div>
         <div className="absolute top-3 right-3">
@@ -58,14 +58,14 @@ const BlindBoxCard: React.FC<{ box: BlindBox; onPurchase: (box: BlindBox) => voi
           </Badge>
         </div>
       </div>
-      
+
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">{box.name}</CardTitle>
         {box.description && (
           <p className="text-sm text-muted-foreground line-clamp-2">{box.description}</p>
         )}
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
@@ -78,7 +78,7 @@ const BlindBoxCard: React.FC<{ box: BlindBox; onPurchase: (box: BlindBox) => voi
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="flex items-center gap-2">
             <Package className="w-4 h-4 text-primary" />
-            <span className="font-semibold">{box.price} MON</span>
+            <span className="font-semibold">{box.price} SOL</span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground" />
@@ -93,16 +93,16 @@ const BlindBoxCard: React.FC<{ box: BlindBox; onPurchase: (box: BlindBox) => voi
             Max {box.max_per_user} per user
           </p>
         )}
-        
-        <Button 
-          className="w-full" 
+
+        <Button
+          className="w-full"
           disabled={!isActive}
           onClick={() => onPurchase(box)}
         >
-          {countdown.isNotStarted ? "Coming Soon" : 
-           countdown.isExpired ? "Event Ended" : 
-           box.remaining_supply === 0 ? "Sold Out" :
-           "Open Blind Box"}
+          {countdown.isNotStarted ? "Coming Soon" :
+            countdown.isExpired ? "Event Ended" :
+              box.remaining_supply === 0 ? "Sold Out" :
+                "Open Blind Box"}
         </Button>
       </CardContent>
     </Card>
@@ -185,9 +185,9 @@ const BlindBoxes: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {blindBoxes.map((box) => (
-              <BlindBoxCard 
-                key={box.id} 
-                box={box} 
+              <BlindBoxCard
+                key={box.id}
+                box={box}
                 onPurchase={setSelectedBox}
               />
             ))}

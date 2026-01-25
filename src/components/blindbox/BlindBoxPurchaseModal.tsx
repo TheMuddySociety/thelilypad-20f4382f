@@ -10,15 +10,16 @@ import { Gift, Minus, Plus, Loader2, Sparkles, Package, Wallet } from "lucide-re
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/providers/WalletProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { 
-  Connection, 
-  PublicKey, 
-  Transaction, 
-  SystemProgram, 
-  LAMPORTS_PER_SOL 
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  SystemProgram,
+  LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import { TREASURY_CONFIG } from "@/config/treasury";
 import { createProtocolMemoInstruction } from "@/lib/solanaProtocol";
+import { BlindBoxReveal } from "./BlindBoxReveal";
 
 interface BlindBox {
   id: string;
@@ -53,7 +54,7 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
   const [revealing, setRevealing] = useState(false);
   const [rewards, setRewards] = useState<any[]>([]);
   const { toast } = useToast();
-  
+
   const { isConnected, address, getSolanaProvider, network } = useWallet();
   const { profile } = useUserProfile();
   const userId = profile?.id ?? null;
@@ -87,24 +88,41 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
     // Simulate random rewards based on the box's reward configuration
     const possibleRewards = Array.isArray(box.rewards) ? box.rewards : [];
     const simulatedRewards = [];
-    
+
     for (let i = 0; i < quantity; i++) {
-      // Simple random selection weighted by rarity
-      const roll = Math.random() * 100;
-      let reward;
-      
-      if (roll < 5) {
-        reward = { type: 'legendary', name: 'Legendary NFT', rarity: 'legendary' };
-      } else if (roll < 20) {
-        reward = { type: 'rare', name: 'Rare Item', rarity: 'rare' };
-      } else if (roll < 50) {
-        reward = { type: 'uncommon', name: 'Uncommon Token', rarity: 'uncommon' };
+      if (possibleRewards.length > 0) {
+        // Use actual rewards from the box config
+        // Calculate total weight
+        const totalWeight = possibleRewards.reduce((sum, r) => sum + (r.weight || 10), 0);
+        let random = Math.random() * totalWeight;
+
+        let selectedReward = possibleRewards[0];
+        for (const reward of possibleRewards) {
+          if (random < (reward.weight || 10)) {
+            selectedReward = reward;
+            break;
+          }
+          random -= (reward.weight || 10);
+        }
+        simulatedRewards.push(selectedReward);
       } else {
-        reward = { type: 'common', name: 'Common Reward', rarity: 'common' };
+        // Fallback to random simulation if no rewards configured
+        const roll = Math.random() * 100;
+        let reward;
+
+        if (roll < 5) {
+          reward = { type: 'legendary', name: 'Legendary NFT', rarity: 'legendary' };
+        } else if (roll < 20) {
+          reward = { type: 'rare', name: 'Rare Item', rarity: 'rare' };
+        } else if (roll < 50) {
+          reward = { type: 'uncommon', name: 'Uncommon Token', rarity: 'uncommon' };
+        } else {
+          reward = { type: 'common', name: 'Common Reward', rarity: 'common' };
+        }
+        simulatedRewards.push(reward);
       }
-      simulatedRewards.push(reward);
     }
-    
+
     return simulatedRewards;
   };
 
@@ -149,20 +167,20 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
     setLoading(true);
     try {
       // Process SOL payment
-      const rpcUrl = network === "mainnet" 
-        ? "https://api.mainnet-beta.solana.com" 
+      const rpcUrl = network === "mainnet"
+        ? "https://api.mainnet-beta.solana.com"
         : "https://api.devnet.solana.com";
       const connection = new Connection(rpcUrl, "confirmed");
-      
+
       const fromPubkey = new PublicKey(address!);
       const treasuryPubkey = new PublicKey(TREASURY_CONFIG.treasuryWallet);
-      
+
       // Calculate total in lamports
       const totalLamports = Math.floor(totalCost * LAMPORTS_PER_SOL);
-      
+
       // Create transaction
       const transaction = new Transaction();
-      
+
       // Add transfer to treasury
       transaction.add(
         SystemProgram.transfer({
@@ -171,7 +189,7 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
           lamports: totalLamports,
         })
       );
-      
+
       // Add protocol memo
       transaction.add(
         createProtocolMemoInstruction("blindbox:purchase", {
@@ -179,22 +197,22 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
           qty: quantity.toString(),
         })
       );
-      
+
       // Get recent blockhash
       const { blockhash } = await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = fromPubkey;
-      
+
       // Sign and send
       const signedTx = await solanaProvider.signTransaction(transaction);
       const signature = await connection.sendRawTransaction(signedTx.serialize());
-      
+
       // Wait for confirmation
       await connection.confirmTransaction(signature, "confirmed");
-      
+
       // Generate rewards
       const simulatedRewards = simulateRewards();
-      
+
       // Record purchase in database
       const { error } = await supabase
         .from('lily_blind_box_purchases')
@@ -212,7 +230,7 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
       // Show reveal animation
       setRevealing(true);
       setRewards(simulatedRewards);
-      
+
       toast({
         title: "Purchase successful!",
         description: `Opening ${quantity} blind box${quantity > 1 ? 'es' : ''}...`
@@ -249,41 +267,13 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
   if (revealing) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
-          <div className="text-center py-6">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", duration: 0.5 }}
-            >
-              <Sparkles className="w-16 h-16 text-primary mx-auto mb-4" />
-            </motion.div>
-            <h3 className="text-xl font-bold mb-6">Your Rewards!</h3>
-            
-            <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
-              <AnimatePresence>
-                {rewards.map((reward, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20, rotateY: 180 }}
-                    animate={{ opacity: 1, y: 0, rotateY: 0 }}
-                    transition={{ delay: index * 0.2, duration: 0.5 }}
-                    className={`p-4 rounded-lg border ${getRarityColor(reward.rarity)}`}
-                  >
-                    <Gift className="w-8 h-8 mx-auto mb-2" />
-                    <p className="font-medium text-sm">{reward.name}</p>
-                    <Badge variant="outline" className="mt-1 capitalize">
-                      {reward.rarity}
-                    </Badge>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-            
-            <Button className="mt-6" onClick={() => onOpenChange(false)}>
-              Awesome!
-            </Button>
-          </div>
+        <DialogContent className="sm:max-w-2xl bg-transparent border-none shadow-none">
+          <BlindBoxReveal
+            boxName={box.name}
+            boxImage={box.image_url}
+            rewards={rewards}
+            onComplete={() => onOpenChange(false)}
+          />
         </DialogContent>
       </Dialog>
     );
@@ -317,8 +307,8 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
           <div className="flex gap-4">
             <div className="w-24 h-24 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
               {box.image_url ? (
-                <img 
-                  src={box.image_url} 
+                <img
+                  src={box.image_url}
                   alt={box.name}
                   className="w-full h-full object-cover rounded-lg"
                 />
@@ -371,7 +361,7 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
             </div>
             {box.max_per_user && userPurchases > 0 && (
               <p className="text-sm text-muted-foreground">
-                You've purchased {userPurchases} box{userPurchases > 1 ? 'es' : ''}. 
+                You've purchased {userPurchases} box{userPurchases > 1 ? 'es' : ''}.
                 {maxQuantity > 0 ? ` You can buy ${maxQuantity} more.` : ' Maximum reached.'}
               </p>
             )}
@@ -393,8 +383,8 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
             </div>
           </div>
 
-          <Button 
-            className="w-full" 
+          <Button
+            className="w-full"
             onClick={handlePurchase}
             disabled={loading || maxQuantity === 0 || !isConnected}
           >

@@ -6,14 +6,14 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { 
-  Award, 
-  Trophy, 
-  Star, 
-  Zap, 
-  Flame, 
-  Crown, 
-  Rocket, 
+import {
+  Award,
+  Trophy,
+  Star,
+  Zap,
+  Flame,
+  Crown,
+  Rocket,
   Target,
   TrendingUp,
   Coins,
@@ -41,15 +41,15 @@ interface Achievement {
 
 const ACHIEVEMENTS: Achievement[] = [
   // Volume Milestones
-  { id: 'vol_1', name: 'First Steps', description: 'Trade 10 MON in volume', icon: Star, requirement: 10, type: 'volume', tier: 'bronze', color: 'text-amber-600', bgColor: 'bg-amber-600/10' },
-  { id: 'vol_2', name: 'Getting Started', description: 'Trade 100 MON in volume', icon: Coins, requirement: 100, type: 'volume', tier: 'bronze', color: 'text-amber-600', bgColor: 'bg-amber-600/10' },
-  { id: 'vol_3', name: 'Active Trader', description: 'Trade 500 MON in volume', icon: TrendingUp, requirement: 500, type: 'volume', tier: 'silver', color: 'text-slate-400', bgColor: 'bg-slate-400/10' },
-  { id: 'vol_4', name: 'Volume Mover', description: 'Trade 1,000 MON in volume', icon: Zap, requirement: 1000, type: 'volume', tier: 'silver', color: 'text-slate-400', bgColor: 'bg-slate-400/10' },
-  { id: 'vol_5', name: 'Market Maker', description: 'Trade 5,000 MON in volume', icon: Flame, requirement: 5000, type: 'volume', tier: 'gold', color: 'text-yellow-500', bgColor: 'bg-yellow-500/10' },
-  { id: 'vol_6', name: 'Whale Watcher', description: 'Trade 10,000 MON in volume', icon: Trophy, requirement: 10000, type: 'volume', tier: 'gold', color: 'text-yellow-500', bgColor: 'bg-yellow-500/10' },
-  { id: 'vol_7', name: 'Trading Legend', description: 'Trade 50,000 MON in volume', icon: Crown, requirement: 50000, type: 'volume', tier: 'platinum', color: 'text-cyan-400', bgColor: 'bg-cyan-400/10' },
-  { id: 'vol_8', name: 'Volume King', description: 'Trade 100,000 MON in volume', icon: Rocket, requirement: 100000, type: 'volume', tier: 'diamond', color: 'text-purple-400', bgColor: 'bg-purple-400/10' },
-  
+  { id: 'vol_1', name: 'First Steps', description: 'Trade 10 SOL in volume', icon: Star, requirement: 10, type: 'volume', tier: 'bronze', color: 'text-amber-600', bgColor: 'bg-amber-600/10' },
+  { id: 'vol_2', name: 'Getting Started', description: 'Trade 100 SOL in volume', icon: Coins, requirement: 100, type: 'volume', tier: 'bronze', color: 'text-amber-600', bgColor: 'bg-amber-600/10' },
+  { id: 'vol_3', name: 'Active Trader', description: 'Trade 500 SOL in volume', icon: TrendingUp, requirement: 500, type: 'volume', tier: 'silver', color: 'text-slate-400', bgColor: 'bg-slate-400/10' },
+  { id: 'vol_4', name: 'Volume Mover', description: 'Trade 1,000 SOL in volume', icon: Zap, requirement: 1000, type: 'volume', tier: 'silver', color: 'text-slate-400', bgColor: 'bg-slate-400/10' },
+  { id: 'vol_5', name: 'Market Maker', description: 'Trade 5,000 SOL in volume', icon: Flame, requirement: 5000, type: 'volume', tier: 'gold', color: 'text-yellow-500', bgColor: 'bg-yellow-500/10' },
+  { id: 'vol_6', name: 'Whale Watcher', description: 'Trade 10,000 SOL in volume', icon: Trophy, requirement: 10000, type: 'volume', tier: 'gold', color: 'text-yellow-500', bgColor: 'bg-yellow-500/10' },
+  { id: 'vol_7', name: 'Trading Legend', description: 'Trade 50,000 SOL in volume', icon: Crown, requirement: 50000, type: 'volume', tier: 'platinum', color: 'text-cyan-400', bgColor: 'bg-cyan-400/10' },
+  { id: 'vol_8', name: 'Volume King', description: 'Trade 100,000 SOL in volume', icon: Rocket, requirement: 100000, type: 'volume', tier: 'diamond', color: 'text-purple-400', bgColor: 'bg-purple-400/10' },
+
   // Trade Count Milestones
   { id: 'trade_1', name: 'First Trade', description: 'Complete 1 trade', icon: Target, requirement: 1, type: 'trades', tier: 'bronze', color: 'text-amber-600', bgColor: 'bg-amber-600/10' },
   { id: 'trade_2', name: 'Regular Trader', description: 'Complete 10 trades', icon: Award, requirement: 10, type: 'trades', tier: 'silver', color: 'text-slate-400', bgColor: 'bg-slate-400/10' },
@@ -125,10 +125,10 @@ export function VolumeAchievements() {
   const getShareText = () => {
     const highestTier = unlockedAchievements.length > 0
       ? unlockedAchievements.reduce((highest, current) => {
-          const tierIndex = TIER_ORDER.indexOf(current.tier);
-          const highestIndex = TIER_ORDER.indexOf(highest.tier);
-          return tierIndex > highestIndex ? current : highest;
-        })
+        const tierIndex = TIER_ORDER.indexOf(current.tier);
+        const highestIndex = TIER_ORDER.indexOf(highest.tier);
+        return tierIndex > highestIndex ? current : highest;
+      })
       : null;
 
     if (!highestTier) {
@@ -143,7 +143,7 @@ export function VolumeAchievements() {
       diamond: '👑'
     };
 
-    return `I just unlocked the "${highestTier.name}" achievement ${tierEmoji[highestTier.tier]} on @TheLilyPadNFT!\n\n${unlockedCount}/${totalCount} achievements unlocked\n${userStats?.totalVolume.toFixed(0)} MON traded\n\nJoin the Buyback Program and start earning! 🐸`;
+    return `I just unlocked the "${highestTier.name}" achievement ${tierEmoji[highestTier.tier]} on @TheLilyPadNFT!\n\n${unlockedCount}/${totalCount} achievements unlocked\n${userStats?.totalVolume.toFixed(0)} SOL traded\n\nJoin the Buyback Program and start earning! 🐸`;
   };
 
   const shareToTwitter = () => {
@@ -267,14 +267,14 @@ export function VolumeAchievements() {
             <Progress value={nextAchievement.progress} className="h-2" />
             <div className="flex justify-between text-xs text-muted-foreground mt-1">
               <span>
-                {nextAchievement.type === 'volume' 
-                  ? `${nextAchievement.current.toFixed(0)} MON`
+                {nextAchievement.type === 'volume'
+                  ? `${nextAchievement.current.toFixed(0)} SOL`
                   : `${nextAchievement.current} trades`
                 }
               </span>
               <span>
                 {nextAchievement.type === 'volume'
-                  ? `${nextAchievement.requirement.toLocaleString()} MON`
+                  ? `${nextAchievement.requirement.toLocaleString()} SOL`
                   : `${nextAchievement.requirement} trades`
                 }
               </span>
@@ -297,11 +297,10 @@ export function VolumeAchievements() {
                   {tierAchievements.map((achievement) => (
                     <div
                       key={achievement.id}
-                      className={`aspect-square rounded-lg flex flex-col items-center justify-center p-2 transition-all ${
-                        achievement.unlocked
-                          ? `${achievement.bgColor} border-2 border-current ${achievement.color}`
-                          : 'bg-muted/30 border border-border/50 opacity-50'
-                      }`}
+                      className={`aspect-square rounded-lg flex flex-col items-center justify-center p-2 transition-all ${achievement.unlocked
+                        ? `${achievement.bgColor} border-2 border-current ${achievement.color}`
+                        : 'bg-muted/30 border border-border/50 opacity-50'
+                        }`}
                       title={`${achievement.name}: ${achievement.description}`}
                     >
                       {achievement.unlocked ? (
@@ -327,7 +326,7 @@ export function VolumeAchievements() {
               <div className="text-2xl font-bold text-primary">
                 {userStats.totalVolume.toFixed(0)}
               </div>
-              <div className="text-xs text-muted-foreground">Total Volume (MON)</div>
+              <div className="text-xs text-muted-foreground">Total Volume (SOL)</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold">{userStats.tradeCount}</div>

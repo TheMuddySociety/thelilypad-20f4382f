@@ -6,11 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Wallet, 
-  DollarSign, 
-  Image as ImageIcon, 
-  Gift, 
+import {
+  Wallet,
+  DollarSign,
+  Image as ImageIcon,
+  Gift,
   Sparkles,
   ArrowRight,
   CheckCircle,
@@ -49,11 +49,11 @@ export const ClaimFunds: React.FC = () => {
   const [claimingType, setClaimingType] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedCurrency] = useState<CurrencyType>("SOL");
-  
-  const { 
-    payoutWalletAddress, 
-    solWalletAddress, 
-    preferredCurrency 
+
+  const {
+    payoutWalletAddress,
+    solWalletAddress,
+    preferredCurrency
   } = useCreatorCurrency(userId || undefined);
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export const ClaimFunds: React.FC = () => {
 
   const fetchEarnings = async () => {
     if (!userId) return;
-    
+
     setIsLoading(true);
     try {
       // Fetch unclaimed donations (grouped by currency)
@@ -111,7 +111,7 @@ export const ClaimFunds: React.FC = () => {
       if (shopItemsError) throw shopItemsError;
 
       const shopItemIds = (shopItemsData || []).map(item => item.id);
-      
+
       let shopMon: CurrencyEarnings = { ...emptyEarnings };
       let shopSol: CurrencyEarnings = { ...emptyEarnings };
 
@@ -199,22 +199,22 @@ export const ClaimFunds: React.FC = () => {
 
     try {
       const earningsData = earnings[type][key];
-      
+
       if (type === "donations" && earningsData.ids.length > 0) {
         const { error } = await supabase
           .from("earnings")
           .update({ is_claimed: true, claimed_at: new Date().toISOString() })
           .in("id", earningsData.ids);
-        
+
         if (error) throw error;
         toast.success(`Claimed ${earningsData.amount.toFixed(4)} ${currency} from donations!`);
-      } 
+      }
       else if (type === "nftSales" && earningsData.ids.length > 0) {
         const { error } = await supabase
           .from("nft_listings")
           .update({ seller_claimed: true, seller_claimed_at: new Date().toISOString() })
           .in("id", earningsData.ids);
-        
+
         if (error) throw error;
         toast.success(`Claimed ${earningsData.amount.toFixed(4)} ${currency} from NFT sales!`);
       }
@@ -223,7 +223,7 @@ export const ClaimFunds: React.FC = () => {
           .from("shop_purchases")
           .update({ creator_claimed: true, creator_claimed_at: new Date().toISOString() })
           .in("id", earningsData.ids);
-        
+
         if (error) throw error;
         toast.success(`Claimed ${earningsData.amount.toFixed(4)} ${currency} from shop sales!`);
       }
@@ -400,7 +400,7 @@ export const ClaimFunds: React.FC = () => {
               </Button>
             )}
           </div>
-          
+
           {/* Wallet Info */}
           <div className="mt-3 pt-3 border-t border-current/20">
             <div className="flex items-center justify-between text-sm">
@@ -416,8 +416,8 @@ export const ClaimFunds: React.FC = () => {
               ) : (
                 <span className="text-muted-foreground italic">No wallet configured</span>
               )}
-              <Link 
-                to="/edit-profile" 
+              <Link
+                to="/edit-profile"
                 className="text-primary hover:underline flex items-center gap-1"
               >
                 <Settings className="w-3 h-3" />
@@ -431,9 +431,8 @@ export const ClaimFunds: React.FC = () => {
             <div className="mt-3 p-2 rounded bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
               <p className="text-xs text-amber-500">
-                {currency === "SOL" 
-                  ? "Connect a Solana wallet to claim SOL" 
-                  : "Connect an EVM wallet to claim MON"}
+                ? "Connect a Solana wallet to claim SOL" 
+                  : "Connect an EVM wallet to claim SOL"}
               </p>
             </div>
           )}

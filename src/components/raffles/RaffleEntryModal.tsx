@@ -159,8 +159,8 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
           {/* Raffle Info */}
           <div className="flex gap-4">
             {raffle.image_url && (
-              <img 
-                src={raffle.image_url} 
+              <img
+                src={raffle.image_url}
                 alt={raffle.name}
                 className="w-24 h-24 object-cover rounded-lg"
               />
@@ -173,7 +173,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
                   {raffle.winner_count} Winner{raffle.winner_count > 1 ? 's' : ''}
                 </Badge>
                 <Badge variant="secondary">
-                  {raffle.entry_price > 0 ? `${raffle.entry_price} MON/ticket` : 'Free'}
+                  {raffle.entry_price > 0 ? `${raffle.entry_price} SOL/ticket` : 'Free'}
                 </Badge>
               </div>
             </div>
@@ -210,7 +210,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
             </div>
             {userEntries > 0 && (
               <p className="text-sm text-muted-foreground">
-                You already have {userEntries} ticket{userEntries > 1 ? 's' : ''}. 
+                You already have {userEntries} ticket{userEntries > 1 ? 's' : ''}.
                 {remainingTickets > 0 ? ` You can buy ${remainingTickets} more.` : ' Maximum reached.'}
               </p>
             )}
@@ -220,7 +220,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
           <div className="bg-muted/50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span>Ticket Price</span>
-              <span>{raffle.entry_price > 0 ? `${raffle.entry_price} MON` : 'Free'}</span>
+              <span>{raffle.entry_price > 0 ? `${raffle.entry_price} SOL` : 'Free'}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>Quantity</span>
@@ -228,12 +228,12 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
             </div>
             <div className="border-t border-border pt-2 flex justify-between font-semibold">
               <span>Total</span>
-              <span>{totalCost > 0 ? `${totalCost} MON` : 'Free'}</span>
+              <span>{totalCost > 0 ? `${totalCost} SOL` : 'Free'}</span>
             </div>
           </div>
 
-          <Button 
-            className="w-full" 
+          <Button
+            className="w-full"
             onClick={handleSubmit}
             disabled={loading || remainingTickets === 0}
           >
@@ -245,7 +245,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
             ) : (
               <>
                 <Ticket className="w-4 h-4 mr-2" />
-                {totalCost > 0 ? `Pay ${totalCost} MON` : 'Enter Raffle'}
+                {totalCost > 0 ? `Pay ${totalCost} SOL` : 'Enter Raffle'}
               </>
             )}
           </Button>

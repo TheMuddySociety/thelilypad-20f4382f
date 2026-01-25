@@ -3,24 +3,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   AreaChart,
   Area,
   BarChart,
   Bar
 } from "recharts";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Activity, 
-  DollarSign, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  DollarSign,
   BarChart3,
   Clock,
   ArrowUpRight,
@@ -199,7 +199,7 @@ export function NFTSalesAnalytics({ collectionId, nftId, showTitle = true }: NFT
       const history: PricePoint[] = dateRange.map((date) => {
         const dayStart = startOfDay(date);
         const nextDay = startOfDay(subDays(date, -1));
-        
+
         const daySales = sales.filter((s) => {
           const saleDate = new Date(s.sold_at);
           return saleDate >= dayStart && saleDate < nextDay;
@@ -231,15 +231,15 @@ export function NFTSalesAnalytics({ collectionId, nftId, showTitle = true }: NFT
     return price.toFixed(2);
   };
 
-  const StatCard = ({ 
-    title, 
-    value, 
-    change, 
+  const StatCard = ({
+    title,
+    value,
+    change,
     icon: Icon,
-    suffix = "MON"
-  }: { 
-    title: string; 
-    value: number; 
+    suffix = "SOL"
+  }: {
+    title: string;
+    value: number;
     change?: number;
     icon: React.ElementType;
     suffix?: string;
@@ -251,8 +251,8 @@ export function NFTSalesAnalytics({ collectionId, nftId, showTitle = true }: NFT
             <Icon className="w-5 h-5 text-primary" />
           </div>
           {change !== undefined && change !== 0 && (
-            <Badge 
-              variant="outline" 
+            <Badge
+              variant="outline"
               className={change > 0 ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"}
             >
               {change > 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
@@ -295,26 +295,26 @@ export function NFTSalesAnalytics({ collectionId, nftId, showTitle = true }: NFT
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard 
-          title="Total Volume" 
-          value={stats.totalVolume} 
+        <StatCard
+          title="Total Volume"
+          value={stats.totalVolume}
           change={stats.volumeChange24h}
           icon={DollarSign}
         />
-        <StatCard 
-          title="Total Sales" 
+        <StatCard
+          title="Total Sales"
           value={stats.totalSales}
           icon={Activity}
           suffix="count"
         />
-        <StatCard 
-          title="Average Price" 
+        <StatCard
+          title="Average Price"
           value={stats.averagePrice}
           change={stats.priceChange24h}
           icon={TrendingUp}
         />
-        <StatCard 
-          title="Highest Sale" 
+        <StatCard
+          title="Highest Sale"
           value={stats.highestSale}
           icon={TrendingDown}
         />
@@ -360,34 +360,34 @@ export function NFTSalesAnalytics({ collectionId, nftId, showTitle = true }: NFT
                   <AreaChart data={priceHistory}>
                     <defs>
                       <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="date" 
+                    <XAxis
+                      dataKey="date"
                       className="text-xs fill-muted-foreground"
                       tickLine={false}
                     />
-                    <YAxis 
+                    <YAxis
                       className="text-xs fill-muted-foreground"
                       tickLine={false}
-                      tickFormatter={(value) => `${value} MON`}
+                      tickFormatter={(value) => `${value} SOL`}
                     />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: "hsl(var(--popover))", 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--popover))",
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px"
                       }}
                       labelStyle={{ color: "hsl(var(--foreground))" }}
-                      formatter={(value: number) => [`${value.toFixed(2)} MON`, "Avg Price"]}
+                      formatter={(value: number) => [`${value.toFixed(2)} SOL`, "Avg Price"]}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="price" 
-                      stroke="hsl(var(--primary))" 
+                    <Area
+                      type="monotone"
+                      dataKey="price"
+                      stroke="hsl(var(--primary))"
                       fill="url(#priceGradient)"
                       strokeWidth={2}
                     />
@@ -408,27 +408,27 @@ export function NFTSalesAnalytics({ collectionId, nftId, showTitle = true }: NFT
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={priceHistory}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="date" 
+                    <XAxis
+                      dataKey="date"
                       className="text-xs fill-muted-foreground"
                       tickLine={false}
                     />
-                    <YAxis 
+                    <YAxis
                       className="text-xs fill-muted-foreground"
                       tickLine={false}
-                      tickFormatter={(value) => `${value} MON`}
+                      tickFormatter={(value) => `${value} SOL`}
                     />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: "hsl(var(--popover))", 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--popover))",
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px"
                       }}
                       labelStyle={{ color: "hsl(var(--foreground))" }}
-                      formatter={(value: number) => [`${value.toFixed(2)} MON`, "Volume"]}
+                      formatter={(value: number) => [`${value.toFixed(2)} SOL`, "Volume"]}
                     />
-                    <Bar 
-                      dataKey="volume" 
+                    <Bar
+                      dataKey="volume"
                       fill="hsl(var(--primary))"
                       radius={[4, 4, 0, 0]}
                     />
@@ -449,28 +449,28 @@ export function NFTSalesAnalytics({ collectionId, nftId, showTitle = true }: NFT
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={priceHistory}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="date" 
+                    <XAxis
+                      dataKey="date"
                       className="text-xs fill-muted-foreground"
                       tickLine={false}
                     />
-                    <YAxis 
+                    <YAxis
                       className="text-xs fill-muted-foreground"
                       tickLine={false}
                     />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: "hsl(var(--popover))", 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--popover))",
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px"
                       }}
                       labelStyle={{ color: "hsl(var(--foreground))" }}
                       formatter={(value: number) => [value, "Sales"]}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="sales" 
-                      stroke="hsl(var(--primary))" 
+                    <Line
+                      type="monotone"
+                      dataKey="sales"
+                      stroke="hsl(var(--primary))"
                       strokeWidth={2}
                       dot={{ fill: "hsl(var(--primary))", strokeWidth: 2 }}
                     />
@@ -502,8 +502,8 @@ export function NFTSalesAnalytics({ collectionId, nftId, showTitle = true }: NFT
           <CardContent>
             <div className="space-y-3">
               {salesData.slice(0, 5).map((sale) => (
-                <div 
-                  key={sale.id} 
+                <div
+                  key={sale.id}
                   className="flex items-center justify-between py-3 border-b border-border last:border-0"
                 >
                   <div className="flex items-center gap-3">

@@ -56,7 +56,7 @@ export function RewardHistory() {
       periodMap.forEach(period => {
         const amounts = period.rewards.map(r => r.amount);
         const claimedAmounts = period.rewards.filter(r => r.claimed).map(r => r.amount);
-        
+
         stats.push({
           reward_period_start: period.reward_period_start,
           reward_period_end: period.reward_period_end,
@@ -139,8 +139,8 @@ export function RewardHistory() {
             {periods.map((period, index) => {
               const previousPeriod = periods[index + 1];
               const poolTrend = getTrend(period.total_pool, previousPeriod?.total_pool);
-              const claimRate = period.total_pool > 0 
-                ? (period.claimed_amount / period.total_pool) * 100 
+              const claimRate = period.total_pool > 0
+                ? (period.claimed_amount / period.total_pool) * 100
                 : 0;
 
               return (
@@ -170,7 +170,7 @@ export function RewardHistory() {
                         Pool Size
                       </div>
                       <div className="font-semibold">
-                        {period.total_pool.toLocaleString(undefined, { maximumFractionDigits: 2 })} MON
+                        {period.total_pool.toLocaleString(undefined, { maximumFractionDigits: 2 })} SOL
                       </div>
                     </div>
                     <div>
@@ -183,7 +183,7 @@ export function RewardHistory() {
                     <div>
                       <div className="text-xs text-muted-foreground mb-1">Avg Reward</div>
                       <div className="font-semibold">
-                        {period.avg_reward.toLocaleString(undefined, { maximumFractionDigits: 2 })} MON
+                        {period.avg_reward.toLocaleString(undefined, { maximumFractionDigits: 2 })} SOL
                       </div>
                     </div>
                   </div>
@@ -212,7 +212,7 @@ export function RewardHistory() {
                   <div>
                     <div className="text-muted-foreground text-xs">Avg Pool</div>
                     <div className="font-semibold">
-                      {(periods.reduce((a, b) => a + b.total_pool, 0) / periods.length).toLocaleString(undefined, { maximumFractionDigits: 0 })} MON
+                      {(periods.reduce((a, b) => a + b.total_pool, 0) / periods.length).toLocaleString(undefined, { maximumFractionDigits: 0 })} SOL
                     </div>
                   </div>
                   <div>
@@ -224,7 +224,7 @@ export function RewardHistory() {
                   <div>
                     <div className="text-muted-foreground text-xs">Total Distributed</div>
                     <div className="font-semibold">
-                      {periods.reduce((a, b) => a + b.total_pool, 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} MON
+                      {periods.reduce((a, b) => a + b.total_pool, 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} SOL
                     </div>
                   </div>
                 </div>

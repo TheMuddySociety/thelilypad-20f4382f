@@ -6,9 +6,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSEO } from "@/hooks/useSEO";
-import { 
-  Crown, Gem, Shield, Star, Heart, Gift, 
-  TrendingUp, Calendar, User, ArrowLeft 
+import {
+  Crown, Gem, Shield, Star, Heart, Gift,
+  TrendingUp, Calendar, User, ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -93,10 +93,10 @@ const DonorProfile = () => {
   useEffect(() => {
     const fetchDonorData = async () => {
       setLoading(true);
-      
+
       // Get current user session
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session?.user) {
         setLoading(false);
         return;
@@ -195,8 +195,8 @@ const DonorProfile = () => {
       <main className="container mx-auto px-4 pt-24 pb-12">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Back Button */}
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => navigate(-1)}
             className="gap-2"
           >
@@ -234,7 +234,7 @@ const DonorProfile = () => {
                 </div>
                 <div className="text-center md:text-right">
                   <p className="text-sm text-muted-foreground">Total Donated</p>
-                  <p className="text-3xl font-bold text-primary">{totalDonated.toFixed(4)} MON</p>
+                  <p className="text-3xl font-bold text-primary">{totalDonated.toFixed(4)} SOL</p>
                   <p className="text-sm text-muted-foreground">{donations.length} donations</p>
                 </div>
               </div>
@@ -255,15 +255,14 @@ const DonorProfile = () => {
                   const config = tierConfig[tier];
                   const TierIcon = config.icon;
                   const isEarned = currentTier && allTiers.indexOf(currentTier) >= allTiers.indexOf(tier);
-                  
+
                   return (
-                    <div 
+                    <div
                       key={tier}
-                      className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                        isEarned 
-                          ? 'bg-primary/5 border-primary/20' 
+                      className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${isEarned
+                          ? 'bg-primary/5 border-primary/20'
                           : 'bg-muted/30 border-border/50 opacity-50'
-                      }`}
+                        }`}
                     >
                       <div className={`p-2 rounded-full ${isEarned ? config.className : 'bg-muted text-muted-foreground'}`}>
                         <TierIcon className="h-5 w-5" />
@@ -273,7 +272,7 @@ const DonorProfile = () => {
                           {config.label}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {config.minAmount}+ MON total
+                          {config.minAmount}+ SOL total
                         </p>
                       </div>
                       {isEarned && (
@@ -305,7 +304,7 @@ const DonorProfile = () => {
                 ) : (
                   <div className="space-y-3">
                     {favoriteStreamers.map((streamer, index) => (
-                      <div 
+                      <div
                         key={streamer.streamer_id}
                         className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-muted/20"
                       >
@@ -326,7 +325,7 @@ const DonorProfile = () => {
                           </p>
                         </div>
                         <p className="font-bold text-primary text-sm">
-                          {streamer.total_donated.toFixed(4)} MON
+                          {streamer.total_donated.toFixed(4)} SOL
                         </p>
                       </div>
                     ))}
@@ -350,8 +349,8 @@ const DonorProfile = () => {
                   <Gift className="h-16 w-16 mx-auto mb-4 opacity-50" />
                   <p className="text-lg">No donations yet</p>
                   <p className="text-sm">Start supporting your favorite streamers!</p>
-                  <Button 
-                    className="mt-4" 
+                  <Button
+                    className="mt-4"
                     onClick={() => navigate('/streams')}
                   >
                     Browse Streams
@@ -360,7 +359,7 @@ const DonorProfile = () => {
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                   {donations.map((donation) => (
-                    <div 
+                    <div
                       key={donation.id}
                       className="flex items-start gap-4 p-4 rounded-lg border border-border/50 bg-muted/20 hover:bg-muted/40 transition-colors"
                     >
@@ -373,7 +372,7 @@ const DonorProfile = () => {
                             Donated to {donation.streamer_id.slice(0, 8)}...
                           </p>
                           <p className="font-bold text-primary whitespace-nowrap">
-                            {donation.amount.toFixed(4)} MON
+                            {donation.amount.toFixed(4)} SOL
                           </p>
                         </div>
                         {donation.message && (

@@ -61,7 +61,7 @@ export const MusicNFTCard: React.FC<MusicNFTCardProps> = ({
 
   const handlePlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     if (!firstTrack) return;
 
     if (currentTrack?.id === firstTrack.id) {
@@ -77,7 +77,7 @@ export const MusicNFTCard: React.FC<MusicNFTCardProps> = ({
 
   const getPrice = () => {
     const phase = collection.phases?.[0];
-    if (phase?.price) return `${phase.price} MON`;
+    if (phase?.price) return `${phase.price} SOL`;
     return 'Free';
   };
 
@@ -141,7 +141,7 @@ export const MusicNFTCard: React.FC<MusicNFTCardProps> = ({
 
         <CardContent className="p-4">
           <h3 className="font-semibold truncate">{collection.name}</h3>
-          <Link 
+          <Link
             to={`/artist/${collection.creator_address}`}
             className="text-sm text-muted-foreground truncate hover:text-primary transition-colors block"
             onClick={(e) => e.stopPropagation()}
