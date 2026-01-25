@@ -131,11 +131,7 @@ const BlindBoxManager = () => {
   const createMutation = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user && !profile?.id) {
-        throw new Error("User profile not found. Please connect your wallet.");
-      }
-
-      const creatorId = user?.id || profile?.id;
+      const creatorId = user?.id;
       if (!creatorId) throw new Error("Could not determine creator ID");
 
       const supply = parseInt(totalSupply) || 100;
@@ -151,7 +147,7 @@ const BlindBoxManager = () => {
         start_date: new Date(startDate).toISOString(),
         end_date: new Date(endDate).toISOString(),
         max_per_user: parseInt(maxPerUser) || 5,
-        created_by: user.id,
+        created_by: creatorId,
       };
 
       const { error } = await supabase

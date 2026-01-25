@@ -16,6 +16,9 @@ import type { InjectedWalletInfo } from "@phantom/browser-sdk";
 export type WalletType = "phantom" | "solana";
 export type ChainType = "solana";
 
+// OAuth-based embedded wallets (optional; ConnectWallet may pass this handler)
+export type OAuthProvider = "google" | "apple";
+
 interface WalletOption {
   id: WalletType;
   name: string;
@@ -28,6 +31,7 @@ interface WalletSelectorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (walletType: WalletType) => void;
+  onOAuthSelect?: (provider: OAuthProvider) => void;
   isConnecting: boolean;
 }
 
