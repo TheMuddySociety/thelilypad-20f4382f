@@ -431,8 +431,7 @@ export const ClaimFunds: React.FC = () => {
             <div className="mt-3 p-2 rounded bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
               <p className="text-xs text-amber-500">
-                ? "Connect a Solana wallet to claim SOL" 
-                  : "Connect an EVM wallet to claim SOL"}
+                Connect a Solana wallet to claim SOL
               </p>
             </div>
           )}

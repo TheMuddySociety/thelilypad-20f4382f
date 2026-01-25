@@ -6,7 +6,7 @@ import {
 } from '@metaplex-foundation/mpl-core';
 import {
     fetchCandyMachine,
-    mintAssetFromCandyMachine,
+    mintV1,
     findCandyGuardPda,
 } from '@metaplex-foundation/mpl-core-candy-machine';
 import { SendTransactionError } from '@solana/web3.js';
@@ -133,14 +133,9 @@ export const useSolanaMint = () => {
             console.error("Solana minting error:", err);
             const msg = err.message || "Failed to mint on Solana";
 
-            if (err instanceof SendTransactionError) {
+            if (err instanceof SendTransactionError && err.logs) {
                 console.error("--- TRANSACTION LOGS ---");
-                try {
-                    const logs = await err.getLogs();
-                    console.error(logs);
-                } catch (logErr) {
-                    console.error("Could not fetch logs from SendTransactionError:", logErr);
-                }
+                console.error(err.logs);
             }
 
             setError(msg);
@@ -219,17 +214,14 @@ export const useSolanaMint = () => {
                 signers: [],
             };
 
-            // Build the mint transaction
-            // Core Candy Machine: mintAuthority is the candy guard PDA if wrapped
-            // For unwrapped machines, the identity is the mint authority
-            const tx = mintAssetFromCandyMachine(umi, {
+            // Build the mint transaction using mintV1 for guard support
+            // mintV1 handles both wrapped (with guards) and unwrapped candy machines
+            const tx = mintV1(umi, {
                 candyMachine: candyMachine.publicKey,
                 asset: nftMint,
                 collection: candyMachine.collectionMint,
-                candyGuard: isWrapped ? candyGuardPda[0] : undefined,
                 group: phaseArgs?.phaseId ? some(phaseArgs.phaseId) : none(),
                 mintArgs: mintArgs,
-                assetOwner: umi.identity.publicKey,
             }).add(memoInstruction);
 
             const result = await tx.sendAndConfirm(umi);
@@ -262,14 +254,9 @@ export const useSolanaMint = () => {
             // Parse common errors
             let msg = err.message || "Candy Machine mint failed";
 
-            if (err instanceof SendTransactionError) {
+            if (err instanceof SendTransactionError && err.logs) {
                 console.error("--- TRANSACTION LOGS ---");
-                try {
-                    const logs = await err.getLogs();
-                    console.error(logs);
-                } catch (logErr) {
-                    console.error("Could not fetch logs from SendTransactionError:", logErr);
-                }
+                console.error(err.logs);
             }
 
             if (msg.includes("0x1")) {
