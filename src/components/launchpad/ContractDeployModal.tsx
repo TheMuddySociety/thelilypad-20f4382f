@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  Rocket, 
+import {
+  Rocket,
   AlertTriangle,
   Link2,
   Info,
@@ -57,7 +57,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
     }
 
     setIsSavingCID(true);
-    
+
     try {
       // Save IPFS CID if provided
       if (ipfsCID.trim()) {
@@ -66,12 +66,12 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
           setIsSavingCID(false);
           return;
         }
-        
+
         const { error: updateError } = await supabase
           .from("collections")
           .update({ ipfs_base_cid: ipfsCID.trim() })
           .eq("id", collection.id);
-          
+
         if (updateError) {
           console.error("Failed to save IPFS CID:", updateError);
           toast.error("Failed to save IPFS CID");
@@ -79,7 +79,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
           return;
         }
       }
-      
+
       onDeploySuccess(manualAddress);
       toast.success("Collection linked successfully!" + (ipfsCID.trim() ? " IPFS CID saved." : ""));
       onOpenChange(false);
@@ -169,8 +169,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                 <div className="text-sm">
                   <p className="font-medium text-primary">Solana Deployment</p>
                   <p className="text-muted-foreground mt-1 text-xs">
-                    Collections on Solana are deployed using Metaplex standards. 
-                    Use the Create Collection feature to deploy directly, or link an existing collection below.
+                    Collections on Solana are deployed using the Metaplex Core standard for high performance and low fees.
                   </p>
                 </div>
               </div>
@@ -206,7 +205,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                 <Link2 className="w-4 h-4" />
                 <span className="text-sm font-medium">Link Existing Collection</span>
               </div>
-              
+
               {/* Collection Address */}
               <div className="space-y-2">
                 <Label htmlFor="contract-address" className="text-xs text-muted-foreground">
@@ -220,7 +219,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                   className="font-mono text-sm"
                 />
               </div>
-              
+
               {/* IPFS CID Input */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -246,11 +245,11 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                   </p>
                 )}
               </div>
-              
+
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="flex-1"
                   onClick={() => {
                     setShowManualInput(false);
@@ -260,8 +259,8 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                 >
                   Cancel
                 </Button>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="flex-1"
                   onClick={handleManualSubmit}
                   disabled={!manualAddress || manualAddress.length < 32 || isSavingCID}

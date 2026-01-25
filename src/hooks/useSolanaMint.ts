@@ -1,12 +1,8 @@
 import { useState, useCallback } from 'react';
 import { publicKey, generateSigner, some, percentAmount, sol } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
-import {
-    createV1 as createCore,
+createV1 as createCore,
 } from '@metaplex-foundation/mpl-core';
-import {
-    mintToCollectionV1 as mintBubblegum,
-} from '@metaplex-foundation/mpl-bubblegum';
 import {
     fetchCandyMachine,
     mintAssetFromCandyMachine,
@@ -90,14 +86,10 @@ export const useSolanaMint = () => {
     }, []);
 
     const mintNFT = useCallback(async (
-        standard: SolanaStandard,
         collectionAddress: string,
         metadata: {
             name: string;
             uri: string;
-        },
-        options?: {
-            merkleTree?: string; // Required for Bubblegum
         }
     ) => {
         setIsLoading(true);
@@ -110,7 +102,7 @@ export const useSolanaMint = () => {
             toast.loading(`Minting your NFT (Core)...`, { id: 'sol-mint' });
 
             // Create memo instruction for protocol identification
-            const memoData = buildProtocolMemo('mint:nft', { standard });
+            const memoData = buildProtocolMemo('mint:nft', { standard: 'core' });
             const memoInstruction = {
                 instruction: {
                     programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
@@ -121,44 +113,14 @@ export const useSolanaMint = () => {
                 signers: [],
             };
 
-            switch (standard) {
-                case 'core':
-                case 'token-metadata': // Fallback to Core for legacy requests
-                    if (standard === 'token-metadata') {
-                        console.warn("Legacy 'token-metadata' requested. Upgrading to 'core' automatically.");
-                    }
-                    result = await createCore(umi, {
-                        asset: nftSigner,
-                        collection: publicKey(collectionAddress),
-                        name: metadata.name,
-                        uri: metadata.uri,
-                    })
-                        .add(memoInstruction)
-                        .sendAndConfirm(umi);
-                    break;
-
-                case 'bubblegum':
-                    if (!options?.merkleTree) throw new Error("Merkle Tree address required for Bubblegum minting");
-
-                    result = await mintBubblegum(umi, {
-                        leafOwner: umi.identity.publicKey,
-                        merkleTree: publicKey(options.merkleTree),
-                        collectionMint: publicKey(collectionAddress),
-                        metadata: {
-                            name: metadata.name,
-                            uri: metadata.uri,
-                            sellerFeeBasisPoints: 0,
-                            collection: some({ key: publicKey(collectionAddress), verified: false }),
-                            creators: [{ address: umi.identity.publicKey, verified: true, share: 100 }],
-                        },
-                    })
-                        .add(memoInstruction)
-                        .sendAndConfirm(umi);
-                    break;
-
-                default:
-                    throw new Error(`Minting for standard ${standard} not implemented`);
-            }
+            result = await createCore(umi, {
+                asset: nftSigner,
+                collection: publicKey(collectionAddress),
+                name: metadata.name,
+                uri: metadata.uri,
+            })
+                .add(memoInstruction)
+                .sendAndConfirm(umi);
 
             toast.success(`Successfully minted!`, { id: 'sol-mint' });
             return {

@@ -1068,11 +1068,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
             imageUri: safeImageUri,
             royaltyBasisPoints: parseFloat(royaltyPercent) * 100,
             standard: solanaStandard,
-            // Pass supply config for token-metadata
-            supplyConfig: solanaStandard === 'token-metadata' ? {
-              type: supplyType,
-              limit: supplyType === 'Limited' ? supplyLimit : undefined
-            } : undefined
+            supplyConfig: undefined
           });
           solanaAddress = solanaResult.collectionAddress;
 
@@ -1395,154 +1391,26 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                 </Card>
               </div>
 
-              {/* Solana Standard Selector - Enhanced with Features */}
-              {blockchain === "solana" && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                  <Label>Solana NFT Standard *</Label>
-                  <div className="grid gap-3">
-                    {Object.values(SOLANA_STANDARDS_CONFIG).map((config) => {
-                      const isSelected = solanaStandard === config.id;
-                      const features = config.features;
-
-                      return (
-                        <Card
-                          key={config.id}
-                          className={`cursor-pointer transition-all hover:border-primary/50 ${isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"
-                            }`}
-                          onClick={() => {
-                            setSolanaStandard(config.id);
-                            // Auto-adjust collection type if current type not supported
-                            if (!standardSupportsType(config.id, collectionType)) {
-                              setCollectionType(features.supportedTypes[0] as CollectionType);
-                            }
-                          }}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
-                                }`}>
-                                {config.icon === 'sparkles' && <Sparkles className="w-5 h-5" />}
-                                {config.icon === 'file-text' && <Settings2 className="w-5 h-5" />}
-                                {config.icon === 'boxes' && <Layers className="w-5 h-5" />}
-                                {config.icon === 'gift' && <Shield className="w-5 h-5" />}
-                                {config.icon === 'layers' && <Layers className="w-5 h-5" />}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <h4 className="font-semibold text-sm">{config.name}</h4>
-                                  <Badge
-                                    variant={features.badge.variant as any}
-                                    className="text-[10px] px-1.5 py-0"
-                                  >
-                                    {features.badge.label}
-                                  </Badge>
-                                  <span className="text-[10px] text-muted-foreground ml-auto">
-                                    {features.costPerMint}
-                                  </span>
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">{config.description}</p>
-
-                                {/* Feature Tags */}
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                  {features.supportsMusic && (
-                                    <Badge variant="outline" className="text-[9px] px-1 py-0 text-pink-500 border-pink-500/30">
-                                      <Music className="w-2.5 h-2.5 mr-0.5" /> Music
-                                    </Badge>
-                                  )}
-                                  {features.supportsCompression && (
-                                    <Badge variant="outline" className="text-[9px] px-1 py-0 text-blue-500 border-blue-500/30">
-                                      Compressed
-                                    </Badge>
-                                  )}
-                                  {features.supportsMasterEdition && (
-                                    <Badge variant="outline" className="text-[9px] px-1 py-0 text-amber-500 border-amber-500/30">
-                                      Master Edition
-                                    </Badge>
-                                  )}
-                                  {features.supportsOnChainMetadata && (
-                                    <Badge variant="outline" className="text-[9px] px-1 py-0 text-emerald-500 border-emerald-500/30">
-                                      On-Chain
-                                    </Badge>
-                                  )}
-                                  {features.supportsCandyMachine && (
-                                    <Badge variant="outline" className="text-[9px] px-1 py-0 text-purple-500 border-purple-500/30">
-                                      Candy Machine
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-
-                  {/* Standard-Specific Tips */}
-                  {solanaStandard && (
-                    <Alert className="bg-primary/5 border-primary/20">
-                      <Lightbulb className="h-4 w-4 text-primary" />
-                      <AlertTitle className="text-sm font-medium">Tips for {SOLANA_STANDARDS_CONFIG[solanaStandard].name}</AlertTitle>
-                      <AlertDescription className="text-xs text-muted-foreground mt-1">
-                        <ul className="list-disc list-inside space-y-0.5">
-                          {getStandardFeatures(solanaStandard).tips.map((tip, i) => (
-                            <li key={i}>{tip}</li>
-                          ))}
-                        </ul>
-                      </AlertDescription>
-                    </Alert>
-                  )}
+              {/* Metaplex Core Badge */}
+              <div className="flex items-center gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl animate-in fade-in slide-in-from-top-2">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
+                  <Sparkles className="w-5 h-5" />
                 </div>
-              )}
-
-              {/* Master Edition Settings (only for Token Metadata) */}
-              {blockchain === "solana" && solanaStandard === "token-metadata" && (
-                <div className="space-y-4 pt-2 border-t border-border animate-in fade-in slide-in-from-top-2">
-                  <h4 className="text-sm font-medium flex items-center gap-2">
-                    <Settings2 className="w-4 h-4 text-amber-500" />
-                    Master Edition Settings
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Supply Type</Label>
-                      <Select
-                        value={supplyType}
-                        onValueChange={(v: any) => setSupplyType(v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Unlimited">Open Edition (Unlimited)</SelectItem>
-                          <SelectItem value="Limited">Limited Edition</SelectItem>
-                          <SelectItem value="Zero">One-of-a-Kind (Zero Copies)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {supplyType === "Limited" && (
-                      <div className="space-y-2">
-                        <Label>Limit</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={supplyLimit}
-                          onChange={(e) => setSupplyLimit(parseInt(e.target.value) || 0)}
-                        />
-                      </div>
-                    )}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-semibold text-sm">Metaplex Core</h4>
+                    <Badge className="text-[10px] px-1.5 py-0">Recommended</Badge>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Modern NFT standard with high performance and low gas costs (~0.005 SOL).
+                  </p>
                 </div>
-              )}
+              </div>
 
               {/* Collection Type Selector - Filtered by Standard */}
               <div className="space-y-3" data-walkthrough="collection-type">
                 <Label className="flex items-center justify-between">
                   <span>Collection Type *</span>
-                  {solanaStandard && (
-                    <span className="text-[10px] text-muted-foreground font-normal">
-                      {getSupportedCollectionTypes(solanaStandard).length} types available for {SOLANA_STANDARDS_CONFIG[solanaStandard].name}
-                    </span>
-                  )}
                 </Label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {/* Generative */}

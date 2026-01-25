@@ -1,10 +1,6 @@
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { mplTokenMetadata } from '@metaplex-foundation/mpl-token-metadata';
 import { mplCore } from '@metaplex-foundation/mpl-core';
-import { mplBubblegum } from '@metaplex-foundation/mpl-bubblegum';
-import { mplCandyMachine } from '@metaplex-foundation/mpl-candy-machine';
 import { mplCandyMachine as mplCoreCandyMachinePlugin } from '@metaplex-foundation/mpl-core-candy-machine';
-import { mplInscription } from '@metaplex-foundation/mpl-inscription';
 // Solana RPC endpoints
 export const SOLANA_DEVNET_RPC = "https://api.devnet.solana.com";
 export const SOLANA_TESTNET_RPC = "https://api.testnet.solana.com";
@@ -87,12 +83,8 @@ export const initializeUmi = (network: NetworkType) => {
     console.log(`Initializing Umi with Solana ${network}: ${rpcUrl}`);
 
     const umi = createUmi(rpcUrl)
-        .use(mplTokenMetadata())
         .use(mplCore())
-        .use(mplBubblegum())
-        .use(mplCandyMachine())
-        .use(mplCoreCandyMachinePlugin())
-        .use(mplInscription());
+        .use(mplCoreCandyMachinePlugin());
 
     return umi;
 };
@@ -156,12 +148,7 @@ export const fetchSolanaAssets = async (
     return data.result || [];
 };
 
-export type SolanaStandard =
-    | 'core'
-    | 'token-metadata'
-    | 'bubblegum'
-    | 'candy-machine'
-    | 'inscription';
+export type SolanaStandard = 'core';
 
 export type CollectionType = 'generative' | 'one_of_one' | 'editions' | 'music';
 
@@ -226,122 +213,12 @@ export const SOLANA_STANDARDS_CONFIG: Record<SolanaStandard, SolanaStandardConfi
             badge: { label: 'Recommended', variant: 'default' }
         }
     },
-    'token-metadata': {
-        id: 'token-metadata',
-        name: 'Token Metadata',
-        description: 'Classic Metaplex standard with Master Editions. Best for 1/1s with prints.',
-        icon: 'file-text',
-        features: {
-            supportedTypes: ['one_of_one', 'editions'],
-            supportsCompression: false,
-            supportsMasterEdition: true,
-            supportsCandyMachine: true,
-            supportsOnChainMetadata: false,
-            supportsRoyalties: true,
-            supportsMusic: false,
-            supportsBulkMint: true,
-            supportsAllowlist: true,
-            supportsReveal: true,
-            costPerMint: '~0.01 SOL',
-            costDescription: 'Standard cost with maximum compatibility',
-            recommendedFor: ['1/1 Art with print editions', 'Legacy marketplace support', 'Master Edition prints'],
-            notRecommendedFor: ['New generative collections', 'Music NFTs', 'Cost-sensitive projects'],
-            tips: [
-                'Choose supply type: Unlimited, Limited, or One-of-a-Kind',
-                'Master Editions allow you to create prints/copies',
-                'Best marketplace compatibility across Solana'
-            ],
-            badge: { label: 'Classic', variant: 'secondary' }
-        }
-    },
-    'bubblegum': {
-        id: 'bubblegum',
-        name: 'Compressed NFTs (cNFT)',
-        description: 'Ultra-low cost compressed NFTs for large-scale collections (10k+).',
-        icon: 'boxes',
-        features: {
-            supportedTypes: ['generative'],
-            supportsCompression: true,
-            supportsMasterEdition: false,
-            supportsCandyMachine: true,
-            supportsOnChainMetadata: false,
-            supportsRoyalties: true,
-            supportsMusic: false,
-            supportsBulkMint: true,
-            supportsAllowlist: true,
-            supportsReveal: false,
-            costPerMint: '~0.0001 SOL',
-            costDescription: 'Cheapest option - 100x less than Core',
-            recommendedFor: ['10k+ generative collections', 'Gaming assets', 'Loyalty programs', 'Mass airdrops'],
-            notRecommendedFor: ['1/1 art', 'Music NFTs', 'Collections needing full on-chain data'],
-            tips: [
-                'Ideal for 10,000+ item collections',
-                'Uses Merkle trees for compression',
-                'Some marketplaces may have limited cNFT support'
-            ],
-            badge: { label: 'Low Cost', variant: 'outline' }
-        }
-    },
-    'candy-machine': {
-        id: 'candy-machine',
-        name: 'Candy Machine v3',
-        description: 'Fair launch system with bot protection and advanced minting features.',
-        icon: 'gift',
-        features: {
-            supportedTypes: ['generative', 'editions'],
-            supportsCompression: false,
-            supportsMasterEdition: false,
-            supportsCandyMachine: true,
-            supportsOnChainMetadata: false,
-            supportsRoyalties: true,
-            supportsMusic: false,
-            supportsBulkMint: true,
-            supportsAllowlist: true,
-            supportsReveal: true,
-            costPerMint: '~0.02 SOL',
-            costDescription: 'Higher cost for advanced launch features',
-            recommendedFor: ['Fair public launches', 'Multi-phase mints', 'Bot-protected drops'],
-            notRecommendedFor: ['Simple 1/1 mints', 'Music NFTs', 'Low-budget projects'],
-            tips: [
-                'Built-in bot protection with guards',
-                'Perfect for multi-phase launches (WL, Public)',
-                'Supports time-based and quantity-based phases'
-            ],
-            badge: { label: 'Fair Launch', variant: 'secondary' }
-        }
-    },
-    'inscription': {
-        id: 'inscription',
-        name: 'Inscriptions',
-        description: 'Fully on-chain metadata stored permanently on the Solana ledger.',
-        icon: 'layers',
-        features: {
-            supportedTypes: ['one_of_one'],
-            supportsCompression: false,
-            supportsMasterEdition: false,
-            supportsCandyMachine: false,
-            supportsOnChainMetadata: true,
-            supportsRoyalties: false,
-            supportsMusic: false,
-            supportsBulkMint: false,
-            supportsAllowlist: false,
-            supportsReveal: false,
-            costPerMint: '~0.05+ SOL',
-            costDescription: 'Highest cost - data stored on-chain',
-            recommendedFor: ['Permanent on-chain art', 'Historical records', 'Immutable collections'],
-            notRecommendedFor: ['Large collections', 'Cost-sensitive projects', 'Generative art'],
-            tips: [
-                'Data is stored directly on Solana - truly immutable',
-                'Best for small, high-value pieces',
-                'No external metadata dependencies'
-            ],
-            badge: { label: 'On-Chain', variant: 'outline' }
-        }
-    }
+
+
 };
 
 // Legacy format for backward compatibility
-export const SOLANA_STANDARDS: { id: SolanaStandard; name: string; description: string }[] = 
+export const SOLANA_STANDARDS: { id: SolanaStandard; name: string; description: string }[] =
     Object.values(SOLANA_STANDARDS_CONFIG).map(config => ({
         id: config.id,
         name: config.name,
@@ -367,13 +244,9 @@ export const standardSupportsType = (standard: SolanaStandard, type: CollectionT
 export const getRecommendedStandard = (type: CollectionType): SolanaStandard => {
     switch (type) {
         case 'music':
-            return 'core';
         case 'generative':
-            return 'core';
         case 'one_of_one':
-            return 'core';
         case 'editions':
-            return 'token-metadata';
         default:
             return 'core';
     }

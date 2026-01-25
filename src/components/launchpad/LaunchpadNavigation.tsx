@@ -35,29 +35,15 @@ const solanaFeatures = [
     id: "core",
     title: "Metaplex Core",
     href: "#core",
-    description: "Modern NFT standard with low gas costs (~0.005 SOL). Best for new collections.",
+    description: "Modern high-performance NFT standard with ultra-low gas costs (~0.005 SOL).",
     icon: Sparkles,
   },
   {
     id: "candy-machine",
-    title: "Candy Machine v3",
+    title: "Candy Machine",
     href: "#candy-machine",
-    description: "Fair launches with bot protection and advanced minting features (~0.02 SOL).",
+    description: "Fair launch system with bot protection and multi-phase minting capabilities.",
     icon: Shield,
-  },
-  {
-    id: "bubblegum",
-    title: "Bubblegum (cNFT)",
-    href: "#bubblegum",
-    description: "Compressed NFTs for large 10k+ collections with minimal costs (~0.0001 SOL/NFT).",
-    icon: Layers,
-  },
-  {
-    id: "token-metadata",
-    title: "Token Metadata",
-    href: "#token-metadata",
-    description: "Classic Metaplex standard with maximum marketplace compatibility (~0.01 SOL).",
-    icon: Globe,
   },
 ];
 
@@ -97,12 +83,7 @@ export function LaunchpadNavigation({ onSelectStandard, className }: LaunchpadNa
   const handleStandardClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     if (onSelectStandard) {
-      let standard = 'core';
-      if (id === 'token-metadata') standard = 'token-metadata';
-      if (id === 'bubblegum') standard = 'bubblegum';
-      if (id === 'core') standard = 'core';
-      if (id === 'candy-machine') standard = 'core';
-      onSelectStandard(standard);
+      onSelectStandard('core');
     }
   };
 
@@ -119,9 +100,9 @@ export function LaunchpadNavigation({ onSelectStandard, className }: LaunchpadNa
               )}
               onClick={() => { }}
             >
-              <Globe className="w-4 h-4" />
-              <span className="hidden sm:inline">Solana Contracts</span>
-              <span className="sm:hidden">Solana</span>
+              <Zap className="w-4 h-4" />
+              <span className="hidden sm:inline">Launch Services</span>
+              <span className="sm:hidden">Launch</span>
               <Badge variant="secondary" className="ml-1 h-5 text-[10px] bg-green-500/20 text-green-400 border-green-500/30">
                 Active
               </Badge>

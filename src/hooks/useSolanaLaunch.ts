@@ -65,7 +65,7 @@ interface CreateCollectionParams {
     uri?: string;
     royaltyBasisPoints?: number;
     sellerFeeBasisPoints?: number;
-    standard?: SolanaStandard;
+    standard?: 'core';
     supplyConfig?: {
         type: string;
         limit?: number;
@@ -258,7 +258,6 @@ export const useSolanaLaunch = () => {
     }, [getSolanaProvider, network]);
 
     const deploySolanaCollection = useCallback(async (
-        standard: SolanaStandard,
         metadata: {
             name: string;
             symbol: string;
@@ -335,7 +334,6 @@ export const useSolanaLaunch = () => {
             sellerFeeBasisPoints: number;
             creators: { address: string; share: number }[];
         },
-        standard: SolanaStandard = 'core',
         optionalTreasuryWallet?: string
     ): Promise<{ address: string; candyGuardAddress?: string }> => {
         setIsLoading(true);
@@ -467,7 +465,7 @@ export const useSolanaLaunch = () => {
         const umi = await getUmi();
         const currentUser = umi.identity.publicKey.toString();
 
-        return deploySolanaCollection('core', {
+        return deploySolanaCollection({
             name: params.name,
             symbol: params.symbol,
             uri: params.uri || params.imageUri || '',
