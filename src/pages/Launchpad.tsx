@@ -25,6 +25,7 @@ import { Plus, Rocket, Clock, CheckCircle, Sparkles, FlaskConical, Globe, Loader
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
+import { LaunchpadNavigation } from "@/components/launchpad/LaunchpadNavigation";
 
 import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
@@ -612,7 +613,7 @@ export default function Launchpad() {
               </div>
             )}
 
-            {!isLoading && selectedChain === "solana" && filteredCollections.length === 0 && (
+            {!isLoading && filteredCollections.length === 0 && (
               <div className="text-center py-12">
                 <Rocket className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-2">No collections found</h3>

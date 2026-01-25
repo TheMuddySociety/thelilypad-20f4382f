@@ -25,7 +25,6 @@ import {
 
 interface LaunchpadNavigationProps {
   onSelectStandard?: (standard: string) => void;
-  onSelectStandard?: (standard: string) => void;
   className?: string;
 }
 
