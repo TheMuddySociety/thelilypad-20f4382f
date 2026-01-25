@@ -86,32 +86,22 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
         }
       }
 
-      // 2. Listing Step on Contract
+      // 2. Listing Step (currently database-only, escrow pending deployment)
       setListingStatus('listing');
-      const listTx = await listItem(nftAddress, nft.token_id, parseFloat(price));
-
-      // Wait for listing receipt
-      let listReceipt = null;
-      while (!listReceipt) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        listReceipt = await window.ethereum?.request({
-          method: 'eth_getTransactionReceipt',
-          params: [listTx],
-        });
-      }
+      const listResult = await listItem(nftAddress, parseFloat(price) * 1e9, { expiresAt });
 
       // 3. Supabase Record
       const { error: insertError } = await supabase
         .from('nft_listings')
-        .insert({
+        .insert([{
           nft_id: nft.id,
           seller_id: user.id,
           seller_address: nft.owner_address,
           price: parseFloat(price),
           currency: 'SOL',
           expires_at: expiresAt?.toISOString() || null,
-          tx_hash: listTx,
-        });
+          tx_hash: listResult.listingId || null,
+        }]);
 
       if (insertError) throw insertError;
 

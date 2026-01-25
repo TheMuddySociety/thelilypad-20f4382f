@@ -270,11 +270,9 @@ export default function CollectionDetail() {
         ? await solanaMint.mintFromCandyMachine(
           cmAddress,
           collection!.contract_address!,
-          phaseId,
-          mintArgs
+          { phaseId, price: mintArgs?.price || 0, collectionId: collection!.id }
         )
         : await solanaMint.mintNFT(
-          (standard as any) || 'core',
           collection!.contract_address!,
           {
             name: `${collection!.name} #${collection!.minted + i + 1}${isForce ? ' (FORCE)' : ''}`,

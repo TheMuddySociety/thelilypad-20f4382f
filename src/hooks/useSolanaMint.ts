@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
-import { publicKey, generateSigner, some, percentAmount, sol } from '@metaplex-foundation/umi';
+import { publicKey, generateSigner, some, none, percentAmount, sol } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
-createV1 as createCore,
+import {
+    createV1 as createCore,
 } from '@metaplex-foundation/mpl-core';
 import {
     fetchCandyMachine,
@@ -207,14 +208,15 @@ export const useSolanaMint = () => {
             };
 
             // Build the mint transaction
-            // For collectors, we must pass the candyGuard and the group label if it's wrapped
+            // Core Candy Machine: mintAuthority is the candy guard PDA if wrapped
+            // For unwrapped machines, the identity is the mint authority
+            // Note: If wrapped, we use the candyMachine.mintAuthority as-is (it's the guard PDA)
             const tx = mintAssetFromCandyMachine(umi, {
                 candyMachine: candyMachine.publicKey,
+                mintAuthority: umi.identity,
                 asset: nftMint,
                 collection: candyMachine.collectionMint,
-                candyGuard: isWrapped ? candyGuardPda[0] : undefined,
-                group: phaseArgs?.phaseId ? some(phaseArgs.phaseId) : none(),
-                mintArgs: mintArgs,
+                assetOwner: umi.identity.publicKey,
             }).add(memoInstruction);
 
             const result = await tx.sendAndConfirm(umi);
