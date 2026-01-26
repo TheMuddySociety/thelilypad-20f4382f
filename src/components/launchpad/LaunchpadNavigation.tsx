@@ -57,22 +57,10 @@ const collectionTypes = [
     icon: Palette,
   },
   {
-    title: "1-of-1 Collection",
-    href: "#one-of-one",
-    description: "Curated unique artworks with individual metadata.",
-    icon: ImageIcon,
-  },
-  {
     title: "Music NFTs",
     href: "#music",
     description: "Audio tracks with artwork and streaming capabilities.",
     icon: Music,
-  },
-  {
-    title: "Editions",
-    href: "#editions",
-    description: "Limited or open editions of a single artwork.",
-    icon: Layers,
   },
 ];
 
@@ -144,6 +132,13 @@ export function LaunchpadNavigation({ onSelectStandard, className }: LaunchpadNa
                     {type.description}
                   </ListItem>
                 ))}
+                <ListItem
+                  title="Launch 1/1s & Editions"
+                  href="/raffles"
+                  icon={ImageIcon}
+                >
+                  Create single artworks and limited editions in the Raffles studio.
+                </ListItem>
               </ul>
             </NavigationMenuContent>
           </NavigationMenuItem>

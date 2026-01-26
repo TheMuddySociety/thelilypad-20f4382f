@@ -60,6 +60,8 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
+import { toast } from "sonner";
+import { FolderUploader } from "./FolderUploader";
 import { LayerManager, Layer } from "./LayerManager";
 import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
 import { AllowlistManager } from "./AllowlistManager";
@@ -237,9 +239,10 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
   // Art generation (Generative)
   const [layers, setLayers] = useState<Layer[]>([]);
   const [traitRules, setTraitRules] = useState<TraitRule[]>([]);
-  const [artTab, setArtTab] = useState("layers");
+  const [artTab, setArtTab] = useState("folder"); // Default to folder upload
+  const [folderAssets, setFolderAssets] = useState<{ name: string; uri: string; file: File; jsonFile?: File }[]>([]);
 
-  // 1 of 1 artworks
+  // 1 of 1 artworks (Legacy/Fallback)
   const [oneOfOneArtworks, setOneOfOneArtworks] = useState<OneOfOneArtwork[]>([]);
   const [editingArtworkIndex, setEditingArtworkIndex] = useState<number | null>(null);
 
@@ -1755,160 +1758,74 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
           {currentStep === 2 && (
             <div className="space-y-4">
               {/* Generative Collection - Layer Manager */}
-              {collectionType === "generative" && (
-                <Tabs value={artTab} onValueChange={setArtTab}>
-                  <TabsList className="grid w-full grid-cols-3">
+              <div className="space-y-6">
+                <Tabs value={artTab} onValueChange={setArtTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="folder" className="gap-2">
+                       <FolderOpen className="w-4 h-4" />
+                       Folder Upload (Recommended)
+                    </TabsTrigger>
                     <TabsTrigger value="layers" className="gap-2">
                       <Layers className="w-4 h-4" />
-                      Layers
-                    </TabsTrigger>
-                    <TabsTrigger value="rules" className="gap-2">
-                      <Shield className="w-4 h-4" />
-                      Rules
-                    </TabsTrigger>
-                    <TabsTrigger value="preview" className="gap-2">
-                      <Sparkles className="w-4 h-4" />
-                      Preview
+                      Layer Generator (Advanced)
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="layers" className="mt-4">
-                    <LayerManager layers={layers} onLayersChange={setLayers} />
+                  <TabsContent value="folder">
+                    <div className="space-y-4">
+                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 flex gap-3">
+                        <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-medium text-blue-500 mb-1">How Folder Upload Works</p>
+                          <p className="text-muted-foreground">
+                            Upload a folder containing your pre-generated assets. 
+                            We expect pairs of filenames (e.g. <code>1.png</code> and <code>1.json</code>).
+                            These will be uploaded and inserted into your Candy Machine.
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <FolderUploader 
+                        onAssetsLoaded={(assets) => {
+                           setFolderAssets(assets);
+                           setTotalSupply(assets.length.toString());
+                           toast.success(`${assets.length} assets loaded! Total supply updated.`);
+                        }} 
+                      />
+                      
+                      {folderAssets.length > 0 && (
+                        <Alert className="mt-4 bg-green-500/10 border-green-500/20">
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <AlertTitle className="text-green-500">Ready to Deploy</AlertTitle>
+                          <AlertDescription className="text-green-600/90">
+                            {folderAssets.length} assets are staged for upload.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
                   </TabsContent>
 
-                  <TabsContent value="rules" className="mt-4">
-                    <TraitRulesManager
-                      layers={layers}
-                      rules={traitRules}
-                      onRulesChange={setTraitRules}
-                    />
-                  </TabsContent>
-
-                  <TabsContent value="preview" className="mt-4">
-                    <GenerationPreview
-                      layers={layers}
-                      rules={traitRules}
-                      totalSupply={totalSupply}
-                      collectionName={name || "My Collection"}
-                      collectionDescription={description}
-                    />
+                  <TabsContent value="layers">
+                    <div className="space-y-6">
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Advanced Generator</AlertTitle>
+                        <AlertDescription>
+                          Use this if you have raw layers (Backgrounds, Bodies, Heads) and want to generate unique combinations on the fly.
+                        </AlertDescription>
+                      </Alert>
+                      <LayerManager
+                        layers={layers}
+                        setLayers={setLayers}
+                      />
+                    </div>
                   </TabsContent>
                 </Tabs>
-              )}
-
-              {/* Music Collection - Audio Upload */}
-              {collectionType === "music" && (
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Music className="w-5 h-5 text-pink-500" />
-                        Music Tracks
-                        {musicTracks.length > 0 && (
-                          <Badge variant="secondary" className="ml-auto">
-                            {musicTracks.length} track{musicTracks.length !== 1 ? 's' : ''}
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription>
-                        Upload audio files (MP3, WAV, FLAC) with cover art. Each track becomes a unique Music NFT.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <MusicArtworkUploader
-                        tracks={musicTracks}
-                        onTracksChange={(tracks) => {
-                          setMusicTracks(tracks);
-                          setTotalSupply(String(tracks.length));
-                        }}
-                        maxTracks={100}
-                      />
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-              {collectionType === "one_of_one" && (
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Gem className="w-5 h-5 text-amber-500" />
-                        1 of 1 Artworks
-                        {oneOfOneArtworks.length > 0 && (
-                          <Badge variant="secondary" className="ml-auto">
-                            {oneOfOneArtworks.length} artwork{oneOfOneArtworks.length !== 1 ? 's' : ''}
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription>
-                        Upload unique individual pieces. Each artwork will be a one-of-a-kind NFT.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Upload Area with Drag & Drop */}
-                      <div
-                        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${isOneOfOneDragging
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/50"
-                          }`}
-                        onClick={() => document.getElementById("one-of-one-upload")?.click()}
-                        onDragEnter={handleOneOfOneDragEnter}
-                        onDragLeave={handleOneOfOneDragLeave}
-                        onDragOver={handleOneOfOneDragOver}
-                        onDrop={handleOneOfOneDrop}
-                      >
-                        <Upload className={`w-8 h-8 mx-auto mb-2 ${isOneOfOneDragging ? "text-primary" : "text-muted-foreground"}`} />
-                        <p className="font-medium text-sm mb-1">
-                          {isOneOfOneDragging ? "Drop artworks here" : "Drag & drop or click to add"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          PNG, JPG, GIF, WEBP up to 10MB each
-                        </p>
-                        <input
-                          id="one-of-one-upload"
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className="hidden"
-                          onChange={handleOneOfOneUpload}
-                        />
-                      </div>
-
-                      {/* Artwork Preview Grid with Reordering */}
-                      {oneOfOneArtworks.length > 0 && (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <Label>Uploaded Artworks</Label>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs gap-1.5"
-                                onClick={() => setBulkTraitsOpen(true)}
-                              >
-                                <Tags className="h-3 w-3" />
-                                Bulk Traits
-                              </Button>
-                              <Popover open={bulkRenameOpen} onOpenChange={setBulkRenameOpen}>
-                                <PopoverTrigger asChild>
-                                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
-                                    <Pencil className="h-3 w-3" />
-                                    Bulk Rename
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-72" align="end">
-                                  <div className="space-y-3">
-                                    <div className="space-y-1">
-                                      <Label className="text-sm font-medium">Name Pattern</Label>
-                                      <p className="text-xs text-muted-foreground">
-                                        Use # as placeholder for number
-                                      </p>
-                                    </div>
+              </div>                      </div>
                                     <Input
                                       placeholder="MyNFT #"
                                       value={bulkRenamePattern}
                                       onChange={(e) => setBulkRenamePattern(e.target.value)}
-                                    />
                                     <div className="text-xs text-muted-foreground">
                                       Preview: {bulkRenamePattern ? `${bulkRenamePattern.replace('#', '1')}, ${bulkRenamePattern.replace('#', '2')}...` : 'Enter a pattern'}
                                     </div>
@@ -1935,8 +1852,8 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                                       Apply to All
                                     </Button>
                                   </div>
-                                </PopoverContent>
-                              </Popover>
+      </PopoverContent>
+    </Popover >
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1976,131 +1893,134 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                                 Export
                               </Button>
                               <p className="text-xs text-muted-foreground">Drag to reorder</p>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-4 gap-3 max-h-[300px] overflow-y-auto p-1">
-                            {oneOfOneArtworks.map((artwork, index) => (
-                              <div
-                                key={artwork.id}
-                                draggable
-                                onDragStart={(e) => {
-                                  setReorderDragIndex(index);
-                                  e.dataTransfer.effectAllowed = "move";
-                                }}
-                                onDragEnd={() => {
-                                  setReorderDragIndex(null);
-                                  setReorderDropIndex(null);
-                                }}
-                                onDragOver={(e) => {
-                                  e.preventDefault();
-                                  if (reorderDragIndex !== null && reorderDragIndex !== index) {
-                                    setReorderDropIndex(index);
-                                  }
-                                }}
-                                onDragLeave={() => {
-                                  setReorderDropIndex(null);
-                                }}
-                                onDrop={(e) => {
-                                  e.preventDefault();
-                                  if (reorderDragIndex !== null && reorderDragIndex !== index) {
-                                    const newArtworks = [...oneOfOneArtworks];
-                                    const [draggedItem] = newArtworks.splice(reorderDragIndex, 1);
-                                    newArtworks.splice(index, 0, draggedItem);
-                                    setOneOfOneArtworks(newArtworks);
-                                  }
-                                  setReorderDragIndex(null);
-                                  setReorderDropIndex(null);
-                                }}
-                                className={`relative group aspect-square rounded-lg overflow-hidden border transition-all cursor-grab active:cursor-grabbing ${reorderDragIndex === index
-                                  ? "opacity-50 border-primary scale-95"
-                                  : reorderDropIndex === index
-                                    ? "border-primary ring-2 ring-primary/50"
-                                    : "border-border"
-                                  }`}
-                              >
-                                <img
-                                  src={artwork.preview}
-                                  alt={artwork.name}
-                                  className="w-full h-full object-cover pointer-events-none"
-                                />
-                                {/* Drag handle overlay */}
-                                <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <div className="bg-black/60 rounded p-1">
-                                    <GripVertical className="h-4 w-4 text-white" />
-                                  </div>
-                                </div>
-                                {/* Action buttons */}
-                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                  <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingArtworkIndex(index);
-                                    }}
-                                    title="Edit metadata"
-                                  >
-                                    <Settings2 className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removeOneOfOneArtwork(artwork.id);
-                                    }}
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                {/* Metadata indicator */}
-                                {artwork.metadata && (artwork.metadata.description || artwork.metadata.traits.length > 0) && (
-                                  <div className="absolute top-1 left-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <div className="bg-primary/80 text-primary-foreground rounded px-1.5 py-0.5 text-[10px] font-medium">
-                                      {artwork.metadata.traits.length} traits
-                                    </div>
-                                  </div>
-                                )}
-                                {/* Token ID and name badge */}
-                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                                  <p className="text-white text-xs font-medium truncate">#{index + 1} - {artwork.name}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                            </div >
+                          </div >
+    <div className="grid grid-cols-4 gap-3 max-h-[300px] overflow-y-auto p-1">
+      {oneOfOneArtworks.map((artwork, index) => (
+        <div
+          key={artwork.id}
+          draggable
+          onDragStart={(e) => {
+            setReorderDragIndex(index);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          onDragEnd={() => {
+            setReorderDragIndex(null);
+            setReorderDropIndex(null);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (reorderDragIndex !== null && reorderDragIndex !== index) {
+              setReorderDropIndex(index);
+            }
+          }}
+          onDragLeave={() => {
+            setReorderDropIndex(null);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (reorderDragIndex !== null && reorderDragIndex !== index) {
+              const newArtworks = [...oneOfOneArtworks];
+              const [draggedItem] = newArtworks.splice(reorderDragIndex, 1);
+              newArtworks.splice(index, 0, draggedItem);
+              setOneOfOneArtworks(newArtworks);
+            }
+            setReorderDragIndex(null);
+            setReorderDropIndex(null);
+          }}
+          className={`relative group aspect-square rounded-lg overflow-hidden border transition-all cursor-grab active:cursor-grabbing ${reorderDragIndex === index
+            ? "opacity-50 border-primary scale-95"
+            : reorderDropIndex === index
+              ? "border-primary ring-2 ring-primary/50"
+              : "border-border"
+            }`}
+        >
+          <img
+            src={artwork.preview}
+            alt={artwork.name}
+            className="w-full h-full object-cover pointer-events-none"
+          />
+          {/* Drag handle overlay */}
+          <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="bg-black/60 rounded p-1">
+              <GripVertical className="h-4 w-4 text-white" />
+            </div>
+          </div>
+          {/* Action buttons */}
+          <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="h-6 w-6"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingArtworkIndex(index);
+              }}
+              title="Edit metadata"
+            >
+              <Settings2 className="h-3 w-3" />
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              className="h-6 w-6"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeOneOfOneArtwork(artwork.id);
+              }}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+          {/* Metadata indicator */}
+          {artwork.metadata && (artwork.metadata.description || artwork.metadata.traits.length > 0) && (
+            <div className="absolute top-1 left-8 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="bg-primary/80 text-primary-foreground rounded px-1.5 py-0.5 text-[10px] font-medium">
+                {artwork.metadata.traits.length} traits
+              </div>
+            </div>
+          )}
+          {/* Token ID and name badge */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+            <p className="text-white text-xs font-medium truncate">#{index + 1} - {artwork.name}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+                        </div >
+                      )
+}
 
-                      {/* Artwork Metadata Editor Dialog */}
-                      {editingArtworkIndex !== null && oneOfOneArtworks[editingArtworkIndex] && (
-                        <ArtworkMetadataEditor
-                          artwork={oneOfOneArtworks[editingArtworkIndex]}
-                          index={editingArtworkIndex}
-                          open={editingArtworkIndex !== null}
-                          onOpenChange={(open) => {
-                            if (!open) setEditingArtworkIndex(null);
-                          }}
-                          onSave={(updatedArtwork) => {
-                            const newArtworks = [...oneOfOneArtworks];
-                            newArtworks[editingArtworkIndex] = updatedArtwork;
-                            setOneOfOneArtworks(newArtworks);
-                          }}
-                        />
-                      )}
+{/* Artwork Metadata Editor Dialog */ }
+{
+  editingArtworkIndex !== null && oneOfOneArtworks[editingArtworkIndex] && (
+    <ArtworkMetadataEditor
+      artwork={oneOfOneArtworks[editingArtworkIndex]}
+      index={editingArtworkIndex}
+      open={editingArtworkIndex !== null}
+      onOpenChange={(open) => {
+        if (!open) setEditingArtworkIndex(null);
+      }}
+      onSave={(updatedArtwork) => {
+        const newArtworks = [...oneOfOneArtworks];
+        newArtworks[editingArtworkIndex] = updatedArtwork;
+        setOneOfOneArtworks(newArtworks);
+      }}
+    />
+  )
+}
 
-                      {/* Bulk Traits Editor Dialog */}
-                      <BulkTraitsEditor
-                        artworks={oneOfOneArtworks}
-                        open={bulkTraitsOpen}
-                        onOpenChange={setBulkTraitsOpen}
-                        onApply={setOneOfOneArtworks}
-                      />
+{/* Bulk Traits Editor Dialog */ }
+<BulkTraitsEditor
+  artworks={oneOfOneArtworks}
+  open={bulkTraitsOpen}
+  onOpenChange={setBulkTraitsOpen}
+  onApply={setOneOfOneArtworks}
+/>
 
-                      {/* Import Metadata Editor Dialog */}
+{/* Import Metadata Editor Dialog */ }
                       <ImportMetadataEditor
                         artworks={oneOfOneArtworks}
                         open={importMetadataOpen}
@@ -2124,515 +2044,523 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                           </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                    </CardContent >
+                  </Card >
+                </div >
               )}
 
-              {/* Editions Collection - Single Artwork with Quantity */}
-              {collectionType === "editions" && (
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Copy className="w-5 h-5 text-emerald-500" />
-                        Edition Artwork
-                      </CardTitle>
-                      <CardDescription>
-                        Upload a single artwork that will be minted as multiple editions.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Artwork Upload/Preview */}
-                      {editionArtwork ? (
-                        <div className="relative rounded-lg overflow-hidden border border-border">
-                          <img
-                            src={editionArtwork.preview}
-                            alt="Edition Artwork"
-                            className="w-full aspect-square object-cover"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-3 right-3 h-8 w-8"
-                            onClick={removeEditionArtwork}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-                            <p className="text-white font-medium">Edition Artwork</p>
-                            <p className="text-white/70 text-sm">{totalSupply} editions</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${isEditionDragging
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:border-primary/50"
-                            }`}
-                          onClick={() => document.getElementById("edition-artwork-upload")?.click()}
-                          onDragEnter={handleEditionDragEnter}
-                          onDragLeave={handleEditionDragLeave}
-                          onDragOver={handleEditionDragOver}
-                          onDrop={handleEditionDrop}
-                        >
-                          <Upload className={`w-10 h-10 mx-auto mb-3 ${isEditionDragging ? "text-primary" : "text-muted-foreground"}`} />
-                          <p className="font-medium mb-1">
-                            {isEditionDragging ? "Drop artwork here" : "Drag & drop or click to upload"}
-                          </p>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            This artwork will be minted as {totalSupply || "multiple"} editions
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            PNG, JPG, GIF, WEBP up to 10MB
-                          </p>
-                        </div>
-                      )}
-                      <input
-                        id="edition-artwork-upload"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleEditionArtworkUpload}
-                      />
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="edition-supply">Edition Size</Label>
-                          <Input
-                            id="edition-supply"
-                            type="number"
-                            placeholder="100"
-                            value={totalSupply}
-                            onChange={(e) => setTotalSupply(e.target.value)}
-                            min={1}
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Number of copies to mint
-                          </p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Edition Type</Label>
-                          <Select value={editionType} onValueChange={(v) => setEditionType(v as typeof editionType)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="open">Open Edition</SelectItem>
-                              <SelectItem value="limited">Limited Edition</SelectItem>
-                              <SelectItem value="timed">Timed Edition</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <p className="text-xs text-muted-foreground">
-                            How editions are distributed
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="bg-muted/50 rounded-lg p-4">
-                        <div className="flex items-center gap-3 text-sm">
-                          <Copy className="w-5 h-5 text-emerald-500" />
-                          <div>
-                            <p className="font-medium">
-                              {editionArtwork
-                                ? `${totalSupply || 0} identical editions ready`
-                                : `${totalSupply || 0} identical editions`
-                              }
-                            </p>
-                            <p className="text-muted-foreground text-xs">
-                              {editionType === "open" && "Unlimited minting until supply runs out"}
-                              {editionType === "limited" && "Fixed supply, first come first served"}
-                              {editionType === "timed" && "Available for a limited time period"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
+{/* Editions Collection - Single Artwork with Quantity */ }
+{
+  collectionType === "editions" && (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Copy className="w-5 h-5 text-emerald-500" />
+            Edition Artwork
+          </CardTitle>
+          <CardDescription>
+            Upload a single artwork that will be minted as multiple editions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Artwork Upload/Preview */}
+          {editionArtwork ? (
+            <div className="relative rounded-lg overflow-hidden border border-border">
+              <img
+                src={editionArtwork.preview}
+                alt="Edition Artwork"
+                className="w-full aspect-square object-cover"
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                className="absolute top-3 right-3 h-8 w-8"
+                onClick={removeEditionArtwork}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                <p className="text-white font-medium">Edition Artwork</p>
+                <p className="text-white/70 text-sm">{totalSupply} editions</p>
+              </div>
             </div>
-          )}
-
-          {/* Step 3: Mint Phases */}
-          {currentStep === 3 && (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Configure your mint phases. Enable the phases you need and set their parameters.
+          ) : (
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${isEditionDragging
+                ? "border-primary bg-primary/10"
+                : "border-border hover:border-primary/50"
+                }`}
+              onClick={() => document.getElementById("edition-artwork-upload")?.click()}
+              onDragEnter={handleEditionDragEnter}
+              onDragLeave={handleEditionDragLeave}
+              onDragOver={handleEditionDragOver}
+              onDrop={handleEditionDrop}
+            >
+              <Upload className={`w-10 h-10 mx-auto mb-3 ${isEditionDragging ? "text-primary" : "text-muted-foreground"}`} />
+              <p className="font-medium mb-1">
+                {isEditionDragging ? "Drop artwork here" : "Drag & drop or click to upload"}
               </p>
-
-              {phases.map((phase) => (
-                <Card key={phase.id} className={`transition-colors ${phase.enabled ? "border-primary/50" : ""}`}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Switch
-                          checked={phase.enabled}
-                          onCheckedChange={(checked) => updatePhase(phase.id, { enabled: checked })}
-                        />
-                        <CardTitle className="text-base">{phase.name}</CardTitle>
-                        {phase.id === "team" && <Shield className="w-4 h-4 text-muted-foreground" />}
-                        {phase.id === "partners" && <Users className="w-4 h-4 text-muted-foreground" />}
-                      </div>
-                      {phase.enabled && (
-                        <Badge variant="secondary">{phase.price === "0" ? "Free" : `${phase.price} ${blockchain === 'solana' ? 'SOL' : 'SOL'}`}</Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-
-                  {phase.enabled && (
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Price ({blockchain === 'solana' ? 'SOL' : 'SOL'})</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={phase.price}
-                            onChange={(e) => updatePhase(phase.id, { price: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Max/Wallet</Label>
-                          <Input
-                            type="number"
-                            value={phase.maxPerWallet}
-                            onChange={(e) => updatePhase(phase.id, { maxPerWallet: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Phase Supply</Label>
-                          <Input
-                            type="number"
-                            value={phase.supply}
-                            onChange={(e) => updatePhase(phase.id, { supply: e.target.value })}
-                          />
-                        </div>
-                      </div>
-
-                      {(phase.id === "allowlist" || phase.id === "partners") && (
-                        <div className="space-y-1">
-                          <Label className="text-xs">Merkle Root (for allowlist verification)</Label>
-                          <Input
-                            placeholder="0x..."
-                            value={phase.merkleRoot || ""}
-                            onChange={(e) => updatePhase(phase.id, { merkleRoot: e.target.value })}
-                          />
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Start Time</Label>
-                          <Input
-                            type="datetime-local"
-                            value={phase.startTime}
-                            onChange={(e) => updatePhase(phase.id, { startTime: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">End Time</Label>
-                          <Input
-                            type="datetime-local"
-                            value={phase.endTime}
-                            onChange={(e) => updatePhase(phase.id, { endTime: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-              ))}
+              <p className="text-sm text-muted-foreground mb-3">
+                This artwork will be minted as {totalSupply || "multiple"} editions
+              </p>
+              <p className="text-xs text-muted-foreground">
+                PNG, JPG, GIF, WEBP up to 10MB
+              </p>
             </div>
           )}
+          <input
+            id="edition-artwork-upload"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleEditionArtworkUpload}
+          />
 
-          {/* Step 4: Allowlist Management */}
-          {currentStep === 4 && (
-            <div className="space-y-4">
-              {allowlistRequiredPhases.length > 0 ? (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    Manage wallet addresses for your whitelist-enabled mint phases.
-                  </p>
-                  <AllowlistManager
-                    phases={allowlistRequiredPhases.map(p => ({ id: p.id, name: p.name }))}
-                    onAllowlistChange={setAllowlistPhases}
-                  />
-                </>
-              ) : (
-                <Card>
-                  <CardContent className="py-10 text-center">
-                    <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                    <h3 className="font-medium mb-1">No Allowlist Phases Enabled</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Enable Team Mint, Partners Mint, or Allowlist phases in the previous step to manage wallets.
-                    </p>
-                    <Button variant="outline" onClick={() => setCurrentStep(3)}>
-                      <ChevronLeft className="w-4 h-4 mr-1" />
-                      Configure Mint Phases
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edition-supply">Edition Size</Label>
+              <Input
+                id="edition-supply"
+                type="number"
+                placeholder="100"
+                value={totalSupply}
+                onChange={(e) => setTotalSupply(e.target.value)}
+                min={1}
+              />
+              <p className="text-xs text-muted-foreground">
+                Number of copies to mint
+              </p>
             </div>
-          )}
+            <div className="space-y-2">
+              <Label>Edition Type</Label>
+              <Select value={editionType} onValueChange={(v) => setEditionType(v as typeof editionType)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">Open Edition</SelectItem>
+                  <SelectItem value="limited">Limited Edition</SelectItem>
+                  <SelectItem value="timed">Timed Edition</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                How editions are distributed
+              </p>
+            </div>
+          </div>
 
-          {/* Step 5: Review & Deploy */}
-          {currentStep === 5 && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Collection Summary</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-start gap-4">
-                    {imagePreview && (
-                      <img src={imagePreview} alt={name} className="w-20 h-20 rounded-lg object-cover" />
-                    )}
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{name || "Unnamed Collection"}</h3>
-                      <p className="text-sm text-muted-foreground">{symbol || "N/A"}</p>
-                      {description && (
-                        <p className="text-sm mt-2">{description}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Total Supply</span>
-                      <p className="font-medium">{totalSupply} NFTs</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Royalty</span>
-                      <p className="font-medium">{royaltyPercent}%</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Network</span>
-                      <p className="font-medium text-capitalize">{blockchain}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Mint Phases</span>
-                      <p className="font-medium">{enabledPhases.length} phases</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Social Links Summary */}
-              {(socialTwitter || socialDiscord || socialWebsite || socialTelegram) && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Globe className="w-5 h-5" />
-                      Social Links
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      {socialTwitter && (
-                        <div className="flex items-center gap-2">
-                          <Twitter className="w-4 h-4 text-[#1DA1F2]" />
-                          <a href={socialTwitter} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
-                            {socialTwitter.replace(/^https?:\/\/(www\.)?/, '')}
-                          </a>
-                        </div>
-                      )}
-                      {socialDiscord && (
-                        <div className="flex items-center gap-2">
-                          <MessageCircle className="w-4 h-4 text-[#5865F2]" />
-                          <a href={socialDiscord} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
-                            {socialDiscord.replace(/^https?:\/\/(www\.)?/, '')}
-                          </a>
-                        </div>
-                      )}
-                      {socialWebsite && (
-                        <div className="flex items-center gap-2">
-                          <Globe className="w-4 h-4 text-emerald-500" />
-                          <a href={socialWebsite} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
-                            {socialWebsite.replace(/^https?:\/\/(www\.)?/, '')}
-                          </a>
-                        </div>
-                      )}
-                      {socialTelegram && (
-                        <div className="flex items-center gap-2">
-                          <Send className="w-4 h-4 text-[#0088cc]" />
-                          <a href={socialTelegram} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
-                            {socialTelegram.replace(/^https?:\/\/(www\.)?/, '')}
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Art Generation Summary */}
-              {layers.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Palette className="w-5 h-5" />
-                      Art Generation
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Layers</span>
-                        <p className="font-medium">{layers.length}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Total Traits</span>
-                        <p className="font-medium">{layers.reduce((sum, l) => sum + l.traits.length, 0)}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Trait Rules</span>
-                        <p className="font-medium">{traitRules.length}</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {layers.map((layer) => (
-                        <Badge key={layer.id} variant="outline" className="text-xs">
-                          {layer.name} ({layer.traits.length})
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Mint Phases</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {enabledPhases.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No mint phases configured</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {enabledPhases.map((phase, index) => {
-                        const phaseAllowlist = allowlistPhases.find(a => a.id === phase.id);
-                        const allowlistCount = phaseAllowlist?.entries.length || 0;
-
-                        return (
-                          <div key={phase.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-medium">
-                                {index + 1}
-                              </span>
-                              <div>
-                                <span className="font-medium">{phase.name}</span>
-                                {phase.requiresAllowlist && (
-                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Shield className="w-3 h-3" />
-                                    {allowlistCount} wallet{allowlistCount !== 1 ? 's' : ''} allowlisted
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-right text-sm">
-                              <p className="font-medium">{phase.price === "0" ? "Free" : `${phase.price} ${blockchain === 'solana' ? 'SOL' : 'SOL'}`}</p>
-                              <p className="text-muted-foreground">{phase.supply} supply</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Allowlist Summary */}
-              {totalAllowlistEntries > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Shield className="w-5 h-5" />
-                      Allowlist Summary
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Total Wallets</span>
-                        <p className="font-medium">{totalAllowlistEntries}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Phases with Allowlist</span>
-                        <p className="font-medium">{allowlistPhases.filter(p => p.entries.length > 0).length}</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {allowlistPhases.filter(p => p.entries.length > 0).map((phase) => (
-                        <Badge key={phase.id} variant="outline" className="text-xs">
-                          {phase.name} ({phase.entries.length})
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                  <strong>Note:</strong> Deploying a collection will require a wallet transaction.
-                  Make sure you have enough SOL for gas fees.
+          <div className="bg-muted/50 rounded-lg p-4">
+            <div className="flex items-center gap-3 text-sm">
+              <Copy className="w-5 h-5 text-emerald-500" />
+              <div>
+                <p className="font-medium">
+                  {editionArtwork
+                    ? `${totalSupply || 0} identical editions ready`
+                    : `${totalSupply || 0} identical editions`
+                  }
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {editionType === "open" && "Unlimited minting until supply runs out"}
+                  {editionType === "limited" && "Fixed supply, first come first served"}
+                  {editionType === "timed" && "Available for a limited time period"}
                 </p>
               </div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+            </div >
           )}
 
-          {/* Navigation Buttons */}
-          <div className="flex items-center justify-between pt-4 border-t" data-walkthrough="navigation">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={handleBack}
-                disabled={currentStep === 1}
-              >
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={handleManualSave}
-                disabled={isSaving}
-                className="gap-2"
-                data-walkthrough="save-draft"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                Save Draft
-              </Button>
-            </div>
+{/* Step 3: Mint Phases */ }
+{
+  currentStep === 3 && (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Configure your mint phases. Enable the phases you need and set their parameters.
+      </p>
 
-            {currentStep < 5 ? (
-              <Button onClick={handleNext}>
-                Next
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
-            ) : (
-              <Button onClick={handleDeploy} disabled={isDeploying} className="gap-2">
-                {isDeploying ? (
-                  <>Deploying...</>
-                ) : (
-                  <>
-                    <Wallet className="w-4 h-4" />
-                    Deploy Collection
-                  </>
-                )}
-              </Button>
+      {phases.map((phase) => (
+        <Card key={phase.id} className={`transition-colors ${phase.enabled ? "border-primary/50" : ""}`}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={phase.enabled}
+                  onCheckedChange={(checked) => updatePhase(phase.id, { enabled: checked })}
+                />
+                <CardTitle className="text-base">{phase.name}</CardTitle>
+                {phase.id === "team" && <Shield className="w-4 h-4 text-muted-foreground" />}
+                {phase.id === "partners" && <Users className="w-4 h-4 text-muted-foreground" />}
+              </div>
+              {phase.enabled && (
+                <Badge variant="secondary">{phase.price === "0" ? "Free" : `${phase.price} ${blockchain === 'solana' ? 'SOL' : 'SOL'}`}</Badge>
+              )}
+            </div>
+          </CardHeader>
+
+          {phase.enabled && (
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Price ({blockchain === 'solana' ? 'SOL' : 'SOL'})</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={phase.price}
+                    onChange={(e) => updatePhase(phase.id, { price: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Max/Wallet</Label>
+                  <Input
+                    type="number"
+                    value={phase.maxPerWallet}
+                    onChange={(e) => updatePhase(phase.id, { maxPerWallet: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Phase Supply</Label>
+                  <Input
+                    type="number"
+                    value={phase.supply}
+                    onChange={(e) => updatePhase(phase.id, { supply: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {(phase.id === "allowlist" || phase.id === "partners") && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Merkle Root (for allowlist verification)</Label>
+                  <Input
+                    placeholder="0x..."
+                    value={phase.merkleRoot || ""}
+                    onChange={(e) => updatePhase(phase.id, { merkleRoot: e.target.value })}
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Start Time</Label>
+                  <Input
+                    type="datetime-local"
+                    value={phase.startTime}
+                    onChange={(e) => updatePhase(phase.id, { startTime: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">End Time</Label>
+                  <Input
+                    type="datetime-local"
+                    value={phase.endTime}
+                    onChange={(e) => updatePhase(phase.id, { endTime: e.target.value })}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+{/* Step 4: Allowlist Management */ }
+{
+  currentStep === 4 && (
+    <div className="space-y-4">
+      {allowlistRequiredPhases.length > 0 ? (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Manage wallet addresses for your whitelist-enabled mint phases.
+          </p>
+          <AllowlistManager
+            phases={allowlistRequiredPhases.map(p => ({ id: p.id, name: p.name }))}
+            onAllowlistChange={setAllowlistPhases}
+          />
+        </>
+      ) : (
+        <Card>
+          <CardContent className="py-10 text-center">
+            <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <h3 className="font-medium mb-1">No Allowlist Phases Enabled</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Enable Team Mint, Partners Mint, or Allowlist phases in the previous step to manage wallets.
+            </p>
+            <Button variant="outline" onClick={() => setCurrentStep(3)}>
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Configure Mint Phases
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+{/* Step 5: Review & Deploy */ }
+{
+  currentStep === 5 && (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Collection Summary</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-4">
+            {imagePreview && (
+              <img src={imagePreview} alt={name} className="w-20 h-20 rounded-lg object-cover" />
             )}
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg">{name || "Unnamed Collection"}</h3>
+              <p className="text-sm text-muted-foreground">{symbol || "N/A"}</p>
+              {description && (
+                <p className="text-sm mt-2">{description}</p>
+              )}
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          <Separator />
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">Total Supply</span>
+              <p className="font-medium">{totalSupply} NFTs</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Royalty</span>
+              <p className="font-medium">{royaltyPercent}%</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Network</span>
+              <p className="font-medium text-capitalize">{blockchain}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Mint Phases</span>
+              <p className="font-medium">{enabledPhases.length} phases</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Social Links Summary */}
+      {(socialTwitter || socialDiscord || socialWebsite || socialTelegram) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Globe className="w-5 h-5" />
+              Social Links
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              {socialTwitter && (
+                <div className="flex items-center gap-2">
+                  <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                  <a href={socialTwitter} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                    {socialTwitter.replace(/^https?:\/\/(www\.)?/, '')}
+                  </a>
+                </div>
+              )}
+              {socialDiscord && (
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-[#5865F2]" />
+                  <a href={socialDiscord} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                    {socialDiscord.replace(/^https?:\/\/(www\.)?/, '')}
+                  </a>
+                </div>
+              )}
+              {socialWebsite && (
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-emerald-500" />
+                  <a href={socialWebsite} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                    {socialWebsite.replace(/^https?:\/\/(www\.)?/, '')}
+                  </a>
+                </div>
+              )}
+              {socialTelegram && (
+                <div className="flex items-center gap-2">
+                  <Send className="w-4 h-4 text-[#0088cc]" />
+                  <a href={socialTelegram} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                    {socialTelegram.replace(/^https?:\/\/(www\.)?/, '')}
+                  </a>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Art Generation Summary */}
+      {layers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Palette className="w-5 h-5" />
+              Art Generation
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Layers</span>
+                <p className="font-medium">{layers.length}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Total Traits</span>
+                <p className="font-medium">{layers.reduce((sum, l) => sum + l.traits.length, 0)}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Trait Rules</span>
+                <p className="font-medium">{traitRules.length}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1">
+              {layers.map((layer) => (
+                <Badge key={layer.id} variant="outline" className="text-xs">
+                  {layer.name} ({layer.traits.length})
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Mint Phases</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {enabledPhases.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No mint phases configured</p>
+          ) : (
+            <div className="space-y-3">
+              {enabledPhases.map((phase, index) => {
+                const phaseAllowlist = allowlistPhases.find(a => a.id === phase.id);
+                const allowlistCount = phaseAllowlist?.entries.length || 0;
+
+                return (
+                  <div key={phase.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-medium">
+                        {index + 1}
+                      </span>
+                      <div>
+                        <span className="font-medium">{phase.name}</span>
+                        {phase.requiresAllowlist && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Shield className="w-3 h-3" />
+                            {allowlistCount} wallet{allowlistCount !== 1 ? 's' : ''} allowlisted
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right text-sm">
+                      <p className="font-medium">{phase.price === "0" ? "Free" : `${phase.price} ${blockchain === 'solana' ? 'SOL' : 'SOL'}`}</p>
+                      <p className="text-muted-foreground">{phase.supply} supply</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Allowlist Summary */}
+      {totalAllowlistEntries > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Allowlist Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Total Wallets</span>
+                <p className="font-medium">{totalAllowlistEntries}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Phases with Allowlist</span>
+                <p className="font-medium">{allowlistPhases.filter(p => p.entries.length > 0).length}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1">
+              {allowlistPhases.filter(p => p.entries.length > 0).map((phase) => (
+                <Badge key={phase.id} variant="outline" className="text-xs">
+                  {phase.name} ({phase.entries.length})
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+        <p className="text-sm text-yellow-600 dark:text-yellow-400">
+          <strong>Note:</strong> Deploying a collection will require a wallet transaction.
+          Make sure you have enough SOL for gas fees.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+{/* Navigation Buttons */ }
+<div className="flex items-center justify-between pt-4 border-t" data-walkthrough="navigation">
+  <div className="flex items-center gap-2">
+    <Button
+      variant="outline"
+      onClick={handleBack}
+      disabled={currentStep === 1}
+    >
+      <ChevronLeft className="w-4 h-4 mr-2" />
+      Back
+    </Button>
+    <Button
+      variant="ghost"
+      onClick={handleManualSave}
+      disabled={isSaving}
+      className="gap-2"
+      data-walkthrough="save-draft"
+    >
+      {isSaving ? (
+        <Loader2 className="w-4 h-4 animate-spin" />
+      ) : (
+        <Save className="w-4 h-4" />
+      )}
+      Save Draft
+    </Button>
+  </div>
+
+  {currentStep < 5 ? (
+    <Button onClick={handleNext}>
+      Next
+      <ChevronRight className="w-4 h-4 ml-2" />
+    </Button>
+  ) : (
+    <Button onClick={handleDeploy} disabled={isDeploying} className="gap-2">
+      {isDeploying ? (
+        <>Deploying...</>
+      ) : (
+        <>
+          <Wallet className="w-4 h-4" />
+          Deploy Collection
+        </>
+      )}
+    </Button>
+  )}
+</div>
+        </DialogContent >
+      </Dialog >
     </>
   );
 }

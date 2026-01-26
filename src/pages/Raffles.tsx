@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBundleCountdown, formatCountdown } from "@/hooks/useBundleCountdown";
 import { RaffleEntryModal } from "@/components/raffles/RaffleEntryModal";
+import { CreateOneOfOneModal } from "@/components/raffles/CreateOneOfOneModal";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, LayoutGrid } from "lucide-react";
 import { getErrorMessage } from "@/lib/errorUtils";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -116,7 +119,9 @@ const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void }
 const Raffles: React.FC = () => {
   const [raffles, setRaffles] = useState<Raffle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [selectedRaffle, setSelectedRaffle] = useState<Raffle | null>(null);
+  const [isLaunchOpen, setIsLaunchOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -148,53 +153,87 @@ const Raffles: React.FC = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="container mx-auto px-4 pt-24 pb-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
-            <Ticket className="w-8 h-8 text-primary" />
-            Lily Raffles
-          </h1>
-          <p className="text-muted-foreground">
-            Enter raffles for a chance to win NFTs, tokens, and exclusive rewards
-          </p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
+              <Ticket className="w-8 h-8 text-primary" />
+              Raffles & Studio
+            </h1>
+            <p className="text-muted-foreground">
+              Launch and collect 1/1 art and limited editions
+            </p>
+          </div>
+          <Button onClick={() => setIsLaunchOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Launch 1/1 or Edition
+          </Button>
         </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="overflow-hidden">
-                <Skeleton className="aspect-video w-full" />
-                <CardHeader className="pb-2">
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-4 w-full mt-2" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <Skeleton className="h-5 w-20" />
-                    <Skeleton className="h-5 w-24" />
-                    <Skeleton className="h-5 w-full col-span-2" />
-                  </div>
-                  <Skeleton className="h-10 w-full" />
-                </CardContent>
+        <Tabs defaultValue="raffles" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="raffles" className="gap-2">
+              <Ticket className="w-4 h-4" />
+              Active Raffles
+            </TabsTrigger>
+            <TabsTrigger value="marketplace" className="gap-2">
+              <LayoutGrid className="w-4 h-4" />
+              1/1 Marketplace
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="raffles">
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Card key={i} className="overflow-hidden">
+                    <Skeleton className="aspect-video w-full" />
+                    <CardHeader className="pb-2">
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-full mt-2" />
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <Skeleton className="h-5 w-20" />
+                        <Skeleton className="h-5 w-24" />
+                        <Skeleton className="h-5 w-full col-span-2" />
+                      </div>
+                      <Skeleton className="h-10 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : raffles.length === 0 ? (
+              <Card className="p-12 text-center">
+                <Ticket className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Active Raffles</h3>
+                <p className="text-muted-foreground">Check back soon for new raffle opportunities!</p>
               </Card>
-            ))}
-          </div>
-        ) : raffles.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Ticket className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium mb-2">No Active Raffles</h3>
-            <p className="text-muted-foreground">Check back soon for new raffle opportunities!</p>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {raffles.map((raffle) => (
-              <RaffleCard
-                key={raffle.id}
-                raffle={raffle}
-                onEnter={setSelectedRaffle}
-              />
-            ))}
-          </div>
-        )}
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {raffles.map((raffle) => (
+                  <RaffleCard
+                    key={raffle.id}
+                    raffle={raffle}
+                    onEnter={setSelectedRaffle}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="marketplace">
+            <div className="text-center py-12 border-2 border-dashed rounded-lg">
+              <LayoutGrid className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">Marketplace Coming Soon</h3>
+              <p className="text-muted-foreground mb-4">
+                A dedicated space for 1/1 and Limited Edition artworks.
+              </p>
+              <Button variant="outline" onClick={() => setIsLaunchOpen(true)}>
+                Be the first to list
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
       </main>
 
       {selectedRaffle && (
@@ -205,6 +244,11 @@ const Raffles: React.FC = () => {
           onSuccess={fetchRaffles}
         />
       )}
+
+      <CreateOneOfOneModal
+        open={isLaunchOpen}
+        onOpenChange={setIsLaunchOpen}
+      />
     </div>
   );
 };
