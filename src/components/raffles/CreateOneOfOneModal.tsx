@@ -53,6 +53,9 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess }: CreateOne
             const provider = getSolanaProvider();
             if (!provider) throw new Error("Wallet not connected");
 
+            const creatorAddress = (provider as any)?.publicKey?.toString?.() || "";
+            const placeholderUri = "https://arweave.net/placeholder";
+
             // 1. Upload Metadata (Simulated for this draft - usually goes to IPFS/Arweave)
             // In a real app, we'd upload file & json here.
 
@@ -60,9 +63,9 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess }: CreateOne
             const result = await deploySolanaCollection({
                 name,
                 symbol,
-                description,
-                imageFile: file,
-                standard: "core", // Start with Core
+                uri: placeholderUri,
+                sellerFeeBasisPoints: 0,
+                creators: [{ address: creatorAddress, share: 100 }],
             });
 
             if (result) {
