@@ -81,10 +81,9 @@ export const Navbar: React.FC = () => {
 
   return (
     <nav
-      className={`fixed left-0 right-0 z-50 transition-all duration-300 ${isTestnet ? "top-[36px]" : "top-0"
-        } ${isScrolled
-          ? "bg-background/80 backdrop-blur-xl border-b border-border/50"
-          : "bg-transparent"
+      className={`fixed left-0 right-0 z-50 transition-all duration-300 top-0 ${isScrolled
+        ? "bg-background/80 backdrop-blur-xl border-b border-border/50"
+        : "bg-transparent"
         }`}
     >
       <div className="container mx-auto px-4 sm:px-6">
