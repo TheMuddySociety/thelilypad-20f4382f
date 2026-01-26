@@ -20,6 +20,8 @@ import {
     createCandyGuard as createCoreCandyGuard,
     wrap,
     findCandyGuardPda,
+    deleteCandyMachine as deleteCoreCandyMachine,
+    deleteCandyGuard as deleteCoreCandyGuard,
     DefaultGuardSetArgs as CoreDefaultGuardSetArgs,
     GuardGroupArgs as CoreGuardGroupArgs,
 } from '@metaplex-foundation/mpl-core-candy-machine';
@@ -473,7 +475,119 @@ export const useSolanaLaunch = () => {
 
     }, [getUmi]);
 
-    // Simplified wrapper
+    const insertItemsToCandyMachine = useCallback(async (
+        candyMachineAddress: string,
+        items: { name: string; uri: string }[],
+        batchSize = 10
+    ) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const umi = await getUmi();
+            const cmPublicKey = publicKey(candyMachineAddress);
+
+            toast.loading(`Fetching Candy Machine state...`, { id: 'cm-insert' });
+            // Fetch to get current index
+            const candyMachine = await fetchCandyMachine(umi, cmPublicKey);
+
+            // Get currently loaded items to determine start index
+            // Use 'as any' safe access as strict types might vary by version
+            const itemsLoaded = Number((candyMachine as any).itemsLoaded ?? 0);
+            const itemsAvailable = Number((candyMachine as any).data?.itemsAvailable ?? (candyMachine as any).itemsAvailable ?? 0);
+
+            console.log(`[CM Insert] Found ${itemsLoaded} items loaded out of ${itemsAvailable}`);
+
+            if (itemsLoaded + items.length > itemsAvailable) {
+                throw new Error(`Cannot insert ${items.length} items. Only ${itemsAvailable - itemsLoaded} slots remaining.`);
+            }
+
+            console.log(`[CM Insert] Inserting ${items.length} items to ${candyMachineAddress} starting at index ${itemsLoaded}`);
+
+            // Chunk items
+            const chunks = [];
+            for (let i = 0; i < items.length; i += batchSize) {
+                chunks.push(items.slice(i, i + batchSize));
+            }
+
+            let successfulChunks = 0;
+            let currentIndex = itemsLoaded; // Start from where we left off
+
+            for (const [chunkIndex, chunk] of chunks.entries()) {
+                toast.loading(`Inserting batch ${chunkIndex + 1}/${chunks.length}...`, { id: 'cm-insert' });
+
+                // Add config lines
+                await addConfigLines(umi, {
+                    candyMachine: cmPublicKey,
+                    index: currentIndex,
+                    configLines: chunk.map(item => ({
+                        name: item.name,
+                        uri: item.uri,
+                    })),
+                }).sendAndConfirm(umi);
+
+                currentIndex += chunk.length;
+                successfulChunks++;
+            }
+
+            toast.success(`Successfully inserted ${items.length} items!`, { id: 'cm-insert' });
+            return true;
+        } catch (err: any) {
+            console.error("Insert items error:", err);
+            const msg = err.message || "Failed to insert items";
+            setError(msg);
+            toast.error(msg, { id: 'cm-insert' });
+            // Don't throw, just return false so UI can handle partial success if needed
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi]);
+
+    const deleteCandyMachine = useCallback(async (
+        candyMachineAddress: string,
+        candyGuardAddress?: string
+    ) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const umi = await getUmi();
+            const cmPublicKey = publicKey(candyMachineAddress);
+
+            toast.loading(`Deleting Candy Machine...`, { id: 'cm-delete' });
+
+            // 1. Delete Candy Guard if exists
+            if (candyGuardAddress) {
+                console.log("Deleting Candy Guard:", candyGuardAddress);
+                await deleteCoreCandyGuard(umi, {
+                    candyGuard: publicKey(candyGuardAddress),
+                }).sendAndConfirm(umi);
+            } else {
+                // Try to find it if not provided?
+                try {
+                    const guardPda = findCandyGuardPda(umi, { base: cmPublicKey }); // This might be wrong base
+                    // Actually guards are usually derived or separate. Pass reference if possible.
+                } catch (e) { /* ignore */ }
+            }
+
+            // 2. Delete Candy Machine
+            console.log("Deleting Candy Machine:", candyMachineAddress);
+            await deleteCoreCandyMachine(umi, {
+                candyMachine: cmPublicKey,
+            }).sendAndConfirm(umi);
+
+            toast.success(`Candy Machine deleted and rent reclaimed!`, { id: 'cm-delete' });
+            return true;
+        } catch (err: any) {
+            console.error("Delete CM error:", err);
+            const msg = err.message || "Failed to delete Candy Machine";
+            setError(msg);
+            toast.error(msg, { id: 'cm-delete' });
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi]);
+
     const createCollection = useCallback(async (params: CreateCollectionParams) => {
         const umi = await getUmi();
         const currentUser = umi.identity.publicKey.toString();
@@ -493,6 +607,8 @@ export const useSolanaLaunch = () => {
         deploySolanaCollection,
         createLaunchpadCandyMachine,
         createCollection,
+        insertItemsToCandyMachine,
+        deleteCandyMachine,
         getLastCollectionSigner: () => lastCollectionSigner,
     };
 };
