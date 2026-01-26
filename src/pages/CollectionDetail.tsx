@@ -40,6 +40,7 @@ import {
 import { useSEO } from "@/hooks/useSEO";
 // EVM hooks removed
 import { LaunchpadMintSection } from '@/components/launchpad/LaunchpadMintSection';
+import { CandyMachineManager } from '@/components/launchpad/CandyMachineManager';
 import { useSolanaMint } from "@/hooks/useSolanaMint";
 import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import {
@@ -1286,6 +1287,15 @@ export default function CollectionDetail() {
                 onConfigured={() => {
                   fetchCollection();
                 }}
+              />
+            )}
+
+            {/* Candy Machine Manager - For creators with deployed CM */}
+            {isCreator && collection.contract_address && (
+              <CandyMachineManager
+                candyMachineAddress={collection.contract_address}
+                isCreator={isCreator}
+                onRefresh={fetchCollection}
               />
             )}
 

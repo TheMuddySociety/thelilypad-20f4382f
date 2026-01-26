@@ -12,6 +12,7 @@ import {
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import {
     createCollectionV1 as createCoreCollection,
+    updateV1 as updateCoreAsset,
 } from '@metaplex-foundation/mpl-core';
 import {
     createCandyMachine as createCoreCandyMachine,
@@ -601,6 +602,51 @@ export const useSolanaLaunch = () => {
         });
     }, [deploySolanaCollection, getUmi]);
 
+    const batchRevealAssets = useCallback(async (
+        assets: { address: string; uri: string; name?: string }[],
+        batchSize = 5
+    ) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const umi = await getUmi();
+            const chunks = [];
+            for (let i = 0; i < assets.length; i += batchSize) {
+                chunks.push(assets.slice(i, i + batchSize));
+            }
+
+            let successfulCount = 0;
+
+            for (const [index, chunk] of chunks.entries()) {
+                toast.loading(`Revealing batch ${index + 1}/${chunks.length}...`, { id: 'cm-reveal' });
+
+                let builder = transactionBuilder();
+
+                for (const asset of chunk) {
+                    builder = builder.add(updateCoreAsset(umi, {
+                        asset: publicKey(asset.address),
+                        uri: asset.uri,
+                        name: asset.name, // Optional: update name too
+                    }));
+                }
+
+                await builder.sendAndConfirm(umi);
+                successfulCount += chunk.length;
+            }
+
+            toast.success(`Successfully revealed ${successfulCount} assets!`, { id: 'cm-reveal' });
+            return true;
+        } catch (err: any) {
+            console.error("Reveal error:", err);
+            const msg = err.message || "Failed to reveal assets";
+            setError(msg);
+            toast.error(msg, { id: 'cm-reveal' });
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi]);
+
     return {
         isLoading,
         error,
@@ -609,6 +655,7 @@ export const useSolanaLaunch = () => {
         createCollection,
         insertItemsToCandyMachine,
         deleteCandyMachine,
+        batchRevealAssets,
         getLastCollectionSigner: () => lastCollectionSigner,
     };
 };
