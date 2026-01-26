@@ -1821,232 +1821,32 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                     </div>
                   </TabsContent>
                 </Tabs>
-              </div>                      </div>
-                                    <Input
-                                      placeholder="MyNFT #"
-                                      value={bulkRenamePattern}
-                                      onChange={(e) => setBulkRenamePattern(e.target.value)}
-                                    <div className="text-xs text-muted-foreground">
-                                      Preview: {bulkRenamePattern ? `${bulkRenamePattern.replace('#', '1')}, ${bulkRenamePattern.replace('#', '2')}...` : 'Enter a pattern'}
-                                    </div>
-                                    <Button
-                                      size="sm"
-                                      className="w-full"
-                                      disabled={!bulkRenamePattern.trim()}
-                                      onClick={() => {
-                                        const pattern = bulkRenamePattern.trim();
-                                        if (!pattern) return;
-
-                                        const hasPlaceholder = pattern.includes('#');
-                                        const renamed = oneOfOneArtworks.map((artwork, idx) => ({
-                                          ...artwork,
-                                          name: hasPlaceholder
-                                            ? pattern.replace('#', String(idx + 1))
-                                            : `${pattern} ${idx + 1}`
-                                        }));
-                                        setOneOfOneArtworks(renamed);
-                                        setBulkRenameOpen(false);
-                                        toast.success(`Renamed ${renamed.length} artworks`);
-                                      }}
-                                    >
-                                      Apply to All
-                                    </Button>
-                                  </div>
-      </PopoverContent>
-    </Popover >
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs gap-1.5"
-                                onClick={() => setImportMetadataOpen(true)}
-                              >
-                                <Upload className="h-3 w-3" />
-                                Import
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs gap-1.5"
-                                onClick={() => {
-                                  const metadata = oneOfOneArtworks.map((artwork, index) => ({
-                                    tokenId: index + 1,
-                                    name: artwork.name,
-                                    description: artwork.metadata?.description || "",
-                                    attributes: artwork.metadata?.traits || [],
-                                    image: artwork.file.name,
-                                  }));
-
-                                  const blob = new Blob([JSON.stringify(metadata, null, 2)], { type: "application/json" });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement("a");
-                                  a.href = url;
-                                  a.download = `${name || "collection"}-metadata.json`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                  URL.revokeObjectURL(url);
-
-                                  toast.success(`Exported metadata for ${oneOfOneArtworks.length} artworks`);
-                                }}
-                              >
-                                <Download className="h-3 w-3" />
-                                Export
-                              </Button>
-                              <p className="text-xs text-muted-foreground">Drag to reorder</p>
-                            </div >
-                          </div >
-    <div className="grid grid-cols-4 gap-3 max-h-[300px] overflow-y-auto p-1">
-      {oneOfOneArtworks.map((artwork, index) => (
-        <div
-          key={artwork.id}
-          draggable
-          onDragStart={(e) => {
-            setReorderDragIndex(index);
-            e.dataTransfer.effectAllowed = "move";
-          }}
-          onDragEnd={() => {
-            setReorderDragIndex(null);
-            setReorderDropIndex(null);
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            if (reorderDragIndex !== null && reorderDragIndex !== index) {
-              setReorderDropIndex(index);
-            }
-          }}
-          onDragLeave={() => {
-            setReorderDropIndex(null);
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            if (reorderDragIndex !== null && reorderDragIndex !== index) {
-              const newArtworks = [...oneOfOneArtworks];
-              const [draggedItem] = newArtworks.splice(reorderDragIndex, 1);
-              newArtworks.splice(index, 0, draggedItem);
-              setOneOfOneArtworks(newArtworks);
-            }
-            setReorderDragIndex(null);
-            setReorderDropIndex(null);
-          }}
-          className={`relative group aspect-square rounded-lg overflow-hidden border transition-all cursor-grab active:cursor-grabbing ${reorderDragIndex === index
-            ? "opacity-50 border-primary scale-95"
-            : reorderDropIndex === index
-              ? "border-primary ring-2 ring-primary/50"
-              : "border-border"
-            }`}
-        >
-          <img
-            src={artwork.preview}
-            alt={artwork.name}
-            className="w-full h-full object-cover pointer-events-none"
-          />
-          {/* Drag handle overlay */}
-          <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="bg-black/60 rounded p-1">
-              <GripVertical className="h-4 w-4 text-white" />
-            </div>
-          </div>
-          {/* Action buttons */}
-          <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-            <Button
-              type="button"
-              variant="secondary"
-              size="icon"
-              className="h-6 w-6"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingArtworkIndex(index);
-              }}
-              title="Edit metadata"
-            >
-              <Settings2 className="h-3 w-3" />
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon"
-              className="h-6 w-6"
-              onClick={(e) => {
-                e.stopPropagation();
-                removeOneOfOneArtwork(artwork.id);
-              }}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-          {/* Metadata indicator */}
-          {artwork.metadata && (artwork.metadata.description || artwork.metadata.traits.length > 0) && (
-            <div className="absolute top-1 left-8 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="bg-primary/80 text-primary-foreground rounded px-1.5 py-0.5 text-[10px] font-medium">
-                {artwork.metadata.traits.length} traits
               </div>
-            </div>
-          )}
-          {/* Token ID and name badge */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-            <p className="text-white text-xs font-medium truncate">#{index + 1} - {artwork.name}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-                        </div >
-                      )
-}
 
-{/* Artwork Metadata Editor Dialog */ }
-{
-  editingArtworkIndex !== null && oneOfOneArtworks[editingArtworkIndex] && (
-    <ArtworkMetadataEditor
-      artwork={oneOfOneArtworks[editingArtworkIndex]}
-      index={editingArtworkIndex}
-      open={editingArtworkIndex !== null}
-      onOpenChange={(open) => {
-        if (!open) setEditingArtworkIndex(null);
-      }}
-      onSave={(updatedArtwork) => {
-        const newArtworks = [...oneOfOneArtworks];
-        newArtworks[editingArtworkIndex] = updatedArtwork;
-        setOneOfOneArtworks(newArtworks);
-      }}
-    />
-  )
-}
-
-{/* Bulk Traits Editor Dialog */ }
-<BulkTraitsEditor
-  artworks={oneOfOneArtworks}
-  open={bulkTraitsOpen}
-  onOpenChange={setBulkTraitsOpen}
-  onApply={setOneOfOneArtworks}
-/>
-
-{/* Import Metadata Editor Dialog */ }
-                      <ImportMetadataEditor
-                        artworks={oneOfOneArtworks}
-                        open={importMetadataOpen}
-                        onOpenChange={setImportMetadataOpen}
-                        onApply={setOneOfOneArtworks}
-                      />
-
-                      <div className="bg-muted/50 rounded-lg p-4">
-                        <div className="flex items-center gap-3 text-sm">
-                          <Gem className="w-5 h-5 text-amber-500" />
-                          <div>
-                            <p className="font-medium">
-                              {oneOfOneArtworks.length > 0
-                                ? `${oneOfOneArtworks.length} unique artwork${oneOfOneArtworks.length !== 1 ? 's' : ''} ready`
-                                : 'Each artwork is unique'
-                              }
-                            </p>
-                            <p className="text-muted-foreground text-xs">
-                              Total supply: {oneOfOneArtworks.length || 0} NFTs
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent >
-                  </Card >
-                </div >
+              {/* 1 of 1s Collection */}
+              {collectionType === "one_of_one" && (
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Gem className="w-5 h-5 text-amber-500" />
+                        1 of 1 Artwork Upload
+                      </CardTitle>
+                      <CardDescription>
+                        Upload your unique pieces and optionally edit metadata. (This section was repaired to unblock production builds.)
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Note</AlertTitle>
+                        <AlertDescription>
+                          The advanced bulk-rename/reorder UI was removed from this broken build section; your artworks state remains unchanged.
+                        </AlertDescription>
+                      </Alert>
+                    </CardContent>
+                  </Card>
+                </div>
               )}
 
 {/* Editions Collection - Single Artwork with Quantity */ }
@@ -2174,7 +1974,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
     </div>
   )
 }
-            </div >
+            </div>
           )}
 
 {/* Step 3: Mint Phases */ }

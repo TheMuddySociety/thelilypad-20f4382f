@@ -537,32 +537,30 @@ export const useSolanaLaunch = () => {
                 await addConfigLines(umi, {
                     candyMachine: cmPublicKey,
                     index: currentIndex,
-                    configLines: chunk.map(item => ({
+                    configLines: chunk.map((item) => ({
                         name: item.name,
                         uri: item.uri,
                     })),
-                    uri: item.uri,
-                })),
-})
-                .add(setComputeUnitPrice(umi, { microLamports: 10_000 }))
-    .sendAndConfirm(umi);
+                })
+                    .add(setComputeUnitPrice(umi, { microLamports: 10_000 }))
+                    .sendAndConfirm(umi);
 
-currentIndex += chunk.length;
-successfulChunks++;
+                currentIndex += chunk.length;
+                successfulChunks++;
             }
 
-toast.success(`Successfully inserted ${items.length} items!`, { id: 'cm-insert' });
-return true;
+            toast.success(`Successfully inserted ${items.length} items!`, { id: 'cm-insert' });
+            return true;
         } catch (err: any) {
-    console.error("Insert items error:", err);
-    const msg = err.message || "Failed to insert items";
-    setError(msg);
-    toast.error(msg, { id: 'cm-insert' });
-    // Don't throw, just return false so UI can handle partial success if needed
-    return false;
-} finally {
-    setIsLoading(false);
-}
+            console.error("Insert items error:", err);
+            const msg = err.message || "Failed to insert items";
+            setError(msg);
+            toast.error(msg, { id: 'cm-insert' });
+            // Don't throw, just return false so UI can handle partial success if needed
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
     }, [getUmi]);
 
 const deleteCandyMachine = useCallback(async (

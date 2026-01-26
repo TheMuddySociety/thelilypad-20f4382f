@@ -119,7 +119,6 @@ const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void }
 const Raffles: React.FC = () => {
   const [raffles, setRaffles] = useState<Raffle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loading, setLoading] = useState(true);
   const [selectedRaffle, setSelectedRaffle] = useState<Raffle | null>(null);
   const [isLaunchOpen, setIsLaunchOpen] = useState(false);
   const { toast } = useToast();
