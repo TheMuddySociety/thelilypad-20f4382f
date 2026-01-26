@@ -57,9 +57,13 @@ import {
   HelpCircle,
   Music,
   Zap,
+  FolderOpen,
+  Info,
+  AlertCircle,
+  Lightbulb,
+  DollarSign,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { toast } from "sonner";
 import { toast } from "sonner";
 import { FolderUploader } from "./FolderUploader";
 import { LayerManager, Layer } from "./LayerManager";
@@ -87,7 +91,6 @@ import {
 } from "@/config/solana";
 import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Info, AlertCircle, Lightbulb, DollarSign } from "lucide-react";
 
 interface CreateCollectionModalProps {
   open: boolean;
@@ -1795,7 +1798,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       
                       {folderAssets.length > 0 && (
                         <Alert className="mt-4 bg-green-500/10 border-green-500/20">
-                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
                           <AlertTitle className="text-green-500">Ready to Deploy</AlertTitle>
                           <AlertDescription className="text-green-600/90">
                             {folderAssets.length} assets are staged for upload.
@@ -1816,7 +1819,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated,
                       </Alert>
                       <LayerManager
                         layers={layers}
-                        setLayers={setLayers}
+                        onLayersChange={setLayers}
                       />
                     </div>
                   </TabsContent>

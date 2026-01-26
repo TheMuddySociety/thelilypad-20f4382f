@@ -648,8 +648,8 @@ const batchRevealAssets = useCallback(async (
             for (const asset of chunk) {
                 builder = builder.add(updateCoreAsset(umi, {
                     asset: publicKey(asset.address),
-                    uri: asset.uri,
-                    name: asset.name, // Optional: update name too
+                    newUri: some(asset.uri),
+                    newName: asset.name ? some(asset.name) : none(),
                 }));
             }
 
