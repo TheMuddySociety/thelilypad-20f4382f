@@ -1,6 +1,7 @@
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { mplCore } from '@metaplex-foundation/mpl-core';
 import { mplCandyMachine as mplCoreCandyMachinePlugin } from '@metaplex-foundation/mpl-core-candy-machine';
+import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
 // Solana RPC endpoints
 export const SOLANA_DEVNET_RPC = "https://api.devnet.solana.com";
 export const SOLANA_TESTNET_RPC = "https://api.testnet.solana.com";
@@ -84,7 +85,8 @@ export const initializeUmi = (network: NetworkType) => {
 
     const umi = createUmi(rpcUrl)
         .use(mplCore())
-        .use(mplCoreCandyMachinePlugin());
+        .use(mplCoreCandyMachinePlugin())
+        .use(mplToolbox());
 
     return umi;
 };

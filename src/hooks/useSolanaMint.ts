@@ -9,6 +9,7 @@ import {
     mintV1,
     findCandyGuardPda,
 } from '@metaplex-foundation/mpl-core-candy-machine';
+import { setComputeUnitPrice, setComputeUnitLimit } from '@metaplex-foundation/mpl-toolbox';
 import { SendTransactionError } from '@solana/web3.js';
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
@@ -122,6 +123,7 @@ export const useSolanaMint = () => {
                 uri: metadata.uri,
             })
                 .add(memoInstruction)
+                .add(setComputeUnitPrice(umi, { microLamports: 50_000 }))
                 .sendAndConfirm(umi);
 
             toast.success(`Successfully minted!`, { id: 'sol-mint' });
@@ -222,7 +224,12 @@ export const useSolanaMint = () => {
                 collection: candyMachine.collectionMint,
                 group: phaseArgs?.phaseId ? some(phaseArgs.phaseId) : none(),
                 mintArgs: mintArgs,
-            }).add(memoInstruction);
+            })
+                .add(memoInstruction)
+                // Priority Fee: 50,000 microLamports for fast inclusion
+                // Compute Limit: 600,000 CU to ensure complex guard logic processes safely
+                .add(setComputeUnitPrice(umi, { microLamports: 50_000 }))
+                .add(setComputeUnitLimit(umi, { units: 600_000 }));
 
             const result = await tx.sendAndConfirm(umi);
             const signatureStr = Buffer.from(result.signature).toString('base64');

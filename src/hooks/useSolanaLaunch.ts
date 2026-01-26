@@ -26,6 +26,7 @@ import {
     DefaultGuardSetArgs as CoreDefaultGuardSetArgs,
     GuardGroupArgs as CoreGuardGroupArgs,
 } from '@metaplex-foundation/mpl-core-candy-machine';
+import { setComputeUnitPrice, setComputeUnitLimit } from '@metaplex-foundation/mpl-toolbox';
 import { SendTransactionError } from '@solana/web3.js';
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi, SolanaStandard } from '@/config/solana';
@@ -288,7 +289,8 @@ export const useSolanaLaunch = () => {
             // Create memo instruction
             const memoData = buildProtocolMemo('launchpad:deploy_collection', { standard: 'core' });
 
-            // Create Collection V1 (Core)
+            // Create Collection V1 (Core) with Priority Fees
+            // Magic Eden Speed: 50,000 microLamports (high priority)
             await createCoreCollection(umi, {
                 collection: collectionSigner,
                 name: metadata.name,
@@ -303,6 +305,7 @@ export const useSolanaLaunch = () => {
                     bytesCreatedOnChain: 0,
                     signers: [],
                 })
+                .add(setComputeUnitPrice(umi, { microLamports: 50_000 }))
                 .sendAndConfirm(umi);
 
             // Wait for confirmation
@@ -318,6 +321,12 @@ export const useSolanaLaunch = () => {
             };
         } catch (err: any) {
             console.error("Core Deployment Error:", err);
+
+            // Verification check for Program ID error
+            if (err.message?.includes('Program that does not exist')) {
+                console.error("CRITICAL: Metaplex Core Program ID mismatch on this network.");
+                // This usually happens if valid devnet program ID is not found on local/testnet node
+            }
 
             if (err instanceof SendTransactionError && err.logs) {
                 console.error("--- TRANSACTION LOGS ---");
@@ -399,7 +408,11 @@ export const useSolanaLaunch = () => {
                 signers: [],
             };
 
-            await (await cmBuilder).add(memoInstruction).sendAndConfirm(umi);
+            // Add Priority Fees: High for massive account creation
+            await (await cmBuilder).add(memoInstruction)
+                .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
+                .add(setComputeUnitLimit(umi, { units: 800_000 }))
+                .sendAndConfirm(umi);
 
             console.log("[CM] Candy Machine created:", candyMachine.publicKey.toString());
             toast.loading(`Candy Machine created! Creating guards...`, { id: 'cm-create' });
@@ -424,7 +437,9 @@ export const useSolanaLaunch = () => {
                 groups: guardGroups.length > 0 ? guardGroups : undefined,
             });
 
-            await createGuardBuilder.sendAndConfirm(umi);
+            await createGuardBuilder
+                .add(setComputeUnitPrice(umi, { microLamports: 50_000 }))
+                .sendAndConfirm(umi);
 
             // Derive the Candy Guard PDA from the base signer
             const candyGuardPda = findCandyGuardPda(umi, { base: candyGuard.publicKey });
@@ -440,7 +455,9 @@ export const useSolanaLaunch = () => {
                 candyMachineAuthority: umi.identity,
             });
 
-            await wrapBuilder.sendAndConfirm(umi);
+            await wrapBuilder
+                .add(setComputeUnitPrice(umi, { microLamports: 50_000 }))
+                .sendAndConfirm(umi);
             console.log("[CM] Candy Machine wrapped with Guard successfully!");
 
             // Log fee distribution info
@@ -524,138 +541,149 @@ export const useSolanaLaunch = () => {
                         name: item.name,
                         uri: item.uri,
                     })),
-                }).sendAndConfirm(umi);
+                    uri: item.uri,
+                })),
+})
+                .add(setComputeUnitPrice(umi, { microLamports: 10_000 }))
+    .sendAndConfirm(umi);
 
-                currentIndex += chunk.length;
-                successfulChunks++;
+currentIndex += chunk.length;
+successfulChunks++;
             }
 
-            toast.success(`Successfully inserted ${items.length} items!`, { id: 'cm-insert' });
-            return true;
+toast.success(`Successfully inserted ${items.length} items!`, { id: 'cm-insert' });
+return true;
         } catch (err: any) {
-            console.error("Insert items error:", err);
-            const msg = err.message || "Failed to insert items";
-            setError(msg);
-            toast.error(msg, { id: 'cm-insert' });
-            // Don't throw, just return false so UI can handle partial success if needed
-            return false;
-        } finally {
-            setIsLoading(false);
-        }
+    console.error("Insert items error:", err);
+    const msg = err.message || "Failed to insert items";
+    setError(msg);
+    toast.error(msg, { id: 'cm-insert' });
+    // Don't throw, just return false so UI can handle partial success if needed
+    return false;
+} finally {
+    setIsLoading(false);
+}
     }, [getUmi]);
 
-    const deleteCandyMachine = useCallback(async (
-        candyMachineAddress: string,
-        candyGuardAddress?: string
-    ) => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const umi = await getUmi();
-            const cmPublicKey = publicKey(candyMachineAddress);
-
-            toast.loading(`Deleting Candy Machine...`, { id: 'cm-delete' });
-
-            // 1. Delete Candy Guard if exists
-            if (candyGuardAddress) {
-                console.log("Deleting Candy Guard:", candyGuardAddress);
-                await deleteCoreCandyGuard(umi, {
-                    candyGuard: publicKey(candyGuardAddress),
-                }).sendAndConfirm(umi);
-            } else {
-                // Try to find it if not provided?
-                try {
-                    const guardPda = findCandyGuardPda(umi, { base: cmPublicKey }); // This might be wrong base
-                    // Actually guards are usually derived or separate. Pass reference if possible.
-                } catch (e) { /* ignore */ }
-            }
-
-            // 2. Delete Candy Machine
-            console.log("Deleting Candy Machine:", candyMachineAddress);
-            await deleteCoreCandyMachine(umi, {
-                candyMachine: cmPublicKey,
-            }).sendAndConfirm(umi);
-
-            toast.success(`Candy Machine deleted and rent reclaimed!`, { id: 'cm-delete' });
-            return true;
-        } catch (err: any) {
-            console.error("Delete CM error:", err);
-            const msg = err.message || "Failed to delete Candy Machine";
-            setError(msg);
-            toast.error(msg, { id: 'cm-delete' });
-            return false;
-        } finally {
-            setIsLoading(false);
-        }
-    }, [getUmi]);
-
-    const createCollection = useCallback(async (params: CreateCollectionParams) => {
+const deleteCandyMachine = useCallback(async (
+    candyMachineAddress: string,
+    candyGuardAddress?: string
+) => {
+    setIsLoading(true);
+    setError(null);
+    try {
         const umi = await getUmi();
-        const currentUser = umi.identity.publicKey.toString();
+        const cmPublicKey = publicKey(candyMachineAddress);
 
-        return deploySolanaCollection({
-            name: params.name,
-            symbol: params.symbol,
-            uri: params.uri || params.imageUri || '',
-            sellerFeeBasisPoints: params.sellerFeeBasisPoints || 0,
-            creators: [{ address: currentUser, share: 100 }]
-        });
-    }, [deploySolanaCollection, getUmi]);
+        toast.loading(`Deleting Candy Machine...`, { id: 'cm-delete' });
 
-    const batchRevealAssets = useCallback(async (
-        assets: { address: string; uri: string; name?: string }[],
-        batchSize = 5
-    ) => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const umi = await getUmi();
-            const chunks = [];
-            for (let i = 0; i < assets.length; i += batchSize) {
-                chunks.push(assets.slice(i, i + batchSize));
-            }
-
-            let successfulCount = 0;
-
-            for (const [index, chunk] of chunks.entries()) {
-                toast.loading(`Revealing batch ${index + 1}/${chunks.length}...`, { id: 'cm-reveal' });
-
-                let builder = transactionBuilder();
-
-                for (const asset of chunk) {
-                    builder = builder.add(updateCoreAsset(umi, {
-                        asset: publicKey(asset.address),
-                        uri: asset.uri,
-                        name: asset.name, // Optional: update name too
-                    }));
-                }
-
-                await builder.sendAndConfirm(umi);
-                successfulCount += chunk.length;
-            }
-
-            toast.success(`Successfully revealed ${successfulCount} assets!`, { id: 'cm-reveal' });
-            return true;
-        } catch (err: any) {
-            console.error("Reveal error:", err);
-            const msg = err.message || "Failed to reveal assets";
-            setError(msg);
-            toast.error(msg, { id: 'cm-reveal' });
-            return false;
-        } finally {
-            setIsLoading(false);
+        // 1. Delete Candy Guard if exists
+        if (candyGuardAddress) {
+            console.log("Deleting Candy Guard:", candyGuardAddress);
+            await deleteCoreCandyGuard(umi, {
+                candyGuard: publicKey(candyGuardAddress),
+            })
+                .add(setComputeUnitPrice(umi, { microLamports: 20_000 }))
+                .sendAndConfirm(umi);
+        } else {
+            // Try to find it if not provided?
+            try {
+                const guardPda = findCandyGuardPda(umi, { base: cmPublicKey }); // This might be wrong base
+                // Actually guards are usually derived or separate. Pass reference if possible.
+            } catch (e) { /* ignore */ }
         }
-    }, [getUmi]);
 
-    return {
-        isLoading,
-        error,
-        deploySolanaCollection,
-        createLaunchpadCandyMachine,
-        createCollection,
-        insertItemsToCandyMachine,
-        deleteCandyMachine,
-        batchRevealAssets,
-        getLastCollectionSigner: () => lastCollectionSigner,
-    };
+        // 2. Delete Candy Machine
+        console.log("Deleting Candy Machine:", candyMachineAddress);
+        await deleteCoreCandyMachine(umi, {
+            candyMachine: cmPublicKey,
+        })
+            .add(setComputeUnitPrice(umi, { microLamports: 20_000 }))
+            .sendAndConfirm(umi);
+
+        toast.success(`Candy Machine deleted and rent reclaimed!`, { id: 'cm-delete' });
+        return true;
+    } catch (err: any) {
+        console.error("Delete CM error:", err);
+        const msg = err.message || "Failed to delete Candy Machine";
+        setError(msg);
+        toast.error(msg, { id: 'cm-delete' });
+        return false;
+    } finally {
+        setIsLoading(false);
+    }
+}, [getUmi]);
+
+const createCollection = useCallback(async (params: CreateCollectionParams) => {
+    const umi = await getUmi();
+    const currentUser = umi.identity.publicKey.toString();
+
+    return deploySolanaCollection({
+        name: params.name,
+        symbol: params.symbol,
+        uri: params.uri || params.imageUri || '',
+        sellerFeeBasisPoints: params.sellerFeeBasisPoints || 0,
+        creators: [{ address: currentUser, share: 100 }]
+    });
+}, [deploySolanaCollection, getUmi]);
+
+const batchRevealAssets = useCallback(async (
+    assets: { address: string; uri: string; name?: string }[],
+    batchSize = 5
+) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+        const umi = await getUmi();
+        const chunks = [];
+        for (let i = 0; i < assets.length; i += batchSize) {
+            chunks.push(assets.slice(i, i + batchSize));
+        }
+
+        let successfulCount = 0;
+
+        for (const [index, chunk] of chunks.entries()) {
+            toast.loading(`Revealing batch ${index + 1}/${chunks.length}...`, { id: 'cm-reveal' });
+
+            let builder = transactionBuilder();
+
+            for (const asset of chunk) {
+                builder = builder.add(updateCoreAsset(umi, {
+                    asset: publicKey(asset.address),
+                    uri: asset.uri,
+                    name: asset.name, // Optional: update name too
+                }));
+            }
+
+            // Priority Fee for reveals
+            builder = builder.add(setComputeUnitPrice(umi, { microLamports: 10_000 }));
+
+            await builder.sendAndConfirm(umi);
+            successfulCount += chunk.length;
+        }
+
+        toast.success(`Successfully revealed ${successfulCount} assets!`, { id: 'cm-reveal' });
+        return true;
+    } catch (err: any) {
+        console.error("Reveal error:", err);
+        const msg = err.message || "Failed to reveal assets";
+        setError(msg);
+        toast.error(msg, { id: 'cm-reveal' });
+        return false;
+    } finally {
+        setIsLoading(false);
+    }
+}, [getUmi]);
+
+return {
+    isLoading,
+    error,
+    deploySolanaCollection,
+    createLaunchpadCandyMachine,
+    createCollection,
+    insertItemsToCandyMachine,
+    deleteCandyMachine,
+    batchRevealAssets,
+    getLastCollectionSigner: () => lastCollectionSigner,
+};
 };
