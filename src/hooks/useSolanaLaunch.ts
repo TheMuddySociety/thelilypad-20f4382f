@@ -300,6 +300,28 @@ export const useSolanaLaunch = () => {
         return umi.use(walletAdapterIdentity(wallet));
     }, [getSolanaProvider, network]);
 
+    const uploadFile = useCallback(async (file: File) => {
+        const umi = await getUmi();
+        const buffer = await file.arrayBuffer();
+        const genericFile = {
+            buffer: new Uint8Array(buffer),
+            fileName: file.name,
+            displayName: file.name,
+            uniqueName: `${Date.now()}-${file.name}`,
+            contentType: file.type,
+            extension: file.name.split('.').pop() || '',
+            tags: [],
+        };
+        const [uri] = await umi.uploader.upload([genericFile]);
+        return uri; // Arweave URI
+    }, [getUmi]);
+
+    const uploadMetadata = useCallback(async (metadata: any) => {
+        const umi = await getUmi();
+        const uri = await umi.uploader.uploadJson(metadata);
+        return uri;
+    }, [getUmi]);
+
     const deploySolanaCollection = useCallback(async (
         metadata: {
             name: string;
@@ -767,6 +789,8 @@ export const useSolanaLaunch = () => {
         insertItemsToCandyMachine,
         deleteCandyMachine,
         batchRevealAssets,
+        uploadFile,
+        uploadMetadata,
         getLastCollectionSigner: () => lastCollectionSigner,
     };
 };

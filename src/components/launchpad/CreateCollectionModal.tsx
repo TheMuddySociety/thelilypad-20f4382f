@@ -119,56 +119,74 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
   // Deployment Logic
   const handleDeploy = async () => {
-    if (!name || !symbol || !coverImage) return toast.error("Please fill in basic info.");
+    if (!name || !symbol || !coverFile) return toast.error("Please fill in basic info and upload a cover image.");
     if (folderAssets.length === 0) return toast.error("Please upload assets.");
 
     try {
-      // 1. Upload Cover Image First (to Supabase or Irys - simplified here)
-      // Ideally we use Irys, but for simplified draft logic we might assume URL 
-      // For deployment we need a URI. Let's assume the user wants the cover image URI for the collection.
-      // In a real app we'd upload coverFile to Irys here.
+      toast.loading("Uploading collection metadata...", { id: 'deploy-status' });
 
-      let collectionUri = "";
-      // Mock upload or use empty if not implemented yet
-      // In the previous code there was storage logic. Let's reuse simple URI if possible or skip.
+      // 1. Upload Cover Image to Arweave/Irys
+      const imageUri = await solanaLaunch.uploadFile(coverFile);
+      console.log("Cover Image uploaded:", imageUri);
 
-      // 2. Deploy Collection
+      // 2. Upload JSON Metadata
+      const metadata = {
+        name,
+        symbol,
+        description,
+        image: imageUri,
+        properties: {
+          files: [{ uri: imageUri, type: coverFile.type }],
+          category: "image",
+        }
+      };
+      const metadataUri = await solanaLaunch.uploadMetadata(metadata);
+      console.log("Metadata uploaded:", metadataUri);
+
+      toast.loading("Deploying Collection on-chain...", { id: 'deploy-status' });
+
+      // 3. Deploy Collection with real Metadata URI
       const collection = await solanaLaunch.deploySolanaCollection({
         name,
         symbol,
-        uri: "https://example.com", // Placeholder, ideally upload metadata.json
+        uri: metadataUri,
         sellerFeeBasisPoints: 500, // 5% default
         creators: [{ address: address!, share: 100 }]
       });
 
-      if (!collection) return;
+      if (!collection) {
+        toast.dismiss('deploy-status');
+        return;
+      }
 
-      // 3. Create Candy Machine
+      toast.loading("Creating Candy Machine...", { id: 'deploy-status' });
+
+      // 4. Create Candy Machine
       const cm = await solanaLaunch.createLaunchpadCandyMachine(
         collection.address,
         folderAssets.length,
         phases,
-        { name, symbol, uri: "", sellerFeeBasisPoints: 500, creators: [] },
+        { name, symbol, uri: metadataUri, sellerFeeBasisPoints: 500, creators: [] },
         treasuryWallet || undefined
       );
 
-      if (!cm) return;
+      if (!cm) {
+        toast.dismiss('deploy-status');
+        return;
+      }
 
-      // 4. Insert Items
-      // Transform folderAssets to { name, uri }
-      // NOTE: We need to UPLOAD these first. The current `folderAssets` has local Files.
-      // `deploy-cm.ts` handles this via script. 
-      // For UI, we need to implement `uploadAssets` logic.
-      // For this task, we will mock the "Upload" step or assume URI is passed if FolderUploader handles it.
-      // FolderUploader currently returns 'uri' which is blob:url. We need real URIs.
+      toast.success("Collection & Candy Machine deployed!", { id: 'deploy-status' });
+      toast.message("Deployment successful! Please use the script to upload your large asset folder.", {
+        description: "Browser uploads for large collections are coming soon. Use 'npm run deploy-cm' for now."
+      });
 
-      toast.message("Deployment successful! Now you can upload assets.");
       onCollectionCreated?.();
-      onOpenChange(false);
+      // Don't close immediately so they can see the success message
+      // onOpenChange(false);
 
     } catch (e: any) {
       console.error(e);
-      toast.error(e.message || "Deployment failed");
+      toast.error(e.message || "Deployment failed", { id: 'deploy-status' });
     }
   };
 
@@ -213,7 +231,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
               return (
                 <div key={step.id} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${isActive ? "bg-primary/20 border-primary text-primary" :
-                    isDone ? "bg-white/5 border-white/10 text-white" : "border-transparent text-muted-foreground opacity-50"
+                  isDone ? "bg-white/5 border-white/10 text-white" : "border-transparent text-muted-foreground opacity-50"
                   }`}>
                   <Icon className="w-3 h-3" />
                   <span>{step.title}</span>
