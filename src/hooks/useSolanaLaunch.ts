@@ -61,6 +61,27 @@ export interface LaunchpadPhase {
     endTime: Date | null;
     merkleRoot?: string | null; // for allowlist
     maxPerWallet?: number;
+
+    // Advanced Guards
+    payment?: {
+        type: 'sol' | 'token';
+        amount: number;
+        mint?: string; // for SPL tokens
+        destination?: string;
+    };
+    nftGate?: {
+        collection: string; // Collection mint address
+        burn?: boolean;
+    };
+    gatekeeper?: {
+        network: string; // e.g. Civic
+        expireOnUse: boolean;
+    };
+    addressGate?: string[]; // Allowed wallets (alternative to merkle)
+    mintLimit?: {
+        id: number;
+        limit: number;
+    };
 }
 
 interface CreateCollectionParams {
@@ -89,31 +110,31 @@ function buildGuardSetForPhase(
 ): Partial<CoreDefaultGuardSetArgs> {
     const guards: Partial<CoreDefaultGuardSetArgs> = {};
 
-    // SOL Payment guard - pricing
-    if (phase.price > 0) {
+    // 1. Payment Guard (SOL or Token)
+    if (phase.payment?.type === 'token' && phase.payment.mint) {
+        guards.tokenPayment = some({
+            amount: BigInt(phase.payment.amount * 1000000), // Assuming 6 decimals, should be dynamic ideally
+            mint: publicKey(phase.payment.mint),
+            destinationAta: publicKey(phase.payment.destination || treasuryWallet),
+        });
+    } else if (phase.price > 0 || (phase.payment?.type === 'sol' && phase.payment.amount > 0)) {
+        const amount = phase.payment?.amount || phase.price;
         guards.solPayment = some({
-            lamports: sol(phase.price),
-            destination: publicKey(treasuryWallet),
+            lamports: sol(amount),
+            destination: publicKey(phase.payment?.destination || treasuryWallet),
         });
     }
 
-    // Start Date guard
+    // 2. Start/End Date
     if (phase.startTime) {
-        guards.startDate = some({
-            date: dateTime(phase.startTime),
-        });
+        guards.startDate = some({ date: dateTime(phase.startTime) });
     }
-
-    // End Date guard
     if (phase.endTime) {
-        guards.endDate = some({
-            date: dateTime(phase.endTime),
-        });
+        guards.endDate = some({ date: dateTime(phase.endTime) });
     }
 
-    // Mint Limit guard - per wallet limit
+    // 3. Mint Limit (Per Wallet)
     if (phase.maxPerWallet && phase.maxPerWallet > 0) {
-        // Each phase needs a unique ID for mint limit tracking
         const limitId = parseInt(phase.id.replace(/\D/g, '') || '1', 10) % 256;
         guards.mintLimit = some({
             id: limitId,
@@ -121,21 +142,38 @@ function buildGuardSetForPhase(
         });
     }
 
-    // Allowlist guard - merkle root for whitelist
+    // 4. Allowlist (Merkle Root)
     if (phase.merkleRoot) {
-        // Convert hex string to Uint8Array (32 bytes)
-        const rootHex = phase.merkleRoot.startsWith('0x')
-            ? phase.merkleRoot.slice(2)
-            : phase.merkleRoot;
-        const merkleRootBytes = new Uint8Array(
-            rootHex.match(/.{1,2}/g)?.map((byte: string) => parseInt(byte, 16)) || []
-        );
-
+        const rootHex = phase.merkleRoot.startsWith('0x') ? phase.merkleRoot.slice(2) : phase.merkleRoot;
+        const merkleRootBytes = new Uint8Array(rootHex.match(/.{1,2}/g)?.map((byte: string) => parseInt(byte, 16)) || []);
         if (merkleRootBytes.length === 32) {
-            guards.allowList = some({
-                merkleRoot: merkleRootBytes,
-            });
+            guards.allowList = some({ merkleRoot: merkleRootBytes });
         }
+    }
+
+    // 5. NFT Gate (Holders Only)
+    if (phase.nftGate) {
+        guards.nftGate = some({
+            requiredCollection: publicKey(phase.nftGate.collection),
+        });
+        // Note: Core CM currently supports 'nftGate' for verifying standard Metaplex V1 Collections.
+    }
+
+    // 6. Gatekeeper (Bot Protection / Captcha)
+    if (phase.gatekeeper) {
+        guards.gatekeeper = some({
+            gatekeeperNetwork: publicKey(phase.gatekeeper.network),
+            expireOnUse: phase.gatekeeper.expireOnUse,
+        });
+    }
+
+    // 7. Address Gate (Direct List)
+    // Note: Core CM addressGate takes a single address. For lists, use Allowlist (Merkle).
+    // This is useful for single-wallet phases or testing.
+    if (phase.addressGate && phase.addressGate.length === 1) {
+        guards.addressGate = some({
+            address: publicKey(phase.addressGate[0]),
+        });
     }
 
     return guards;
@@ -157,18 +195,18 @@ function buildGuardGroups(
                 // Set all guards to none by default, then override with phase-specific guards
                 botTax: none(),
                 solPayment: guards.solPayment || none(),
-                tokenPayment: none(),
+                tokenPayment: guards.tokenPayment || none(),
                 startDate: guards.startDate || none(),
                 thirdPartySigner: none(),
                 tokenGate: none(),
-                gatekeeper: none(),
+                gatekeeper: guards.gatekeeper || none(),
                 endDate: guards.endDate || none(),
                 allowList: guards.allowList || none(),
                 mintLimit: guards.mintLimit || none(),
                 nftPayment: none(),
                 redeemedAmount: none(),
-                addressGate: none(),
-                nftGate: none(),
+                addressGate: guards.addressGate || none(),
+                nftGate: guards.nftGate || none(),
                 nftBurn: none(),
                 tokenBurn: none(),
                 freezeSolPayment: none(),
