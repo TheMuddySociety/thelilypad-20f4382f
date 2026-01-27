@@ -207,7 +207,19 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         if (dbError) {
           console.error("Supabase Save Error:", dbError);
           toast.error("Deployed, but failed to save to dashboard. Save your addresses!");
+          console.log("Manual Recovery Info:", {
+            collection: collection.address,
+            candyMachine: cm.address,
+            network,
+            metadataUri
+          });
         }
+      } else {
+        console.error("No Supabase user session found!");
+        toast.error("Critical: You are not logged in to the backend. Collection deployed but NOT saved to dashboard.", {
+          duration: 10000,
+          description: `Address: ${collection.address}. Please report this.`
+        });
       }
 
       toast.success("Collection & Candy Machine deployed!", { id: 'deploy-status' });

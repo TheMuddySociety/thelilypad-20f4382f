@@ -149,7 +149,7 @@ async function fetchCollectionsPage(pageParam: number, chain: ChainFilter): Prom
     .from("collections")
     .select("*")
     .is("deleted_at", null)
-    .in("status", ["active", "minting", "soldout", "live"])
+    .in("status", ["active", "minting", "soldout", "live", "upcoming"])
     .order("created_at", { ascending: false });
 
   // Always filter by solana-related chain identifiers
