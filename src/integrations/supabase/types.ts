@@ -767,6 +767,66 @@ export type Database = {
           },
         ]
       }
+      error_logs: {
+        Row: {
+          category: string | null
+          component_name: string | null
+          component_stack: string | null
+          created_at: string
+          error_message: string
+          error_stack: string | null
+          id: string
+          is_resolved: boolean | null
+          metadata: Json | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string | null
+          url: string | null
+          user_agent: string | null
+          user_id: string | null
+          wallet_address: string | null
+        }
+        Insert: {
+          category?: string | null
+          component_name?: string | null
+          component_stack?: string | null
+          created_at?: string
+          error_message: string
+          error_stack?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          metadata?: Json | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string | null
+          url?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          wallet_address?: string | null
+        }
+        Update: {
+          category?: string | null
+          component_name?: string | null
+          component_stack?: string | null
+          created_at?: string
+          error_message?: string
+          error_stack?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          metadata?: Json | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string | null
+          url?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          wallet_address?: string | null
+        }
+        Relationships: []
+      }
       feature_locks: {
         Row: {
           created_at: string | null

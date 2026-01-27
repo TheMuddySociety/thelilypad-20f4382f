@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +14,7 @@ import { MobileBottomNav } from "./components/MobileBottomNav";
 import FrogLoader from "./components/FrogLoader";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { PWAUpdateNotification } from "./components/PWAUpdateNotification";
+import { setupGlobalErrorHandlers } from "./lib/errorLogging";
 
 // Lazy load ALL pages to reduce initial bundle and improve FID
 const Index = lazy(() => import("./pages/Index"));
@@ -91,6 +92,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Set up global error handlers once
+setupGlobalErrorHandlers();
 
 const App = () => (
   <ErrorBoundary>
