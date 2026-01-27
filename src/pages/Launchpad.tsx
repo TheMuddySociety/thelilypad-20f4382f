@@ -146,6 +146,7 @@ export default function Launchpad() {
         onOpenChange={setIsCreateModalOpen}
         onCollectionCreated={() => {
           loadDraft();
+          refetch(); // Explicitly refresh collections
           setIsCreateModalOpen(false);
           toast.success("Collection created successfully!");
         }}
@@ -635,6 +636,7 @@ export default function Launchpad() {
           onOpenChange={setIsCreateModalOpen}
           onCollectionCreated={() => {
             loadDraft();
+            refetch();
             setIsCreateModalOpen(false);
           }}
         />
