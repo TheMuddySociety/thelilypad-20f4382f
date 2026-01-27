@@ -313,13 +313,70 @@ export const useSolanaLaunch = () => {
             tags: [],
         };
         const [uri] = await umi.uploader.upload([genericFile]);
-        return uri; // Arweave URI
+        return uri;
+    }, [getUmi]);
+
+    const uploadFiles = useCallback(async (files: File[]) => {
+        const umi = await getUmi();
+        const genericFiles = await Promise.all(files.map(async (file) => {
+            const buffer = await file.arrayBuffer();
+            return {
+                buffer: new Uint8Array(buffer),
+                fileName: file.name,
+                displayName: file.name,
+                uniqueName: `${Date.now()}-${file.name}`,
+                contentType: file.type,
+                extension: file.name.split('.').pop() || '',
+                tags: [],
+            };
+        }));
+
+        // Upload in batches of 10 to avoid payload limits
+        const batchSize = 10;
+        const uris: string[] = [];
+
+        for (let i = 0; i < genericFiles.length; i += batchSize) {
+            const batch = genericFiles.slice(i, i + batchSize);
+            const batchUris = await umi.uploader.upload(batch);
+            uris.push(...batchUris);
+        }
+
+        return uris;
     }, [getUmi]);
 
     const uploadMetadata = useCallback(async (metadata: any) => {
         const umi = await getUmi();
         const uri = await umi.uploader.uploadJson(metadata);
         return uri;
+    }, [getUmi]);
+
+    const uploadJsonMetadataBatch = useCallback(async (metadatas: any[]) => {
+        const umi = await getUmi();
+        // Convert JSON objects to GenericFiles
+        const genericFiles = metadatas.map((metadata, index) => {
+            const jsonString = JSON.stringify(metadata);
+            return {
+                buffer: new Uint8Array(Buffer.from(jsonString)),
+                fileName: `${index}.json`,
+                displayName: `Metadata ${index}`,
+                uniqueName: `${Date.now()}-${index}.json`,
+                contentType: 'application/json',
+                extension: 'json',
+                tags: [],
+            };
+        });
+
+        // Upload in batches
+        const batchSize = 10;
+        const uris: string[] = [];
+
+        for (let i = 0; i < genericFiles.length; i += batchSize) {
+            const batch = genericFiles.slice(i, i + batchSize);
+            const batchUris = await umi.uploader.upload(batch);
+            uris.push(...batchUris);
+        }
+
+        return uris;
     }, [getUmi]);
 
     const deploySolanaCollection = useCallback(async (

@@ -211,8 +211,58 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
       }
 
       toast.success("Collection & Candy Machine deployed!", { id: 'deploy-status' });
-      toast.message("Deployment successful! Please use the script to upload your large asset folder.", {
-        description: "Browser uploads for large collections are coming soon. Use 'npm run deploy-cm' for now."
+
+      // 6. Upload Assets & Insert Items
+      // We only do this if there are folder assets
+      if (folderAssets.length > 0) {
+        try {
+          toast.loading(`Uploading ${folderAssets.length} assets to Arweave... this may take a moment`, { id: 'deploy-status' });
+
+          // A. Batch Upload Images
+          const imageFiles = folderAssets.map(a => a.file);
+          const imageUris = await solanaLaunch.uploadFiles(imageFiles);
+          console.log(`Uploaded ${imageUris.length} images`);
+
+          // B. Prepare Metadata with new Image URIs
+          const metadataObjects = folderAssets.map((asset, index) => {
+            // Generate standard safe metadata
+            return {
+              name: `${name} #${index + 1}`,
+              symbol: symbol,
+              description: description,
+              image: imageUris[index],
+              attributes: [],
+              properties: {
+                files: [{ uri: imageUris[index], type: asset.file.type || 'image/png' }],
+                category: 'image',
+              }
+            };
+          });
+
+          // C. Batch Upload Metadata
+          toast.loading("Uploading asset metadata...", { id: 'deploy-status' });
+          const metadataUris = await solanaLaunch.uploadJsonMetadataBatch(metadataObjects);
+          console.log(`Uploaded ${metadataUris.length} metadata files`);
+
+          // D. Insert Items into Candy Machine
+          const itemsToInsert = metadataObjects.map((meta, index) => ({
+            name: meta.name,
+            uri: metadataUris[index]
+          }));
+
+          toast.loading("Inserting items into Candy Machine...", { id: 'deploy-status' });
+          await solanaLaunch.insertItemsToCandyMachine(cm.address, itemsToInsert);
+
+          toast.success("All assets uploaded and inserted!", { id: 'deploy-status' });
+
+        } catch (uploadErr) {
+          console.error("Asset Upload Error:", uploadErr);
+          toast.error("Deployment success, but asset upload failed. You can retry via script.", { id: 'deploy-status' });
+        }
+      }
+
+      toast.message("Collection Launch Complete!", {
+        description: "Your collection is live and ready to mint."
       });
 
       onCollectionCreated?.();
