@@ -39,6 +39,11 @@ interface CreateCollectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCollectionCreated?: () => void;
+  /**
+   * Optional standard hint from the Launchpad page (e.g. "core").
+   * Currently unused by this wizard, but accepted to keep Launchpad -> Modal typing consistent.
+   */
+  defaultStandard?: unknown;
 }
 
 // Default Phases
