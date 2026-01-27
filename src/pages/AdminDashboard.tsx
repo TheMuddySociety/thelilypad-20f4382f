@@ -55,6 +55,7 @@ import { FeatureLocksManager } from '@/components/admin/FeatureLocksManager';
 import { CardStackManager } from '@/components/admin/CardStackManager';
 import { SiteAssetsManager } from '@/components/admin/SiteAssetsManager';
 import { TestimonialsManager } from '@/components/admin/TestimonialsManager';
+import { ErrorLogManager } from '@/components/admin/ErrorLogManager';
 
 import { FeatureSectionManager } from '@/components/admin/FeatureSectionManager';
 import { Star, Trophy } from 'lucide-react';
@@ -594,6 +595,10 @@ const AdminDashboard: React.FC = () => {
               <TabsTrigger value="branding" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>Branding</span>
+              </TabsTrigger>
+              <TabsTrigger value="errors" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
+                <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span>Errors</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1235,6 +1240,11 @@ const AdminDashboard: React.FC = () => {
           {/* Branding Tab */}
           <TabsContent value="branding">
             <SiteAssetsManager />
+          </TabsContent>
+
+          {/* Error Logs Tab */}
+          <TabsContent value="errors">
+            <ErrorLogManager />
           </TabsContent>
         </Tabs>
 
