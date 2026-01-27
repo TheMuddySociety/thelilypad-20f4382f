@@ -7,6 +7,9 @@ export const SOLANA_DEVNET_RPC = "https://api.devnet.solana.com";
 export const SOLANA_TESTNET_RPC = "https://api.testnet.solana.com";
 export const SOLANA_MAINNET_RPC = "https://api.mainnet-beta.solana.com";
 
+// Metaplex Core Program ID (used for Candy Machine minting)
+export const CORE_CANDY_MACHINE_ADDRESS = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
+
 export type NetworkType = "mainnet" | "testnet" | "devnet";
 
 // Simple health check for Solana RPC
