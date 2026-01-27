@@ -175,14 +175,48 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         return;
       }
 
+      // 5. Persist to Supabase
+      toast.loading("Saving collection to dashboard...", { id: 'deploy-status' });
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        // Enhancing phases with CM address so Mint Section can find it
+        const phasesWithCm = phases.map(p => ({
+          ...p,
+          candyMachineAddress: cm.address
+        }));
+
+        const { error: dbError } = await supabase.from("collections").insert({
+          name,
+          symbol,
+          description,
+          image_url: imageUri, // Arweave URI
+          total_supply: folderAssets.length,
+          creator_id: user.id,
+          creator_address: address,
+          contract_address: collection.address, // Collection Address (not CM)
+          // candy_machine_id removed
+          status: "upcoming",
+          chain: "solana",
+          collection_type: "generative",
+          phases: phasesWithCm, // Store the phase config with CM address
+          network: network // 'devnet' or 'mainnet'
+        });
+
+        if (dbError) {
+          console.error("Supabase Save Error:", dbError);
+          toast.error("Deployed, but failed to save to dashboard. Save your addresses!");
+        }
+      }
+
       toast.success("Collection & Candy Machine deployed!", { id: 'deploy-status' });
       toast.message("Deployment successful! Please use the script to upload your large asset folder.", {
         description: "Browser uploads for large collections are coming soon. Use 'npm run deploy-cm' for now."
       });
 
       onCollectionCreated?.();
-      // Don't close immediately so they can see the success message
-      // onOpenChange(false);
+      onOpenChange(false);
 
     } catch (e: any) {
       console.error(e);
