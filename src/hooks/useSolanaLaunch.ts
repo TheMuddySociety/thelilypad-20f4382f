@@ -538,6 +538,10 @@ export const useSolanaLaunch = () => {
             console.log("[CM] Default guards:", defaultGuards);
             console.log("[CM] Guard groups:", guardGroups.length, "phases");
 
+            // Derive the Candy Guard PDA from the base signer
+            // Note: createCoreCandyGuard creates the account at the PDA derived from 'base'
+            const candyGuardPda = findCandyGuardPda(umi, { base: candyGuard.publicKey });
+
             // Create the Candy Guard
             const createGuardBuilder = createCoreCandyGuard(umi, {
                 base: candyGuard,
@@ -546,18 +550,37 @@ export const useSolanaLaunch = () => {
             });
 
             await createGuardBuilder
-                .add(setComputeUnitPrice(umi, { microLamports: 50_000 }))
-                .sendAndConfirm(umi);
+                .add(setComputeUnitPrice(umi, { microLamports: 100_000 })) // Increased from 50k
+                .sendAndConfirm(umi, {
+                    send: { skipPreflight: true },
+                    confirm: { commitment: 'confirmed' }
+                });
 
-            // Derive the Candy Guard PDA from the base signer
-            const candyGuardPda = findCandyGuardPda(umi, { base: candyGuard.publicKey });
-            console.log("[CM] Candy Guard created at PDA:", candyGuardPda[0].toString());
+            // Explicitly wait for the Guard account to be visible/initialized
+            console.log("[CM] Waiting for Candy Guard initialization...");
+            await waitForConfirmation(umi, new Uint8Array(0), 5); // Just a small delay/check helper if needed, but the loop below is better
 
+            // Verify Guard Account Exists before wrapping
+            let guardAccount = await umi.rpc.getAccount(candyGuardPda[0]);
+            let retries = 0;
+            while (!guardAccount.exists && retries < 5) {
+                console.log(`[CM] Guard account not found yet, retrying check... (${retries + 1}/5)`);
+                await new Promise(r => setTimeout(r, 1000));
+                guardAccount = await umi.rpc.getAccount(candyGuardPda[0]);
+                retries++;
+            }
+
+            if (!guardAccount.exists) {
+                throw new Error("Candy Guard account failed to initialize after transaction success.");
+            }
+
+            console.log("[CM] Candy Guard confirmed at:", candyGuardPda[0].toString());
             toast.loading(`Guards created! Wrapping Candy Machine...`, { id: 'cm-create' });
 
             // Step 3: Wrap the Candy Machine with the Candy Guard
+            // Fix for AccountNotInitialized: Ensure we are passing the initialized PDA correctly
             const wrapBuilder = wrap(umi, {
-                candyGuard: candyGuardPda,
+                candyGuard: candyGuardPda[0], // Pass the PublicKey directly
                 candyMachine: candyMachine.publicKey,
                 candyMachineAuthority: umi.identity,
             });
@@ -565,6 +588,7 @@ export const useSolanaLaunch = () => {
             await wrapBuilder
                 .add(setComputeUnitPrice(umi, { microLamports: 50_000 }))
                 .sendAndConfirm(umi);
+
             console.log("[CM] Candy Machine wrapped with Guard successfully!");
 
             // Log fee distribution info
