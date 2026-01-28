@@ -74,6 +74,7 @@ export default function Launchpad() {
     isDeleting,
     restoreCollection,
     getFilteredCollections,
+    refetch,
   } = useLaunchpadData("solana");
 
   const [editingDraft, setEditingDraft] = useState(false);
@@ -630,17 +631,6 @@ export default function Launchpad() {
         )}
       </main>
 
-      {isCreateModalOpen && (
-        <CreateCollectionModal
-          open={isCreateModalOpen}
-          onOpenChange={setIsCreateModalOpen}
-          onCollectionCreated={() => {
-            loadDraft();
-            refetch();
-            setIsCreateModalOpen(false);
-          }}
-        />
-      )}
       {/* Delete Collection Confirmation */}
       <AlertDialog open={!!deleteCollectionId} onOpenChange={(open) => !open && setDeleteCollectionId(null)}>
         <AlertDialogContent className="max-w-md">

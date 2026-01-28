@@ -871,7 +871,9 @@ export const useSolanaLaunch = () => {
         deleteCandyMachine,
         batchRevealAssets,
         uploadFile,
+        uploadFiles,
         uploadMetadata,
+        uploadJsonMetadataBatch,
         getLastCollectionSigner: () => lastCollectionSigner,
     };
 };
