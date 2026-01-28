@@ -11,12 +11,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/auth/auth-provider';
-import { redirect } from 'next/navigation';
+import { useWalletConnection } from '@solana/react-hooks';
+import { supabase } from '@/lib/supabase';
+import { MessageCircle, Loader2, Wallet, Lock } from 'lucide-react';
 
 export default function GoLivePage() {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
+    const { connected } = useWalletConnection();
+    const [isAuthenticating, setIsAuthenticating] = useState(false);
 
     const [title, setTitle] = useState('');
     const [category, setCategory] = useState<string>('Just Chatting');
@@ -31,8 +36,6 @@ export default function GoLivePage() {
         currentQuality: quality,
         onQualityChange: (newQuality) => {
             setQuality(newQuality);
-            // Note: In a real implementation, we would restart the stream with new constraints
-            // or renegotiate the connection. For now we just update the state.
         },
     });
 
@@ -52,14 +55,91 @@ export default function GoLivePage() {
         });
     };
 
-    useEffect(() => {
-        if (!user) {
-            // Redirect to login if not authenticated (though AuthProvider might handle this)
-            // For now, we'll just let the UI show "Sign in" or similar if needed, 
-            // but typically this page should be protected.
-            // redirect('/login'); 
+    const handleSignIn = async () => {
+        try {
+            setIsAuthenticating(true);
+            const { data, error } = await supabase.auth.signInWithWeb3({
+                chain: 'solana',
+                statement: 'Sign in to The Lily Pad Streaming Server',
+            });
+
+            if (error) {
+                toast.error('Authentication failed: ' + error.message);
+            } else if (data?.user) {
+                toast.success('Signed in successfully!');
+            }
+        } catch (error: any) {
+            toast.error('Failed to sign in: ' + error.message);
+        } finally {
+            setIsAuthenticating(false);
         }
-    }, [user]);
+    };
+
+    // Show loading while checking auth state
+    if (authLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    // Auth & Wallet Check
+    if (!user) {
+        return (
+            <div className="container mx-auto max-w-2xl p-4 pt-20">
+                <Card className="border-destructive/50 bg-destructive/10">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-destructive">
+                            <Lock className="h-5 w-5" />
+                            Authentication Required
+                        </CardTitle>
+                        <CardDescription className="text-foreground/90 font-medium">
+                            {connected
+                                ? "You are connected to Solana, but not signed into the streaming server."
+                                : "You must connect your wallet and sign in to stream."}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                            Please ensure you have completed the sign-in process to access the Go Live dashboard.
+                        </p>
+
+                        <div className="flex flex-col gap-3">
+                            {!connected ? (
+                                <div className="p-4 bg-background/50 rounded-lg border text-center">
+                                    <p className="mb-2 text-sm font-medium">Step 1: Connect Wallet</p>
+                                    <p className="text-xs text-muted-foreground">Use the wallet button in the top navigation bar to connect.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm text-green-500 bg-green-500/10 p-2 rounded">
+                                        <Wallet className="h-4 w-4" />
+                                        <span>Wallet Connected to Solana</span>
+                                    </div>
+                                    <Button
+                                        onClick={handleSignIn}
+                                        disabled={isAuthenticating}
+                                        className="w-full"
+                                        size="lg"
+                                    >
+                                        {isAuthenticating ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Signing In...
+                                            </>
+                                        ) : (
+                                            "Sign In to Streaming Server"
+                                        )}
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="container mx-auto p-4 space-y-6">
