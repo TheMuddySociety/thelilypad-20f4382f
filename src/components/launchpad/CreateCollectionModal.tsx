@@ -194,14 +194,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
           image_url: imageUri, // Arweave URI
           total_supply: folderAssets.length,
           creator_id: user.id,
-          creator_address: address,
+          creator_address: address!,
           contract_address: collection.address, // Collection Address (not CM)
-          // candy_machine_id removed
           status: "upcoming",
-          chain: "solana",
+          chain: network === "mainnet" ? "solana" : "solana-devnet",
           collection_type: "generative",
-          phases: phasesWithCm, // Store the phase config with CM address
-          network: network // 'devnet' or 'mainnet'
+          phases: phasesWithCm as any, // Store the phase config with CM address
         });
 
         if (dbError) {
