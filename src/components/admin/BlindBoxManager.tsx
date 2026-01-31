@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,17 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Package, Trash2, Eye, Loader2, Sparkles } from "lucide-react";
+import { Plus, Package, Trash2, Eye, Loader2, Sparkles, Upload, Copy, Calendar, Coins, ImageIcon, Gift, Star, Crown, Gem, Circle } from "lucide-react";
 import { format } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface BlindBox {
   id: string;
@@ -62,20 +55,12 @@ interface Reward {
   weight: number;
 }
 
-const RARITY_COLORS = {
-  common: "bg-gray-500",
-  uncommon: "bg-green-500",
-  rare: "bg-blue-500",
-  epic: "bg-purple-500",
-  legendary: "bg-yellow-500",
-};
-
-const RARITY_WEIGHTS = {
-  common: 50,
-  uncommon: 30,
-  rare: 15,
-  epic: 4,
-  legendary: 1,
+const RARITY_CONFIG = {
+  common: { color: "text-zinc-400", bg: "bg-zinc-500/20", border: "border-zinc-500/30", icon: Circle, weight: 50 },
+  uncommon: { color: "text-green-400", bg: "bg-green-500/20", border: "border-green-500/30", icon: Star, weight: 30 },
+  rare: { color: "text-blue-400", bg: "bg-blue-500/20", border: "border-blue-500/30", icon: Gem, weight: 15 },
+  epic: { color: "text-purple-400", bg: "bg-purple-500/20", border: "border-purple-500/30", icon: Sparkles, weight: 4 },
+  legendary: { color: "text-yellow-400", bg: "bg-yellow-500/20", border: "border-yellow-500/30", icon: Crown, weight: 1 },
 };
 
 const BlindBoxManager = () => {
@@ -83,19 +68,21 @@ const BlindBoxManager = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedBox, setSelectedBox] = useState<BlindBox | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   // Form state
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
-  const [price, setPrice] = useState("10");
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [price, setPrice] = useState("0.5");
   const [totalSupply, setTotalSupply] = useState("100");
   const [maxPerUser, setMaxPerUser] = useState("5");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [rewards, setRewards] = useState<Reward[]>([
-    { type: "token", name: "Small SOL", value: "5", rarity: "common", weight: 50 },
-    { type: "token", name: "Medium SOL", value: "25", rarity: "rare", weight: 15 },
+    { type: "token", name: "Small SOL", value: "0.1", rarity: "common", weight: 50 },
+    { type: "token", name: "Big SOL", value: "1", rarity: "rare", weight: 15 },
   ]);
 
   const { data: blindBoxes, isLoading } = useQuery({
@@ -139,7 +126,7 @@ const BlindBoxManager = () => {
       const boxData = {
         name,
         description: description || null,
-        image_url: imageUrl || null,
+        image_url: imageUrl || imagePreview || null,
         price: parseFloat(price) || 0,
         total_supply: supply,
         remaining_supply: supply,
@@ -181,7 +168,7 @@ const BlindBoxManager = () => {
       toast.success("Blind Box updated!");
     },
     onError: (error: any) => {
-      toast.error("Failed to update blind box: " + error.message);
+      toast.error("Failed to update: " + error.message);
     },
   });
 
@@ -195,7 +182,7 @@ const BlindBoxManager = () => {
       toast.success("Blind Box deleted!");
     },
     onError: (error: any) => {
-      toast.error("Failed to delete blind box: " + error.message);
+      toast.error("Failed to delete: " + error.message);
     },
   });
 
@@ -203,18 +190,19 @@ const BlindBoxManager = () => {
     setName("");
     setDescription("");
     setImageUrl("");
-    setPrice("10");
+    setImagePreview(null);
+    setPrice("0.5");
     setTotalSupply("100");
     setMaxPerUser("5");
     setStartDate("");
     setEndDate("");
     setRewards([
-      { type: "token", name: "Small SOL", value: "5", rarity: "common", weight: 50 },
+      { type: "token", name: "Small SOL", value: "0.1", rarity: "common", weight: 50 },
     ]);
   };
 
   const addReward = () => {
-    setRewards([...rewards, { type: "token", name: "", value: "", rarity: "common", weight: RARITY_WEIGHTS.common }]);
+    setRewards([...rewards, { type: "token", name: "", value: "", rarity: "common", weight: RARITY_CONFIG.common.weight }]);
   };
 
   const removeReward = (index: number) => {
@@ -224,11 +212,45 @@ const BlindBoxManager = () => {
   const updateReward = (index: number, field: keyof Reward, value: any) => {
     const updated = [...rewards];
     updated[index] = { ...updated[index], [field]: value };
-    // Auto-update weight based on rarity
     if (field === "rarity") {
-      updated[index].weight = RARITY_WEIGHTS[value as keyof typeof RARITY_WEIGHTS];
+      updated[index].weight = RARITY_CONFIG[value as keyof typeof RARITY_CONFIG].weight;
     }
     setRewards(updated);
+  };
+
+  // Image drag-drop handler
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = () => setImagePreview(reader.result as string);
+        reader.readAsDataURL(file);
+      }
+    }
+  }, []);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
   };
 
   const getBoxStatus = (box: BlindBox) => {
@@ -236,212 +258,292 @@ const BlindBoxManager = () => {
     const start = new Date(box.start_date);
     const end = new Date(box.end_date);
 
-    if (box.remaining_supply === 0) return { label: "Sold Out", variant: "secondary" as const };
-    if (!box.is_active) return { label: "Inactive", variant: "outline" as const };
-    if (now < start) return { label: "Upcoming", variant: "default" as const };
-    if (now > end) return { label: "Ended", variant: "destructive" as const };
-    return { label: "Live", variant: "default" as const };
+    if (box.remaining_supply === 0) return { label: "Sold Out", color: "bg-zinc-500" };
+    if (!box.is_active) return { label: "Inactive", color: "bg-zinc-600" };
+    if (now < start) return { label: "Upcoming", color: "bg-blue-500" };
+    if (now > end) return { label: "Ended", color: "bg-red-500" };
+    return { label: "Live", color: "bg-green-500" };
+  };
+
+  const getTotalWeight = () => rewards.reduce((sum, r) => sum + r.weight, 0);
+
+  const copyBoxId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    toast.success("Box ID copied!");
   };
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-48" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-64 w-full" />
-        </CardContent>
-      </Card>
+      <div className="glass-card p-6 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="w-5 h-5" />
+          <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
+            <Gift className="w-6 h-6" />
             Lily Blind Boxes
-          </CardTitle>
-          <CardDescription>Create mystery boxes with mixed rewards</CardDescription>
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Create mystery boxes with random on-chain rewards
+          </p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="bg-gradient-to-r from-primary to-emerald-400 hover:opacity-90">
               <Plus className="w-4 h-4 mr-2" />
               Create Blind Box
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card/95 backdrop-blur-xl border-border">
             <DialogHeader>
-              <DialogTitle>Create New Blind Box</DialogTitle>
+              <DialogTitle className="text-xl gradient-text">Create New Blind Box</DialogTitle>
               <DialogDescription>Set up a mystery box with random rewards</DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-5 py-4">
+              {/* Image Upload */}
+              <div
+                className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer
+                  ${dragActive ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => document.getElementById("image-upload")?.click()}
+              >
+                <input
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageSelect}
+                />
+                {imagePreview ? (
+                  <div className="relative w-32 h-32 mx-auto rounded-lg overflow-hidden">
+                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setImagePreview(null); }}
+                      className="absolute top-1 right-1 p-1 bg-black/50 rounded-full hover:bg-black/70"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Upload className="w-10 h-10 mx-auto text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Drag & drop an image or click to select
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Name & Description */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Box Name</Label>
+                  <Label className="text-xs">Box Name</Label>
                   <Input
-                    id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Mystery Treasure Box"
+                    className="bg-muted/50 border-border"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="imageUrl">Image URL</Label>
+                  <Label className="text-xs">Image URL (optional)</Label>
                   <Input
-                    id="imageUrl"
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
                     placeholder="https://..."
+                    className="bg-muted/50 border-border"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label className="text-xs">Description</Label>
                 <Textarea
-                  id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What's inside this mystery box..."
+                  placeholder="What mysteries await inside..."
+                  className="bg-muted/50 border-border resize-none"
+                  rows={2}
                 />
               </div>
 
+              {/* Price, Supply, Max */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Price (SOL)</Label>
+                  <Label className="text-xs flex items-center gap-1">
+                    <Coins className="w-3 h-3" /> Price (SOL)
+                  </Label>
                   <Input
                     type="number"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     min="0"
                     step="0.01"
+                    className="bg-muted/50 border-border"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Total Supply</Label>
+                  <Label className="text-xs flex items-center gap-1">
+                    <Package className="w-3 h-3" /> Total Supply
+                  </Label>
                   <Input
                     type="number"
                     value={totalSupply}
                     onChange={(e) => setTotalSupply(e.target.value)}
                     min="1"
+                    className="bg-muted/50 border-border"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Max Per User</Label>
+                  <Label className="text-xs">Max Per User</Label>
                   <Input
                     type="number"
                     value={maxPerUser}
                     onChange={(e) => setMaxPerUser(e.target.value)}
                     min="1"
+                    className="bg-muted/50 border-border"
                   />
                 </div>
               </div>
 
+              {/* Dates */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Start Date</Label>
+                  <Label className="text-xs flex items-center gap-1">
+                    <Calendar className="w-3 h-3" /> Start Date
+                  </Label>
                   <Input
                     type="datetime-local"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-muted/50 border-border"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>End Date</Label>
+                  <Label className="text-xs flex items-center gap-1">
+                    <Calendar className="w-3 h-3" /> End Date
+                  </Label>
                   <Input
                     type="datetime-local"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-muted/50 border-border"
                   />
                 </div>
               </div>
 
+              {/* Rewards Section */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Possible Rewards</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addReward}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Reward
+                  <div>
+                    <Label className="text-sm font-medium">Possible Rewards</Label>
+                    <p className="text-[10px] text-muted-foreground">Total weight: {getTotalWeight()}</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addReward} className="h-7 text-xs">
+                    <Plus className="w-3 h-3 mr-1" /> Add Reward
                   </Button>
                 </div>
-                {rewards.map((reward, index) => (
-                  <div key={index} className="flex gap-2 items-end p-3 bg-muted/50 rounded-lg">
-                    <div className="flex-1 space-y-1">
-                      <Label className="text-xs">Type</Label>
-                      <Select
-                        value={reward.type}
-                        onValueChange={(v) => updateReward(index, "type", v)}
+
+                <AnimatePresence>
+                  {rewards.map((reward, index) => {
+                    const config = RARITY_CONFIG[reward.rarity];
+                    const RarityIcon = config.icon;
+                    const probability = getTotalWeight() > 0 ? ((reward.weight / getTotalWeight()) * 100).toFixed(1) : 0;
+
+                    return (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className={`flex gap-2 items-end p-3 rounded-lg border ${config.bg} ${config.border}`}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="nft">NFT</SelectItem>
-                          <SelectItem value="token">SOL Tokens</SelectItem>
-                          <SelectItem value="shop_item">Shop Item</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <Label className="text-xs">Name</Label>
-                      <Input
-                        value={reward.name}
-                        onChange={(e) => updateReward(index, "name", e.target.value)}
-                        placeholder="Reward name"
-                      />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <Label className="text-xs">Value/ID</Label>
-                      <Input
-                        value={reward.value}
-                        onChange={(e) => updateReward(index, "value", e.target.value)}
-                        placeholder="Amount or ID"
-                      />
-                    </div>
-                    <div className="w-28 space-y-1">
-                      <Label className="text-xs">Rarity</Label>
-                      <Select
-                        value={reward.rarity}
-                        onValueChange={(v) => updateReward(index, "rarity", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="common">Common (50%)</SelectItem>
-                          <SelectItem value="uncommon">Uncommon (30%)</SelectItem>
-                          <SelectItem value="rare">Rare (15%)</SelectItem>
-                          <SelectItem value="epic">Epic (4%)</SelectItem>
-                          <SelectItem value="legendary">Legendary (1%)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeReward(index)}
-                      disabled={rewards.length <= 1}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
+                        <div className="w-20 space-y-1">
+                          <Label className="text-[10px]">Type</Label>
+                          <Select value={reward.type} onValueChange={(v) => updateReward(index, "type", v)}>
+                            <SelectTrigger className="h-8 text-xs bg-background/50">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="nft">NFT</SelectItem>
+                              <SelectItem value="token">SOL</SelectItem>
+                              <SelectItem value="shop_item">Item</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <Label className="text-[10px]">Name</Label>
+                          <Input
+                            value={reward.name}
+                            onChange={(e) => updateReward(index, "name", e.target.value)}
+                            placeholder="Reward name"
+                            className="h-8 text-xs bg-background/50"
+                          />
+                        </div>
+                        <div className="w-20 space-y-1">
+                          <Label className="text-[10px]">Value</Label>
+                          <Input
+                            value={reward.value}
+                            onChange={(e) => updateReward(index, "value", e.target.value)}
+                            placeholder="Amount"
+                            className="h-8 text-xs bg-background/50"
+                          />
+                        </div>
+                        <div className="w-28 space-y-1">
+                          <Label className="text-[10px]">Rarity</Label>
+                          <Select value={reward.rarity} onValueChange={(v) => updateReward(index, "rarity", v)}>
+                            <SelectTrigger className="h-8 text-xs bg-background/50">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="common">Common</SelectItem>
+                              <SelectItem value="uncommon">Uncommon</SelectItem>
+                              <SelectItem value="rare">Rare</SelectItem>
+                              <SelectItem value="epic">Epic</SelectItem>
+                              <SelectItem value="legendary">Legendary</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={`text-[10px] ${config.color}`}>
+                            <RarityIcon className="w-3 h-3 mr-1" />
+                            {probability}%
+                          </Badge>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => removeReward(index)}
+                            disabled={rewards.length <= 1}
+                          >
+                            <Trash2 className="w-3 h-3 text-destructive" />
+                          </Button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
               </div>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
               <Button
                 onClick={() => createMutation.mutate()}
                 disabled={createMutation.isPending || !name || !startDate || !endDate}
+                className="bg-gradient-to-r from-primary to-emerald-400"
               >
                 {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Create Blind Box
@@ -449,89 +551,126 @@ const BlindBoxManager = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </CardHeader>
+      </div>
 
-      <CardContent>
-        {!blindBoxes?.length ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No blind boxes created yet</p>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Supply</TableHead>
-                <TableHead>End Date</TableHead>
-                <TableHead>Active</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {blindBoxes.map((box) => {
-                const status = getBoxStatus(box);
-                const soldPercent = ((box.total_supply - box.remaining_supply) / box.total_supply) * 100;
-                return (
-                  <TableRow key={box.id}>
-                    <TableCell className="font-medium">{box.name}</TableCell>
-                    <TableCell>
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                    </TableCell>
-                    <TableCell>{box.price} SOL</TableCell>
-                    <TableCell>
-                      <div className="w-24">
-                        <div className="text-xs mb-1">
-                          {box.remaining_supply}/{box.total_supply}
-                        </div>
-                        <Progress value={soldPercent} className="h-2" />
+      {/* Box Grid */}
+      {!blindBoxes?.length ? (
+        <div className="glass-card p-12 text-center">
+          <Gift className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <p className="text-muted-foreground">No blind boxes created yet</p>
+          <p className="text-xs text-muted-foreground mt-1">Create your first mystery box to get started</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AnimatePresence>
+            {blindBoxes.map((box, i) => {
+              const status = getBoxStatus(box);
+              const soldPercent = ((box.total_supply - box.remaining_supply) / box.total_supply) * 100;
+
+              return (
+                <motion.div
+                  key={box.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="glass-card overflow-hidden group hover:border-primary/30 transition-all"
+                >
+                  {/* Image Header */}
+                  <div className="relative h-32 bg-gradient-to-br from-primary/20 to-emerald-500/10">
+                    {box.image_url ? (
+                      <img src={box.image_url} alt={box.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Gift className="w-12 h-12 text-primary/30" />
                       </div>
-                    </TableCell>
-                    <TableCell>{format(new Date(box.end_date), "MMM d, yyyy HH:mm")}</TableCell>
-                    <TableCell>
+                    )}
+                    <div className="absolute top-2 left-2">
+                      <Badge className={`${status.color} text-white text-[10px] px-2`}>
+                        {status.label}
+                      </Badge>
+                    </div>
+                    <div className="absolute top-2 right-2">
                       <Switch
                         checked={box.is_active}
-                        onCheckedChange={(checked) =>
-                          toggleActiveMutation.mutate({ id: box.id, isActive: checked })
-                        }
+                        onCheckedChange={(checked) => toggleActiveMutation.mutate({ id: box.id, isActive: checked })}
                       />
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setSelectedBox(box);
-                          setIsViewOpen(true);
-                        }}
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-sm">{box.name}</h3>
+                        <p className="text-lg font-bold text-primary">{box.price} SOL</p>
+                      </div>
+                      <button
+                        onClick={() => copyBoxId(box.id)}
+                        className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                        title="Copy Box ID"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+                    </div>
+
+                    {/* Supply Progress */}
+                    <div>
+                      <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                        <span>{box.total_supply - box.remaining_supply} sold</span>
+                        <span>{box.remaining_supply} left</span>
+                      </div>
+                      <Progress value={soldPercent} className="h-1.5" />
+                    </div>
+
+                    {/* Rewards Preview */}
+                    <div className="flex flex-wrap gap-1">
+                      {(box.rewards || []).slice(0, 3).map((reward: Reward, idx: number) => {
+                        const config = RARITY_CONFIG[reward.rarity] || RARITY_CONFIG.common;
+                        return (
+                          <Badge key={idx} variant="outline" className={`text-[9px] ${config.color} ${config.border}`}>
+                            {reward.name}
+                          </Badge>
+                        );
+                      })}
+                      {(box.rewards?.length || 0) > 3 && (
+                        <Badge variant="outline" className="text-[9px]">+{box.rewards.length - 3}</Badge>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2 pt-2 border-t border-border">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-8 text-xs"
+                        onClick={() => { setSelectedBox(box); setIsViewOpen(true); }}
+                      >
+                        <Eye className="w-3 h-3 mr-1" /> View
                       </Button>
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs text-destructive hover:text-destructive"
                         onClick={() => deleteMutation.mutate(box.id)}
                         disabled={deleteMutation.isPending}
                       >
-                        <Trash2 className="w-4 h-4 text-destructive" />
+                        <Trash2 className="w-3 h-3" />
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* View Box Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg bg-card/95 backdrop-blur-xl border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5" />
+              <Sparkles className="w-5 h-5 text-primary" />
               {selectedBox?.name}
             </DialogTitle>
             <DialogDescription>{selectedBox?.description}</DialogDescription>
@@ -540,58 +679,69 @@ const BlindBoxManager = () => {
           {selectedBox && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Price</p>
-                  <p className="font-medium">{selectedBox.price} SOL</p>
+                <div className="glass-card p-3">
+                  <p className="text-[10px] text-muted-foreground uppercase">Price</p>
+                  <p className="font-bold text-primary">{selectedBox.price} SOL</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground">Remaining</p>
-                  <p className="font-medium">{selectedBox.remaining_supply}/{selectedBox.total_supply}</p>
+                <div className="glass-card p-3">
+                  <p className="text-[10px] text-muted-foreground uppercase">Remaining</p>
+                  <p className="font-bold">{selectedBox.remaining_supply}/{selectedBox.total_supply}</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground">Max Per User</p>
-                  <p className="font-medium">{selectedBox.max_per_user}</p>
+                <div className="glass-card p-3">
+                  <p className="text-[10px] text-muted-foreground uppercase">Max Per User</p>
+                  <p className="font-bold">{selectedBox.max_per_user}</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground">Status</p>
-                  <Badge variant={getBoxStatus(selectedBox).variant}>
+                <div className="glass-card p-3">
+                  <p className="text-[10px] text-muted-foreground uppercase">Status</p>
+                  <Badge className={`${getBoxStatus(selectedBox).color} text-white text-xs mt-1`}>
                     {getBoxStatus(selectedBox).label}
                   </Badge>
                 </div>
               </div>
 
               <div>
-                <h4 className="font-medium mb-2">Possible Rewards</h4>
+                <h4 className="font-medium mb-2 text-sm">Possible Rewards</h4>
                 <div className="space-y-2">
-                  {selectedBox.rewards.map((reward: Reward, i: number) => (
-                    <div key={i} className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${RARITY_COLORS[reward.rarity]}`} />
-                        <span className="text-sm">{reward.name}</span>
-                        <Badge variant="outline" className="text-xs capitalize">{reward.rarity}</Badge>
+                  {(selectedBox.rewards || []).map((reward: Reward, i: number) => {
+                    const config = RARITY_CONFIG[reward.rarity] || RARITY_CONFIG.common;
+                    const RarityIcon = config.icon;
+                    return (
+                      <div key={i} className={`flex items-center justify-between p-2 rounded-lg ${config.bg} ${config.border} border`}>
+                        <div className="flex items-center gap-2">
+                          <RarityIcon className={`w-4 h-4 ${config.color}`} />
+                          <span className="text-sm">{reward.name}</span>
+                          <Badge variant="outline" className={`text-[10px] capitalize ${config.color}`}>
+                            {reward.rarity}
+                          </Badge>
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                          {reward.type === "token" ? `${reward.value} SOL` : reward.value}
+                        </span>
                       </div>
-                      <span className="text-sm text-muted-foreground">
-                        {reward.type === "token" ? `${reward.value} SOL` : reward.value}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
               <div>
-                <h4 className="font-medium mb-2">Recent Purchases ({boxPurchases?.length || 0})</h4>
-                {boxPurchases?.slice(0, 5).map((purchase: any) => (
-                  <div key={purchase.id} className="text-sm flex justify-between py-1 border-b border-border/50">
-                    <span className="font-mono text-xs">{purchase.user_id.slice(0, 8)}...</span>
-                    <span>{purchase.quantity} box(es)</span>
-                  </div>
-                ))}
+                <h4 className="font-medium mb-2 text-sm">Recent Purchases ({boxPurchases?.length || 0})</h4>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {boxPurchases?.slice(0, 5).map((purchase: any) => (
+                    <div key={purchase.id} className="text-xs flex justify-between py-1.5 px-2 rounded bg-muted/50">
+                      <span className="font-mono">{purchase.user_id.slice(0, 8)}...</span>
+                      <span>{purchase.quantity} box{purchase.quantity > 1 ? "es" : ""}</span>
+                    </div>
+                  ))}
+                  {!boxPurchases?.length && (
+                    <p className="text-xs text-muted-foreground text-center py-2">No purchases yet</p>
+                  )}
+                </div>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 };
 
