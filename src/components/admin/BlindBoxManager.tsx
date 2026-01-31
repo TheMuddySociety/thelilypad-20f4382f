@@ -45,6 +45,12 @@ interface BlindBox {
   max_per_user: number | null;
   is_active: boolean;
   created_at: string;
+  // Phase 3: Pool configuration
+  nft_pool_address?: string | null;
+  token_mint?: string | null;
+  escrow_wallet?: string | null;
+  pool_type?: 'off_chain' | 'candy_machine' | 'escrow';
+  nft_collection_id?: string | null;
 }
 
 interface Reward {
@@ -85,6 +91,12 @@ const BlindBoxManager = () => {
     { type: "token", name: "Big SOL", value: "1", rarity: "rare", weight: 15 },
   ]);
 
+  // Phase 3: Pool configuration state
+  const [poolType, setPoolType] = useState<'off_chain' | 'candy_machine' | 'escrow'>('off_chain');
+  const [nftPoolAddress, setNftPoolAddress] = useState("");
+  const [escrowWallet, setEscrowWallet] = useState("");
+  const [selectedCollectionId, setSelectedCollectionId] = useState("");
+
   const { data: blindBoxes, isLoading } = useQuery({
     queryKey: ["admin-blind-boxes"],
     queryFn: async () => {
@@ -115,6 +127,22 @@ const BlindBoxManager = () => {
     enabled: !!selectedBox?.id,
   });
 
+  // Query deployed collections for NFT pool linking
+  const { data: collections } = useQuery({
+    queryKey: ["admin-collections-for-pool"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("collections")
+        .select("id, name, contract_address, total_supply, minted")
+        .eq("status", "live")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -122,6 +150,13 @@ const BlindBoxManager = () => {
       if (!creatorId) throw new Error("Could not determine creator ID");
 
       const supply = parseInt(totalSupply) || 100;
+
+      // Find collection's candy machine address if linking
+      let nftPool = nftPoolAddress || null;
+      if (selectedCollectionId && !nftPool) {
+        const col = collections?.find(c => c.id === selectedCollectionId);
+        if (col?.contract_address) nftPool = col.contract_address;
+      }
 
       const boxData = {
         name,
@@ -135,6 +170,11 @@ const BlindBoxManager = () => {
         end_date: new Date(endDate).toISOString(),
         max_per_user: parseInt(maxPerUser) || 5,
         created_by: creatorId,
+        // Phase 3: Pool configuration
+        pool_type: poolType,
+        nft_pool_address: poolType === 'candy_machine' ? nftPool : null,
+        escrow_wallet: poolType === 'escrow' ? escrowWallet : null,
+        nft_collection_id: selectedCollectionId || null,
       };
 
       const { error } = await supabase
@@ -199,6 +239,11 @@ const BlindBoxManager = () => {
     setRewards([
       { type: "token", name: "Small SOL", value: "0.1", rarity: "common", weight: 50 },
     ]);
+    // Reset pool config
+    setPoolType('off_chain');
+    setNftPoolAddress("");
+    setEscrowWallet("");
+    setSelectedCollectionId("");
   };
 
   const addReward = () => {
@@ -441,6 +486,93 @@ const BlindBoxManager = () => {
                     className="bg-muted/50 border-border"
                   />
                 </div>
+              </div>
+
+              {/* Phase 3: Pool Configuration */}
+              <div className="space-y-3 p-3 rounded-lg bg-gradient-to-r from-primary/5 to-emerald-500/5 border border-primary/20">
+                <Label className="text-xs font-medium flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" /> Reward Distribution (On-Chain)
+                </Label>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPoolType('off_chain')}
+                    className={`p-2 rounded-lg border text-xs text-center transition-all ${poolType === 'off_chain'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:border-primary/50'
+                      }`}
+                  >
+                    <span className="font-medium">Off-Chain</span>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">Simulated rewards</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPoolType('candy_machine')}
+                    className={`p-2 rounded-lg border text-xs text-center transition-all ${poolType === 'candy_machine'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:border-primary/50'
+                      }`}
+                  >
+                    <span className="font-medium">NFT Pool</span>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">Candy Machine</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPoolType('escrow')}
+                    className={`p-2 rounded-lg border text-xs text-center transition-all ${poolType === 'escrow'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:border-primary/50'
+                      }`}
+                  >
+                    <span className="font-medium">Escrow</span>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">SOL/Token pool</p>
+                  </button>
+                </div>
+
+                {/* Candy Machine Pool Options */}
+                {poolType === 'candy_machine' && (
+                  <div className="space-y-2 pt-2">
+                    <Label className="text-[10px]">Link Collection (NFT Pool)</Label>
+                    <Select value={selectedCollectionId} onValueChange={setSelectedCollectionId}>
+                      <SelectTrigger className="h-8 text-xs bg-background/50">
+                        <SelectValue placeholder="Select a deployed collection..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {collections?.map((col) => (
+                          <SelectItem key={col.id} value={col.id}>
+                            {col.name} ({col.minted}/{col.total_supply} minted)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Or enter Candy Machine address</Label>
+                      <Input
+                        value={nftPoolAddress}
+                        onChange={(e) => setNftPoolAddress(e.target.value)}
+                        placeholder="CM address (optional if collection selected)"
+                        className="h-8 text-xs bg-background/50"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Escrow Wallet Options */}
+                {poolType === 'escrow' && (
+                  <div className="space-y-2 pt-2">
+                    <Label className="text-[10px]">Escrow Wallet Address</Label>
+                    <Input
+                      value={escrowWallet}
+                      onChange={(e) => setEscrowWallet(e.target.value)}
+                      placeholder="Wallet holding reward funds..."
+                      className="h-8 text-xs bg-background/50"
+                    />
+                    <p className="text-[9px] text-muted-foreground">
+                      Fund this wallet with SOL/tokens to distribute as rewards
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Rewards Section */}
