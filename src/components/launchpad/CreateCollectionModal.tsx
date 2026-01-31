@@ -112,11 +112,12 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
   const [generatedAssets, setGeneratedAssets] = useState<GeneratedAsset[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0 });
-  const [targetSupply, setTargetSupply] = useState(1000);
+  const [targetSupply, setTargetSupply] = useState(100); // No limit - user sets their own
 
   // Config Data
   const [phases, setPhases] = useState<LaunchpadPhase[]>(defaultPhases);
   const [treasuryWallet, setTreasuryWallet] = useState("");
+  const [useGuards, setUseGuards] = useState(true); // Optional candy guard toggle
 
   // Handler for Image Upload (Cover)
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -550,25 +551,25 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                 {/* STEP 4: GENERATE (Advanced Only) */}
                 {mode === "advanced" && currentStep === 4 && (
                   <div className="space-y-6">
-                    <div className="text-center space-y-2">
-                      <h3 className="text-lg font-semibold text-white">Generate Your Collection</h3>
-                      <p className="text-xs text-muted-foreground">
+                    <div className="text-center space-y-1">
+                      <h3 className="text-sm font-bold gradient-text">Generate Your Collection</h3>
+                      <p className="text-[10px] text-muted-foreground">
                         Create unique combinations based on your layers and rarity settings.
                       </p>
                     </div>
 
-                    <div className="space-y-3">
-                      <Label>Target Supply</Label>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Target Supply</Label>
                       <Input
                         type="number"
                         value={targetSupply}
-                        onChange={(e) => setTargetSupply(Number(e.target.value) || 100)}
+                        onChange={(e) => setTargetSupply(Number(e.target.value) || 10)}
                         min={1}
-                        max={10000}
-                        className="bg-white/5 border-white/10"
+                        className="bg-muted/50 border-border h-8 text-xs"
+                        placeholder="Enter any amount..."
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Max possible: {layers.filter(l => l.visible).reduce((acc, l) => acc * l.traits.length, 1).toLocaleString()} combinations
+                      <p className="text-[10px] text-muted-foreground">
+                        Max unique: {layers.filter(l => l.visible).reduce((acc, l) => acc * l.traits.length, 1).toLocaleString()} • No limit on supply
                       </p>
                     </div>
 
@@ -633,28 +634,86 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
                 {/* MINT CONFIG: Step 3 (Basic) or Step 5 (Advanced) */}
                 {((mode === "basic" && currentStep === 3) || (mode === "advanced" && currentStep === 5)) && (
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      <Label>Treasury Wallet</Label>
+                  <div className="space-y-4">
+                    {/* Treasury Wallet */}
+                    <div className="space-y-2">
+                      <Label className="text-xs">Treasury Wallet</Label>
                       <Input
                         value={treasuryWallet}
                         onChange={e => setTreasuryWallet(e.target.value)}
-                        placeholder={address || "Wait..."}
-                        className="bg-white/5 border-white/10 font-mono text-xs"
+                        placeholder={address || "Your wallet address..."}
+                        className="bg-muted/50 border-border font-mono text-xs h-8"
                       />
-                      <p className="text-xs text-muted-foreground">Wallet receiving mint proceeds.</p>
+                      <p className="text-[10px] text-muted-foreground">Receives mint proceeds</p>
                     </div>
 
-                    <Separator className="bg-white/10" />
+                    {/* Mint Price */}
+                    <div className="space-y-2">
+                      <Label className="text-xs">Mint Price (SOL)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={phases[0].price}
+                        onChange={e => {
+                          const newPhases = [...phases];
+                          newPhases[0] = { ...newPhases[0], price: parseFloat(e.target.value) || 0 };
+                          setPhases(newPhases);
+                        }}
+                        className="bg-muted/50 border-border font-mono text-xs h-8"
+                      />
+                    </div>
 
-                    <GuardConfigurator
-                      phase={phases[0]}
-                      onChange={(updates) => {
-                        const newPhases = [...phases];
-                        newPhases[0] = { ...newPhases[0], ...updates };
-                        setPhases(newPhases);
-                      }}
-                    />
+                    <Separator className="bg-border" />
+
+                    {/* Candy Guard Toggle */}
+                    <div className="glass-card p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-xs font-medium">Enable Candy Guard</Label>
+                          <p className="text-[10px] text-muted-foreground">Add mint limits, bot protection, etc.</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={useGuards}
+                            onChange={(e) => setUseGuards(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                      </div>
+
+                      {useGuards && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="space-y-3 pt-2 border-t border-border"
+                        >
+                          {/* Max Per Wallet */}
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[11px]">Max per Wallet</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={phases[0].maxPerWallet || 10}
+                              onChange={e => {
+                                const newPhases = [...phases];
+                                newPhases[0] = { ...newPhases[0], maxPerWallet: parseInt(e.target.value) || 10 };
+                                setPhases(newPhases);
+                              }}
+                              className="w-20 h-7 text-xs bg-muted/50 border-border"
+                            />
+                          </div>
+
+                          {/* Additional guard options can go here */}
+                          <p className="text-[10px] text-muted-foreground">
+                            More guard options coming soon (whitelist, time gates, etc.)
+                          </p>
+                        </motion.div>
+                      )}
+                    </div>
                   </div>
                 )}
 

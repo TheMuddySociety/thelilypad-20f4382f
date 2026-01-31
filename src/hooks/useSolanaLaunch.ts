@@ -564,13 +564,16 @@ export const useSolanaLaunch = () => {
                     };
 
                     // Add Priority Fees: High for massive account creation
-                    await (await cmBuilder).add(memoInstruction)
+                    const finalBuilder = (await cmBuilder).add(memoInstruction)
                         .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
-                        .add(setComputeUnitLimit(umi, { units: 800_000 }))
-                        .sendAndConfirm(umi, {
-                            send: { skipPreflight: true }, // Skip preflight on CM creation to avoid simulation errors on large initializations
-                            confirm: { commitment: 'confirmed' }
-                        });
+                        .add(setComputeUnitLimit(umi, { units: 800_000 }));
+
+                    // CRITICAL: Simulate first to prevent SOL loss
+                    // Use skipPreflight: false to enable RPC simulation
+                    await finalBuilder.sendAndConfirm(umi, {
+                        send: { skipPreflight: false }, // CHANGED: Enable simulation to prevent SOL loss
+                        confirm: { commitment: 'confirmed' }
+                    });
 
                     break; // Success
                 } catch (innerErr: any) {
@@ -609,7 +612,7 @@ export const useSolanaLaunch = () => {
             await createGuardBuilder
                 .add(setComputeUnitPrice(umi, { microLamports: 100_000 })) // Increased from 50k
                 .sendAndConfirm(umi, {
-                    send: { skipPreflight: true },
+                    send: { skipPreflight: false }, // CHANGED: Enable simulation to prevent SOL loss
                     confirm: { commitment: 'confirmed' }
                 });
 
