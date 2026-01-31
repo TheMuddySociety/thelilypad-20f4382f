@@ -2,9 +2,8 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Clock, Users, ShieldCheck, Coins, Image as ImageIcon } from "lucide-react";
+import { Clock, ShieldCheck, Coins, Image as ImageIcon, Sparkles, Leaf } from "lucide-react";
 import { LaunchpadPhase } from "@/hooks/useSolanaLaunch";
-import { formatDistanceToNow } from "date-fns";
 
 interface LaunchpadPreviewProps {
     name: string;
@@ -27,88 +26,104 @@ export function LaunchpadPreview({
     const isLive = activePhase?.startTime && new Date() >= activePhase.startTime;
 
     return (
-        <div className="h-full flex flex-col items-center justify-center p-6 bg-black/40 backdrop-blur-xl border-l border-white/5">
-            <div className="mb-4 text-xs font-mono uppercase tracking-widest text-muted-foreground/50">Live Preview</div>
+        <div className="h-full flex flex-col items-center justify-center p-4">
+            {/* Header Label */}
+            <div className="flex items-center gap-1.5 mb-3 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                <Sparkles className="w-3 h-3 text-primary" />
+                <span>Live Preview</span>
+            </div>
 
-            <div className="w-full max-w-sm rounded-[2rem] overflow-hidden bg-[#0A0A0A] border border-white/10 shadow-2xl shadow-purple-500/20 ring-1 ring-white/5">
-                {/* Hero Image */}
-                <div className="relative aspect-square w-full bg-gradient-to-br from-gray-900 to-black group overflow-hidden">
+            {/* Compact Preview Card */}
+            <div className="w-full max-w-[280px] rounded-2xl overflow-hidden glass-card border-2 border-border shadow-lg">
+                {/* Hero Image - Compact */}
+                <div className="relative aspect-[4/3] w-full bg-gradient-to-br from-muted to-card overflow-hidden">
                     {coverImage ? (
                         <img
                             src={coverImage}
                             alt="Collection Preview"
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                            className="w-full h-full object-cover"
                         />
                     ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30">
-                            <ImageIcon className="w-16 h-16" />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/40 gap-2">
+                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                                <Leaf className="w-6 h-6 text-primary/50" />
+                            </div>
+                            <span className="text-[10px]">Cover Image</span>
                         </div>
                     )}
 
                     {/* Floating Badges */}
-                    <div className="absolute top-4 left-4 flex gap-2">
-                        <Badge className="bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-black/70">
+                    <div className="absolute top-2 left-2 flex gap-1">
+                        <Badge className="bg-card/80 backdrop-blur-sm border border-border text-foreground text-[10px] h-5 px-1.5">
                             {itemsAvailable} Items
                         </Badge>
                         {activePhase?.gatekeeper && (
-                            <Badge variant="secondary" className="bg-blue-500/20 text-blue-300 border border-blue-500/20 backdrop-blur-md">
-                                <ShieldCheck className="w-3 h-3 mr-1" /> Bot Protected
+                            <Badge className="bg-primary/20 text-primary border border-primary/20 backdrop-blur-sm text-[10px] h-5 px-1.5">
+                                <ShieldCheck className="w-2.5 h-2.5 mr-0.5" /> Protected
                             </Badge>
                         )}
                     </div>
+
+                    {/* Status Badge */}
+                    <div className="absolute top-2 right-2">
+                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium ${isLive
+                                ? "bg-green-500/20 text-green-500 border border-green-500/30"
+                                : "bg-amber-500/20 text-amber-500 border border-amber-500/30"
+                            }`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${isLive ? "bg-green-500 animate-pulse" : "bg-amber-500"}`} />
+                            {isLive ? "Live" : "Soon"}
+                        </div>
+                    </div>
                 </div>
 
-                {/* Content */}
-                <div className="p-6 space-y-6">
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-2xl font-bold text-white tracking-tight line-clamp-1">{name || "Untitled Collection"}</h2>
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/5">
-                                <div className={`w-2 h-2 rounded-full ${isLive ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`} />
-                                <span className="text-[10px] font-medium uppercase text-muted-foreground">
-                                    {isLive ? "Live" : "Upcoming"}
-                                </span>
-                            </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                            {description || "No description provided."}
+                {/* Content - Compact */}
+                <div className="p-3 space-y-3">
+                    {/* Title & Description */}
+                    <div className="space-y-1">
+                        <h2 className="text-sm font-bold text-foreground tracking-tight line-clamp-1">
+                            {name || "Untitled Collection"}
+                        </h2>
+                        <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">
+                            {description || "Your collection description will appear here..."}
                         </p>
                     </div>
 
-                    {/* Progress Bar (Mock) */}
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs font-medium">
-                            <span className="text-white">Total Minted</span>
-                            <span className="text-muted-foreground">0% (0/{itemsAvailable})</span>
+                    {/* Progress Bar */}
+                    <div className="space-y-1">
+                        <div className="flex justify-between text-[10px]">
+                            <span className="text-foreground font-medium">Minted</span>
+                            <span className="text-muted-foreground">0/{itemsAvailable}</span>
                         </div>
-                        <Progress value={5} className="h-2 bg-secondary" />
+                        <Progress value={3} className="h-1.5" />
                     </div>
 
-                    {/* Active Phase Info */}
-                    <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-3">
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground font-medium">{activePhase?.id || "Public"} Phase</span>
+                    {/* Phase Info - Compact */}
+                    <div className="p-2 rounded-lg bg-muted/50 border border-border space-y-1.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{activePhase?.id || "Public"} Phase</span>
                             {activePhase?.endTime && (
-                                <span className="flex items-center text-xs text-orange-400">
-                                    <Clock className="w-3 h-3 mr-1" /> Ends in 24h
+                                <span className="flex items-center text-[9px] text-amber-500">
+                                    <Clock className="w-2.5 h-2.5 mr-0.5" /> 24h left
                                 </span>
                             )}
                         </div>
-
-                        <div className="flex items-center justify-between text-2xl font-bold text-white">
-                            <div className="flex items-center">
-                                <Coins className="w-5 h-5 mr-2 text-yellow-500" />
-                                {activePhase?.price || 0} SOL
-                            </div>
+                        <div className="flex items-center text-base font-bold text-foreground">
+                            <Coins className="w-3.5 h-3.5 mr-1.5 text-primary" />
+                            {activePhase?.price || 0} SOL
                         </div>
                     </div>
 
-                    {/* Action Button */}
-                    <Button className="w-full h-12 text-lg font-bold bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 shadow-lg shadow-purple-500/25 transition-all">
+                    {/* Action Button - Compact */}
+                    <Button size="sm" className="w-full h-8 text-xs font-bold bg-gradient-to-r from-primary to-accent text-primary-foreground">
                         Mint Now
                     </Button>
                 </div>
             </div>
+
+            {/* Hint Text */}
+            <p className="mt-3 text-[10px] text-muted-foreground text-center max-w-[240px]">
+                This is how your mint page will look to collectors
+            </p>
         </div>
     );
 }

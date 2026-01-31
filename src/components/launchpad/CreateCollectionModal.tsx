@@ -721,30 +721,63 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         </div>
 
         {/* RIGHT PANEL: PREVIEW */}
-        <div className="hidden md:flex flex-1 bg-gradient-to-br from-muted/50 to-card items-center justify-center relative overflow-hidden">
-          {/* Decorative elements */}
-          <div className="absolute inset-0 opacity-30">
-            <div className="absolute top-10 left-10 w-32 h-32 rounded-full bg-primary/20 blur-3xl animate-glow-pulse" />
-            <div className="absolute bottom-20 right-20 w-40 h-40 rounded-full bg-accent/20 blur-3xl animate-glow-pulse" style={{ animationDelay: "1s" }} />
+        <div className="hidden md:flex flex-1 flex-col bg-muted/30 relative overflow-hidden">
+          {/* Subtle decorative elements */}
+          <div className="absolute inset-0 opacity-20 pointer-events-none">
+            <div className="absolute top-8 right-8 w-24 h-24 rounded-full bg-primary/30 blur-3xl" />
+            <div className="absolute bottom-12 left-12 w-32 h-32 rounded-full bg-accent/30 blur-3xl" />
           </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60" />
 
-          <motion.div
-            key={currentStep}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="relative z-10 w-full max-w-lg"
-          >
-            <LaunchpadPreview
-              name={name}
-              description={description}
-              coverImage={coverImage}
-              itemsAvailable={mode === "basic" ? (folderAssets.length || 1000) : (generatedAssets.length || targetSupply)}
-              phases={phases}
-              activePhaseIndex={0}
-            />
-          </motion.div>
+          {/* Step Context Header */}
+          <div className="px-4 py-3 border-b border-border bg-card/50 relative z-10">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-0.5">
+              Step {currentStep + 1} of {STEPS.length}
+            </div>
+            <h3 className="text-sm font-semibold text-foreground">
+              {currentStep === 0 && "Select Your Creation Mode"}
+              {currentStep === 1 && "Define Collection Identity"}
+              {mode === "basic" && currentStep === 2 && "Upload Your NFT Assets"}
+              {mode === "basic" && currentStep === 3 && "Configure Mint Settings"}
+              {mode === "basic" && currentStep === 4 && "Ready to Launch"}
+              {mode === "advanced" && currentStep === 2 && "Import Trait Layers"}
+              {mode === "advanced" && currentStep === 3 && "Set Trait Rarity"}
+              {mode === "advanced" && currentStep === 4 && "Generate Unique NFTs"}
+              {mode === "advanced" && currentStep === 5 && "Configure Mint Settings"}
+              {mode === "advanced" && currentStep === 6 && "Ready to Launch"}
+            </h3>
+            <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
+              {currentStep === 0 && "Choose between uploading ready assets or building generative art."}
+              {currentStep === 1 && "Your name, symbol, and cover create the first impression."}
+              {mode === "basic" && currentStep === 2 && "Upload a folder with images and matching JSON metadata."}
+              {mode === "basic" && currentStep === 3 && "Set pricing, guards, and treasury wallet."}
+              {mode === "basic" && currentStep === 4 && "Review and deploy your collection to Solana."}
+              {mode === "advanced" && currentStep === 2 && "Each folder becomes a layer. Drag to reorder."}
+              {mode === "advanced" && currentStep === 3 && "Lower percentages = rarer traits."}
+              {mode === "advanced" && currentStep === 4 && "We'll create unique combinations for your supply."}
+              {mode === "advanced" && currentStep === 5 && "Set pricing, guards, and treasury wallet."}
+              {mode === "advanced" && currentStep === 6 && "Review and deploy your collection to Solana."}
+            </p>
+          </div>
+
+          {/* Preview Card */}
+          <div className="flex-1 flex items-center justify-center relative z-10">
+            <motion.div
+              key={currentStep}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+            >
+              <LaunchpadPreview
+                name={name}
+                description={description}
+                coverImage={coverImage}
+                itemsAvailable={mode === "basic" ? (folderAssets.length || 1000) : (generatedAssets.length || targetSupply)}
+                phases={phases}
+                activePhaseIndex={0}
+              />
+            </motion.div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
