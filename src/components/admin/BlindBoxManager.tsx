@@ -30,6 +30,8 @@ import { toast } from "sonner";
 import { Plus, Package, Trash2, Eye, Loader2, Sparkles, Upload, Copy, Calendar, Coins, ImageIcon, Gift, Star, Crown, Gem, Circle } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import { useWallet } from "@/providers/WalletProvider";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface BlindBox {
   id: string;
@@ -71,6 +73,8 @@ const RARITY_CONFIG = {
 
 const BlindBoxManager = () => {
   const queryClient = useQueryClient();
+  const { address, isConnected } = useWallet();
+  const { profile } = useUserProfile();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedBox, setSelectedBox] = useState<BlindBox | null>(null);
@@ -145,9 +149,23 @@ const BlindBoxManager = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      const creatorId = user?.id;
-      if (!creatorId) throw new Error("Could not determine creator ID");
+      // Try multiple sources for creator ID
+      let creatorId = profile?.id;
+
+      // Fallback: try Supabase auth
+      if (!creatorId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        creatorId = user?.id;
+      }
+
+      // Fallback: use wallet address as creator ID for wallet-only auth
+      if (!creatorId && address) {
+        creatorId = address;
+      }
+
+      if (!creatorId) {
+        throw new Error("Please connect your wallet or sign in to create blind boxes");
+      }
 
       const supply = parseInt(totalSupply) || 100;
 
@@ -499,8 +517,8 @@ const BlindBoxManager = () => {
                     type="button"
                     onClick={() => setPoolType('off_chain')}
                     className={`p-2 rounded-lg border text-xs text-center transition-all ${poolType === 'off_chain'
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:border-primary/50'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:border-primary/50'
                       }`}
                   >
                     <span className="font-medium">Off-Chain</span>
@@ -510,8 +528,8 @@ const BlindBoxManager = () => {
                     type="button"
                     onClick={() => setPoolType('candy_machine')}
                     className={`p-2 rounded-lg border text-xs text-center transition-all ${poolType === 'candy_machine'
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:border-primary/50'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:border-primary/50'
                       }`}
                   >
                     <span className="font-medium">NFT Pool</span>
@@ -521,8 +539,8 @@ const BlindBoxManager = () => {
                     type="button"
                     onClick={() => setPoolType('escrow')}
                     className={`p-2 rounded-lg border text-xs text-center transition-all ${poolType === 'escrow'
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:border-primary/50'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:border-primary/50'
                       }`}
                   >
                     <span className="font-medium">Escrow</span>
