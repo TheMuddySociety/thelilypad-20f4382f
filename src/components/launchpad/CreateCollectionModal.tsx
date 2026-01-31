@@ -392,21 +392,21 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 gap-0 bg-background border-border overflow-hidden flex flex-col md:flex-row shadow-2xl pb-10">
+      <DialogContent className="max-w-[95vw] w-full h-[85vh] p-0 gap-0 bg-background border-border overflow-hidden flex flex-col md:flex-row shadow-2xl">
 
         {/* LEFT PANEL: CONFIGURATION */}
-        <div className="w-full md:w-[60%] lg:w-[480px] flex flex-col border-r border-border bg-card/50">
-          {/* Header */}
-          <div className="p-6 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
-            <div className="flex items-center gap-2 text-primary mb-1">
-              <Sparkles className="w-4 h-4" />
-              <span className="text-xs font-mono uppercase tracking-widest">Create Collection</span>
+        <div className="w-full md:w-[55%] lg:w-[420px] flex flex-col border-r border-border bg-card/50">
+          {/* Header - Compact */}
+          <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
+            <div className="flex items-center gap-1.5 text-primary mb-0.5">
+              <Sparkles className="w-3 h-3" />
+              <span className="text-[10px] font-mono uppercase tracking-widest">Create Collection</span>
             </div>
-            <h1 className="text-xl font-bold gradient-text tracking-tight">Launchpad Wizard</h1>
+            <h1 className="text-base font-bold gradient-text">Launchpad Wizard</h1>
           </div>
 
-          {/* Steps Indicator */}
-          <div className="px-6 py-4 flex gap-2 overflow-x-auto bg-muted/30">
+          {/* Steps Indicator - Compact */}
+          <div className="px-3 py-2 flex gap-1.5 overflow-x-auto bg-muted/20 border-b border-border/50">
             {STEPS.map((step) => {
               const Icon = step.icon;
               const isActive = currentStep === step.id;
@@ -415,22 +415,22 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
               return (
                 <div
                   key={step.id}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${isActive
-                    ? "bg-primary/20 border-primary text-primary shadow-sm"
+                  className={`flex items-center gap-1 px-2 py-1 rounded-full border text-[10px] font-medium transition-all ${isActive
+                    ? "bg-primary/20 border-primary text-primary"
                     : isDone
                       ? "bg-accent/10 border-accent/30 text-accent"
-                      : "border-transparent text-muted-foreground opacity-50"
+                      : "border-transparent text-muted-foreground opacity-40"
                     }`}
                 >
-                  <Icon className="w-3 h-3" />
-                  <span className="hidden sm:inline">{step.title}</span>
+                  <Icon className="w-2.5 h-2.5" />
+                  <span className="hidden lg:inline">{step.title}</span>
                 </div>
               );
             })}
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 relative">
+          <div className="flex-1 overflow-y-auto px-4 py-3 relative">
             <AnimatePresence initial={false} custom={direction} mode="wait">
               <motion.div
                 key={currentStep}
@@ -706,15 +706,15 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
             </AnimatePresence>
           </div>
 
-          {/* Footer Navigation */}
-          <div className="p-6 border-t border-border flex justify-between bg-card/80">
-            <Button variant="ghost" onClick={prevStep} disabled={currentStep === 0} className="text-muted-foreground hover:text-foreground">
-              <ChevronLeft className="w-4 h-4 mr-2" /> Back
+          {/* Footer Navigation - Compact */}
+          <div className="px-4 py-3 border-t border-border flex justify-between bg-card/80">
+            <Button variant="ghost" size="sm" onClick={prevStep} disabled={currentStep === 0} className="text-muted-foreground hover:text-foreground h-8 text-xs">
+              <ChevronLeft className="w-3 h-3 mr-1" /> Back
             </Button>
 
             {currentStep < maxStep ? (
-              <Button onClick={nextStep} className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 shadow-md">
-                Continue <ChevronRight className="w-4 h-4 ml-2" />
+              <Button size="sm" onClick={nextStep} className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 h-8 text-xs px-4">
+                Continue <ChevronRight className="w-3 h-3 ml-1" />
               </Button>
             ) : null}
           </div>
