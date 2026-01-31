@@ -392,31 +392,38 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 gap-0 bg-[#09090b] border-white/10 overflow-hidden flex flex-col md:flex-row shadow-2xl pb-10">
+      <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 gap-0 bg-background border-border overflow-hidden flex flex-col md:flex-row shadow-2xl pb-10">
 
         {/* LEFT PANEL: CONFIGURATION */}
-        <div className="w-full md:w-[60%] lg:w-[450px] flex flex-col border-r border-white/5 bg-[#0c0c0e]">
+        <div className="w-full md:w-[60%] lg:w-[480px] flex flex-col border-r border-border bg-card/50">
           {/* Header */}
-          <div className="p-6 border-b border-white/5">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+          <div className="p-6 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
+            <div className="flex items-center gap-2 text-primary mb-1">
+              <Sparkles className="w-4 h-4" />
               <span className="text-xs font-mono uppercase tracking-widest">Create Collection</span>
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Launchpad Wizard</h1>
+            <h1 className="text-xl font-bold gradient-text tracking-tight">Launchpad Wizard</h1>
           </div>
 
           {/* Steps Indicator */}
-          <div className="px-6 py-4 flex gap-2 overflow-x-auto">
+          <div className="px-6 py-4 flex gap-2 overflow-x-auto bg-muted/30">
             {STEPS.map((step) => {
               const Icon = step.icon;
               const isActive = currentStep === step.id;
               const isDone = currentStep > step.id;
 
               return (
-                <div key={step.id} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${isActive ? "bg-primary/20 border-primary text-primary" :
-                  isDone ? "bg-white/5 border-white/10 text-white" : "border-transparent text-muted-foreground opacity-50"
-                  }`}>
+                <div
+                  key={step.id}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${isActive
+                    ? "bg-primary/20 border-primary text-primary shadow-sm"
+                    : isDone
+                      ? "bg-accent/10 border-accent/30 text-accent"
+                      : "border-transparent text-muted-foreground opacity-50"
+                    }`}
+                >
                   <Icon className="w-3 h-3" />
-                  <span>{step.title}</span>
+                  <span className="hidden sm:inline">{step.title}</span>
                 </div>
               );
             })}
@@ -700,13 +707,13 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
           </div>
 
           {/* Footer Navigation */}
-          <div className="p-6 border-t border-white/5 flex justify-between bg-[#09090b]">
-            <Button variant="ghost" onClick={prevStep} disabled={currentStep === 0} className="text-muted-foreground hover:text-white">
+          <div className="p-6 border-t border-border flex justify-between bg-card/80">
+            <Button variant="ghost" onClick={prevStep} disabled={currentStep === 0} className="text-muted-foreground hover:text-foreground">
               <ChevronLeft className="w-4 h-4 mr-2" /> Back
             </Button>
 
             {currentStep < maxStep ? (
-              <Button onClick={nextStep} className="bg-white text-black hover:bg-white/90">
+              <Button onClick={nextStep} className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 shadow-md">
                 Continue <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             ) : null}
@@ -714,8 +721,13 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
         </div>
 
         {/* RIGHT PANEL: PREVIEW */}
-        <div className="hidden md:flex flex-1 bg-[url('/grid-pattern.svg')] bg-cover bg-center items-center justify-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" />
+        <div className="hidden md:flex flex-1 bg-gradient-to-br from-muted/50 to-card items-center justify-center relative overflow-hidden">
+          {/* Decorative elements */}
+          <div className="absolute inset-0 opacity-30">
+            <div className="absolute top-10 left-10 w-32 h-32 rounded-full bg-primary/20 blur-3xl animate-glow-pulse" />
+            <div className="absolute bottom-20 right-20 w-40 h-40 rounded-full bg-accent/20 blur-3xl animate-glow-pulse" style={{ animationDelay: "1s" }} />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60" />
 
           <motion.div
             key={currentStep}
@@ -728,7 +740,7 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
               name={name}
               description={description}
               coverImage={coverImage}
-              itemsAvailable={folderAssets.length || 1000}
+              itemsAvailable={mode === "basic" ? (folderAssets.length || 1000) : (generatedAssets.length || targetSupply)}
               phases={phases}
               activePhaseIndex={0}
             />

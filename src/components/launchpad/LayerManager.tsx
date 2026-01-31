@@ -2,7 +2,6 @@ import React, { useState, useCallback } from "react";
 import { motion, Reorder } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   FolderPlus,
@@ -13,6 +12,8 @@ import {
   ChevronUp,
   Eye,
   EyeOff,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,8 +39,6 @@ interface LayerManagerProps {
 }
 
 export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
-  const [isDragging, setIsDragging] = useState(false);
-
   // Handle folder input for a layer
   const handleAddLayer = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -126,11 +125,14 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-white">Trait Layers</h3>
+        <div className="space-y-1">
+          <h3 className="text-lg font-bold gradient-text flex items-center gap-2">
+            <Layers className="w-5 h-5 text-primary" />
+            Trait Layers
+          </h3>
           <p className="text-xs text-muted-foreground">
             Import folders for each layer (Background, Body, Eyes, etc.)
           </p>
@@ -146,7 +148,7 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
             className="hidden"
             onChange={handleAddLayer}
           />
-          <Button variant="outline" size="sm" asChild>
+          <Button className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 shadow-md" size="sm" asChild>
             <span>
               <FolderPlus className="w-4 h-4 mr-2" />
               Add Layer Folder
@@ -157,12 +159,19 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
 
       {/* Layers List */}
       {layers.length === 0 ? (
-        <div className="border-2 border-dashed border-white/10 rounded-xl p-8 text-center">
-          <ImageIcon className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">
-            No layers added yet. Click "Add Layer Folder" to import your first layer.
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card border-2 border-dashed border-border p-10 text-center"
+        >
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/10 flex items-center justify-center">
+            <ImageIcon className="w-8 h-8 text-primary" />
+          </div>
+          <h4 className="font-semibold text-foreground mb-2">No layers added yet</h4>
+          <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+            Click "Add Layer Folder" to import your first layer. Each folder should contain trait variations.
           </p>
-        </div>
+        </motion.div>
       ) : (
         <Reorder.Group
           axis="y"
@@ -178,40 +187,43 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
             >
               <motion.div
                 layout
-                className={`rounded-xl border ${layer.visible
-                    ? "border-white/10 bg-white/5"
-                    : "border-white/5 bg-white/[0.02] opacity-60"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`rounded-xl glass-card overflow-hidden ${layer.visible
+                    ? "border-border"
+                    : "opacity-60"
                   }`}
               >
                 {/* Layer Header */}
-                <div className="flex items-center gap-3 p-3">
+                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-muted/50 to-transparent">
                   <GripVertical className="w-4 h-4 text-muted-foreground" />
 
-                  <Badge variant="outline" className="font-mono text-xs">
+                  <Badge className="bg-primary/20 text-primary border-primary/30 font-mono text-xs">
                     {index + 1}
                   </Badge>
 
                   <Input
                     value={layer.name}
                     onChange={(e) => updateLayerName(layer.id, e.target.value)}
-                    className="flex-1 h-8 bg-transparent border-transparent hover:border-white/10 focus:border-white/20 px-2"
+                    className="flex-1 h-8 bg-transparent border-transparent hover:border-border focus:border-primary px-2 font-medium"
                   />
 
-                  <span className="text-xs text-muted-foreground">
+                  <Badge variant="outline" className="text-xs">
+                    <Sparkles className="w-3 h-3 mr-1" />
                     {layer.traits.length} traits
-                  </span>
+                  </Badge>
 
                   <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-8 w-8 hover:bg-primary/10"
                       onClick={() => toggleLayerVisibility(layer.id)}
                     >
                       {layer.visible ? (
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-4 h-4 text-primary" />
                       ) : (
-                        <EyeOff className="w-4 h-4" />
+                        <EyeOff className="w-4 h-4 text-muted-foreground" />
                       )}
                     </Button>
 
@@ -231,7 +243,7 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => removeLayer(layer.id)}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -245,13 +257,16 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="px-3 pb-3 overflow-hidden"
+                    className="px-4 pb-4 overflow-hidden"
                   >
-                    <div className="flex gap-2 overflow-x-auto pb-2">
-                      {layer.traits.slice(0, 8).map((trait) => (
-                        <div
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-primary/20">
+                      {layer.traits.slice(0, 8).map((trait, traitIndex) => (
+                        <motion.div
                           key={trait.id}
-                          className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-white/10 bg-black/50"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: traitIndex * 0.05 }}
+                          className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 border-border bg-card hover:border-primary transition-colors"
                           title={trait.name}
                         >
                           <img
@@ -259,11 +274,11 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
                             alt={trait.name}
                             className="w-full h-full object-contain"
                           />
-                        </div>
+                        </motion.div>
                       ))}
                       {layer.traits.length > 8 && (
-                        <div className="flex-shrink-0 w-16 h-16 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center">
-                          <span className="text-xs text-muted-foreground">
+                        <div className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-dashed border-border bg-muted/50 flex items-center justify-center">
+                          <span className="text-xs font-medium text-muted-foreground">
                             +{layer.traits.length - 8}
                           </span>
                         </div>
@@ -277,17 +292,30 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
         </Reorder.Group>
       )}
 
-      {/* Info */}
+      {/* Info Card */}
       {layers.length > 0 && (
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-          <p className="text-xs text-blue-300">
-            <strong>Tip:</strong> Drag layers to reorder. Top layer = rendered last (on top).
-            Total combinations:{" "}
-            <span className="font-mono font-bold">
-              {layers.reduce((acc, l) => acc * (l.visible ? l.traits.length : 1), 1).toLocaleString()}
-            </span>
-          </p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="glass-card p-4 border-primary/30"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-foreground font-medium">
+                Total Combinations:{" "}
+                <span className="font-mono text-primary">
+                  {layers.reduce((acc, l) => acc * (l.visible ? l.traits.length : 1), 1).toLocaleString()}
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Drag layers to reorder. Top layer renders last (on top).
+              </p>
+            </div>
+          </div>
+        </motion.div>
       )}
     </div>
   );
