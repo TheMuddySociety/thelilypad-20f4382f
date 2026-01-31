@@ -34,8 +34,8 @@ import { toast } from 'sonner';
 import { buildProtocolMemo, MEMO_PROGRAM_ID } from '@/lib/solanaProtocol';
 import { PLATFORM_WALLETS, getLaunchpadFeeSplit } from '@/config/treasury';
 
-// Helper to wait for transaction confirmation
-const waitForConfirmation = async (umi: any, signature: Uint8Array, maxRetries = 30): Promise<boolean> => {
+// Helper to wait for transaction confirmation (fast version)
+const waitForConfirmation = async (umi: any, signature: Uint8Array, maxRetries = 10): Promise<boolean> => {
     for (let i = 0; i < maxRetries; i++) {
         try {
             const result = await umi.rpc.getSignatureStatuses([signature]);
@@ -43,9 +43,9 @@ const waitForConfirmation = async (umi: any, signature: Uint8Array, maxRetries =
                 return true;
             }
         } catch (e) {
-            console.log(`Waiting for confirmation... attempt ${i + 1}/${maxRetries}`);
+            // Silent retry
         }
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500)); // Faster polling
     }
     return false;
 };
@@ -449,17 +449,14 @@ export const useSolanaLaunch = () => {
 
                     if (innerErr.message?.includes("Blockhash not found") || innerErr.message?.includes("blockhash")) {
                         console.log("Retrying with fresh blockhash...");
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        await new Promise(resolve => setTimeout(resolve, 500)); // Faster retry
                         continue;
                     }
                     throw innerErr;
                 }
             }
 
-            // Wait for confirmation
-            toast.loading(`Verifying deployment...`, { id: 'sol-deploy' });
-            await waitForConfirmation(umi, new Uint8Array(Buffer.from(collectionSigner.publicKey.toString())));
-
+            // No redundant waitForConfirmation - sendAndConfirm already confirms!
             toast.success(`Core Collection Deployed!`, { id: 'sol-deploy' });
             return {
                 signature: new Uint8Array(0),
@@ -616,16 +613,11 @@ export const useSolanaLaunch = () => {
                     confirm: { commitment: 'confirmed' }
                 });
 
-            // Explicitly wait for the Guard account to be visible/initialized
-            console.log("[CM] Waiting for Candy Guard initialization...");
-            await waitForConfirmation(umi, new Uint8Array(0), 5); // Just a small delay/check helper if needed, but the loop below is better
-
-            // Verify Guard Account Exists before wrapping
+            // Verify Guard Account Exists before wrapping (fast check)
             let guardAccount = await umi.rpc.getAccount(candyGuardPda[0]);
             let retries = 0;
-            while (!guardAccount.exists && retries < 5) {
-                console.log(`[CM] Guard account not found yet, retrying check... (${retries + 1}/5)`);
-                await new Promise(r => setTimeout(r, 1000));
+            while (!guardAccount.exists && retries < 3) {
+                await new Promise(r => setTimeout(r, 500)); // Faster polling
                 guardAccount = await umi.rpc.getAccount(candyGuardPda[0]);
                 retries++;
             }
