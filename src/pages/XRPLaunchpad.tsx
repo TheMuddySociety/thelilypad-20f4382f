@@ -396,13 +396,12 @@ function XRPLaunchpadContent() {
                             <Card className="bg-card/80 backdrop-blur border-border">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                        <CardTitle className="flex items-center gap-2">
-                                            <Rocket className="w-5 h-5" />
-                                            Configure Your Collection
-                                        </CardTitle>
-                                        <CardDescription>
-                                            Set up your NFT collection details and minting settings
-                                        </CardDescription>
+                                        <Rocket className="w-5 h-5" />
+                                        Configure Your Collection
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Set up your NFT collection details and minting settings
+                                    </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     {/* Basic Info */}
@@ -559,9 +558,6 @@ function XRPLaunchpadContent() {
                                         </div>
                                     </div>
 
-                                    <Button
-                                        onClick={handleDeploy}
-                                        className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:opacity-90"
                                     <Button
                                         onClick={handleDeploy}
                                         className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:opacity-90"
