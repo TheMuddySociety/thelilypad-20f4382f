@@ -38,6 +38,17 @@ import { useXRPLMint } from '@/hooks/useXRPLMint';
 import { useXRPLCollection } from '@/hooks/useXRPLCollection';
 import { XRPLNetwork, getXRPLExplorerUrl, XRPL_NETWORKS } from '@/config/xrpl';
 import { Wallet as XRPLWalletClass } from 'xrpl';
+import { useXRPLAccount } from '@/hooks/useXRPLAccount';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Globe, RefreshCw } from 'lucide-react';
 
 interface CollectionForm {
     name: string;
@@ -49,6 +60,7 @@ interface CollectionForm {
     burnable: boolean;
     transferable: boolean;
     onlyXRP: boolean;
+    metadataStrategy: 'uri' | 'domain';
 }
 
 const defaultFormState: CollectionForm = {
@@ -61,6 +73,7 @@ const defaultFormState: CollectionForm = {
     burnable: true,
     transferable: true,
     onlyXRP: true,
+    metadataStrategy: 'uri',
 };
 
 function XRPLaunchpadContent() {
@@ -79,11 +92,21 @@ function XRPLaunchpadContent() {
 
     const { mintNFT, batchMintNFTs, isMinting, progress } = useXRPLMint(network);
     const { generateTaxon } = useXRPLCollection(network);
+    const { fetchAccountSettings, setDomain, settings: accountSettings, isLoading: isAccountLoading } = useXRPLAccount(network);
 
     const [step, setStep] = useState<'connect' | 'configure' | 'deploy' | 'success'>('connect');
     const [form, setForm] = useState<CollectionForm>(defaultFormState);
     const [deployedTaxon, setDeployedTaxon] = useState<number | null>(null);
     const [mintedNFTs, setMintedNFTs] = useState<string[]>([]);
+    const [newDomain, setNewDomain] = useState('');
+    const [isDomainDialogOpen, setIsDomainDialogOpen] = useState(false);
+
+    // Fetch account settings on connect
+    React.useEffect(() => {
+        if (isConnected && address) {
+            fetchAccountSettings(address);
+        }
+    }, [isConnected, address, fetchAccountSettings]);
 
     // Update form field
     const updateForm = useCallback(<K extends keyof CollectionForm>(
@@ -102,7 +125,9 @@ function XRPLaunchpadContent() {
     };
 
     // Generate metadata URIs for collection
-    const generateMetadataURIs = useCallback((baseUri: string, count: number): string[] => {
+    const generateMetadataURIs = useCallback((baseUri: string, count: number, strategy: 'uri' | 'domain'): string[] | undefined => {
+        if (strategy === 'domain') return undefined;
+
         // If base URI ends with /, generate numbered files
         if (baseUri.endsWith('/')) {
             return Array.from({ length: count }, (_, i) => `${baseUri}${i + 1}.json`);
@@ -118,8 +143,18 @@ function XRPLaunchpadContent() {
             return;
         }
 
-        if (!form.name || !form.metadataBaseUri) {
-            toast.error('Please fill in collection name and metadata URI');
+        if (!form.name) {
+            toast.error('Please fill in collection name');
+            return;
+        }
+
+        if (form.metadataStrategy === 'uri' && !form.metadataBaseUri) {
+            toast.error('Please fill in metadata URI');
+            return;
+        }
+
+        if (form.metadataStrategy === 'domain' && !accountSettings?.domain) {
+            toast.error('Account Domain must be set for Domain Strategy');
             return;
         }
 
@@ -130,8 +165,8 @@ function XRPLaunchpadContent() {
             const taxon = generateTaxon();
             setDeployedTaxon(taxon);
 
-            // Generate URIs for all NFTs
-            const uris = generateMetadataURIs(form.metadataBaseUri, form.totalSupply);
+            // Generate URIs for all NFTs (undefined if strategy is domain)
+            const uris = generateMetadataURIs(form.metadataBaseUri, form.totalSupply, form.metadataStrategy);
 
             // Create wallet instance for signing
             // Note: In production, this would use the actual connected wallet
@@ -139,7 +174,7 @@ function XRPLaunchpadContent() {
 
             // Batch mint all NFTs
             const results = await batchMintNFTs(signingWallet, {
-                uri: form.metadataBaseUri,
+                uri: form.metadataStrategy === 'uri' ? form.metadataBaseUri : undefined,
                 uris,
                 count: form.totalSupply,
                 taxon,
@@ -209,6 +244,67 @@ function XRPLaunchpadContent() {
                                     <Button variant="ghost" size="sm" onClick={disconnect}>
                                         Disconnect
                                     </Button>
+
+                                    {/* Account Settings Dialog */}
+                                    <Dialog open={isDomainDialogOpen} onOpenChange={setIsDomainDialogOpen}>
+                                        <DialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" title="Account Settings">
+                                                <Settings className="w-4 h-4" />
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>Account Settings</DialogTitle>
+                                                <DialogDescription>
+                                                    Configure your XRPL account settings. Setting a Domain allows you to save ledger space for NFTs.
+                                                </DialogDescription>
+                                            </DialogHeader>
+
+                                            <div className="space-y-4 py-4">
+                                                <div className="space-y-2">
+                                                    <Label>Current Domain</Label>
+                                                    <div className="flex items-center gap-2 p-3 bg-muted rounded-md text-sm">
+                                                        <Globe className="w-4 h-4 text-muted-foreground" />
+                                                        <span className={!accountSettings?.domain ? "text-muted-foreground italic" : ""}>
+                                                            {accountSettings?.domain || "Not set"}
+                                                        </span>
+                                                        {isAccountLoading && <RefreshCw className="w-3 h-3 animate-spin ml-auto" />}
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label>Update Domain</Label>
+                                                    <div className="flex gap-2">
+                                                        <Input
+                                                            value={newDomain}
+                                                            onChange={(e) => {
+                                                                // Strip protocols if pasted
+                                                                const val = e.target.value.replace(/^https?:\/\//, '').replace(/\/$/, '');
+                                                                setNewDomain(val);
+                                                            }}
+                                                            placeholder="thelilypad.lovable.app"
+                                                        />
+                                                        <Button
+                                                            onClick={async () => {
+                                                                if (!wallet) return;
+                                                                const res = await setDomain(wallet as unknown as XRPLWalletClass, newDomain);
+                                                                if (res.success) {
+                                                                    setNewDomain('');
+                                                                    setIsDomainDialogOpen(false);
+                                                                }
+                                                            }}
+                                                            disabled={isAccountLoading || !newDomain}
+                                                        >
+                                                            {isAccountLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Set"}
+                                                        </Button>
+                                                    </div>
+                                                    <p className="text-[10px] text-muted-foreground">
+                                                        Requires an 'AccountSet' transaction.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </DialogContent>
+                                    </Dialog>
                                 </div>
                             ) : (
                                 <Badge variant="outline" className="text-muted-foreground">
@@ -300,12 +396,13 @@ function XRPLaunchpadContent() {
                             <Card className="bg-card/80 backdrop-blur border-border">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                        <Settings className="w-5 h-5" />
-                                        Configure Your Collection
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Set up your NFT collection details and minting settings
-                                    </CardDescription>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Rocket className="w-5 h-5" />
+                                            Configure Your Collection
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Set up your NFT collection details and minting settings
+                                        </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     {/* Basic Info */}
@@ -351,17 +448,60 @@ function XRPLaunchpadContent() {
                                                 max={10000}
                                             />
                                         </div>
+
                                         <div className="space-y-2">
-                                            <Label className="flex items-center gap-1">
-                                                <Link2 className="w-3 h-3" />
-                                                Metadata Base URI
+                                            <Label className="flex items-center justify-between">
+                                                <div className="flex items-center gap-1">
+                                                    <Settings className="w-3 h-3" />
+                                                    Metadata Strategy
+                                                </div>
                                             </Label>
+                                            <Select
+                                                value={form.metadataStrategy}
+                                                onValueChange={(v: 'uri' | 'domain') => updateForm('metadataStrategy', v)}
+                                            >
+                                                <SelectTrigger className="h-10">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="uri">Direct URI (Standard)</SelectItem>
+                                                    <SelectItem value="domain">Account Domain (Optimized)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-1">
+                                            {form.metadataStrategy === 'uri' ? <Link2 className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
+                                            {form.metadataStrategy === 'uri' ? 'Metadata Base URI' : 'Domain Preview'}
+                                        </Label>
+
+                                        {form.metadataStrategy === 'uri' ? (
                                             <Input
                                                 value={form.metadataBaseUri}
                                                 onChange={(e) => updateForm('metadataBaseUri', e.target.value)}
                                                 placeholder="ipfs://Qm.../metadata/"
                                             />
-                                        </div>
+                                        ) : (
+                                            <div className="p-3 bg-muted rounded-md text-xs font-mono text-muted-foreground">
+                                                {!accountSettings?.domain ? (
+                                                    <span className="text-red-400 flex items-center gap-1">
+                                                        <AlertCircle className="w-3 h-3" />
+                                                        Domain not set on account. Open settings to configure.
+                                                    </span>
+                                                ) : (
+                                                    <span>
+                                                        https://{accountSettings.domain}/tokens/[ID]
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                        {form.metadataStrategy === 'domain' && (
+                                            <p className="text-[10px] text-muted-foreground">
+                                                Metadata will be resolved from your account domain instead of stored on-chain.
+                                            </p>
+                                        )}
                                     </div>
 
                                     {/* Royalties */}
@@ -422,7 +562,14 @@ function XRPLaunchpadContent() {
                                     <Button
                                         onClick={handleDeploy}
                                         className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:opacity-90"
-                                        disabled={!form.name || !form.metadataBaseUri}
+                                    <Button
+                                        onClick={handleDeploy}
+                                        className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:opacity-90"
+                                        disabled={
+                                            !form.name ||
+                                            (form.metadataStrategy === 'uri' && !form.metadataBaseUri) ||
+                                            (form.metadataStrategy === 'domain' && !accountSettings?.domain)
+                                        }
                                     >
                                         <Rocket className="w-5 h-5 mr-2" />
                                         Launch Collection ({form.totalSupply} NFTs)

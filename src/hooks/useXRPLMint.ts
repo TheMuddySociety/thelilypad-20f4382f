@@ -11,7 +11,7 @@ import {
 import { toast } from 'sonner';
 
 interface MintNFTParams {
-    uri: string;                   // Metadata URI (IPFS, Arweave, etc.)
+    uri?: string;                  // Metadata URI (optional for Domain strategy)
     taxon?: number;                // Collection grouping (default: 0)
     transferFeePercent?: number;   // Royalty percentage (0-50)
     burnable?: boolean;            // Can issuer burn?
@@ -62,8 +62,8 @@ export function useXRPLMint(network: XRPLNetwork = DEFAULT_XRPL_NETWORK) {
                 mutable: params.mutable ?? false,
             });
 
-            // Convert URI to hex
-            const uriHex = convertStringToHex(params.uri);
+            // Convert URI to hex (if provided)
+            const uriHex = params.uri ? convertStringToHex(params.uri) : undefined;
 
             // Calculate transfer fee (0-50% -> 0-50000)
             const transferFee = percentToTransferFee(params.transferFeePercent ?? 0);
