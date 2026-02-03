@@ -78,6 +78,7 @@ import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrencySymbol, getExplorerUrl, isSolanaChain, getNetworkDisplayName, isTestnet as isChainTestnet } from "@/lib/chainUtils";
 import { getMerkleProof, AllowlistEntry } from "@/utils/merkle";
+import { SupportedChain, CHAINS } from "@/config/chains";
 
 // Metaplex Imports for Source of Truth
 import { publicKey } from "@metaplex-foundation/umi";
@@ -108,8 +109,8 @@ interface Collection {
   social_website: string | null;
   social_telegram: string | null;
   collection_type?: string;
-  blockchain?: 'solana';
-  chain?: 'solana';
+  blockchain?: 'solana' | 'xrpl' | 'monad';
+  chain?: string; // Stored as 'solana', 'solana-devnet', 'xrpl', 'xrpl-testnet', 'monad', 'monad-testnet', etc.
   solana_standard?: string;
   layers_metadata?: unknown;
   artworks_metadata?: unknown;
@@ -299,12 +300,25 @@ export default function CollectionDetail() {
   const [isInitializing, setIsInitializing] = useState(false);
 
   // Determine chain from collection data
-  const collectionChain = collection?.chain || collection?.blockchain || 'solana';
-  const isSolana = true;
-  const currency = getCurrencySymbol(collectionChain);
-  const collectionNetwork = getNetworkDisplayName(collectionChain);
-  const isCollectionTestnet = isChainTestnet(collectionChain);
-  const collectionExplorerUrl = getExplorerUrl(collectionChain, isCollectionTestnet ? 'testnet' : 'mainnet');
+  // Parse chain string to get the base chain type (e.g., 'solana-devnet' -> 'solana')
+  const getBaseChain = (chainStr: string): SupportedChain => {
+    if (chainStr.startsWith('solana')) return 'solana';
+    if (chainStr.startsWith('xrpl')) return 'xrpl';
+    if (chainStr.startsWith('monad')) return 'monad';
+    return 'solana'; // default
+  };
+
+  const collectionChainStr = collection?.chain || collection?.blockchain || 'solana';
+  const collectionChain = getBaseChain(collectionChainStr);
+  const chainConfig = CHAINS[collectionChain];
+  const isSolana = collectionChain === 'solana';
+  const isXRPL = collectionChain === 'xrpl';
+  const isMonad = collectionChain === 'monad';
+  const isMintingSupported = isSolana; // Only Solana fully supports minting for now
+  const currency = chainConfig.symbol;
+  const collectionNetwork = chainConfig.name;
+  const isCollectionTestnet = isChainTestnet(collectionChainStr);
+  const collectionExplorerUrl = chainConfig.networks[isCollectionTestnet ? 'testnet' : 'mainnet']?.explorer || '';
 
   const isTestnet = network === "testnet";
   const isWrongNetwork = false; // Always correct for now, or handled by SOL adapter
@@ -536,6 +550,16 @@ export default function CollectionDetail() {
   const isSoldOut = remainingSupply <= 0;
 
   const handleMint = async () => {
+    // Check if minting is supported on this chain
+    if (!isMintingSupported) {
+      toast.info(`${chainConfig.name} minting coming soon!`, {
+        description: isXRPL
+          ? "XRP Ledger collections can be minted from the dedicated XRP Launchpad."
+          : "Monad minting will be available when mainnet launches.",
+      });
+      return;
+    }
+
     // Check if wallet is connected
     if (!isConnected) {
       toast.error("Wallet not connected", {

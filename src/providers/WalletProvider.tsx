@@ -7,8 +7,9 @@ import { Connection, PublicKey } from "@solana/web3.js";
 
 // Types
 export type WalletType = "phantom" | "solana";
-export type ChainType = "solana";
+export type ChainType = "solana" | "xrpl" | "monad";
 export type OAuthProvider = "google" | "apple";
+
 
 interface WalletState {
   address: string | null;

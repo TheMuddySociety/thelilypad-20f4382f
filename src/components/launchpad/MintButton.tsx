@@ -2,25 +2,42 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useSolanaMint } from '@/hooks/useSolanaMint';
+import { SupportedChain, CHAINS } from '@/config/chains';
+
+interface MintButtonProps {
+    collectionId: string;
+    candyMachineAddress: string; // on-chain candy-machine address (base58)
+    collectionAddress: string; // on-chain collection address (base58)
+    price: number; // price in native currency
+    chain?: SupportedChain; // The chain this collection is on
+}
 
 /**
- * Simple mint button that triggers a candy‑machine mint for a deployed collection.
- * Assumes `contract_address` is the candy‑machine address.
+ * Multi-chain mint button that triggers minting for a deployed collection.
+ * Supports Solana (full), XRP (limited), and Monad (coming soon).
  */
 export function MintButton({
     collectionId,
     candyMachineAddress,
     collectionAddress,
     price,
-}: {
-    collectionId: string;
-    candyMachineAddress: string; // on‑chain candy‑machine address (base58)
-    collectionAddress: string; // on‑chain collection address (base58)
-    price: number; // price in SOL
-}) {
+    chain = 'solana'
+}: MintButtonProps) {
     const { isLoading, error, mintFromCandyMachine } = useSolanaMint();
 
+    // Get chain config for display
+    const chainConfig = CHAINS[chain];
+    const currencySymbol = chainConfig.symbol;
+
+    // Check if chain supports minting
+    const isMintingSupported = chain === 'solana';
+
     const handleMint = async () => {
+        if (!isMintingSupported) {
+            toast.info(`${chainConfig.name} minting coming soon!`);
+            return;
+        }
+
         try {
             const result = await mintFromCandyMachine(
                 candyMachineAddress,
@@ -29,7 +46,7 @@ export function MintButton({
                     // Minimal phase args – using public phase by default
                     phaseId: 'public',
                     price,
-                    // No allow‑list proof needed for public phase
+                    // No allow-list proof needed for public phase
                 }
             );
             // The hook already tracks the transaction; we just surface UI feedback.
@@ -45,10 +62,15 @@ export function MintButton({
         <Button
             size="sm"
             onClick={handleMint}
-            disabled={isLoading}
+            disabled={isLoading || !isMintingSupported}
             className="mt-2 w-full"
         >
-            {isLoading ? 'Minting…' : `Mint for ${price} SOL`}
+            {isLoading
+                ? 'Minting…'
+                : !isMintingSupported
+                    ? `${chainConfig.name} Coming Soon`
+                    : `Mint for ${price} ${currencySymbol}`
+            }
         </Button>
     );
 }
