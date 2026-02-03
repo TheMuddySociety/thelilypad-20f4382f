@@ -156,6 +156,7 @@ export default function Launchpad() {
       <CreateCollectionModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
+        selectedChain={selectedChain}
         onCollectionCreated={() => {
           loadDraft();
           refetch(); // Explicitly refresh collections

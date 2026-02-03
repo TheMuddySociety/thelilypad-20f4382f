@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ import {
   Layers,
   Wand2,
   Settings,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FolderUploader } from "./FolderUploader";
@@ -37,15 +38,23 @@ import { LayerManager, Layer } from "./LayerManager";
 import { TraitRarityEditor } from "./TraitRarityEditor";
 import { useWallet } from "@/providers/WalletProvider";
 import { useSolanaLaunch, LaunchpadPhase } from "@/hooks/useSolanaLaunch";
+import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
+import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { validateAssets, AssetFile } from "@/utils/assetValidator";
 import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
+import { SupportedChain, CHAINS } from "@/config/chains";
+import { ChainIcon } from "./ChainSelector";
 
 interface CreateCollectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCollectionCreated?: () => void;
+  /**
+   * The currently selected blockchain to deploy on
+   */
+  selectedChain?: SupportedChain;
   /**
    * Optional standard hint from the Launchpad page (e.g. "core").
    * Currently unused by this wizard, but accepted to keep Launchpad -> Modal typing consistent.
@@ -83,9 +92,25 @@ const ADVANCED_STEPS = [
   { id: 6, title: "Launch", icon: Rocket, description: "Deploy to Solana" },
 ];
 
-export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated }: CreateCollectionModalProps) {
+export function CreateCollectionModal({
+  open,
+  onOpenChange,
+  onCollectionCreated,
+  selectedChain = 'solana'
+}: CreateCollectionModalProps) {
   const { address, network } = useWallet();
+
+  // Chain hooks
   const solanaLaunch = useSolanaLaunch();
+  const xrplLaunch = useXRPLLaunch();
+  const monadLaunch = useMonadLaunch();
+
+  // Get current chain config
+  const currentChain = CHAINS[selectedChain];
+  const chainSymbol = currentChain.symbol;
+
+  // Check if full deployment is supported for this chain
+  const isChainFullySupported = selectedChain === 'solana';
 
   // Wizard State
   const [mode, setMode] = useState<"basic" | "advanced">("basic");
@@ -720,15 +745,43 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                 {/* LAUNCH: Step 4 (Basic) or Step 6 (Advanced) */}
                 {((mode === "basic" && currentStep === 4) || (mode === "advanced" && currentStep === 6)) && (
                   <div className="space-y-6 text-center py-10">
-                    <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <Rocket className="w-10 h-10" />
+                    <div
+                      className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
+                      style={{ backgroundColor: `${currentChain.color}20` }}
+                    >
+                      <ChainIcon chain={selectedChain} className="w-10 h-10" />
                     </div>
                     <h2 className="text-2xl font-bold text-white">Ready for Liftoff?</h2>
                     <p className="text-muted-foreground">
-                      You are about to deploy <strong>{name}</strong> on <strong>{network}</strong>.
+                      You are about to deploy <strong>{name}</strong> on <strong>{currentChain.name}</strong>.
                     </p>
 
+                    {/* Chain support warning */}
+                    {!isChainFullySupported && (
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-left flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-amber-400 font-medium">
+                            {selectedChain === 'monad' ? 'Monad is currently in testnet' : `${currentChain.name} deployment`}
+                          </p>
+                          <p className="text-xs text-amber-300/70 mt-0.5">
+                            {selectedChain === 'xrpl'
+                              ? 'XRP Ledger collections require a separate wallet connection. Use the dedicated XRP Launchpad for full functionality.'
+                              : 'Full NFT deployment will be available when Monad mainnet launches.'
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="bg-white/5 rounded-xl p-4 text-left space-y-2 border border-white/10">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Chain</span>
+                        <span className="text-white font-medium flex items-center gap-1">
+                          <ChainIcon chain={selectedChain} className="w-3 h-3" />
+                          {currentChain.name}
+                        </span>
+                      </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Total Supply</span>
                         <span className="text-white font-mono">
@@ -737,11 +790,13 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Mint Price</span>
-                        <span className="text-white font-mono">{phases[0].price} SOL</span>
+                        <span className="text-white font-mono">{phases[0].price} {chainSymbol}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Network fees (Est.)</span>
-                        <span className="text-white font-mono">~0.02 SOL</span>
+                        <span className="text-white font-mono">
+                          ~{selectedChain === 'solana' ? '0.02 SOL' : selectedChain === 'xrpl' ? '0.001 XRP' : '0.01 MON'}
+                        </span>
                       </div>
                       {mode === "advanced" && (
                         <div className="flex justify-between text-sm">
@@ -753,10 +808,15 @@ export function CreateCollectionModal({ open, onOpenChange, onCollectionCreated 
 
                     <Button
                       onClick={handleDeploy}
-                      disabled={solanaLaunch.isLoading}
-                      className="w-full h-14 text-lg font-bold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-xl shadow-green-500/20"
+                      disabled={solanaLaunch.isLoading || !isChainFullySupported}
+                      className="w-full h-14 text-lg font-bold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-xl shadow-green-500/20 disabled:opacity-50"
                     >
-                      {solanaLaunch.isLoading ? "Deploying..." : "Launch Collection"}
+                      {solanaLaunch.isLoading
+                        ? "Deploying..."
+                        : !isChainFullySupported
+                          ? `${currentChain.name} Coming Soon`
+                          : "Launch Collection"
+                      }
                     </Button>
                   </div>
                 )}
