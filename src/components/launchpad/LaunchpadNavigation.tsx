@@ -22,8 +22,12 @@ import {
   Shield,
   Rocket,
 } from "lucide-react";
+import { ChainSelector } from "./ChainSelector";
+import { SupportedChain, CHAINS } from "@/config/chains";
 
 interface LaunchpadNavigationProps {
+  selectedChain: SupportedChain;
+  onChainChange: (chain: SupportedChain) => void;
   onSelectStandard?: (standard: string) => void;
   className?: string;
 }
@@ -64,8 +68,9 @@ const collectionTypes = [
   },
 ];
 
-export function LaunchpadNavigation({ onSelectStandard, className }: LaunchpadNavigationProps) {
+export function LaunchpadNavigation({ selectedChain, onChainChange, onSelectStandard, className }: LaunchpadNavigationProps) {
   const location = useLocation();
+  const currentChain = CHAINS[selectedChain];
 
   const handleStandardClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -78,6 +83,13 @@ export function LaunchpadNavigation({ onSelectStandard, className }: LaunchpadNa
     <div className={cn("w-full bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg", className)}>
       <NavigationMenu className="max-w-full w-full">
         <NavigationMenuList className="flex flex-wrap gap-2 justify-start w-full">
+          {/* Chain Selector */}
+          <NavigationMenuItem>
+            <ChainSelector
+              selectedChain={selectedChain}
+              onChainChange={onChainChange}
+            />
+          </NavigationMenuItem>
           {/* Solana Contracts Menu */}
           <NavigationMenuItem>
             <NavigationMenuTrigger

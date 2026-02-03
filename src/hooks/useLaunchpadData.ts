@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSubscription } from "./useRealtimeSubscription";
 import { toast } from "sonner";
 import { addDays } from "date-fns";
+import { SupportedChain, getDbChainValues } from "@/config/chains";
 
 export interface DraftCollection {
   name: string;
@@ -40,13 +41,17 @@ export interface Collection {
   social_twitter: string | null;
   social_discord: string | null;
   social_website: string | null;
+  chain?: string;
 }
 
-// Update type to include filter
-export function useLaunchpadData(selectedChain: "solana" = "solana") {
+// Support all chain types
+export function useLaunchpadData(selectedChain: SupportedChain = "solana") {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<DraftCollection | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Get chain filters based on selected chain
+  const chainFilters = useMemo(() => getDbChainValues(selectedChain), [selectedChain]);
 
   // Get current user
   useEffect(() => {
@@ -72,7 +77,7 @@ export function useLaunchpadData(selectedChain: "solana" = "solana") {
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
-      const chainFilters = ["solana", "solana-devnet", "solana-mainnet"];
+      // Apply chain filter
       query = query.in("chain", chainFilters);
 
       const { data, error } = await query;

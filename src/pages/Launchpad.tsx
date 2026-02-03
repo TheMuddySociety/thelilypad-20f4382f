@@ -42,6 +42,8 @@ import { useLaunchpadWalkthrough } from "@/hooks/useLaunchpadWalkthrough";
 import { useLaunchpadData, getCollectionPrice, getCollectionProgress, getHealthStatus, getStepLabel, getPhaseNames } from "@/hooks/useLaunchpadData";
 import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
+import { SupportedChain, CHAINS, getStoredChain, setStoredChain } from "@/config/chains";
+import { ChainIcon } from "@/components/launchpad/ChainSelector";
 
 // Status helpers
 const statusColors = {
@@ -62,6 +64,15 @@ export default function Launchpad() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
 
+  // Multi-chain support
+  const [selectedChain, setSelectedChain] = useState<SupportedChain>(getStoredChain);
+  const currentChain = CHAINS[selectedChain];
+
+  const handleChainChange = (chain: SupportedChain) => {
+    setStoredChain(chain);
+    setSelectedChain(chain);
+  };
+
   // Use the new hook for data fetching and management
   const {
     collections,
@@ -75,7 +86,7 @@ export default function Launchpad() {
     restoreCollection,
     getFilteredCollections,
     refetch,
-  } = useLaunchpadData("solana");
+  } = useLaunchpadData(selectedChain);
 
   const [editingDraft, setEditingDraft] = useState(false);
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
@@ -89,8 +100,8 @@ export default function Launchpad() {
   const { isInProgram } = useBuybackProgram();
 
   useSEO({
-    title: "NFT Launchpad | The Lily Pad",
-    description: "Launch your NFT collection on Solana. Create generative art, set mint phases, manage allowlists, and deploy with no-code tools."
+    title: `NFT Launchpad - ${currentChain.name} | The Lily Pad`,
+    description: `Launch your NFT collection on ${currentChain.name}. Create generative art, set mint phases, manage allowlists, and deploy with no-code tools.`
   });
 
   const handleDeleteCollection = async (collectionId: string) => {
@@ -172,13 +183,14 @@ export default function Launchpad() {
                     ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
                     : "bg-primary/10 text-primary border-primary/30"
                   }
+                  style={{ borderColor: `${currentChain.color}50` }}
                 >
-                  <Globe className="w-3 h-3 mr-1" />
-                  {isTestnet ? "Solana Devnet" : "Solana Mainnet"}
+                  <ChainIcon chain={selectedChain} className="w-3 h-3 mr-1" />
+                  {currentChain.name} {isTestnet ? "Testnet" : ""}
                 </Badge>
               </div>
               <p className="text-muted-foreground">
-                Launch your NFT collection on Solana
+                Launch your NFT collection on {currentChain.name}
               </p>
             </div>
           </div>
@@ -188,7 +200,11 @@ export default function Launchpad() {
         {/* Navigation & Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8" data-walkthrough="navigation">
           <div className="flex items-center gap-4 w-full sm:w-auto">
-            <LaunchpadNavigation onSelectStandard={setCreateModalDefaultStandard} />
+            <LaunchpadNavigation
+              selectedChain={selectedChain}
+              onChainChange={handleChainChange}
+              onSelectStandard={setCreateModalDefaultStandard}
+            />
           </div>
 
           <Button
@@ -460,8 +476,8 @@ export default function Launchpad() {
                         )}
                         <div className="absolute top-3 right-3 flex gap-2">
                           <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-md border-white/10 h-6">
-                            <Globe className="w-3 h-3 mr-1" />
-                            SOL
+                            <ChainIcon chain={selectedChain} className="w-3 h-3 mr-1" />
+                            {currentChain.symbol}
                           </Badge>
                           {canEdit && (
                             <>
