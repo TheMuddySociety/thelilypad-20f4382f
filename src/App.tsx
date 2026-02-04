@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WalletProvider, useWallet } from "@/providers/WalletProvider";
+import { AuthProvider } from "@/providers/AuthProvider";
 
 import ErrorBoundary from "@/components/ErrorBoundary";
 import NetworkStatusIndicator from "@/components/NetworkStatusIndicator";
@@ -100,61 +101,62 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <WalletProvider>
-        <AudioPlayerProvider>
-          <TooltipProvider>
+        <AuthProvider>
+          <AudioPlayerProvider>
+            <TooltipProvider>
 
-            <NetworkStatusIndicator />
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  <Route path="/auth" element={<AuthPageGuard />} />
-                  <Route path="/auth/callback" element={<Suspense fallback={<PageLoader />}><AuthCallback /></Suspense>} />
-                  <Route path="/profile-setup" element={<Suspense fallback={<PageLoader />}><ProfileTypeSelection /></Suspense>} />
-                  <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                  <Route path="/wallet" element={<ProtectedRoute><WalletProfile /></ProtectedRoute>} />
-                  <Route path="/streams" element={<ProtectedRoute><Streams /></ProtectedRoute>} />
-                  <Route path="/streamers" element={<ProtectedRoute><Streamers /></ProtectedRoute>} />
-                  <Route path="/go-live" element={<ProtectedRoute><GoLive /></ProtectedRoute>} />
-                  <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                  <Route path="/donor-profile" element={<ProtectedRoute><DonorProfile /></ProtectedRoute>} />
-                  <Route path="/streamer/:streamerId" element={<ProtectedRoute><StreamerProfile /></ProtectedRoute>} />
-                  <Route path="/streamer/:streamerId/collections" element={<ProtectedRoute><StreamerCollections /></ProtectedRoute>} />
-                  <Route path="/edit-profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
-                  <Route path="/following" element={<ProtectedRoute><Following /></ProtectedRoute>} />
-                  <Route path="/clip/:clipId" element={<ProtectedRoute><ClipViewer /></ProtectedRoute>} />
-                  <Route path="/moderation" element={<ProtectedRoute><Moderation /></ProtectedRoute>} />
-                  <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
-                  <Route path="/marketplace/sticker/:packId" element={<ProtectedRoute><StickerPackDetail /></ProtectedRoute>} />
-                  <Route path="/my-sticker-packs" element={<ProtectedRoute><CreatorStickerPacks /></ProtectedRoute>} />
-                  <Route path="/channel-emotes" element={<ProtectedRoute><ChannelEmotes /></ProtectedRoute>} />
-                  <Route path="/launchpad" element={<ProtectedRoute><Launchpad /></ProtectedRoute>} />
-                  <Route path="/launchpad/:collectionId" element={<ProtectedRoute><CollectionDetail /></ProtectedRoute>} />
-                  <Route path="/collection/:collectionId" element={<ProtectedRoute><CollectionDetail /></ProtectedRoute>} />
-                  <Route path="/my-nfts" element={<ProtectedRoute><MyNFTs /></ProtectedRoute>} />
-                  <Route path="/watch/:playbackId" element={<ProtectedRoute><Watch /></ProtectedRoute>} />
-                  <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-                  <Route path="/fees" element={<ProtectedRoute><FeesAndPricing /></ProtectedRoute>} />
-                  <Route path="/buyback-program" element={<ProtectedRoute><BuybackProgram /></ProtectedRoute>} />
-                  <Route path="/official-packs" element={<ProtectedRoute><OfficialPacks /></ProtectedRoute>} />
-                  <Route path="/my-purchases" element={<ProtectedRoute><MyPurchases /></ProtectedRoute>} />
-                  <Route path="/music-store" element={<ProtectedRoute><MusicStore /></ProtectedRoute>} />
-                  <Route path="/artist/:artistAddress" element={<ProtectedRoute><ArtistProfile /></ProtectedRoute>} />
-                  <Route path="/raffles" element={<ProtectedRoute><Raffles /></ProtectedRoute>} />
-                  <Route path="/blind-boxes" element={<ProtectedRoute><BlindBoxes /></ProtectedRoute>} />
-                  <Route path="/governance" element={<ProtectedRoute><Governance /></ProtectedRoute>} />
-                  <Route path="/limited-edition" element={<ProtectedRoute><LimitedEditionMint /></ProtectedRoute>} />
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-              <MobileBottomNav />
-              <MiniPlayer />
-              <PWAUpdateNotification />
-            </BrowserRouter>
-          </TooltipProvider>
-        </AudioPlayerProvider>
+              <NetworkStatusIndicator />
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    <Route path="/auth" element={<AuthPageGuard />} />
+                    <Route path="/auth/callback" element={<Suspense fallback={<PageLoader />}><AuthCallback /></Suspense>} />
+                    <Route path="/profile-setup" element={<Suspense fallback={<PageLoader />}><ProfileTypeSelection /></Suspense>} />
+                    <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                    <Route path="/wallet" element={<ProtectedRoute><WalletProfile /></ProtectedRoute>} />
+                    <Route path="/streams" element={<ProtectedRoute><Streams /></ProtectedRoute>} />
+                    <Route path="/streamers" element={<ProtectedRoute><Streamers /></ProtectedRoute>} />
+                    <Route path="/go-live" element={<ProtectedRoute><GoLive /></ProtectedRoute>} />
+                    <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                    <Route path="/donor-profile" element={<ProtectedRoute><DonorProfile /></ProtectedRoute>} />
+                    <Route path="/streamer/:streamerId" element={<ProtectedRoute><StreamerProfile /></ProtectedRoute>} />
+                    <Route path="/streamer/:streamerId/collections" element={<ProtectedRoute><StreamerCollections /></ProtectedRoute>} />
+                    <Route path="/edit-profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
+                    <Route path="/following" element={<ProtectedRoute><Following /></ProtectedRoute>} />
+                    <Route path="/clip/:clipId" element={<ProtectedRoute><ClipViewer /></ProtectedRoute>} />
+                    <Route path="/moderation" element={<ProtectedRoute><Moderation /></ProtectedRoute>} />
+                    <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
+                    <Route path="/marketplace/sticker/:packId" element={<ProtectedRoute><StickerPackDetail /></ProtectedRoute>} />
+                    <Route path="/my-sticker-packs" element={<ProtectedRoute><CreatorStickerPacks /></ProtectedRoute>} />
+                    <Route path="/channel-emotes" element={<ProtectedRoute><ChannelEmotes /></ProtectedRoute>} />
+                    <Route path="/launchpad" element={<ProtectedRoute><Launchpad /></ProtectedRoute>} />
+                    <Route path="/launchpad/:collectionId" element={<ProtectedRoute><CollectionDetail /></ProtectedRoute>} />
+                    <Route path="/collection/:collectionId" element={<ProtectedRoute><CollectionDetail /></ProtectedRoute>} />
+                    <Route path="/my-nfts" element={<ProtectedRoute><MyNFTs /></ProtectedRoute>} />
+                    <Route path="/watch/:playbackId" element={<ProtectedRoute><Watch /></ProtectedRoute>} />
+                    <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+                    <Route path="/fees" element={<ProtectedRoute><FeesAndPricing /></ProtectedRoute>} />
+                    <Route path="/buyback-program" element={<ProtectedRoute><BuybackProgram /></ProtectedRoute>} />
+                    <Route path="/official-packs" element={<ProtectedRoute><OfficialPacks /></ProtectedRoute>} />
+                    <Route path="/my-purchases" element={<ProtectedRoute><MyPurchases /></ProtectedRoute>} />
+                    <Route path="/music-store" element={<ProtectedRoute><MusicStore /></ProtectedRoute>} />
+                    <Route path="/artist/:artistAddress" element={<ProtectedRoute><ArtistProfile /></ProtectedRoute>} />
+                    <Route path="/raffles" element={<ProtectedRoute><Raffles /></ProtectedRoute>} />
+                    <Route path="/blind-boxes" element={<ProtectedRoute><BlindBoxes /></ProtectedRoute>} />
+                    <Route path="/governance" element={<ProtectedRoute><Governance /></ProtectedRoute>} />
+                    <Route path="/limited-edition" element={<ProtectedRoute><LimitedEditionMint /></ProtectedRoute>} />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+                <MobileBottomNav />
+                <MiniPlayer />
+                <PWAUpdateNotification />
+              </BrowserRouter>
+            </TooltipProvider>
+          </AudioPlayerProvider>
       </WalletProvider>
     </QueryClientProvider>
   </ErrorBoundary>
