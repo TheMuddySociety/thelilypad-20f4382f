@@ -1,18 +1,12 @@
-import React, { createContext, useContext, useMemo } from "react";
+import React, { createContext, useContext, useReducer, useEffect } from "react";
 import { useWallet } from "@/providers/WalletProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-
-export type AuthStatus =
-    | "disconnected"
-    | "wallet-connecting"
-    | "wallet-connected"
-    | "profile-loading"
-    | "authenticated"
-    | "needs-profile";
+import { authReducer } from "@/auth/authMachine";
+import { AuthState } from "@/auth/authTypes";
 
 interface AuthContextType {
-    status: AuthStatus;
+    state: AuthState;
     walletAddress: string | null;
     profile: any | null;
     isAdmin: boolean;
@@ -25,26 +19,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const profileState = useUserProfile();
     const adminState = useIsAdmin();
 
-    const status: AuthStatus = useMemo(() => {
-        if (wallet.isConnecting) return "wallet-connecting";
-        if (!wallet.isConnected) return "disconnected";
-        if (!wallet.address) return "wallet-connecting";
-        if (profileState.loading) return "profile-loading";
-        if (!profileState.profile) return "needs-profile";
-        if (!profileState.profile.profile_setup_completed) return "needs-profile";
-        return "authenticated";
-    }, [
-        wallet.isConnecting,
-        wallet.isConnected,
-        wallet.address,
-        profileState.loading,
-        profileState.profile
-    ]);
+    // Initialize state machine
+    const [state, dispatch] = useReducer(authReducer, "DISCONNECTED" as AuthState);
+
+    // Drive machine from wallet signals
+    useEffect(() => {
+        if (wallet.isConnecting) {
+            dispatch({ type: "CONNECT_WALLET" });
+            return;
+        }
+
+        if (!wallet.isConnected) {
+            dispatch({ type: "DISCONNECT" });
+            return;
+        }
+
+        if (wallet.isConnected && wallet.address) {
+            dispatch({ type: "WALLET_CONNECTED" });
+        }
+    }, [wallet.isConnecting, wallet.isConnected, wallet.address]);
+
+    // Drive machine from profile signals
+    useEffect(() => {
+        if (!wallet.isConnected || !wallet.address) return;
+
+        // Signal that profile loading has started
+        if (state === "WALLET_CONNECTED") {
+            dispatch({ type: "PROFILE_LOADING" });
+            return;
+        }
+
+        // Wait for profile to finish loading
+        if (profileState.loading) return;
+
+        // Profile resolution
+        if (profileState.profile && profileState.profile.profile_setup_completed) {
+            dispatch({ type: "PROFILE_FOUND" });
+        } else {
+            dispatch({ type: "PROFILE_MISSING" });
+        }
+    }, [wallet.isConnected, wallet.address, state, profileState.loading, profileState.profile]);
 
     return (
         <AuthContext.Provider
             value={{
-                status,
+                state,
                 walletAddress: wallet.address,
                 profile: profileState.profile,
                 isAdmin: adminState.isAdmin
