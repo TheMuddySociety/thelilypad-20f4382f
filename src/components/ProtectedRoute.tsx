@@ -7,14 +7,11 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { status, isAdmin } = useAuth();
+  const { state, isAdmin } = useAuth();
   const location = useLocation();
 
   // Show loader while wallet connecting or profile loading
-  if (
-    status === "wallet-connecting" ||
-    status === "profile-loading"
-  ) {
+  if (state === "CONNECTING_WALLET" || state === "LOADING_PROFILE") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <FrogLoader size="lg" />
@@ -23,7 +20,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   // Redirect to auth if disconnected
-  if (status === "disconnected") {
+  if (state === "DISCONNECTED") {
     return <Navigate to="/auth" replace />;
   }
 
@@ -33,7 +30,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   // Redirect to profile setup if needed
-  if (status === "needs-profile" && location.pathname !== "/profile-setup") {
+  if (state === "NEEDS_PROFILE" && location.pathname !== "/profile-setup") {
     return <Navigate to="/profile-setup" replace />;
   }
 

@@ -33,7 +33,7 @@ const PhantomIcon = () => (
 export default function Auth() {
   const navigate = useNavigate();
   const { connect, isConnecting } = useWallet();
-  const { status } = useAuth();
+  const { state } = useAuth();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
 
   // Fetch dynamic auth branding from site_assets, fallback to local
@@ -46,10 +46,10 @@ export default function Auth() {
 
   // Redirect when authenticated
   useEffect(() => {
-    if (status === "authenticated") {
+    if (state === "AUTHENTICATED") {
       navigate("/");
     }
-  }, [status, navigate]);
+  }, [state, navigate]);
 
   const handlePhantomConnect = async () => {
     setIsConnectingWallet(true);
