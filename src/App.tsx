@@ -68,7 +68,6 @@ const ChannelEmotes = lazy(() => import("./pages/ChannelEmotes"));
 const CollectionDetail = lazy(() => import("./pages/CollectionDetail"));
 const Watch = lazy(() => import("./pages/Watch"));
 const MyNFTs = lazy(() => import("./pages/MyNFTs"));
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const FeesAndPricing = lazy(() => import("./pages/FeesAndPricing"));
 const BuybackProgram = lazy(() => import("./pages/BuybackProgram"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
@@ -163,6 +162,7 @@ const App = () => (
               </BrowserRouter>
             </TooltipProvider>
           </AudioPlayerProvider>
+        </AuthProvider>
       </WalletProvider>
     </QueryClientProvider>
   </ErrorBoundary>
