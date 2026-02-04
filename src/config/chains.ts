@@ -87,7 +87,7 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
         },
         walletType: 'xrpl',
         nftStandard: 'XLS-20 NFT',
-        isActive: true,
+        isActive: false, // Disabled - use main launchpad chain selector for XRPL
         isTestnetOnly: false,
         description: 'Native NFTs on the XRP Ledger with low fees and fast finality',
     },

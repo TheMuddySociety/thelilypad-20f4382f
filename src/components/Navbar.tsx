@@ -28,7 +28,6 @@ const primaryLinks: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Marketplace", href: "/marketplace", icon: Store },
   { label: "Music", href: "/music-store", icon: Music },
   { label: "Launchpad", href: "/launchpad", icon: Rocket },
-  { label: "XRP Launchpad", href: "/xrp-launchpad", icon: Rocket },
   { label: "Streams", href: "/streams", icon: Video },
 ];
 
