@@ -744,10 +744,7 @@ export function CreateCollectionModal({
                             {selectedChain === 'monad' ? 'Monad is currently in testnet' : `${currentChain.name} deployment`}
                           </p>
                           <p className="text-xs text-amber-300/70 mt-0.5">
-                            {selectedChain === 'xrpl'
-                              ? 'XRP Ledger collections require a separate wallet connection. Use the dedicated XRP Launchpad for full functionality.'
-                              : 'Full NFT deployment will be available when Monad mainnet launches.'
-                            }
+                            Full NFT deployment will be available when mainnet launches.
                           </p>
                         </div>
                       </div>

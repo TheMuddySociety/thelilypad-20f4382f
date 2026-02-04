@@ -10,15 +10,17 @@ import {
     uploadFiles as uploadFilesToChain,
     uploadMetadata as uploadMetadataToChain,
     uploadJsonBatch,
-    LaunchpadPhase,
-    SolanaCollectionParams,
 } from '@/chains';
+import type { LaunchpadPhase, SolanaCollectionParams } from '@/chains';
 import { Umi, transactionBuilder, publicKey, some, none } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import { updateV1 as updateCoreAsset } from '@metaplex-foundation/mpl-core';
 import { setComputeUnitPrice } from '@metaplex-foundation/mpl-toolbox';
 import { deleteCandyMachine as deleteCoreCandyMachine, deleteCandyGuard as deleteCoreCandyGuard } from '@metaplex-foundation/mpl-core-candy-machine';
 import { SendTransactionError } from '@solana/web3.js';
+
+// Re-export for consumers
+export type { LaunchpadPhase } from '@/chains';
 
 /**
  * useSolanaLaunch - Thin React adapter for Solana chain operations

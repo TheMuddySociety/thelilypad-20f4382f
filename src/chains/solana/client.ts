@@ -5,7 +5,6 @@ import { mplCandyMachine as mplCoreCandyMachine } from '@metaplex-foundation/mpl
 import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
 import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 import { Umi } from '@metaplex-foundation/umi';
-import { WalletAdapter } from '@solana/wallet-adapter-base';
 
 /**
  * Solana Client - Centralized Umi initialization and connection management
@@ -25,12 +24,20 @@ const RPC_ENDPOINTS = {
 
 export type SolanaNetwork = 'mainnet' | 'devnet';
 
+// Wallet adapter interface (minimal subset needed)
+interface WalletAdapterLike {
+    publicKey: any;
+    signTransaction?: (tx: any) => Promise<any>;
+    signAllTransactions?: (txs: any[]) => Promise<any[]>;
+    signMessage?: (msg: Uint8Array) => Promise<Uint8Array>;
+}
+
 /**
  * Create and configure Umi client
  */
 export function createUmi(
     network: SolanaNetwork = 'devnet',
-    wallet?: WalletAdapter | null
+    wallet?: WalletAdapterLike | null
 ): Umi {
     const endpoint = RPC_ENDPOINTS[network][0]; // Use primary RPC
 
@@ -42,7 +49,7 @@ export function createUmi(
 
     // Attach wallet if provided
     if (wallet) {
-        umi.use(walletAdapterIdentity(wallet));
+        umi.use(walletAdapterIdentity(wallet as any));
     }
 
     return umi;

@@ -205,7 +205,7 @@ function buildGuardSetForPhase(
 function buildGuardGroups(
     phases: LaunchpadPhase[],
     treasuryWallet: string
-): CoreGuardGroupArgs[] {
+): CoreGuardGroupArgs<CoreDefaultGuardSetArgs>[] {
     return phases.map((phase) => {
         const guards = buildGuardSetForPhase(phase, treasuryWallet);
 
