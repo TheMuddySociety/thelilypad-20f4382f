@@ -38,7 +38,6 @@ import { LayerManager, Layer } from "./LayerManager";
 import { TraitRarityEditor } from "./TraitRarityEditor";
 import { useWallet } from "@/providers/WalletProvider";
 import { useSolanaLaunch, LaunchpadPhase } from "@/hooks/useSolanaLaunch";
-import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
@@ -102,7 +101,6 @@ export function CreateCollectionModal({
 
   // Chain hooks
   const solanaLaunch = useSolanaLaunch();
-  const xrplLaunch = useXRPLLaunch();
   const monadLaunch = useMonadLaunch();
 
   // Get current chain config

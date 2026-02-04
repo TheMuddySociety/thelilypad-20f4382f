@@ -24,6 +24,7 @@ interface BlindBox {
     name: string;
     price: number;
     rewards: BlindBoxReward[];
+    remaining_supply: number;
     nft_pool_address?: string; // Candy Machine address for NFT rewards
     token_mint?: string;       // SPL token mint for token rewards
     escrow_wallet?: string;    // Wallet holding reward funds
@@ -285,10 +286,10 @@ export function useBlindBoxMint() {
                     } as any);
             }
 
-            // Update remaining supply
+            // Update remaining supply (decrement by quantity)
             await supabase
                 .from('lily_blind_boxes')
-                .update({ remaining_supply: supabase.rpc('decrement', { row_id: box.id, amount: quantity }) } as any)
+                .update({ remaining_supply: box.remaining_supply - quantity })
                 .eq('id', box.id);
 
             return results;

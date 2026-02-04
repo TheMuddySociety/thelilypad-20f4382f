@@ -17,13 +17,21 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+// Blend mode type for layer compositing
+export type BlendMode = GlobalCompositeOperation;
+
 export interface LayerTrait {
   id: string;
   name: string;
-  file: File;
+  file?: File;
   preview: string;
   rarity: number;
+  /** Alias for preview - used by some components */
+  imageUrl?: string;
 }
+
+// Trait is an alias for LayerTrait (used across components)
+export type Trait = LayerTrait;
 
 export interface Layer {
   id: string;
@@ -31,6 +39,16 @@ export interface Layer {
   traits: LayerTrait[];
   visible: boolean;
   collapsed: boolean;
+  /** Layer order for compositing (lower = rendered first) */
+  order?: number;
+  /** Blend mode for compositing */
+  blendMode?: BlendMode;
+  /** Opacity 0-100 */
+  opacity?: number;
+  /** Whether this layer can be skipped */
+  isOptional?: boolean;
+  /** Chance (0-100) this optional layer appears */
+  optionalChance?: number;
 }
 
 interface LayerManagerProps {

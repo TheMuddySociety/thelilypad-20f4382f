@@ -330,6 +330,7 @@ export function BulkTraitUploader({
         return {
           id: pt.id,
           name: pt.name,
+          preview: base64,
           imageUrl: base64,
           rarity: pt.rarity,
         };
