@@ -48,6 +48,12 @@ const Streamers = lazy(() => import("./pages/Streamers"));
 const GoLive = lazy(() => import("./pages/GoLive"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const DonorProfile = lazy(() => import("./pages/DonorProfile"));
+
+// Admin pages
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+
+// Profile pages
+const ProfileSuspended = lazy(() => import("./pages/ProfileSuspended"));
 const StreamerProfile = lazy(() => import("./pages/StreamerProfile"));
 const StreamerCollections = lazy(() => import("./pages/StreamerCollections"));
 const EditProfile = lazy(() => import("./pages/EditProfile"));
