@@ -15,7 +15,9 @@ export async function waitForConfirmation(
     for (let i = 0; i < maxRetries; i++) {
         try {
             const result = await umi.rpc.getSignatureStatuses([signature]);
-            if (result[0]?.confirmationStatus === 'confirmed' || result[0]?.confirmationStatus === 'finalized') {
+            const status = result[0];
+            // Check for confirmation using available properties
+            if (status && status.confirmations !== null && status.confirmations > 0) {
                 return true;
             }
         } catch (e) {
@@ -54,12 +56,13 @@ export async function buildAndSendTransaction(
                 builder = builder.add(ix);
             }
 
-            const signature = await builder.sendAndConfirm(umi, {
+            const result = await builder.sendAndConfirm(umi, {
                 send: { skipPreflight: opts.skipPreflight },
                 confirm: { commitment: 'confirmed' }
             });
 
-            return signature;
+            // Extract signature from result
+            return result.signature;
         } catch (err: any) {
             attempts++;
             console.warn(`Transaction attempt ${attempts} failed:`, err.message);

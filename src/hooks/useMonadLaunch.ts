@@ -7,7 +7,8 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
-import { createMonadProvider, connectMonadWallet, deployMonadCollection, mintMonadNFT, MonadCollectionParams, MonadDeployResult } from '@/chains';
+import { createMonadProvider, connectMonadWallet, deployMonadCollection, mintMonadNFT } from '@/chains';
+import type { MonadCollectionParams, MonadDeployResult } from '@/chains';
 import { MonadNetwork, DEFAULT_MONAD_NETWORK, switchToMonad, getMonadExplorerUrl } from '@/config/monad';
 
 /**
@@ -20,6 +21,7 @@ import { MonadNetwork, DEFAULT_MONAD_NETWORK, switchToMonad, getMonadExplorerUrl
 export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
     const [isConnected, setIsConnected] = useState(false);
     const [address, setAddress] = useState<string | null>(null);
+    const [balance, setBalance] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
