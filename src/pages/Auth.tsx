@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@/providers/WalletProvider";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
@@ -32,6 +33,7 @@ const PhantomIcon = () => (
 export default function Auth() {
   const navigate = useNavigate();
   const { connect, isConnected, isConnecting, address } = useWallet();
+  const { loading: profileLoading } = useUserProfile();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
 
   // Fetch dynamic auth branding from site_assets, fallback to local
@@ -42,12 +44,12 @@ export default function Auth() {
     description: "Connect your Phantom wallet to access The Lily Pad. Manage your streams, launch NFT collections, and connect with the community."
   });
 
-  // Redirect when connected
+  // FIX #5: Wait for profile to load before redirecting
   useEffect(() => {
-    if (isConnected && address) {
+    if (isConnected && address && !profileLoading) {
       navigate("/");
     }
-  }, [isConnected, address, navigate]);
+  }, [isConnected, address, profileLoading, navigate]);
 
   const handlePhantomConnect = async () => {
     setIsConnectingWallet(true);

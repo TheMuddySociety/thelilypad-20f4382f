@@ -14,8 +14,9 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const location = useLocation();
 
-  // Show loader while checking connection status or loading profile
-  if (isConnecting || (isConnected && (profileLoading || adminLoading))) {
+  // FIX #4: Wait for wallet stabilization AND profile resolution
+  // Show loader while checking connection, loading profile, or loading admin status
+  if (isConnecting || profileLoading || adminLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <FrogLoader size="lg" />

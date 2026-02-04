@@ -31,20 +31,30 @@ export interface UserProfile {
 export const useUserProfile = () => {
     const { address, isConnected } = useWallet();
     const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // FIX #2: Initialize to false
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!address || !isConnected) {
+        // FIX #1: Distinguish between disconnected and connecting states
+        if (!isConnected) {
+            // Wallet is disconnected - stop loading
             setProfile(null);
             setLoading(false);
             return;
         }
 
-        const fetchProfile = async () => {
+        if (!address) {
+            // Wallet is connecting or stabilizing - STAY LOADING
             setLoading(true);
-            setError(null);
+            return;
+        }
 
+        // FIX #3: Guard profile fetch with cleanup
+        let isMounted = true;
+        setLoading(true);
+        setError(null);
+
+        const fetchProfile = async () => {
             try {
                 const { data, error: fetchError } = await supabase
                     .from('user_profiles')
@@ -52,17 +62,20 @@ export const useUserProfile = () => {
                     .eq('wallet_address', address)
                     .maybeSingle();
 
-            if (fetchError) {
+                if (!isMounted) return;
+
+                if (fetchError) {
                     throw fetchError;
                 }
 
                 setProfile(data as UserProfile | null);
             } catch (err: unknown) {
+                if (!isMounted) return;
                 console.error('Error fetching user profile:', err);
                 setError(err instanceof Error ? err.message : 'Unknown error');
                 setProfile(null);
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
 
@@ -90,6 +103,7 @@ export const useUserProfile = () => {
             .subscribe();
 
         return () => {
+            isMounted = false;
             supabase.removeChannel(channel);
         };
     }, [address, isConnected]);
