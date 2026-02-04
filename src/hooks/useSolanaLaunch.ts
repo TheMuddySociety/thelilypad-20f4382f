@@ -497,7 +497,8 @@ export const useSolanaLaunch = () => {
             sellerFeeBasisPoints: number;
             creators: { address: string; share: number }[];
         },
-        optionalTreasuryWallet?: string
+        optionalTreasuryWallet?: string,
+        baseUri?: string
     ): Promise<{ address: string; candyGuardAddress?: string }> => {
         setIsLoading(true);
         setError(null);
@@ -538,8 +539,8 @@ export const useSolanaLaunch = () => {
                         configLineSettings: some({
                             prefixName: "",
                             nameLength: 32,
-                            prefixUri: "",
-                            uriLength: 200,
+                            prefixUri: baseUri || "",
+                            uriLength: baseUri ? 50 : 200, // Shorter URI length if using prefix
                             isSequential: false,
                         }),
                     });

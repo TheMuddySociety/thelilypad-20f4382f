@@ -39,12 +39,14 @@ import { TraitRarityEditor } from "./TraitRarityEditor";
 import { useWallet } from "@/providers/WalletProvider";
 import { useSolanaLaunch, LaunchpadPhase } from "@/hooks/useSolanaLaunch";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
+import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { validateAssets, AssetFile } from "@/utils/assetValidator";
 import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { SupportedChain, CHAINS } from "@/config/chains";
 import { ChainIcon } from "./ChainSelector";
+import { getCollectionStorageInfo, getChainRootUri } from "@/lib/payloadMapper";
 
 interface CreateCollectionModalProps {
   open: boolean;
@@ -102,13 +104,14 @@ export function CreateCollectionModal({
   // Chain hooks
   const solanaLaunch = useSolanaLaunch();
   const monadLaunch = useMonadLaunch();
+  const xrplLaunch = useXRPLLaunch();
 
   // Get current chain config
   const currentChain = CHAINS[selectedChain];
   const chainSymbol = currentChain.symbol;
 
   // Check if full deployment is supported for this chain
-  const isChainFullySupported = selectedChain === 'solana';
+  const isChainFullySupported = selectedChain === 'solana' || selectedChain === 'xrpl';
 
   // Wizard State
   const [mode, setMode] = useState<"basic" | "advanced">("basic");
@@ -178,158 +181,136 @@ export function CreateCollectionModal({
     if (folderAssets.length === 0) return toast.error("Please upload assets.");
 
     try {
-      toast.loading("Uploading collection metadata...", { id: 'deploy-status' });
+      toast.loading(`Initializing ${currentChain.name} deployment...`, { id: 'deploy-status' });
 
-      // 1. Upload Cover Image to Arweave/Irys
-      const imageUri = await solanaLaunch.uploadFile(coverFile);
-      console.log("Cover Image uploaded:", imageUri);
-
-      // 2. Upload JSON Metadata
-      const metadata = {
-        name,
-        symbol,
-        description,
-        image: imageUri,
-        properties: {
-          files: [{ uri: imageUri, type: coverFile.type }],
-          category: "image",
-        }
-      };
-      const metadataUri = await solanaLaunch.uploadMetadata(metadata);
-      console.log("Metadata uploaded:", metadataUri);
-
-      toast.loading("Deploying Collection on-chain...", { id: 'deploy-status' });
-
-      // 3. Deploy Collection with real Metadata URI
-      const collection = await solanaLaunch.deploySolanaCollection({
-        name,
-        symbol,
-        uri: metadataUri,
-        sellerFeeBasisPoints: 500, // 5% default
-        creators: [{ address: address!, share: 100 }]
-      });
-
-      if (!collection) {
-        toast.dismiss('deploy-status');
-        return;
-      }
-
-      toast.loading("Creating Candy Machine...", { id: 'deploy-status' });
-
-      // 4. Create Candy Machine
-      const cm = await solanaLaunch.createLaunchpadCandyMachine(
-        collection.address,
-        folderAssets.length,
-        phases,
-        { name, symbol, uri: metadataUri, sellerFeeBasisPoints: 500, creators: [] },
-        treasuryWallet || undefined
-      );
-
-      if (!cm) {
-        toast.dismiss('deploy-status');
-        return;
-      }
-
-      // 5. Persist to Supabase
-      toast.loading("Saving collection to dashboard...", { id: 'deploy-status' });
-
+      // 1. Get Supabase User & Create Initial Collection Row to get ID
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User session not found. Please log in.");
 
-      if (user) {
-        // Enhancing phases with CM address so Mint Section can find it
-        const phasesWithCm = phases.map(p => ({
-          ...p,
-          candyMachineAddress: cm.address
-        }));
-
-        const { error: dbError } = await supabase.from("collections").insert({
+      toast.loading("Reserving collection ID...", { id: 'deploy-status' });
+      const { data: placeholderCollection, error: placeholderError } = await supabase
+        .from("collections")
+        .insert({
           name,
           symbol,
           description,
-          image_url: imageUri, // Arweave URI
-          total_supply: folderAssets.length,
           creator_id: user.id,
           creator_address: address!,
-          contract_address: collection.address, // Collection Address (not CM)
           status: "upcoming",
-          chain: network === "mainnet" ? "solana" : "solana-devnet",
+          chain: network === "mainnet" ? selectedChain : `${selectedChain}-devnet`, // Simplified for now
           collection_type: "generative",
-          phases: phasesWithCm as any, // Store the phase config with CM address
-        });
+          total_supply: folderAssets.length,
+          phases: phases as any,
+          royalty_percent: 5,
+        })
+        .select('id')
+        .single();
 
-        if (dbError) {
-          console.error("Supabase Save Error:", dbError);
-          toast.error("Deployed, but failed to save to dashboard. Save your addresses!");
-          console.log("Manual Recovery Info:", {
-            collection: collection.address,
-            candyMachine: cm.address,
-            network,
-            metadataUri
-          });
-        }
-      } else {
-        console.error("No Supabase user session found!");
-        toast.error("Critical: You are not logged in to the backend. Collection deployed but NOT saved to dashboard.", {
-          duration: 10000,
-          description: `Address: ${collection.address}. Please report this.`
-        });
+      if (placeholderError) {
+        console.error("Placeholder error:", placeholderError);
+        throw new Error("Failed to initialize collection record.");
       }
 
-      toast.success("Collection & Candy Machine deployed!", { id: 'deploy-status' });
+      const collectionId = placeholderCollection.id;
+      const storageInfo = getCollectionStorageInfo(collectionId);
+      const baseUri = getChainRootUri(selectedChain, collectionId);
 
-      // 6. Upload Assets & Insert Items
-      // We only do this if there are folder assets
-      if (folderAssets.length > 0) {
-        try {
-          toast.loading(`Uploading ${folderAssets.length} assets to Arweave... this may take a moment`, { id: 'deploy-status' });
+      // 2. Upload Collection Assets to Supabase Storage FIRST (Deterministic logic)
+      toast.loading(`Uploading ${folderAssets.length} assets to storage...`, { id: 'deploy-status' });
+      const batchSize = 5;
+      for (let i = 0; i < folderAssets.length; i += batchSize) {
+        const batch = folderAssets.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (asset, index) => {
+          const tokenId = i + index;
+          const fileExt = asset.file.name.split('.').pop() || 'png';
 
-          // A. Batch Upload Images
-          const imageFiles = folderAssets.map(a => a.file);
-          const imageUris = await solanaLaunch.uploadFiles(imageFiles);
-          console.log(`Uploaded ${imageUris.length} images`);
+          // Image
+          await supabase.storage.from('nfts').upload(`${collectionId}/${tokenId}.${fileExt}`, asset.file, { upsert: true });
 
-          // B. Prepare Metadata with new Image URIs
-          const metadataObjects = folderAssets.map((asset, index) => {
-            // Generate standard safe metadata
-            return {
-              name: `${name} #${index + 1}`,
-              symbol: symbol,
-              description: description,
-              image: imageUris[index],
-              attributes: [],
-              properties: {
-                files: [{ uri: imageUris[index], type: asset.file.type || 'image/png' }],
-                category: 'image',
-              }
-            };
+          // Metadata
+          const metadata = {
+            name: `${name} #${tokenId + 1}`,
+            symbol: symbol,
+            description: description,
+            image: storageInfo.itemImageUri(tokenId, fileExt),
+            attributes: [],
+            properties: {
+              files: [{ uri: storageInfo.itemImageUri(tokenId, fileExt), type: asset.file.type || `image/${fileExt}` }],
+              category: 'image',
+            }
+          };
+          await supabase.storage.from('nfts').upload(`${collectionId}/${tokenId}.json`, JSON.stringify(metadata), {
+            upsert: true,
+            contentType: 'application/json'
           });
-
-          // C. Batch Upload Metadata
-          toast.loading("Uploading asset metadata...", { id: 'deploy-status' });
-          const metadataUris = await solanaLaunch.uploadJsonMetadataBatch(metadataObjects);
-          console.log(`Uploaded ${metadataUris.length} metadata files`);
-
-          // D. Insert Items into Candy Machine
-          const itemsToInsert = metadataObjects.map((meta, index) => ({
-            name: meta.name,
-            uri: metadataUris[index]
-          }));
-
-          toast.loading("Inserting items into Candy Machine...", { id: 'deploy-status' });
-          await solanaLaunch.insertItemsToCandyMachine(cm.address, itemsToInsert);
-
-          toast.success("All assets uploaded and inserted!", { id: 'deploy-status' });
-
-        } catch (uploadErr) {
-          console.error("Asset Upload Error:", uploadErr);
-          toast.error("Deployment success, but asset upload failed. You can retry via script.", { id: 'deploy-status' });
-        }
+        }));
+        toast.loading(`Storage: ${Math.min(i + batchSize, folderAssets.length)} assets uploaded...`, { id: 'deploy-status' });
       }
 
-      toast.message("Collection Launch Complete!", {
-        description: "Your collection is live and ready to mint."
-      });
+      // 3. Chain-Specific On-Chain Deployment
+      let deployedContractAddress = "";
+      let finalImageUrl = "";
 
+      if (selectedChain === 'solana') {
+        // Solana: Deploy Collection & Candy Machine with prefixUri
+        toast.loading("Deploying Solana Collection...", { id: 'deploy-status' });
+
+        const imageUri = await solanaLaunch.uploadFile(coverFile);
+        finalImageUrl = imageUri;
+
+        const collMetadata = {
+          name, symbol, description, image: imageUri,
+          properties: { files: [{ uri: imageUri, type: coverFile.type }], category: "image" }
+        };
+        const collMetadataUri = await solanaLaunch.uploadMetadata(collMetadata);
+
+        const collection = await solanaLaunch.deploySolanaCollection({
+          name, symbol, uri: collMetadataUri,
+          sellerFeeBasisPoints: 500,
+          creators: [{ address: address!, share: 100 }]
+        });
+        if (!collection) throw new Error("Collection deployment failed.");
+        deployedContractAddress = collection.address;
+
+        toast.loading("Creating Solana Candy Machine...", { id: 'deploy-status' });
+        const cm = await solanaLaunch.createLaunchpadCandyMachine(
+          collection.address, folderAssets.length, phases,
+          { name, symbol, uri: collMetadataUri, sellerFeeBasisPoints: 500, creators: [] },
+          treasuryWallet || undefined,
+          baseUri // Deterministic Prefix!
+        );
+        if (!cm) throw new Error("Candy Machine creation failed.");
+
+        // Insert items
+        const itemsToInsert = folderAssets.map((_, index) => ({ name: `${name} #${index + 1}`, uri: `${index}.json` }));
+        await solanaLaunch.insertItemsToCandyMachine(cm.address, itemsToInsert);
+
+      } else if (selectedChain === 'xrpl') {
+        // XRPL: Set Domain for deterministic resolution
+        toast.loading("Setting XRPL Account Domain...", { id: 'deploy-status' });
+        const xrplRes = await xrplLaunch.deployXRPLCollection({
+          name, symbol, description,
+          totalSupply: folderAssets.length,
+          baseUri: baseUri // Deterministic Domain Strategy!
+        });
+        deployedContractAddress = xrplRes.address;
+
+        // Finalize items on XRPL
+        const itemsToInsert = folderAssets.map((_, index) => ({ name: `${name} #${index + 1}`, uri: `${index}.json` }));
+        await xrplLaunch.mintXRPLItems(xrplRes.address, xrplRes.taxon, itemsToInsert);
+      }
+
+      // 4. Update Supabase with final details
+      await supabase
+        .from("collections")
+        .update({
+          contract_address: deployedContractAddress,
+          image_url: finalImageUrl || storageInfo.itemImageUri(0, 'png'), // Fallback to first asset
+          status: "active",
+        })
+        .eq('id', collectionId);
+
+      toast.success(`${currentChain.name} Launch Successful!`, { id: 'deploy-status' });
       onCollectionCreated?.();
       onOpenChange(false);
 
