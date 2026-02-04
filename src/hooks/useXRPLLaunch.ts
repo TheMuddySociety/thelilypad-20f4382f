@@ -1,83 +1,75 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import {
+    deployXRPLCollection,
+    mintXRPLItems,
+    XRPLCollectionParams,
+    XRPLDeployResult
+} from '@/chains';
 
 /**
- * useXRPLLaunch - Hook for XRP Ledger NFT launching
- * 
- * Supports XLS-20 standard and deterministic resolution via Domain field.
+ * useXRPLLaunch - Thin React adapter for XRPL chain operations
+ *
+ * This hook provides React state management and delegates all chain logic
+ * to the centralized chains/xrpl/* modules.
  */
 
-export interface XRPLCollectionParams {
-    name: string;
-    symbol: string;
-    description: string;
-    totalSupply: number;
-    baseUri?: string;
-    royaltyPercent?: number;
-    transferFee?: number; // XRPL uses 0-50000 (0-50%)
-}
-
 export function useXRPLLaunch() {
-    const [isLoading, setIsLoading] = useState(false);
+    const [isDeploying, setIsDeploying] = useState(false);
+    const [isMinting, setIsMinting] = useState(false);
 
-    const deployXRPLCollection = useCallback(async (params: XRPLCollectionParams) => {
-        setIsLoading(true);
+    /**
+     * Deploy XRPL collection with Account Domain strategy
+     */
+    const deployXRPLCollection = useCallback(async (
+        params: XRPLCollectionParams
+    ): Promise<XRPLDeployResult> => {
+        setIsDeploying(true);
         try {
-            // XRPL NFTokenMint doesn't have a "Collection NFT" like Solana Metaplex Core.
-            // Instead, we use a 'Taxon' to group them.
-            // Strategy: The common account Domain field is the source of metadata truth.
+            toast.loading(`Deploying XRPL Collection...`, { id: 'xrpl-deploy' });
 
-            toast.info("Connecting to XRP Ledger...");
+            const result = await deployXRPLCollection(params);
 
-            // Note: In a real implementation, this would use xrpl.js to:
-            // 1. Submit AccountSet with Domain: params.baseUri
-            // 2. Return the issuer address which acts as the 'collection root'
-
-            // Placeholder: Simulate XRPL transaction
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            const mockIssuerAddress = 'rLilyPad' + Math.random().toString(36).substring(7);
-
-            toast.success("XRPL Account Domain set for collection!");
-
-            return {
-                address: mockIssuerAddress,
-                taxon: Math.floor(Math.random() * 1000000),
-            };
+            toast.success(`XRPL Collection deployed!`, { id: 'xrpl-deploy' });
+            return result;
         } catch (err: any) {
-            toast.error(err.message || "Failed to deploy XRPL collection");
+            console.error('XRPL deployment error:', err);
+            toast.error(err.message || 'Failed to deploy XRPL collection', { id: 'xrpl-deploy' });
             throw err;
         } finally {
-            setIsLoading(false);
+            setIsDeploying(false);
         }
     }, []);
 
+    /**
+     * Mint XRPL NFTs
+     */
     const mintXRPLItems = useCallback(async (
         issuerAddress: string,
         taxon: number,
         items: { name: string; uri: string }[]
-    ) => {
-        setIsLoading(true);
+    ): Promise<boolean> => {
+        setIsMinting(true);
         try {
-            toast.loading(`Minting ${items.length} NFTs on XRPL...`, { id: 'xrpl-mint' });
+            toast.loading(`Minting ${items.length} XRPL NFTs...`, { id: 'xrpl-mint' });
 
-            // Simulating sequential minting on XRPL
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            const result = await mintXRPLItems(issuerAddress, taxon, items);
 
-            toast.success(`Successfully minted ${items.length} NFTs on XRPL!`, { id: 'xrpl-mint' });
-            return true;
+            toast.success(`XRPL NFTs minted!`, { id: 'xrpl-mint' });
+            return result;
         } catch (err: any) {
-            toast.error(err.message || "Failed to mint XRPL items", { id: 'xrpl-mint' });
+            console.error('XRPL minting error:', err);
+            toast.error(err.message || 'Failed to mint XRPL NFTs', { id: 'xrpl-mint' });
             return false;
         } finally {
-            setIsLoading(false);
+            setIsMinting(false);
         }
     }, []);
 
     return {
         deployXRPLCollection,
         mintXRPLItems,
-        isLoading
+        isDeploying,
+        isMinting,
     };
 }

@@ -7,40 +7,21 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
-import {
-    MonadNetwork,
-    DEFAULT_MONAD_NETWORK,
-    getMonadChainId,
-    switchToMonad,
-    getMonadExplorerUrl,
-} from '@/config/monad';
+import { createMonadProvider, connectMonadWallet, deployMonadCollection, mintMonadNFT, MonadCollectionParams, MonadDeployResult } from '@/chains';
+import { MonadNetwork, DEFAULT_MONAD_NETWORK, switchToMonad, getMonadExplorerUrl } from '@/config/monad';
 
-export interface MonadCollectionParams {
-    name: string;
-    symbol: string;
-    description?: string;
-    imageUri?: string;
-    metadataBaseUri?: string;
-    totalSupply: number;
-    royaltyBasisPoints?: number;
-    maxMintPerWallet?: number;
-    mintPrice?: string; // In MON
-}
-
-export interface MonadMintResult {
-    success: boolean;
-    contractAddress?: string;
-    transactionHash?: string;
-    tokenIds?: string[];
-    error?: string;
-}
+/**
+ * useMonadLaunch - Thin React adapter for Monad EVM chain operations
+ * 
+ * This hook provides React state management and delegates all chain logic
+ * to the centralized chains/monad/* modules.
+ */
 
 export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
     const [isConnected, setIsConnected] = useState(false);
     const [address, setAddress] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [balance, setBalance] = useState<string>('0');
 
     // Check wallet connection
     useEffect(() => {
@@ -54,14 +35,6 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
                 if (accounts && accounts.length > 0) {
                     setAddress(accounts[0]);
                     setIsConnected(true);
-
-                    // Check if on correct network
-                    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-                    const expectedChainId = `0x${getMonadChainId(network).toString(16)}`;
-
-                    if (chainId !== expectedChainId) {
-                        console.log('Wrong network, expected Monad');
-                    }
                 }
             } catch (err) {
                 console.error('Error checking connection:', err);
@@ -88,19 +61,11 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
      * Connect EVM wallet (Phantom EVM or MetaMask)
      */
     const connect = useCallback(async (): Promise<boolean> => {
-        if (typeof window === 'undefined' || !window.ethereum) {
-            toast.error('No EVM wallet found. Please install Phantom or MetaMask.');
-            return false;
-        }
-
         try {
-            // Request account access
-            const accounts = await window.ethereum.request({
-                method: 'eth_requestAccounts'
-            });
+            const walletAddress = await connectMonadWallet();
 
-            if (accounts && accounts.length > 0) {
-                setAddress(accounts[0]);
+            if (walletAddress) {
+                setAddress(walletAddress);
                 setIsConnected(true);
 
                 // Try to switch to Monad network
@@ -131,13 +96,10 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
 
     /**
      * Create/Deploy an NFT collection on Monad
-     * 
-     * Note: This requires a deployed NFT factory contract on Monad
-     * For now, this is a placeholder that will work when Monad mainnet launches
      */
     const createCollection = useCallback(async (
         params: MonadCollectionParams
-    ): Promise<MonadMintResult> => {
+    ): Promise<MonadDeployResult> => {
         if (!isConnected || !address) {
             const error = 'Please connect your wallet first';
             toast.error(error);
@@ -154,45 +116,15 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
                 throw new Error('Please switch to Monad network');
             }
 
-            // TODO: Deploy ERC-721 contract when Monad mainnet launches
-            // For now, return a placeholder
-            toast.info('Monad NFT deployment coming soon!', {
-                description: 'Monad is currently in testnet. Full NFT deployment will be available at mainnet launch.',
-            });
+            const result = await deployMonadCollection(params);
 
-            return {
-                success: false,
-                error: 'Monad NFT deployment not yet available',
-            };
+            if (!result.success) {
+                toast.info('Monad NFT deployment coming soon!', {
+                    description: 'Monad is currently in testnet. Full NFT deployment will be available at mainnet launch.',
+                });
+            }
 
-            // Example of what the actual implementation would look like:
-            /*
-            // Deploy ERC-721 contract
-            const factoryAddress = MONAD_CONTRACTS[network].nftFactory;
-            const factory = new ethers.Contract(factoryAddress, NFT_FACTORY_ABI, signer);
-            
-            const tx = await factory.createCollection(
-              params.name,
-              params.symbol,
-              params.metadataBaseUri || '',
-              params.totalSupply,
-              params.royaltyBasisPoints || 500,
-              params.mintPrice || '0',
-              params.maxMintPerWallet || 10,
-            );
-      
-            const receipt = await tx.wait();
-            const event = receipt.events?.find(e => e.event === 'CollectionCreated');
-            const contractAddress = event?.args?.collection;
-      
-            toast.success('Collection deployed!');
-            
-            return {
-              success: true,
-              contractAddress,
-              transactionHash: receipt.transactionHash,
-            };
-            */
+            return result;
         } catch (err: any) {
             const errorMessage = err.message || 'Failed to create collection';
             setError(errorMessage);
@@ -210,7 +142,7 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
         contractAddress: string,
         quantity: number = 1,
         mintPrice?: string
-    ): Promise<MonadMintResult> => {
+    ): Promise<MonadDeployResult> => {
         if (!isConnected || !address) {
             const error = 'Please connect your wallet first';
             toast.error(error);
@@ -221,13 +153,13 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
         setError(null);
 
         try {
-            // TODO: Implement actual minting when contracts are deployed
-            toast.info('Monad minting coming soon!');
+            const result = await mintMonadNFT(contractAddress, quantity, mintPrice);
 
-            return {
-                success: false,
-                error: 'Monad minting not yet available',
-            };
+            if (!result.success) {
+                toast.info('Monad minting coming soon!');
+            }
+
+            return result;
         } catch (err: any) {
             const errorMessage = err.message || 'Failed to mint NFT';
             setError(errorMessage);
