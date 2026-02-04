@@ -11,6 +11,7 @@ import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTTransferModal } from "@/components/NFTTransferModal";
 import { ListNFTModal } from "@/components/ListNFTModal";
 import { PortfolioValueChart } from "@/components/PortfolioValueChart";
+import { CardStack3D } from "@/components/ui/3d-card-stack";
 
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
@@ -710,6 +711,22 @@ export default function MyNFTs() {
                 </Button>
               )}
             </div>
+
+            {/* 3D Card Stack Preview - Shows when collection is selected */}
+            {selectedCollection && filteredNfts.length >= 2 && !isLoading && (
+              <div className="mb-8">
+                <CardStack3D
+                  images={filteredNfts.slice(0, 5).map(nft => ({
+                    src: nft.image_url || nft.collection?.image_url || 'https://images.unsplash.com/photo-1634973357973-f2ed2657db3c?w=400',
+                    alt: nft.name || `NFT #${nft.token_id}`
+                  }))}
+                  cardWidth={280}
+                  cardHeight={280}
+                  spacing={{ x: 40, y: 40 }}
+                  className="py-16"
+                />
+              </div>
+            )}
 
             {isLoading ? (
               <div className={viewMode === "grid"
