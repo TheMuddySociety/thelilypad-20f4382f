@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Clock, ShieldCheck, Coins, Image as ImageIcon, Sparkles, Leaf } from "lucide-react";
 import { LaunchpadPhase } from "@/hooks/useSolanaLaunch";
+import { useChain } from "@/providers/ChainProvider";
 
 interface LaunchpadPreviewProps {
     name: string;
@@ -22,6 +23,9 @@ export function LaunchpadPreview({
     phases,
     activePhaseIndex = 0
 }: LaunchpadPreviewProps) {
+    const { chain } = useChain();
+    const { theme } = chain;
+
     const activePhase = phases[activePhaseIndex] || phases[0];
     const isLive = activePhase?.startTime && new Date() >= activePhase.startTime;
 
@@ -29,12 +33,18 @@ export function LaunchpadPreview({
         <div className="h-full flex flex-col items-center justify-center p-4">
             {/* Header Label */}
             <div className="flex items-center gap-1.5 mb-3 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                <Sparkles className="w-3 h-3 text-primary" />
+                <Sparkles className="w-3 h-3" style={{ color: theme.primaryColor }} />
                 <span>Live Preview</span>
             </div>
 
             {/* Compact Preview Card */}
-            <div className="w-full max-w-[280px] rounded-2xl overflow-hidden glass-card border-2 border-border shadow-lg">
+            <div
+                className="w-full max-w-[280px] rounded-2xl overflow-hidden glass-card border-2 shadow-lg"
+                style={{
+                    borderColor: theme.cardBorder,
+                    boxShadow: `0 0 20px ${theme.glowColor}15`
+                }}
+            >
                 {/* Hero Image - Compact */}
                 <div className="relative aspect-[4/3] w-full bg-gradient-to-br from-muted to-card overflow-hidden">
                     {coverImage ? (
@@ -58,7 +68,14 @@ export function LaunchpadPreview({
                             {itemsAvailable} Items
                         </Badge>
                         {activePhase?.gatekeeper && (
-                            <Badge className="bg-primary/20 text-primary border border-primary/20 backdrop-blur-sm text-[10px] h-5 px-1.5">
+                            <Badge
+                                className="backdrop-blur-sm text-[10px] h-5 px-1.5"
+                                style={{
+                                    backgroundColor: `${theme.primaryColor}20`,
+                                    color: theme.primaryColor,
+                                    borderColor: `${theme.primaryColor}30`
+                                }}
+                            >
                                 <ShieldCheck className="w-2.5 h-2.5 mr-0.5" /> Protected
                             </Badge>
                         )}
@@ -67,8 +84,8 @@ export function LaunchpadPreview({
                     {/* Status Badge */}
                     <div className="absolute top-2 right-2">
                         <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium ${isLive
-                                ? "bg-green-500/20 text-green-500 border border-green-500/30"
-                                : "bg-amber-500/20 text-amber-500 border border-amber-500/30"
+                            ? "bg-green-500/20 text-green-500 border border-green-500/30"
+                            : "bg-amber-500/20 text-amber-500 border border-amber-500/30"
                             }`}>
                             <div className={`w-1.5 h-1.5 rounded-full ${isLive ? "bg-green-500 animate-pulse" : "bg-amber-500"}`} />
                             {isLive ? "Live" : "Soon"}
@@ -108,14 +125,20 @@ export function LaunchpadPreview({
                             )}
                         </div>
                         <div className="flex items-center text-base font-bold text-foreground">
-                            <Coins className="w-3.5 h-3.5 mr-1.5 text-primary" />
-                            {activePhase?.price || 0} SOL
+                            <Coins className="w-3.5 h-3.5 mr-1.5" style={{ color: theme.primaryColor }} />
+                            {activePhase?.price || 0} {chain.symbol}
                         </div>
                     </div>
 
                     {/* Action Button - Compact */}
-                    <Button size="sm" className="w-full h-8 text-xs font-bold bg-gradient-to-r from-primary to-accent text-primary-foreground">
-                        Mint Now
+                    <Button
+                        size="sm"
+                        className="w-full h-8 text-xs font-bold text-white"
+                        style={{
+                            background: `linear-gradient(to right, ${theme.primaryColor}, ${theme.secondaryColor})`
+                        }}
+                    >
+                        Mint with {chain.symbol}
                     </Button>
                 </div>
             </div>
