@@ -119,9 +119,9 @@ export const MonadBattleTemplate = () => {
                                 </div>
                                 <div className="h-px bg-[#836EF9]/30 my-2" />
                                 <div className="text-xs text-[#836EF9]">
-                            > SCANNING MEMPOOL...<br />
-                            > DETECTING ARB OPPS...<br />
-                            > READY TO EXECUTE.
+                                    {'>'} SCANNING MEMPOOL...<br />
+                                    {'>'} DETECTING ARB OPPS...<br />
+                                    {'>'} READY TO EXECUTE.
                                 </div>
                             </CardContent>
                         </Card>

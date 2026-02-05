@@ -12,16 +12,13 @@ const ReadyTrade = () => {
   // Template Strategy Pattern
   const renderTemplate = () => {
     switch (chain.id) {
-      case 'monad-devnet':
-      case 'monad-testnet':
+      case 'monad':
         return <MonadBattleTemplate />;
 
-      case 'xrpl-evm-sidechain': // or mainnet
-      case 'xrpl-testnet':
+      case 'xrpl':
         return <XRPLBattleTemplate />;
 
-      case 'solana-devnet':
-      case 'solana-mainnet':
+      case 'solana':
       default:
         return <SolanaBattleTemplate />;
     }
