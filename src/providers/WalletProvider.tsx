@@ -436,15 +436,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       (chain.id === 'monad' && state.walletType === 'phantom'); // Will update when EVM wallets added
 
     if (!isCompatible) {
-      toast.warning(
-        `Wallet may not be compatible with ${chain.name}`,
-        {
-          description: chain.walletLabels.connectionLabel,
-          duration: 5000,
-        }
-      );
+      toast.warning(`Wallet may not be compatible with ${chain.name}`, {
+        description: `Try using ${chain.walletLabels.connect.replace('Connect ', '')} for ${chain.name}`,
+        duration: 5000,
+      });
     }
-  }, [chain.id, chain.name, chain.walletLabels.connectionLabel, state.isConnected, state.walletType, state.address]);
+  }, [chain.id, chain.name, chain.walletLabels.connect, state.isConnected, state.walletType, state.address]);
 
   const setTransactionPending = useCallback((pending: boolean) => {
     setState(prev => ({ ...prev, isTransactionPending: pending }));

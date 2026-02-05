@@ -81,6 +81,7 @@ const BlindBoxes = lazy(() => import("./pages/BlindBoxes"));
 const Governance = lazy(() => import("./pages/Governance"));
 const ProfileTypeSelection = lazy(() => import("./pages/ProfileTypeSelection"));
 const LimitedEditionMint = lazy(() => import("./pages/LimitedEditionMint"));
+const ReadyTrade = lazy(() => import("./pages/ReadyTrade"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -154,6 +155,7 @@ const App = () => (
                       <Route path="/blind-boxes" element={<ProtectedRoute><BlindBoxes /></ProtectedRoute>} />
                       <Route path="/governance" element={<ProtectedRoute><Governance /></ProtectedRoute>} />
                       <Route path="/limited-edition" element={<ProtectedRoute><LimitedEditionMint /></ProtectedRoute>} />
+                      <Route path="/ready-trade" element={<ProtectedRoute><ReadyTrade /></ProtectedRoute>} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
