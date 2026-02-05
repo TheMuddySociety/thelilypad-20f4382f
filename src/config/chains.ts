@@ -13,12 +13,31 @@ export interface ChainNetwork {
     explorer: string;
 }
 
+// Theme configuration for chain-aware UI
+export interface ChainThemeConfig {
+    primaryColor: string;      // Main brand color
+    secondaryColor: string;    // Accent color
+    background: string;        // Tailwind gradient classes
+    cardBorder: string;        // Border color with opacity
+    glowColor: string;         // For animations and highlights
+    buttonGradient: string;    // Gradient for primary buttons
+}
+
+// Wallet connection labels per chain
+export interface ChainWalletLabels {
+    connect: string;           // e.g., "Connect Phantom"
+    disconnect: string;        // e.g., "Disconnect Phantom"
+    connecting: string;        // e.g., "Connecting to Phantom..."
+}
+
 export interface ChainConfig {
     id: SupportedChain;
     name: string;
     symbol: string;
     iconName: 'solana' | 'xrp' | 'monad'; // For icon display
-    color: string; // Brand color
+    color: string; // Brand color (legacy - use theme.primaryColor instead)
+    theme: ChainThemeConfig;
+    walletLabels: ChainWalletLabels;
     networks: {
         mainnet: ChainNetwork;
         testnet: ChainNetwork;
@@ -38,6 +57,19 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
         symbol: 'SOL',
         iconName: 'solana',
         color: '#9945FF',
+        theme: {
+            primaryColor: '#14F195',
+            secondaryColor: '#9945FF',
+            background: 'from-[#0f2027] via-[#203a43] to-[#2c5364]',
+            cardBorder: '#14F19540',
+            glowColor: '#14F195',
+            buttonGradient: 'from-[#14F195] to-[#9945FF]',
+        },
+        walletLabels: {
+            connect: 'Connect Phantom',
+            disconnect: 'Disconnect Phantom',
+            connecting: 'Connecting to Phantom...',
+        },
         networks: {
             mainnet: {
                 url: 'https://api.mainnet-beta.solana.com',
@@ -68,6 +100,19 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
         symbol: 'XRP',
         iconName: 'xrp',
         color: '#23292F',
+        theme: {
+            primaryColor: '#2563EB',
+            secondaryColor: '#00AAE4',
+            background: 'from-[#020617] via-[#0f172a] to-[#1e293b]',
+            cardBorder: '#2563EB40',
+            glowColor: '#00AAE4',
+            buttonGradient: 'from-[#2563EB] to-[#00AAE4]',
+        },
+        walletLabels: {
+            connect: 'Connect XUMM',
+            disconnect: 'Disconnect XUMM',
+            connecting: 'Connecting to XUMM...',
+        },
         networks: {
             mainnet: {
                 url: 'wss://xrplcluster.com',
@@ -98,6 +143,19 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
         symbol: 'MON',
         iconName: 'monad',
         color: '#836EF9',
+        theme: {
+            primaryColor: '#A855F7',
+            secondaryColor: '#F59E0B',
+            background: 'from-[#1e1b4b] via-[#312e81] to-[#4c1d95]',
+            cardBorder: '#A855F740',
+            glowColor: '#A855F7',
+            buttonGradient: 'from-[#A855F7] to-[#F59E0B]',
+        },
+        walletLabels: {
+            connect: 'Connect Wallet',
+            disconnect: 'Disconnect Wallet',
+            connecting: 'Connecting to Monad...',
+        },
         networks: {
             mainnet: {
                 url: 'https://rpc.monad.xyz',

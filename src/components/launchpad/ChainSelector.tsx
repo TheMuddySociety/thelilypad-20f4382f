@@ -23,6 +23,7 @@ interface ChainSelectorProps {
     onChainChange: (chain: SupportedChain) => void;
     className?: string;
     compact?: boolean;
+    variant?: 'dropdown' | 'pills'; // New: toggle between dropdown and pill switcher
 }
 
 // Chain icons mapping
@@ -70,7 +71,8 @@ export function ChainSelector({
     selectedChain,
     onChainChange,
     className,
-    compact = false
+    compact = false,
+    variant = 'dropdown',
 }: ChainSelectorProps) {
     const activeChains = getActiveChains();
     const currentChain = CHAINS[selectedChain];
@@ -80,6 +82,43 @@ export function ChainSelector({
         onChainChange(chain);
     };
 
+    // Pills variant - horizontal button group
+    if (variant === 'pills') {
+        return (
+            <div className={cn("flex gap-2 p-2 rounded-xl bg-black/40 backdrop-blur", className)}>
+                {activeChains.map((chain) => {
+                    const isSelected = selectedChain === chain.id;
+                    return (
+                        <Button
+                            key={chain.id}
+                            onClick={() => handleChainChange(chain.id)}
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                                "gap-2 px-4 transition-all duration-200",
+                                isSelected
+                                    ? "bg-white text-black hover:bg-white/90"
+                                    : "text-white/70 hover:text-white hover:bg-white/10"
+                            )}
+                            style={isSelected ? {
+                                borderColor: chain.theme.primaryColor,
+                            } : undefined}
+                        >
+                            <ChainIcon chain={chain.id} />
+                            <span className="font-medium">{chain.symbol}</span>
+                            {chain.isTestnetOnly && isSelected && (
+                                <Badge variant="outline" className="h-4 text-[9px] px-1 bg-amber-500/20 text-amber-300 border-amber-500/40">
+                                    Test
+                                </Badge>
+                            )}
+                        </Button>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    // Default dropdown variant (original implementation)
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
