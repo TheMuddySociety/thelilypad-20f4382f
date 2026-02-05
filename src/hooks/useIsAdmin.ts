@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useWallet } from '@/providers/WalletProvider';
 
-const ADMIN_WALLET_ADDRESS = "Cra8LAvpQAk3hx4By5STHp4xrq7HSAnZLk4Jwzv1wUAH";
-
 export const useIsAdmin = () => {
   const { address, isConnected } = useWallet();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -11,19 +9,12 @@ export const useIsAdmin = () => {
 
   useEffect(() => {
     const checkAdminStatus = async () => {
-      // 1. Check Wallet Address first
-      if (isConnected && address === ADMIN_WALLET_ADDRESS) {
-        setIsAdmin(true);
-        setLoading(false);
-        return;
-      }
-
-      // 2. Fallback to Supabase Email/Auth check
+      // Check Supabase user_roles table for admin role
       try {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-          // If no wallet match and no user session, not admin
+          // If no user session, not admin
           setIsAdmin(false);
           setLoading(false);
           return;

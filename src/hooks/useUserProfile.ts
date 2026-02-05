@@ -117,10 +117,14 @@ export const useUserProfile = () => {
             throw new Error('Wallet not connected');
         }
 
+        // Get the current auth user to link profile
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+
         const { data, error: insertError } = await supabase
             .from('user_profiles')
             .insert({
                 wallet_address: address,
+                user_id: authUser?.id || null, // Link to auth user if exists
                 is_collector: roleSelection.isCollector,
                 is_creator: roleSelection.isCreator,
                 is_streamer: roleSelection.isStreamer,

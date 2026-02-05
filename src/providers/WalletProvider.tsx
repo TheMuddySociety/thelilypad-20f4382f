@@ -5,6 +5,7 @@ import type { BrowserSDK, ConnectResult, InjectedWalletInfo, AuthProviderType } 
 import { toast } from "sonner";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { useChain } from "./ChainProvider";
+import { supabase } from "@/integrations/supabase/client";
 
 // Types
 export type WalletType = "phantom" | "solana";
@@ -129,6 +130,31 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const balance = await fetchSolanaBalance(address);
 
+      // Auto-create Supabase auth session for wallet-only users
+      try {
+        const { data: { user: existingUser } } = await supabase.auth.getUser();
+        if (!existingUser) {
+          // Sign in anonymously to create auth session
+          const { data: authData, error: authError } = await supabase.auth.signInAnonymously({
+            options: {
+              data: {
+                wallet_address: address,
+                wallet_type: 'phantom'
+              }
+            }
+          });
+
+          if (authError) {
+            console.error('Auto auth creation failed:', authError);
+          } else {
+            console.log('Auto-created auth session for wallet:', address);
+          }
+        }
+      } catch (authErr) {
+        console.error('Auth session check failed:', authErr);
+        // Continue anyway - wallet is still connected
+      }
+
       setState(prev => ({
         ...prev,
         address,
@@ -168,6 +194,23 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const response = await provider.connect();
       const address = response.publicKey.toString();
       const balance = await fetchSolanaBalance(address);
+
+      // Auto-create Supabase auth session for wallet-only users
+      try {
+        const { data: { user: existingUser } } = await supabase.auth.getUser();
+        if (!existingUser) {
+          await supabase.auth.signInAnonymously({
+            options: {
+              data: {
+                wallet_address: address,
+                wallet_type: 'solana'
+              }
+            }
+          });
+        }
+      } catch (authErr) {
+        console.error('Auth session check failed:', authErr);
+      }
 
       setState(prev => ({
         ...prev,
