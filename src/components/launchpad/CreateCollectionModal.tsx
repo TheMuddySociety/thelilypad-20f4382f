@@ -47,6 +47,7 @@ import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { SupportedChain, CHAINS } from "@/config/chains";
 import { ChainIcon } from "./ChainSelector";
 import { getCollectionStorageInfo, getChainRootUri } from "@/lib/payloadMapper";
+import { useChain } from "@/providers/ChainProvider";
 
 interface CreateCollectionModalProps {
   open: boolean;
@@ -100,6 +101,8 @@ export function CreateCollectionModal({
   selectedChain = 'solana'
 }: CreateCollectionModalProps) {
   const { address, network } = useWallet();
+  const { chain } = useChain();
+  const { theme } = chain;
 
   // Chain hooks
   const solanaLaunch = useSolanaLaunch();
@@ -402,8 +405,8 @@ export function CreateCollectionModal({
         {/* LEFT PANEL: CONFIGURATION */}
         <div className="w-full md:w-[55%] lg:w-[420px] flex flex-col border-r border-border bg-card/50">
           {/* Header - Compact */}
-          <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
-            <div className="flex items-center gap-1.5 text-primary mb-0.5">
+          <div className="px-4 py-3 border-b border-border" style={{ background: `linear-gradient(to right, ${theme.primaryColor}10, transparent)` }}>
+            <div className="flex items-center gap-1.5 mb-0.5" style={{ color: theme.primaryColor }}>
               <Sparkles className="w-3 h-3" />
               <span className="text-[10px] font-mono uppercase tracking-widest">Create Collection</span>
             </div>
@@ -420,12 +423,19 @@ export function CreateCollectionModal({
               return (
                 <div
                   key={step.id}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-full border text-[10px] font-medium transition-all ${isActive
-                    ? "bg-primary/20 border-primary text-primary"
-                    : isDone
-                      ? "bg-accent/10 border-accent/30 text-accent"
-                      : "border-transparent text-muted-foreground opacity-40"
-                    }`}
+                  className="flex items-center gap-1 px-2 py-1 rounded-full border text-[10px] font-medium transition-all"
+                  style={isActive ? {
+                    backgroundColor: `${theme.primaryColor}20`,
+                    borderColor: theme.primaryColor,
+                    color: theme.primaryColor
+                  } : isDone ? {
+                    backgroundColor: `${theme.secondaryColor}10`,
+                    borderColor: `${theme.secondaryColor}30`,
+                    color: theme.secondaryColor
+                  } : {
+                    borderColor: 'transparent',
+                    opacity: 0.4
+                  }}
                 >
                   <Icon className="w-2.5 h-2.5" />
                   <span className="hidden lg:inline">{step.title}</span>
@@ -785,7 +795,11 @@ export function CreateCollectionModal({
                     <Button
                       onClick={handleDeploy}
                       disabled={solanaLaunch.isLoading || !isChainFullySupported}
-                      className="w-full h-14 text-lg font-bold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-xl shadow-green-500/20 disabled:opacity-50"
+                      className="w-full h-14 text-lg font-bold text-white disabled:opacity-50"
+                      style={{
+                        background: `linear-gradient(to right, ${theme.primaryColor}, ${theme.secondaryColor})`,
+                        boxShadow: `0 20px 25px -5px ${theme.glowColor}20, 0 10px 10px -5px ${theme.glowColor}10`
+                      }}
                     >
                       {solanaLaunch.isLoading
                         ? "Deploying..."
@@ -808,7 +822,7 @@ export function CreateCollectionModal({
             </Button>
 
             {currentStep < maxStep ? (
-              <Button size="sm" onClick={nextStep} className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 h-8 text-xs px-4">
+              <Button size="sm" onClick={nextStep} className="text-white hover:opacity-90 h-8 text-xs px-4" style={{ background: `linear-gradient(to right, ${theme.primaryColor}, ${theme.secondaryColor})` }}>
                 Continue <ChevronRight className="w-3 h-3 ml-1" />
               </Button>
             ) : null}
@@ -819,8 +833,8 @@ export function CreateCollectionModal({
         <div className="hidden md:flex flex-1 flex-col bg-muted/30 relative overflow-hidden">
           {/* Subtle decorative elements */}
           <div className="absolute inset-0 opacity-20 pointer-events-none">
-            <div className="absolute top-8 right-8 w-24 h-24 rounded-full bg-primary/30 blur-3xl" />
-            <div className="absolute bottom-12 left-12 w-32 h-32 rounded-full bg-accent/30 blur-3xl" />
+            <div className="absolute top-8 right-8 w-24 h-24 rounded-full blur-3xl" style={{ backgroundColor: `${theme.primaryColor}30` }} />
+            <div className="absolute bottom-12 left-12 w-32 h-32 rounded-full blur-3xl" style={{ backgroundColor: `${theme.secondaryColor}30` }} />
           </div>
 
           {/* Step Context Header */}
