@@ -4,6 +4,7 @@ import { getPhantomSDK, waitForPhantomExtension, AddressType, resetPhantomSDK } 
 import type { BrowserSDK, ConnectResult, InjectedWalletInfo, AuthProviderType } from "@phantom/browser-sdk";
 import { toast } from "sonner";
 import { Connection, PublicKey } from "@solana/web3.js";
+import { useChain } from "./ChainProvider";
 
 // Types
 export type WalletType = "phantom" | "solana";
@@ -66,6 +67,9 @@ const formatSolanaBalance = (lamports: number): string => {
 };
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Access chain context to validate wallet compatibility
+  const { chain } = useChain();
+
   const [state, setState] = useState<WalletState>(() => ({
     address: null,
     isConnected: false,
@@ -377,6 +381,27 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     autoConnect();
   }, [getSDK, fetchSolanaBalance, isPhantomAvailable]);
+
+  // Chain-Wallet Compatibility Validation
+  useEffect(() => {
+    if (!state.isConnected || !state.address) return;
+
+    // Check if current wallet type matches selected chain
+    const isCompatible =
+      (chain.id === 'solana' && (state.walletType === 'phantom' || state.walletType === 'solana')) ||
+      (chain.id === 'xrpl' && state.walletType === 'phantom') || // Will update when XRPL-specific wallet added
+      (chain.id === 'monad' && state.walletType === 'phantom'); // Will update when EVM wallets added
+
+    if (!isCompatible) {
+      toast.warning(
+        `Wallet may not be compatible with ${chain.name}`,
+        {
+          description: chain.walletLabels.connectionLabel,
+          duration: 5000,
+        }
+      );
+    }
+  }, [chain.id, chain.name, chain.walletLabels.connectionLabel, state.isConnected, state.walletType, state.address]);
 
   const setTransactionPending = useCallback((pending: boolean) => {
     setState(prev => ({ ...prev, isTransactionPending: pending }));
