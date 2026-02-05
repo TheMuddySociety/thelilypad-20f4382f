@@ -48,6 +48,7 @@ import { SupportedChain, CHAINS } from "@/config/chains";
 import { ChainIcon } from "./ChainSelector";
 import { getCollectionStorageInfo, getChainRootUri } from "@/lib/payloadMapper";
 import { useChain } from "@/providers/ChainProvider";
+import { useChainTheme } from "@/hooks/useChainTheme";
 
 interface CreateCollectionModalProps {
   open: boolean;
@@ -103,6 +104,9 @@ export function CreateCollectionModal({
   const { address, network } = useWallet();
   const { chain } = useChain();
   const { theme } = chain;
+
+  // Apply theme only when modal is open
+  useChainTheme(open);
 
   // Chain hooks
   const solanaLaunch = useSolanaLaunch();
