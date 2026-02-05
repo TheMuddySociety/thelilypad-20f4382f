@@ -11,110 +11,161 @@ pub mod battle_program {
         ctx: Context<CreateBattle>,
         entry_fee: u64,
         mode: u8,
+        duration_seconds: i64,
         max_players: u8,
     ) -> Result<()> {
         let battle = &mut ctx.accounts.battle_account;
 
         battle.creator = ctx.accounts.creator.key();
-        battle.authority = ctx.accounts.authority.key(); // Authority to resolve (server)
-        battle.dataset_id = Pubkey::default(); // Optional for future use
+        battle.collection_mint = ctx.accounts.collection_mint.key();
+        battle.authority = ctx.accounts.authority.key();
+        
+        // Optional entry fee (e.g. anti-spam or pot builder)
         battle.entry_fee = entry_fee;
-        battle.total_pot = 0;
-        battle.mode = mode; // 0=Duel, 1=Arena, 2=Blitz
+        if entry_fee > 0 {
+             let transfer_instruction = system_instruction::transfer(
+                &ctx.accounts.creator.key(),
+                &battle.key(),
+                entry_fee,
+            );
+            anchor_lang::solana_program::program::invoke(
+                &transfer_instruction,
+                &[
+                    ctx.accounts.creator.to_account_info(),
+                    battle.to_account_info(),
+                    ctx.accounts.system_program.to_account_info(),
+                ],
+            )?;
+        }
+
+        battle.total_pot = entry_fee; // Pot starts with creator fee
+        battle.mode = mode; // 0=Duel, 1=Arena
         battle.max_players = max_players;
-        battle.players = Vec::new(); // Initialize empty players list
-        battle.state = 0; // 0=Waiting
+        battle.participants = Vec::new();
+        
+        let clock = Clock::get()?;
+        battle.start_time = clock.unix_timestamp;
+        battle.end_time = clock.unix_timestamp + duration_seconds;
+        battle.state = 0; // 0=Waiting/Active (depending on logic)
 
-        // Join creator automatically (optional, but robust for game flow)
-        // For now, we'll keep creator separate or force join in next instruction.
-        // Let's assume create_battle also deposits the creator's stake.
+        // Add creator as first participant
+        battle.participants.push(Participant {
+            address: ctx.accounts.creator.key(),
+            volume_swapped: 0,
+            swaps_count: 0,
+            score: 0,
+        });
 
-        // Transfer entry fee from creator to battle PDA
-        let transfer_instruction = system_instruction::transfer(
-            &ctx.accounts.creator.key(),
-            &battle.key(),
-            entry_fee,
-        );
+        // If simple join is not needed and creation implies start:
+        // battle.state = 1; 
 
-        anchor_lang::solana_program::program::invoke(
-            &transfer_instruction,
-            &[
-                ctx.accounts.creator.to_account_info(),
-                battle.to_account_info(), // PDA holds funds
-                ctx.accounts.system_program.to_account_info(),
-            ],
-        )?;
-
-        battle.total_pot += entry_fee;
-        battle.players.push(ctx.accounts.creator.key());
-
+        msg!("Battle Created: {} for collection {}", battle.key(), battle.collection_mint);
         Ok(())
     }
 
     pub fn join_battle(ctx: Context<JoinBattle>) -> Result<()> {
         let battle = &mut ctx.accounts.battle_account;
+        
+        // Check if battle is open
+        let clock = Clock::get()?;
+        require!(clock.unix_timestamp < battle.end_time, BattleError::BattleEnded);
+        require!(battle.participants.len() < battle.max_players as usize, BattleError::BattleFull);
 
-        require!(battle.state == 0, BattleError::BattleNotOpen);
-        require!(battle.players.len() < battle.max_players as usize, BattleError::BattleFull);
-
-        // Transfer entry fee from player to battle PDA
-        let transfer_instruction = system_instruction::transfer(
-            &ctx.accounts.player.key(),
-            &battle.key(),
-            battle.entry_fee,
-        );
-
-        anchor_lang::solana_program::program::invoke(
-            &transfer_instruction,
-            &[
-                ctx.accounts.player.to_account_info(),
-                battle.to_account_info(),
-                ctx.accounts.system_program.to_account_info(),
-            ],
-        )?;
-
-        battle.players.push(ctx.accounts.player.key());
-        battle.total_pot += battle.entry_fee;
-
-        // Start battle if full
-        if battle.players.len() == battle.max_players as usize {
-            battle.state = 1; // Active
+        // Handle Entry Fee
+        if battle.entry_fee > 0 {
+             let transfer_instruction = system_instruction::transfer(
+                &ctx.accounts.player.key(),
+                &battle.key(),
+                battle.entry_fee,
+            );
+            anchor_lang::solana_program::program::invoke(
+                &transfer_instruction,
+                &[
+                    ctx.accounts.player.to_account_info(),
+                    battle.to_account_info(),
+                    ctx.accounts.system_program.to_account_info(),
+                ],
+            )?;
+            battle.total_pot += battle.entry_fee;
         }
 
+        battle.participants.push(Participant {
+            address: ctx.accounts.player.key(),
+            volume_swapped: 0,
+            swaps_count: 0,
+            score: 0,
+        });
+        
+        if battle.participants.len() >= 2 && battle.state == 0 {
+            battle.state = 1; // Mark active if we have opponents
+        }
+
+        msg!("Player Joined: {}", ctx.accounts.player.key());
         Ok(())
     }
 
-    pub fn resolve_battle(ctx: Context<ResolveBattle>, winner_index: u8) -> Result<()> {
+    // verifiable_swap_amount would come from a trusted source or oracle in a real scenario
+    // For now, we simulate the "Gamification" aspect where an authorized backend verifies the swap happened
+    pub fn record_swap(ctx: Context<RecordSwap>, participant_index: u8, volume: u64) -> Result<()> {
+        let battle = &mut ctx.accounts.battle_account;
+        
+        require!(battle.state == 1, BattleError::BattleNotActive);
+        let clock = Clock::get()?;
+        
+        // Auto-close if time is up
+        if clock.unix_timestamp > battle.end_time {
+            battle.state = 2; // Ended
+            return Err(BattleError::BattleEnded.into());
+        }
+
+        require!((participant_index as usize) < battle.participants.len(), BattleError::InvalidParticipant);
+
+        let participant = &mut battle.participants[participant_index as usize];
+        participant.volume_swapped += volume;
+        participant.swaps_count += 1;
+        
+        // Score logic: volume is score
+        participant.score = participant.volume_swapped;
+
+        msg!("Swap Recorded: {} vol for player {}", volume, participant.address);
+        Ok(())
+    }
+
+    pub fn claim_rewards(ctx: Context<ClaimRewards>, winner_index: u8) -> Result<()> {
         let battle = &mut ctx.accounts.battle_account;
 
-        require!(battle.state == 1, BattleError::BattleNotActive);
+        require!(battle.state == 2 || battle.state == 1, BattleError::BattleNotEnded); // Can claim if ended or if we manually end it now
         
-        // Ensure winner index is valid
-        require!((winner_index as usize) < battle.players.len(), BattleError::InvalidWinner);
+        // Ensure only authority can trigger payout (for now)
+        // In future, anyone can call if on-chain logic confirms winner deterministically
         
-        let winner = battle.players[winner_index as usize];
-        battle.winner = Some(winner);
-        battle.state = 2; // Resolved
+        let winner_pubkey = battle.participants[winner_index as usize].address;
+        require!(winner_pubkey == ctx.accounts.winner.key(), BattleError::InvalidWinner);
 
-        // Payout to winner
-        // PDA must sign to transfer funds out
-        // Note: In production you'd take a fee here.
+        let reward_amount = battle.total_pot;
+        require!(reward_amount > 0, BattleError::NoRewards);
 
-        let amount = battle.total_pot;
-        **battle.to_account_info().try_borrow_mut_lamports()? -= amount;
-        **ctx.accounts.winner_account.to_account_info().try_borrow_mut_lamports()? += amount;
+        // Transfer pot to winner
+        **battle.to_account_info().try_borrow_mut_lamports()? -= reward_amount;
+        **ctx.accounts.winner.to_account_info().try_borrow_mut_lamports()? += reward_amount;
+        
+        battle.total_pot = 0;
+        battle.state = 3; // 3 = Paid/Closed
 
+        msg!("Rewards Claimed: {} lamports to {}", reward_amount, winner_pubkey);
         Ok(())
     }
 }
 
 #[derive(Accounts)]
 pub struct CreateBattle<'info> {
-    #[account(init, payer = creator, space = 8 + 32 + 32 + 32 + 8 + 8 + 1 + 1 + (4 + 32 * 8) + 1 + 1 + 33)] 
+    #[account(init, payer = creator, space = 8 + 500)] 
     pub battle_account: Account<'info, BattleAccount>,
     #[account(mut)]
     pub creator: Signer<'info>,
-    /// CHECK: This is the server authority key that will resolve battles
+    /// CHECK: Collection mint to track
+    pub collection_mint: AccountInfo<'info>,
+    /// CHECK: Server authority
     pub authority: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
 }
@@ -129,37 +180,62 @@ pub struct JoinBattle<'info> {
 }
 
 #[derive(Accounts)]
-pub struct ResolveBattle<'info> {
+pub struct RecordSwap<'info> {
     #[account(mut, has_one = authority)]
     pub battle_account: Account<'info, BattleAccount>,
     pub authority: Signer<'info>,
-    /// CHECK: Must match the pubkey at the winner_index in battle.players
+}
+
+#[derive(Accounts)]
+pub struct ClaimRewards<'info> {
+    #[account(mut, has_one = authority)]
+    pub battle_account: Account<'info, BattleAccount>,
+    pub authority: Signer<'info>,
     #[account(mut)]
-    pub winner_account: AccountInfo<'info>, 
+    pub winner: AccountInfo<'info>,
 }
 
 #[account]
 pub struct BattleAccount {
     pub creator: Pubkey,
+    pub collection_mint: Pubkey, 
     pub authority: Pubkey,
-    pub dataset_id: Pubkey,
+    
     pub entry_fee: u64,
-    pub total_pot: u64,
+    pub total_pot: u64, 
+    
+    pub start_time: i64,
+    pub end_time: i64,
+    
     pub mode: u8,
     pub max_players: u8,
-    pub players: Vec<Pubkey>,
-    pub state: u8, // 0=Waiting, 1=Active, 2=Resolved
-    pub winner: Option<Pubkey>,
+    pub state: u8, // 0=Waiting, 1=Active, 2=Ended, 3=Closed
+    
+    pub participants: Vec<Participant>,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
+pub struct Participant {
+    pub address: Pubkey,
+    pub volume_swapped: u64, 
+    pub swaps_count: u32,
+    pub score: u64,
 }
 
 #[error_code]
 pub enum BattleError {
-    #[msg("Battle is not in waiting state.")]
-    BattleNotOpen,
-    #[msg("Battle is already full.")]
-    BattleFull,
-    #[msg("Battle is not active.")]
+    #[msg("Battle Not Active")]
     BattleNotActive,
-    #[msg("Invalid winner index.")]
+    #[msg("Battle Full")]
+    BattleFull,
+    #[msg("Battle Ended")]
+    BattleEnded,
+    #[msg("Battle Not Ended")]
+    BattleNotEnded,
+    #[msg("Invalid Participant Index")]
+    InvalidParticipant,
+    #[msg("Invalid Winner Address")]
     InvalidWinner,
+    #[msg("No Rewards to Claim")]
+    NoRewards,
 }
