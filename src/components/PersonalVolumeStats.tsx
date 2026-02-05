@@ -8,6 +8,7 @@ import { User, TrendingUp, Coins, Activity, Calendar, Trophy, ArrowRight } from 
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { useWallet } from "@/providers/WalletProvider";
 
 interface TradeEntry {
   id: string;
@@ -40,6 +41,7 @@ const SOURCE_COLORS: Record<string, string> = {
 
 export function PersonalVolumeStats() {
   const navigate = useNavigate();
+  const { connect } = useWallet();
 
   const { data: session } = useQuery({
     queryKey: ['session'],
@@ -160,8 +162,8 @@ export function PersonalVolumeStats() {
           <p className="text-sm text-muted-foreground mb-4">
             Sign in to see your personal trading stats and leaderboard position
           </p>
-          <Button onClick={() => navigate('/auth')}>
-            Sign In
+          <Button onClick={() => connect()}>
+            Connect Wallet
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </CardContent>
