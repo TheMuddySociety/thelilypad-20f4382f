@@ -122,14 +122,14 @@ export const useUserProfile = () => {
 
         const { data, error: insertError } = await supabase
             .from('user_profiles')
-            .insert({
+            .upsert({
                 wallet_address: address,
-                user_id: authUser?.id || null, // Link to auth user if exists
+                user_id: authUser?.id || null,
                 is_collector: roleSelection.isCollector,
                 is_creator: roleSelection.isCreator,
                 is_streamer: roleSelection.isStreamer,
                 profile_setup_completed: true,
-            })
+            }, { onConflict: 'wallet_address' })
             .select()
             .single();
 
