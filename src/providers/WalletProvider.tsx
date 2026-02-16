@@ -6,9 +6,20 @@ import { toast } from "sonner";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { useChain } from "./ChainProvider";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  generateXRPLWallet,
+  importXRPLWallet,
+  saveXRPLWallet,
+  loadXRPLWallet,
+  clearXRPLWallet,
+  fetchXRPBalance,
+  type StoredXRPLWallet,
+  type XRPLNetworkType,
+  getXRPLNetwork,
+} from "@/lib/xrpl-wallet";
 
 // Types
-export type WalletType = "phantom" | "solana";
+export type WalletType = "phantom" | "solana" | "xrpl";
 export type ChainType = "solana" | "xrpl" | "monad";
 export type OAuthProvider = "google" | "apple";
 
@@ -250,8 +261,81 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [fetchSolanaBalance]);
 
+  // Connect XRPL wallet (non-custodial browser wallet)
+  const connectXRPL = useCallback(async (action: 'generate' | 'import' = 'generate', seed?: string) => {
+    setState(prev => ({ ...prev, isConnecting: true, walletType: "xrpl", chainType: "xrpl" }));
+
+    try {
+      let walletData: StoredXRPLWallet;
+
+      // Check for existing stored wallet first
+      const stored = loadXRPLWallet();
+      if (stored && action === 'generate') {
+        walletData = stored;
+      } else if (action === 'import' && seed) {
+        walletData = importXRPLWallet(seed);
+      } else {
+        walletData = generateXRPLWallet();
+      }
+
+      saveXRPLWallet(walletData);
+
+      const network = getXRPLNetwork();
+      let balance = '0';
+      try {
+        balance = await fetchXRPBalance(walletData.address, network);
+      } catch {
+        // New accounts may not be funded yet
+      }
+
+      // Auto-create Supabase auth session
+      try {
+        const { data: { user: existingUser } } = await supabase.auth.getUser();
+        if (!existingUser) {
+          await supabase.auth.signInAnonymously({
+            options: {
+              data: {
+                wallet_address: walletData.address,
+                wallet_type: 'xrpl'
+              }
+            }
+          });
+        }
+      } catch (authErr) {
+        console.error('Auth session check failed:', authErr);
+      }
+
+      setState(prev => ({
+        ...prev,
+        address: walletData.address,
+        isConnected: true,
+        isConnecting: false,
+        balance,
+        walletType: "xrpl",
+        chainType: "xrpl",
+        authProvider: "xrpl-browser",
+      }));
+
+      localStorage.setItem("walletConnected", "true");
+      localStorage.setItem("walletType", "xrpl");
+
+      toast.success(`XRPL wallet connected on ${network}`);
+    } catch (error: any) {
+      console.error("XRPL connect error:", error);
+      setState(prev => ({ ...prev, isConnecting: false }));
+      toast.error(error?.message || "Failed to connect XRPL wallet");
+      throw error;
+    }
+  }, []);
+
   // Main connect function
   const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
+    // If explicitly requesting XRPL, use XRPL wallet
+    if (_walletType === 'xrpl' || _chainType === 'xrpl') {
+      await connectXRPL();
+      return;
+    }
+
     // Prefer injected Solana provider first (most reliable for Phantom extension)
     const injected = getSolanaProvider();
     if (injected) {
@@ -292,7 +376,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     toast.error("Phantom wallet not found. Please install Phantom extension.");
-  }, [isPhantomAvailable, connectWithSDK, connectSolanaLegacy]);
+  }, [isPhantomAvailable, connectWithSDK, connectSolanaLegacy, connectXRPL]);
 
   // Connect with OAuth
   const connectWithOAuth = useCallback(async (provider: OAuthProvider) => {
@@ -301,15 +385,22 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Disconnect
   const disconnect = useCallback(async () => {
-    const sdk = getSDK();
+    // Handle XRPL disconnect
+    if (state.walletType === 'xrpl') {
+      // Don't clear the stored wallet - just disconnect session
+      // User can reconnect with same wallet
+    } else {
+      const sdk = getSDK();
+      try {
+        if (sdk.isConnected?.()) await sdk.disconnect();
+      } catch { }
 
-    try {
-      if (sdk.isConnected?.()) await sdk.disconnect();
-    } catch { }
+      try {
+        await getSolanaProvider()?.disconnect();
+      } catch { }
 
-    try {
-      await getSolanaProvider()?.disconnect();
-    } catch { }
+      resetPhantomSDK();
+    }
 
     setState(prev => ({
       ...prev,
@@ -323,10 +414,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.removeItem("walletConnected");
     localStorage.removeItem("walletType");
     localStorage.removeItem("authProvider");
-    resetPhantomSDK();
 
     toast.success("Wallet disconnected");
-  }, [getSDK]);
+  }, [getSDK, state.walletType]);
 
   // Switch Solana network (mainnet or devnet)
   const switchNetwork = useCallback(async (network: NetworkType) => {
@@ -373,7 +463,30 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const autoConnect = async () => {
       setState(prev => ({ ...prev, isConnecting: true }));
       try {
-        // Attempt silent connect
+        const storedWalletType = localStorage.getItem("walletType");
+
+        // Auto-connect XRPL if that was the last wallet type
+        if (storedWalletType === 'xrpl') {
+          const xrplWallet = loadXRPLWallet();
+          if (xrplWallet) {
+            const network = getXRPLNetwork();
+            let balance = '0';
+            try { balance = await fetchXRPBalance(xrplWallet.address, network); } catch {}
+            setState(prev => ({
+              ...prev,
+              address: xrplWallet.address,
+              isConnected: true,
+              isConnecting: false,
+              balance,
+              walletType: "xrpl",
+              chainType: "xrpl",
+              authProvider: "xrpl-browser",
+            }));
+            return;
+          }
+        }
+
+        // Attempt silent connect for Solana
         if (isPhantomAvailable) {
           const sdk = getSDK();
           if (sdk.autoConnect) {

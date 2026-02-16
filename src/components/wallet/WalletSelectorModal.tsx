@@ -13,8 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { getPhantomSDK, waitForPhantomExtension } from "@/config/phantom";
 import type { InjectedWalletInfo } from "@phantom/browser-sdk";
 
-export type WalletType = "phantom" | "solana";
-export type ChainType = "solana";
+export type WalletType = "phantom" | "solana" | "xrpl";
+export type ChainType = "solana" | "xrpl";
 
 // OAuth-based embedded wallets (optional; ConnectWallet may pass this handler)
 export type OAuthProvider = "google" | "apple";
