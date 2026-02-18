@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3, Crown, Gem, Star, Circle, Archive, Cloud, ExternalLink, Copy, Check } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3, Crown, Gem, Star, Circle, Archive, Cloud, ExternalLink, Copy, Check, Zap, Settings2 } from "lucide-react";
 import { Layer, Trait, BlendMode } from "./LayerManager";
 import { TraitRule, RuleType } from "./TraitRulesManager";
 import { NFTImageCompositor } from "./NFTImageCompositor";
@@ -15,12 +17,22 @@ import { toast } from "sonner";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 
+// XRPL-specific resolution presets
+const RESOLUTION_PRESETS = [
+  { label: "512 × 512 (Preview)", value: 512 },
+  { label: "1024 × 1024 (Standard)", value: 1024 },
+  { label: "2048 × 2048 (High Quality)", value: 2048 },
+  { label: "4000 × 4000 (Ultra HD / XRPL)", value: 4000 },
+];
+
 interface GenerationPreviewProps {
   layers: Layer[];
   rules: TraitRule[];
   totalSupply: string;
   collectionName?: string;
   collectionDescription?: string;
+  /** When true, pre-sets XRPL-optimised defaults (589 supply, 4000×4000) */
+  xrplMode?: boolean;
 }
 
 interface GeneratedNFT {
@@ -144,10 +156,12 @@ export function GenerationPreview({
   totalSupply,
   collectionName = "My Collection",
   collectionDescription = "",
+  xrplMode = false,
 }: GenerationPreviewProps) {
   const [previewCount, setPreviewCount] = useState("5");
   const [generatedPreviews, setGeneratedPreviews] = useState<GeneratedNFT[]>([]);
-  const [exportCount, setExportCount] = useState(totalSupply || "100");
+  const [exportCount, setExportCount] = useState(xrplMode ? "589" : (totalSupply || "100"));
+  const [outputResolution, setOutputResolution] = useState<number>(xrplMode ? 4000 : 512);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState("");
@@ -156,6 +170,7 @@ export function GenerationPreview({
   const [isUploadingToIpfs, setIsUploadingToIpfs] = useState(false);
   const [ipfsResult, setIpfsResult] = useState<{ cid: string; gatewayUrl: string; ipfsUrl: string } | null>(null);
   const [copiedCid, setCopiedCid] = useState(false);
+  const [isXrplZipExporting, setIsXrplZipExporting] = useState(false);
 
   const selectTraitForLayer = (
     layer: Layer,
@@ -309,7 +324,7 @@ export function GenerationPreview({
   };
 
   // Composite a single NFT image
-  const compositeNFTImage = async (nft: GeneratedNFT, canvasSize: number = 512): Promise<string | null> => {
+  const compositeNFTImage = async (nft: GeneratedNFT, canvasSize: number = outputResolution): Promise<string | null> => {
     const hasImages = nft.traits.some((t) => t.imageUrl);
     if (!hasImages) return null;
 
@@ -646,6 +661,108 @@ export function GenerationPreview({
         setExportProgress(0);
         setExportStatus("");
       }, 1500);
+    }
+  };
+
+
+  // XRPL-optimised ZIP export: 4000×4000 PNG images + XLS-20 compatible metadata
+  const exportXRPLZip = async () => {
+    const count = parseInt(exportCount) || 589;
+    const resolution = outputResolution;
+    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
+
+    if (!hasImages) {
+      toast.error("No images found. Add images to your traits first.");
+      return;
+    }
+
+    setIsXrplZipExporting(true);
+    setExportProgress(0);
+    setExportStatus(`Preparing XRPL collection (${count} NFTs @ ${resolution}×${resolution})…`);
+
+    try {
+      const zip = new JSZip();
+      const imagesFolder = zip.folder("images");
+      const metadataFolder = zip.folder("metadata");
+
+      if (!imagesFolder || !metadataFolder) throw new Error("Failed to create ZIP folders");
+
+      const { nfts } = generateNFTBatch(count);
+
+      for (let i = 0; i < nfts.length; i++) {
+        setExportStatus(`Compositing ${i + 1} / ${count} at ${resolution}×${resolution}px…`);
+        setExportProgress(Math.round(((i + 1) / count) * 80));
+
+        const imageDataUrl = await compositeNFTImage(nfts[i], resolution);
+
+        if (imageDataUrl) {
+          const base64Data = imageDataUrl.split(",")[1];
+          imagesFolder.file(`${nfts[i].id}.png`, base64Data, { base64: true });
+        }
+
+        // XLS-20 / XRPL metadata format
+        const xrplMetadata = {
+          schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
+          nftType: "art.v0",
+          name: `${collectionName} #${nfts[i].id}`,
+          description: collectionDescription || `${collectionName} NFT #${nfts[i].id}`,
+          image: `ipfs://YOUR_IMAGE_CID/${nfts[i].id}.png`,
+          image_integrity: "",
+          image_mimetype: "image/png",
+          attributes: nfts[i].traits.map((t) => ({
+            trait_type: t.layerName,
+            value: t.traitName,
+          })),
+        };
+        metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(xrplMetadata, null, 2));
+
+        // Yield to keep UI responsive
+        if (i % 5 === 0) await new Promise((r) => setTimeout(r, 0));
+      }
+
+      // Collection-level manifest
+      zip.file("_collection.json", JSON.stringify({
+        name: collectionName,
+        description: collectionDescription,
+        total_supply: count,
+        resolution: `${resolution}x${resolution}`,
+        chain: "XRPL",
+        standard: "XLS-20",
+        generated_at: new Date().toISOString(),
+      }, null, 2));
+
+      setExportStatus("Compressing ZIP…");
+      setExportProgress(90);
+
+      const zipBlob = await zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 },
+      }, (meta) => {
+        setExportProgress(90 + Math.round(meta.percent * 0.1));
+      });
+
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-xrpl-${resolution}px.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setExportProgress(100);
+      setExportStatus("Done!");
+      toast.success(`XRPL collection exported! ${count} NFTs at ${resolution}×${resolution}px`);
+    } catch (err) {
+      console.error("XRPL ZIP export failed:", err);
+      toast.error("XRPL ZIP export failed. Please try again.");
+    } finally {
+      setTimeout(() => {
+        setIsXrplZipExporting(false);
+        setExportProgress(0);
+        setExportStatus("");
+      }, 1800);
     }
   };
 
@@ -1332,8 +1449,21 @@ export function GenerationPreview({
         </TabsContent>
 
         <TabsContent value="export" className="mt-4 space-y-4">
+          {/* XRPL Mode Banner */}
+          {xrplMode && (
+            <Card className="border-blue-500/50 bg-blue-500/5">
+              <CardContent className="py-3 flex items-center gap-3">
+                <Zap className="w-5 h-5 text-blue-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-blue-400">XRPL Mode Active</p>
+                  <p className="text-xs text-muted-foreground">Pre-set to 589 supply · 4000 × 4000 px · XLS-20 metadata</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Export Progress */}
-          {isExporting && (
+          {(isExporting || isXrplZipExporting) && (
             <Card className="border-primary/50 bg-primary/5">
               <CardContent className="py-4">
                 <div className="flex items-center gap-3 mb-3">
@@ -1351,7 +1481,10 @@ export function GenerationPreview({
           {/* Export Settings */}
           <Card>
             <CardHeader className="py-3">
-              <CardTitle className="text-sm">Export Settings</CardTitle>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Settings2 className="w-4 h-4" />
+                Export Settings
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -1364,15 +1497,89 @@ export function GenerationPreview({
                     min="1"
                     max="10000"
                     className="w-32"
-                    disabled={isExporting}
+                    disabled={isExporting || isXrplZipExporting}
                   />
                   <span className="text-sm text-muted-foreground">
                     / {totalSupply} total supply
                   </span>
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label className="text-sm">Output Resolution</Label>
+                <Select
+                  value={String(outputResolution)}
+                  onValueChange={(v) => setOutputResolution(Number(v))}
+                  disabled={isExporting || isXrplZipExporting}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RESOLUTION_PRESETS.map((p) => (
+                      <SelectItem key={p.value} value={String(p.value)}>
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {outputResolution >= 2048 && (
+                  <p className="text-xs text-amber-500">
+                    ⚠️ High resolution may take longer. Ensure your browser has enough memory.
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
+
+          {/* XRPL Primary Export Card */}
+          <Card className="border-blue-500/50">
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Zap className="w-4 h-4 text-blue-400" />
+                XRPL Collection Export
+                <Badge className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/40">XLS-20</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Download a ZIP with <strong>{exportCount}</strong> images at <strong>{outputResolution}×{outputResolution}px</strong> plus XLS-20 compatible metadata, ready for XRPL NFT deployment.
+              </p>
+
+              <Button
+                onClick={exportXRPLZip}
+                disabled={isXrplZipExporting || isExporting || !hasAnyImages}
+                className="w-full gap-2 bg-blue-600 hover:bg-blue-700"
+                size="lg"
+              >
+                {isXrplZipExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {isXrplZipExporting ? exportStatus : `Download XRPL ZIP (${outputResolution}px)`}
+              </Button>
+
+              {!hasAnyImages && (
+                <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                  ⚠️ Add images to your traits to enable export
+                </p>
+              )}
+
+              <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono">
+                <p className="text-muted-foreground mb-2">ZIP structure:</p>
+                <div className="space-y-0.5 text-foreground">
+                  <p>📁 {collectionName.toLowerCase().replace(/\s+/g, "-")}-xrpl-{outputResolution}px.zip</p>
+                  <p className="pl-4">📁 images/</p>
+                  <p className="pl-8">🖼️ 1.png … {exportCount}.png ({outputResolution}×{outputResolution})</p>
+                  <p className="pl-4">📁 metadata/</p>
+                  <p className="pl-8">📄 1.json … {exportCount}.json (XLS-20)</p>
+                  <p className="pl-4">📄 _collection.json</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+
 
           {/* ZIP Export - Primary Option */}
           <Card className="border-primary/50">
@@ -1612,7 +1819,7 @@ export function GenerationPreview({
               {layers.length > 0 && layers.some((l) => l.traits.length > 0) ? (
                 <pre className="text-xs bg-muted/50 p-3 rounded-lg overflow-x-auto max-h-48">
                   {JSON.stringify(
-                    nftToMetadata(generateNFTBatch(1)[0] || { id: 1, traits: [] }),
+                    nftToMetadata(generateNFTBatch(1).nfts[0] || { id: 1, traits: [] }),
                     null,
                     2
                   )}
