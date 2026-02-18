@@ -52,13 +52,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Wait for profile to finish loading
         if (profileState.loading) return;
 
-        // Profile resolution
+        // Profile resolution - also handles NEEDS_PROFILE → AUTHENTICATED when profile is created
         if (profileState.profile && profileState.profile.profile_setup_completed) {
             dispatch({ type: "PROFILE_FOUND" });
-        } else {
+        } else if (state === "LOADING_PROFILE") {
+            // Only dispatch PROFILE_MISSING when first loading, not on every render
             dispatch({ type: "PROFILE_MISSING" });
         }
-    }, [wallet.isConnected, wallet.address, state, profileState.loading, profileState.profile]);
+    }, [wallet.isConnected, wallet.address, state, profileState.loading, profileState.profile?.profile_setup_completed]);
 
     return (
         <AuthContext.Provider
