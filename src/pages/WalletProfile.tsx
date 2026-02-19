@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { useWallet } from "@/providers/WalletProvider";
+import { loadXRPLWallet } from "@/lib/xrpl-wallet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,7 +34,12 @@ import {
   X,
   RefreshCw,
   Loader2,
-  Search
+  Search,
+  Eye,
+  EyeOff,
+  Download,
+  ShieldAlert,
+  KeyRound
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,9 +60,12 @@ interface Transaction {
 }
 
 export default function WalletProfile() {
-  const { address, isConnected, balance, disconnect, network } = useWallet();
+  const { address, isConnected, balance, disconnect, network, chainType } = useWallet();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const [showSeed, setShowSeed] = useState(false);
+  const [seedCopied, setSeedCopied] = useState(false);
+  const [xrplWalletData] = useState(() => loadXRPLWallet());
   const [isLoading, setIsLoading] = useState(true);
   const [walletName, setWalletName] = useState<string>("");
   const [isEditingName, setIsEditingName] = useState(false);
@@ -683,7 +692,107 @@ export default function WalletProfile() {
                   </div>
                 </div>
 
-                <div className="pt-3 sm:pt-4 border-t border-border">
+                <div className="pt-3 sm:pt-4 border-t border-border space-y-3">
+                  {/* XRPL Wallet Export — only for XRPL wallets */}
+                  {chainType === 'xrpl' && xrplWalletData && (
+                    <div className="space-y-3 p-3 sm:p-4 rounded-lg border border-primary/30 bg-primary/5">
+                      <div className="flex items-center gap-2">
+                        <KeyRound className="w-4 h-4 text-primary" />
+                        <h3 className="font-medium text-sm sm:text-base text-primary">XRPL Wallet Export</h3>
+                      </div>
+
+                      {/* Address */}
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Classic Address</p>
+                        <div className="flex items-center gap-2 p-2 rounded bg-muted">
+                          <code className="text-[10px] sm:text-xs flex-1 break-all">{xrplWalletData.address}</code>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(xrplWalletData.address); toast.success("Address copied"); }}
+                            className="p-1 rounded hover:bg-background transition-colors shrink-0"
+                          >
+                            <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Public Key */}
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Public Key</p>
+                        <div className="flex items-center gap-2 p-2 rounded bg-muted">
+                          <code className="text-[10px] sm:text-xs flex-1 break-all">{xrplWalletData.publicKey}</code>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(xrplWalletData.publicKey); toast.success("Public key copied"); }}
+                            className="p-1 rounded hover:bg-background transition-colors shrink-0"
+                          >
+                            <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Secret Seed */}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <ShieldAlert className="w-3.5 h-3.5 text-destructive" />
+                          <p className="text-xs text-destructive font-medium">Secret Seed — never share this</p>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded bg-muted">
+                          <code className="text-[10px] sm:text-xs flex-1 break-all font-mono">
+                            {showSeed ? xrplWalletData.seed : '•'.repeat(Math.min(xrplWalletData.seed.length, 32))}
+                          </code>
+                          <button
+                            onClick={() => setShowSeed(v => !v)}
+                            className="p-1 rounded hover:bg-background transition-colors shrink-0"
+                          >
+                            {showSeed
+                              ? <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
+                              : <Eye className="w-3.5 h-3.5 text-muted-foreground" />}
+                          </button>
+                          {showSeed && (
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(xrplWalletData.seed);
+                                setSeedCopied(true);
+                                toast.success("Seed copied — keep it safe!");
+                                setTimeout(() => setSeedCopied(false), 2000);
+                              }}
+                              className="p-1 rounded hover:bg-background transition-colors shrink-0"
+                            >
+                              {seedCopied
+                                ? <CheckCircle className="w-3.5 h-3.5 text-primary" />
+                                : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Download JSON */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-primary/40 text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          const blob = new Blob([JSON.stringify({
+                            address: xrplWalletData.address,
+                            publicKey: xrplWalletData.publicKey,
+                            seed: xrplWalletData.seed,
+                            network: network || 'testnet',
+                            exportedAt: new Date().toISOString(),
+                          }, null, 2)], { type: 'application/json' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `xrpl-wallet-${xrplWalletData.address.slice(0, 8)}.json`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                          toast.success("Wallet exported — store this file securely!");
+                        }}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download Wallet Backup (.json)
+                      </Button>
+                    </div>
+                  )}
+
                   <Button variant="destructive" onClick={disconnect} size="sm" className="w-full sm:w-auto">
                     Disconnect Wallet
                   </Button>
