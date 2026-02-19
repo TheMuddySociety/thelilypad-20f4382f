@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useAuth } from '@/providers/AuthProvider';
 import { useSEO } from '@/hooks/useSEO';
 import { LilyPadLogo } from '@/components/LilyPadLogo';
 
@@ -81,6 +82,15 @@ export default function ProfileTypeSelection() {
     const [displayName, setDisplayName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { createProfile } = useUserProfile();
+    const { state: authState } = useAuth();
+
+    // Navigate to home once AuthProvider confirms the profile is set up.
+    // Do NOT navigate from handleSubmit — the state machine needs to tick first.
+    useEffect(() => {
+        if (authState === 'AUTHENTICATED') {
+            navigate('/', { replace: true });
+        }
+    }, [authState, navigate]);
 
     useSEO({
         title: 'Welcome to The Lily Pad - Set Up Your Profile',
@@ -105,7 +115,9 @@ export default function ProfileTypeSelection() {
                 description: 'Welcome to The Lily Pad'
             });
 
-            navigate('/');
+            // Navigation is handled by the authState useEffect above.
+            // AuthProvider will detect profile_setup_completed=true and
+            // transition NEEDS_PROFILE → AUTHENTICATED, which triggers navigate('/').
         } catch (error: any) {
             console.error('Error creating profile:', error);
             toast.error('Failed to create profile', {

@@ -121,7 +121,7 @@ const App = () => (
                     <Routes>
                       <Route path="/auth" element={<AuthPageGuard />} />
                       <Route path="/auth/callback" element={<Suspense fallback={<PageLoader />}><AuthCallback /></Suspense>} />
-                      <Route path="/profile-setup" element={<Suspense fallback={<PageLoader />}><ProfileTypeSelection /></Suspense>} />
+                      <Route path="/profile-setup" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProfileTypeSelection /></Suspense></ProtectedRoute>} />
                       <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                       <Route path="/wallet" element={<ProtectedRoute><WalletProfile /></ProtectedRoute>} />
                       <Route path="/streams" element={<ProtectedRoute><Streams /></ProtectedRoute>} />

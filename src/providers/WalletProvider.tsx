@@ -180,6 +180,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       localStorage.setItem("walletConnected", "true");
       localStorage.setItem("walletType", "phantom");
+      localStorage.setItem("chainType", "solana");
       setStoredChain('solana'); // Sync ChainProvider
 
       const networkLabel = state.network === "mainnet" ? "Mainnet" : "Testnet";
@@ -367,6 +368,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         localStorage.setItem("walletConnected", "true");
         localStorage.setItem("walletType", "phantom");
+        localStorage.setItem("chainType", "monad"); // Bug 3 fix
         setStoredChain('monad'); // Sync ChainProvider
         toast.success("Phantom (Monad) wallet connected");
         return;
@@ -406,6 +408,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       localStorage.setItem("walletConnected", "true");
       localStorage.setItem("walletType", "phantom");
+      localStorage.setItem("chainType", "monad"); // Bug 3 fix
       setStoredChain('monad'); // Sync ChainProvider
       toast.success("Phantom (Monad) wallet connected");
     } catch (error: any) {
@@ -503,11 +506,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isConnected: false,
       isConnecting: false,
       balance: null,
+      walletType: null,   // Bug 4 fix: reset stale chain/wallet type
+      chainType: null,
       authProvider: undefined,
     }));
 
     localStorage.removeItem("walletConnected");
     localStorage.removeItem("walletType");
+    localStorage.removeItem("chainType"); // Bug 4 fix
     localStorage.removeItem("authProvider");
 
     toast.success("Wallet disconnected");
@@ -559,6 +565,34 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setState(prev => ({ ...prev, isConnecting: true }));
       try {
         const storedWalletType = localStorage.getItem("walletType");
+        const storedChainType = localStorage.getItem("chainType");
+
+        // Bug 3 fix: Auto-connect Monad (EVM) via Phantom
+        if (storedChainType === 'monad') {
+          const phantomEvm = (window as any).phantom?.ethereum;
+          if (phantomEvm) {
+            try {
+              const accounts: string[] = await phantomEvm.request({ method: 'eth_requestAccounts' });
+              const address = accounts[0];
+              if (address) {
+                setState(prev => ({
+                  ...prev,
+                  address,
+                  isConnected: true,
+                  isConnecting: false,
+                  balance: '0',
+                  walletType: "phantom",
+                  chainType: "monad",
+                  authProvider: "injected",
+                }));
+                setStoredChain('monad');
+                return;
+              }
+            } catch {
+              // Monad silent reconnect failed, fall through to Solana
+            }
+          }
+        }
 
         // Auto-connect XRPL if that was the last wallet type
         if (storedWalletType === 'xrpl') {
