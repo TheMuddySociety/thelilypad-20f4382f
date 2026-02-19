@@ -7,33 +7,48 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import confetti from "canvas-confetti";
 
-const LiveBuybackStats = () => {
+interface LiveBuybackStatsProps {
+  chain?: 'solana' | 'xrpl' | 'monad';
+}
+
+const LiveBuybackStats = ({ chain = 'solana' }: LiveBuybackStatsProps) => {
   const queryClient = useQueryClient();
   const [isLive, setIsLive] = useState(false);
   const [hasTriggeredConfetti, setHasTriggeredConfetti] = useState(false);
   const previousProgress = useRef(0);
 
+  const getCurrencySymbol = (c: string) => {
+    switch (c) {
+      case 'xrpl': return 'XRP';
+      case 'monad': return 'MON';
+      default: return 'SOL';
+    }
+  };
+
+  const currencySymbol = getCurrencySymbol(chain);
+
   const { data: poolData } = useQuery({
-    queryKey: ['buyback-pool-live'],
+    queryKey: ['buyback-pool-live', chain],
     queryFn: async () => {
       const { data } = await supabase
         .from('buyback_pool')
         .select('*')
-        .limit(1)
+        .eq('chain', chain)
         .maybeSingle();
       return data;
     },
-    refetchInterval: 30000, // Fallback polling every 30s
+    refetchInterval: 30000,
   });
 
   const { data: recentVolume } = useQuery({
-    queryKey: ['volume-tracking-24h'],
+    queryKey: ['volume-tracking-24h', chain],
     queryFn: async () => {
       const { data } = await supabase
         .from('volume_tracking')
         .select('volume_amount')
+        .eq('chain', chain)
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-      
+
       const total = data?.reduce((sum, v) => sum + Number(v.volume_amount), 0) || 0;
       return total;
     },
@@ -41,11 +56,12 @@ const LiveBuybackStats = () => {
   });
 
   const { data: buybackCount } = useQuery({
-    queryKey: ['buyback-events-count'],
+    queryKey: ['buyback-events-count', chain],
     queryFn: async () => {
       const { count } = await supabase
         .from('buyback_events')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('chain', chain);
       return count || 0;
     },
   });
@@ -60,10 +76,11 @@ const LiveBuybackStats = () => {
           event: '*',
           schema: 'public',
           table: 'buyback_pool',
+          filter: `chain=eq.${chain}`,
         },
         () => {
           setIsLive(true);
-          queryClient.invalidateQueries({ queryKey: ['buyback-pool-live'] });
+          queryClient.invalidateQueries({ queryKey: ['buyback-pool-live', chain] });
           setTimeout(() => setIsLive(false), 2000);
         }
       )
@@ -73,10 +90,11 @@ const LiveBuybackStats = () => {
           event: 'INSERT',
           schema: 'public',
           table: 'volume_tracking',
+          filter: `chain=eq.${chain}`,
         },
         () => {
           setIsLive(true);
-          queryClient.invalidateQueries({ queryKey: ['volume-tracking-24h'] });
+          queryClient.invalidateQueries({ queryKey: ['volume-tracking-24h', chain] });
           setTimeout(() => setIsLive(false), 2000);
         }
       )
@@ -85,7 +103,7 @@ const LiveBuybackStats = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, chain]);
 
   const poolBalance = poolData?.pool_balance || 0;
   const accumulatedVolume = poolData?.accumulated_volume || 0;
@@ -97,7 +115,7 @@ const LiveBuybackStats = () => {
   useEffect(() => {
     if (progress >= 100 && previousProgress.current < 100 && !hasTriggeredConfetti) {
       setHasTriggeredConfetti(true);
-      
+
       // Fire confetti from both sides
       const duration = 3000;
       const end = Date.now() + duration;
@@ -133,7 +151,7 @@ const LiveBuybackStats = () => {
 
       frame();
     }
-    
+
     previousProgress.current = progress;
   }, [progress, hasTriggeredConfetti]);
 
@@ -142,7 +160,7 @@ const LiveBuybackStats = () => {
       icon: Coins,
       label: "Pool Balance",
       value: Number(poolBalance),
-      suffix: " SOL",
+      suffix: ` ${currencySymbol}`,
       decimals: 4,
       color: "text-primary",
       bgColor: "from-primary/20 to-primary/5",
@@ -152,7 +170,7 @@ const LiveBuybackStats = () => {
       icon: Activity,
       label: "24h Volume",
       value: recentVolume || 0,
-      suffix: " SOL",
+      suffix: ` ${currencySymbol}`,
       decimals: 2,
       color: "text-green-500",
       bgColor: "from-green-500/20 to-green-500/5",
@@ -162,7 +180,7 @@ const LiveBuybackStats = () => {
       icon: TrendingUp,
       label: "Accumulated",
       value: Number(accumulatedVolume),
-      suffix: " SOL",
+      suffix: ` ${currencySymbol}`,
       decimals: 2,
       color: "text-amber-500",
       bgColor: "from-amber-500/20 to-amber-500/5",
@@ -193,7 +211,7 @@ const LiveBuybackStats = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, index) => (
-          <Card 
+          <Card
             key={stat.label}
             className={`overflow-hidden border-border/50 transition-all duration-300 ${isLive ? 'ring-2 ring-primary/30' : ''}`}
           >
@@ -234,28 +252,26 @@ const LiveBuybackStats = () => {
                 <span className="text-xs text-amber-500 font-medium animate-pulse">Almost there!</span>
               )}
             </div>
-          <span className="text-sm text-muted-foreground">
-            <AnimatedCounter value={accumulatedVolume} decimals={2} /> / {threshold} SOL
-          </span>
+            <span className="text-sm text-muted-foreground">
+              <AnimatedCounter value={accumulatedVolume} decimals={2} /> / {threshold} {currencySymbol}
+            </span>
           </div>
           <div className={`relative ${progress >= 80 ? 'animate-pulse' : ''}`}>
-            <Progress 
-              value={progress} 
-              className={`h-3 mb-2 transition-all duration-300 ${
-                progress >= 100 
-                  ? '[&>div]:bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.5)]' 
-                  : progress >= 80 
-                    ? '[&>div]:bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]' 
+            <Progress
+              value={progress}
+              className={`h-3 mb-2 transition-all duration-300 ${progress >= 100
+                  ? '[&>div]:bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.5)]'
+                  : progress >= 80
+                    ? '[&>div]:bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]'
                     : ''
-              }`} 
+                }`}
             />
             {progress >= 80 && (
-              <div 
-                className={`absolute inset-0 rounded-full ${
-                  progress >= 100 
-                    ? 'bg-green-500/20' 
+              <div
+                className={`absolute inset-0 rounded-full ${progress >= 100
+                    ? 'bg-green-500/20'
                     : 'bg-amber-500/20'
-                } blur-md animate-pulse`} 
+                  } blur-md animate-pulse`}
                 style={{ height: '12px' }}
               />
             )}

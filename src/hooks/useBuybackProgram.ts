@@ -10,15 +10,21 @@ interface BuybackProgramCollection {
   is_active: boolean;
 }
 
-export function useBuybackProgram() {
+export function useBuybackProgram(chain?: string) {
   const { data: programCollections, isLoading, refetch } = useQuery({
-    queryKey: ['buyback-program-collections'],
+    queryKey: ['buyback-program-collections', chain],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('buyback_program_collections')
         .select('*')
         .eq('is_active', true);
-      
+
+      if (chain) {
+        query = query.eq('chain', chain);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
       return data as BuybackProgramCollection[];
     },

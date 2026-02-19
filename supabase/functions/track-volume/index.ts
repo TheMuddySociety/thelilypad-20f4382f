@@ -45,16 +45,16 @@ interface PlatformFeeEvent {
 
 async function authenticateRequest(req: Request, supabase: any): Promise<{ userId: string | null; error: string | null }> {
   const authHeader = req.headers.get('Authorization');
-  
+
   if (!authHeader?.startsWith('Bearer ')) {
     return { userId: null, error: 'Missing or invalid authorization header' };
   }
 
   const token = authHeader.replace('Bearer ', '');
-  
+
   try {
     const { data, error } = await supabase.auth.getUser(token);
-    
+
     if (error || !data?.user) {
       console.error('Auth error:', error?.message || 'No user found');
       return { userId: null, error: 'Invalid or expired token' };
@@ -77,12 +77,12 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     // Create client with anon key for auth verification
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: req.headers.get('Authorization') || '' } }
     });
-    
+
     // Create service role client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
     // Check if action requires authentication
     if (AUTHENTICATED_ACTIONS.includes(action)) {
       const { userId, error: authError } = await authenticateRequest(req, supabaseAuth);
-      
+
       if (authError || !userId) {
         console.warn(`Unauthorized attempt for action: ${action}`);
         return new Response(
@@ -100,9 +100,9 @@ Deno.serve(async (req) => {
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
+
       console.log(`Authenticated user ${userId} for action: ${action}`);
-      
+
       // For write operations, use the authenticated user's ID if not provided
       if (data && !data.user_id) {
         data.user_id = userId;
@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     switch (action) {
       case 'record_volume': {
         const event = data as VolumeEvent;
-        
+
         // Validate required fields
         if (!event.source_type || !event.volume_amount || !event.tx_hash) {
           return new Response(
@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        
+
         // Validate source_type
         if (!VOLUME_WEIGHTS[event.source_type]) {
           return new Response(
@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        
+
         // Validate volume_amount is positive
         if (event.volume_amount <= 0) {
           return new Response(
@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        
+
         const result = await recordVolume(supabase, event);
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
 
       case 'record_fee': {
         const event = data as PlatformFeeEvent;
-        
+
         // Validate required fields
         if (!event.tx_hash || !event.fee_amount || !event.fee_type || !event.source_volume) {
           return new Response(
@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        
+
         // Validate fee_amount is positive
         if (event.fee_amount <= 0) {
           return new Response(
@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        
+
         const result = await recordPlatformFee(supabase, event);
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        
+
         // Validate source_type
         if (!VOLUME_WEIGHTS[data.source_type]) {
           return new Response(
@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        
+
         // Validate volume_amount is positive
         if (data.volume_amount <= 0) {
           return new Response(
@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        
+
         const result = await recordTransaction(supabase, data);
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -201,7 +201,8 @@ Deno.serve(async (req) => {
 
       case 'get_pool_status': {
         // Public read - no auth required
-        const result = await getPoolStatus(supabase);
+        const chain = data?.chain || 'solana';
+        const result = await getPoolStatus(supabase, chain);
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -234,6 +235,7 @@ Deno.serve(async (req) => {
 async function recordVolume(supabase: any, event: VolumeEvent) {
   const weight = VOLUME_WEIGHTS[event.source_type] || 10000;
   const weightedVolume = (event.volume_amount * weight) / 10000;
+  const chain = event.chain || 'solana';
 
   // Get current day period
   const now = new Date();
@@ -253,6 +255,7 @@ async function recordVolume(supabase: any, event: VolumeEvent) {
       user_id: event.user_id || null,
       period_start: periodStart.toISOString(),
       period_end: periodEnd.toISOString(),
+      chain: chain,
     })
     .select()
     .single();
@@ -263,9 +266,9 @@ async function recordVolume(supabase: any, event: VolumeEvent) {
   }
 
   // Update buyback pool accumulated volume
-  await updateBuybackPool(supabase, weightedVolume);
+  await updateBuybackPool(supabase, weightedVolume, chain);
 
-  console.log(`Recorded volume: ${event.volume_amount} ${event.source_type}, weighted: ${weightedVolume}`);
+  console.log(`Recorded volume: ${event.volume_amount} ${event.source_type}, weighted: ${weightedVolume} on ${chain}`);
 
   return {
     success: true,
@@ -277,6 +280,7 @@ async function recordVolume(supabase: any, event: VolumeEvent) {
 async function recordPlatformFee(supabase: any, event: PlatformFeeEvent) {
   // Calculate buyback contribution (50% of platform fee)
   const buybackContribution = (event.fee_amount * BUYBACK_ALLOCATION_BPS) / 10000;
+  const chain = event.chain || 'solana';
 
   const { data: feeRecord, error: feeError } = await supabase
     .from('platform_fees')
@@ -288,7 +292,7 @@ async function recordPlatformFee(supabase: any, event: PlatformFeeEvent) {
       fee_type: event.fee_type,
       source_volume: event.source_volume,
       contributed_to_buyback: buybackContribution,
-      chain: event.chain || 'solana',
+      chain: chain,
     })
     .select()
     .single();
@@ -299,9 +303,9 @@ async function recordPlatformFee(supabase: any, event: PlatformFeeEvent) {
   }
 
   // Update buyback pool balance
-  await updateBuybackPoolBalance(supabase, buybackContribution);
+  await updateBuybackPoolBalance(supabase, buybackContribution, chain);
 
-  console.log(`Recorded fee: ${event.fee_amount}, buyback contribution: ${buybackContribution}`);
+  console.log(`Recorded fee: ${event.fee_amount}, buyback contribution: ${buybackContribution} on ${chain}`);
 
   return {
     success: true,
@@ -332,7 +336,8 @@ async function recordTransaction(supabase: any, data: any) {
     tx_hash,
     collection_id,
     user_id,
-  });
+    chain,
+  } as any);
 
   // Record platform fee
   const feeResult = await recordPlatformFee(supabase, {
@@ -343,7 +348,7 @@ async function recordTransaction(supabase: any, data: any) {
     fee_type: source_type,
     source_volume: volume_amount,
     chain,
-  });
+  } as any);
 
   return {
     success: true,
@@ -355,17 +360,19 @@ async function recordTransaction(supabase: any, data: any) {
   };
 }
 
-async function updateBuybackPool(supabase: any, weightedVolume: number) {
-  // Get current pool status
+async function updateBuybackPool(supabase: any, weightedVolume: number, chain: string) {
+  // Get current pool status by chain
   const { data: pool, error: fetchError } = await supabase
     .from('buyback_pool')
     .select('*')
-    .limit(1)
+    .eq('chain', chain)
     .single();
 
-  if (fetchError && fetchError.code !== 'PGRST116') {
-    console.error('Error fetching buyback pool:', fetchError);
-    throw fetchError;
+  if (fetchError) {
+    console.error(`Error fetching buyback pool for ${chain}:`, fetchError);
+    // Silent fail if pool doesn't exist yet for this chain? 
+    // Or maybe insert on demand? Ideally seeded by migration.
+    return;
   }
 
   if (pool) {
@@ -386,21 +393,20 @@ async function updateBuybackPool(supabase: any, weightedVolume: number) {
 
     // Check if threshold reached
     if (newAccumulatedVolume >= Number(pool.buyback_threshold)) {
-      console.log(`Buyback threshold reached! Volume: ${newAccumulatedVolume}, Threshold: ${pool.buyback_threshold}`);
-      // In production, this would trigger a buyback execution
+      console.log(`Buyback threshold reached for ${chain}! Volume: ${newAccumulatedVolume}, Threshold: ${pool.buyback_threshold}`);
     }
   }
 }
 
-async function updateBuybackPoolBalance(supabase: any, buybackContribution: number) {
+async function updateBuybackPoolBalance(supabase: any, buybackContribution: number, chain: string) {
   const { data: pool, error: fetchError } = await supabase
     .from('buyback_pool')
     .select('*')
-    .limit(1)
+    .eq('chain', chain)
     .single();
 
-  if (fetchError && fetchError.code !== 'PGRST116') {
-    console.error('Error fetching buyback pool:', fetchError);
+  if (fetchError) {
+    console.error(`Error fetching buyback pool for ${chain}:`, fetchError);
     return;
   }
 
@@ -421,16 +427,30 @@ async function updateBuybackPoolBalance(supabase: any, buybackContribution: numb
   }
 }
 
-async function getPoolStatus(supabase: any) {
+async function getPoolStatus(supabase: any, chain: string = 'solana') {
   const { data: pool, error } = await supabase
     .from('buyback_pool')
     .select('*')
-    .limit(1)
-    .single();
+    .eq('chain', chain)
+    .maybeSingle();
 
   if (error) {
     console.error('Error fetching pool status:', error);
     throw error;
+  }
+
+  // If no pool found for chain (e.g. before migration), return defaults
+  if (!pool) {
+    return {
+      pool_balance: 0,
+      accumulated_volume: 0,
+      buyback_threshold: 100,
+      progress_percent: 0,
+      total_buybacks_executed: 0,
+      last_buyback_at: null,
+      can_execute_buyback: false,
+      chain: chain
+    };
   }
 
   const progress = pool.buyback_threshold > 0
@@ -445,6 +465,7 @@ async function getPoolStatus(supabase: any) {
     total_buybacks_executed: pool.total_buybacks_executed,
     last_buyback_at: pool.last_buyback_at,
     can_execute_buyback: progress >= 100,
+    chain: pool.chain
   };
 }
 

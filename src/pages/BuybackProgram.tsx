@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LiveBuybackStats from "@/components/LiveBuybackStats";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { VolumeLeaderboard } from "@/components/VolumeLeaderboard";
@@ -24,15 +25,15 @@ import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { useSEO } from "@/hooks/useSEO";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  TrendingUp, 
-  Gift, 
-  Coins, 
-  Trophy, 
-  Sparkles, 
-  ArrowRight, 
-  Rocket, 
-  Shield, 
+import {
+  TrendingUp,
+  Gift,
+  Coins,
+  Trophy,
+  Sparkles,
+  ArrowRight,
+  Rocket,
+  Shield,
   Users,
   Zap,
   ChevronRight
@@ -50,8 +51,9 @@ interface Collection {
 
 export default function BuybackProgram() {
   const navigate = useNavigate();
-  const { programCollections, isLoading: isProgramLoading } = useBuybackProgram();
-  
+  const [selectedChain, setSelectedChain] = useState<'solana' | 'xrpl' | 'monad'>('solana');
+  const { programCollections, isLoading: isProgramLoading } = useBuybackProgram(selectedChain);
+
   useSEO({
     title: "Buyback Program | The Lily Pad",
     description: "Learn about The Lily Pad Buyback Program. Trade NFTs from enrolled collections and earn rewards as a top volume mover."
@@ -59,17 +61,17 @@ export default function BuybackProgram() {
 
   // Fetch collection details for enrolled collections
   const { data: collections, isLoading: isCollectionsLoading } = useQuery({
-    queryKey: ['buyback-program-collection-details', programCollections],
+    queryKey: ['buyback-program-collection-details', programCollections, selectedChain],
     queryFn: async () => {
       if (!programCollections || programCollections.length === 0) return [];
-      
+
       const collectionIds = programCollections.map(p => p.collection_id);
       const { data, error } = await supabase
         .from('collections')
         .select('id, name, image_url, creator_address, total_supply, minted, status')
         .in('id', collectionIds)
         .is('deleted_at', null);
-      
+
       if (error) throw error;
       return data as Collection[];
     },
@@ -78,11 +80,19 @@ export default function BuybackProgram() {
 
   const isLoading = isProgramLoading || isCollectionsLoading;
 
+  const getCurrencyName = () => {
+    switch (selectedChain) {
+      case 'xrpl': return 'XRP';
+      case 'monad': return 'MON';
+      default: return 'SOL';
+    }
+  };
+
   const benefits = [
     {
       icon: Coins,
       title: "Volume Rewards",
-      description: "Top volume movers receive SOL token rewards distributed from the buyback pool.",
+      description: `Top volume movers receive ${getCurrencyName()} token rewards distributed from the buyback pool.`,
       color: "text-primary",
       bgColor: "bg-primary/10",
     },
@@ -128,15 +138,29 @@ export default function BuybackProgram() {
     {
       step: 4,
       title: "Earn Rewards",
-      description: "Top volume movers receive SOL rewards from the accumulated buyback pool.",
+      description: `Top volume movers receive ${getCurrencyName()} rewards from the accumulated buyback pool.`,
     },
   ];
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="container mx-auto px-4 pt-24 pb-12">
+        {/* Make tabs global for the page or just control filtering? 
+            Ideally, wrapped around the content but below the main hero title? 
+            Let's put it at the top of the main area for clear context. 
+        */}
+        <div className="flex justify-end mb-4">
+          <Tabs value={selectedChain} onValueChange={(v) => setSelectedChain(v as any)} className="w-[400px]">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="solana">Solana</TabsTrigger>
+              <TabsTrigger value="xrpl">XRPL</TabsTrigger>
+              <TabsTrigger value="monad">Monad</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
         {/* Hero Section */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
@@ -147,7 +171,7 @@ export default function BuybackProgram() {
             Trade NFTs. <span className="text-primary">Earn Rewards.</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            The Lily Pad Buyback Program rewards top volume traders with SOL tokens. 
+            The Lily Pad Buyback Program rewards top volume traders with {getCurrencyName()} tokens.
             Trade NFTs from enrolled collections and climb the leaderboard.
           </p>
           <div className="flex items-center justify-center gap-4">
@@ -165,7 +189,7 @@ export default function BuybackProgram() {
         {/* Live Stats, Leaderboard, and Rewards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16">
           <div className="lg:col-span-2 space-y-6">
-            <LiveBuybackStats />
+            <LiveBuybackStats chain={selectedChain} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <PersonalVolumeStats />
               <TradingStreak />
@@ -212,7 +236,7 @@ export default function BuybackProgram() {
             <div className="relative">
               {/* Connection line */}
               <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-primary/20 hidden sm:block" />
-              
+
               <div className="space-y-6">
                 {howItWorks.map((item, index) => (
                   <div key={index} className="flex gap-4 items-start">
@@ -271,12 +295,12 @@ export default function BuybackProgram() {
           ) : collections && collections.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {collections.map((collection) => {
-                const mintProgress = collection.total_supply > 0 
-                  ? (collection.minted / collection.total_supply) * 100 
+                const mintProgress = collection.total_supply > 0
+                  ? (collection.minted / collection.total_supply) * 100
                   : 0;
-                
+
                 return (
-                  <Card 
+                  <Card
                     key={collection.id}
                     className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group"
                     onClick={() => navigate(`/collection/${collection.id}`)}
@@ -296,15 +320,14 @@ export default function BuybackProgram() {
                       <div className="absolute top-3 left-3">
                         <BuybackProgramBadge />
                       </div>
-                      <Badge 
-                        variant="outline" 
-                        className={`absolute top-3 right-3 ${
-                          collection.status === 'live' 
+                      <Badge
+                        variant="outline"
+                        className={`absolute top-3 right-3 ${collection.status === 'live'
                             ? 'bg-green-500/20 text-green-400 border-green-500/30'
                             : collection.status === 'upcoming'
-                            ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-                            : 'bg-muted text-muted-foreground border-border'
-                        }`}
+                              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                              : 'bg-muted text-muted-foreground border-border'
+                          }`}
                       >
                         <Sparkles className="w-3 h-3 mr-1" />
                         {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}

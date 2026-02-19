@@ -7,25 +7,40 @@ import { TrendingUp, Coins, Activity, ArrowUpRight, ChevronRight } from "lucide-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-const BuybackStats = () => {
+interface BuybackStatsProps {
+  chain?: 'solana' | 'xrpl' | 'monad';
+}
+
+const BuybackStats = ({ chain = 'solana' }: BuybackStatsProps) => {
+  const getCurrencySymbol = (c: string) => {
+    switch (c) {
+      case 'xrpl': return 'XRP';
+      case 'monad': return 'MON';
+      default: return 'SOL';
+    }
+  };
+
+  const currencySymbol = getCurrencySymbol(chain);
+
   const { data: poolData } = useQuery({
-    queryKey: ['buyback-pool'],
+    queryKey: ['buyback-pool', chain],
     queryFn: async () => {
       const { data } = await supabase
         .from('buyback_pool')
         .select('*')
-        .limit(1)
+        .eq('chain', chain)
         .maybeSingle();
       return data;
     },
   });
 
   const { data: recentVolume } = useQuery({
-    queryKey: ['volume-tracking-recent'],
+    queryKey: ['volume-tracking-recent', chain],
     queryFn: async () => {
       const { data } = await supabase
         .from('volume_tracking')
         .select('source_type, volume_amount, weighted_volume')
+        .eq('chain', chain)
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order('created_at', { ascending: false });
       return data || [];
@@ -33,11 +48,12 @@ const BuybackStats = () => {
   });
 
   const { data: buybackEvents } = useQuery({
-    queryKey: ['buyback-events'],
+    queryKey: ['buyback-events', chain],
     queryFn: async () => {
       const { data } = await supabase
         .from('buyback_events')
         .select('*')
+        .eq('chain', chain)
         .order('executed_at', { ascending: false })
         .limit(5);
       return data || [];
@@ -67,14 +83,14 @@ const BuybackStats = () => {
         {/* Pool Balance */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Pool Balance</span>
-          <span className="font-bold text-primary">{Number(poolBalance).toFixed(4)} SOL</span>
+          <span className="font-bold text-primary">{Number(poolBalance).toFixed(4)} {currencySymbol}</span>
         </div>
 
         {/* Progress to Next Buyback */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Volume Progress</span>
-            <span className="font-medium">{Number(accumulatedVolume).toFixed(2)} / {threshold} SOL</span>
+            <span className="font-medium">{Number(accumulatedVolume).toFixed(2)} / {threshold} {currencySymbol}</span>
           </div>
           <Progress value={progress} className="h-2" />
           <p className="text-xs text-muted-foreground">
@@ -103,7 +119,7 @@ const BuybackStats = () => {
             <div className="flex flex-wrap gap-2">
               {Object.entries(volumeBySource).map(([source, amount]) => (
                 <Badge key={source} variant="secondary" className="text-xs">
-                  {source}: {Number(amount).toFixed(2)} SOL
+                  {source}: {Number(amount).toFixed(2)} {currencySymbol}
                 </Badge>
               ))}
             </div>
@@ -119,7 +135,7 @@ const BuybackStats = () => {
                 <div key={event.id} className="flex items-center justify-between text-xs bg-muted/20 rounded px-2 py-1">
                   <span className="flex items-center gap-1">
                     <ArrowUpRight className="h-3 w-3 text-green-500" />
-                    {Number(event.mon_spent).toFixed(2)} SOL
+                    {Number(event.mon_spent).toFixed(2)} {currencySymbol}
                   </span>
                   <span className="text-muted-foreground">
                     {new Date(event.executed_at).toLocaleDateString()}

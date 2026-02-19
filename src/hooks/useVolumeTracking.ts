@@ -2,13 +2,13 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export type VolumeSourceType = 
-  | 'nft_sell' 
-  | 'nft_buy' 
-  | 'offer' 
-  | 'listing' 
-  | 'sticker' 
-  | 'emote' 
+export type VolumeSourceType =
+  | 'nft_sell'
+  | 'nft_buy'
+  | 'offer'
+  | 'listing'
+  | 'sticker'
+  | 'emote'
   | 'emoji';
 
 interface VolumeTrackingParams {
@@ -103,7 +103,8 @@ export const useVolumeTracking = () => {
     sourceType: VolumeSourceType,
     volumeAmount: number,
     txHash: string,
-    collectionId?: string
+    collectionId?: string,
+    chain?: string
   ): Promise<boolean> => {
     setIsTracking(true);
     setError(null);
@@ -117,6 +118,7 @@ export const useVolumeTracking = () => {
             volume_amount: volumeAmount,
             tx_hash: txHash,
             collection_id: collectionId,
+            chain: chain || 'solana',
           },
         },
       });
@@ -181,7 +183,8 @@ export const useVolumeTracking = () => {
     volumeAmount: number,
     txHash: string,
     collectionId: string,
-    userId?: string
+    userId?: string,
+    chain?: string
   ) => {
     return trackTransaction({
       sourceType: 'nft_buy',
@@ -189,6 +192,7 @@ export const useVolumeTracking = () => {
       txHash,
       collectionId,
       userId,
+      chain,
     });
   }, [trackTransaction]);
 
@@ -197,7 +201,8 @@ export const useVolumeTracking = () => {
     volumeAmount: number,
     txHash: string,
     collectionId: string,
-    userId?: string
+    userId?: string,
+    chain?: string
   ) => {
     return trackTransaction({
       sourceType: 'nft_sell',
@@ -205,6 +210,7 @@ export const useVolumeTracking = () => {
       txHash,
       collectionId,
       userId,
+      chain,
     });
   }, [trackTransaction]);
 
@@ -212,13 +218,15 @@ export const useVolumeTracking = () => {
   const trackListing = useCallback(async (
     volumeAmount: number,
     txHash: string,
-    collectionId: string
+    collectionId: string,
+    chain?: string
   ) => {
     return trackTransaction({
       sourceType: 'listing',
       volumeAmount,
       txHash,
       collectionId,
+      chain,
     });
   }, [trackTransaction]);
 
@@ -226,13 +234,15 @@ export const useVolumeTracking = () => {
   const trackOffer = useCallback(async (
     volumeAmount: number,
     txHash: string,
-    collectionId: string
+    collectionId: string,
+    chain?: string
   ) => {
     return trackTransaction({
       sourceType: 'offer',
       volumeAmount,
       txHash,
       collectionId,
+      chain,
     });
   }, [trackTransaction]);
 
@@ -241,7 +251,8 @@ export const useVolumeTracking = () => {
     volumeAmount: number,
     txHash: string,
     shopItemId: string,
-    userId?: string
+    userId?: string,
+    chain?: string
   ) => {
     return trackTransaction({
       sourceType: 'sticker',
@@ -249,6 +260,7 @@ export const useVolumeTracking = () => {
       txHash,
       shopItemId,
       userId,
+      chain,
     });
   }, [trackTransaction]);
 
@@ -257,7 +269,8 @@ export const useVolumeTracking = () => {
     volumeAmount: number,
     txHash: string,
     shopItemId: string,
-    userId?: string
+    userId?: string,
+    chain?: string
   ) => {
     return trackTransaction({
       sourceType: 'emote',
@@ -265,6 +278,7 @@ export const useVolumeTracking = () => {
       txHash,
       shopItemId,
       userId,
+      chain,
     });
   }, [trackTransaction]);
 
@@ -273,7 +287,8 @@ export const useVolumeTracking = () => {
     volumeAmount: number,
     txHash: string,
     shopItemId: string,
-    userId?: string
+    userId?: string,
+    chain?: string
   ) => {
     return trackTransaction({
       sourceType: 'emoji',
@@ -281,6 +296,7 @@ export const useVolumeTracking = () => {
       txHash,
       shopItemId,
       userId,
+      chain,
     });
   }, [trackTransaction]);
 
@@ -288,13 +304,13 @@ export const useVolumeTracking = () => {
     // State
     isTracking,
     error,
-    
+
     // Core functions
     trackTransaction,
     trackVolume,
     getPoolStatus,
     getVolumeStats,
-    
+
     // Helper functions for specific transaction types
     trackMint,
     trackSale,
