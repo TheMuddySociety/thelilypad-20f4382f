@@ -112,7 +112,7 @@ export const useUserProfile = () => {
         isCollector: boolean;
         isCreator: boolean;
         isStreamer: boolean;
-    }) => {
+    }, displayName?: string) => {
         if (!address) {
             throw new Error('Wallet not connected');
         }
@@ -129,6 +129,7 @@ export const useUserProfile = () => {
                 is_creator: roleSelection.isCreator,
                 is_streamer: roleSelection.isStreamer,
                 profile_setup_completed: true,
+                ...(displayName?.trim() ? { display_name: displayName.trim() } : {}),
             }, { onConflict: 'wallet_address' })
             .select()
             .single();

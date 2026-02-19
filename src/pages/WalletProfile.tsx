@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { useWallet } from "@/providers/WalletProvider";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { loadXRPLWallet } from "@/lib/xrpl-wallet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import { WalletNFTDetailModal } from "@/components/wallet/WalletNFTDetailModal";
 import { PortfolioValueCard } from "@/components/wallet/PortfolioValueCard";
 import { CreateNftModal } from "@/components/CreateNftModal";
 import { NFTFilters, filterAndSortNFTs, SortOption } from "@/components/wallet/NFTFilters";
+import { CHAINS, getExplorerUrl, SupportedChain } from "@/config/chains";
 import {
   Wallet,
   ArrowUpRight,
@@ -43,8 +45,6 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-// Solana mainnet info
-const solanaMainnet = { name: "Solana", blockExplorers: { default: { url: "https://explorer.solana.com" } } };
 
 interface Transaction {
   id: string;
@@ -61,6 +61,7 @@ interface Transaction {
 
 export default function WalletProfile() {
   const { address, isConnected, balance, disconnect, network, chainType } = useWallet();
+  const { profile, updateProfile } = useUserProfile();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [showSeed, setShowSeed] = useState(false);
@@ -73,6 +74,15 @@ export default function WalletProfile() {
   const [selectedNetwork, setSelectedNetwork] = useState("eth-mainnet");
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
+
+  // Chain-config-driven display — covers SOL, XRP, MON and any future chain in CHAINS
+  const chainCfg = CHAINS[chainType as SupportedChain] ?? CHAINS.solana;
+  const balanceSymbol = chainCfg.symbol;
+  const chainDisplayName = chainCfg.name;
+  const getAddressExplorer = (addr: string) =>
+    getExplorerUrl(chainType as SupportedChain, addr, 'address', network === 'mainnet' ? 'mainnet' : 'testnet');
+  const getTxExplorer = (hash: string) =>
+    getExplorerUrl(chainType as SupportedChain, hash, 'tx', network === 'mainnet' ? 'mainnet' : 'testnet');
 
   // NFT Filter states
   const [nftSearchQuery, setNftSearchQuery] = useState("");
@@ -163,19 +173,30 @@ export default function WalletProfile() {
 
   const selectedNetworkInfo = NFT_NETWORKS.find(n => n.id === selectedNetwork);
 
-  // Load wallet name from localStorage
+  // Load wallet name: prefer Supabase display_name, fall back to localStorage
   useEffect(() => {
     if (address) {
-      const savedName = localStorage.getItem(`walletName_${address}`);
-      setWalletName(savedName || "My Wallet");
+      if (profile?.display_name) {
+        setWalletName(profile.display_name);
+      } else {
+        const savedName = localStorage.getItem(`walletName_${address}`);
+        setWalletName(savedName || "My Wallet");
+      }
     }
-  }, [address]);
+  }, [address, profile?.display_name]);
 
-  const saveWalletName = () => {
+  const saveWalletName = async () => {
     if (address && tempWalletName.trim()) {
+      // Persist to localStorage as a quick fallback
       localStorage.setItem(`walletName_${address}`, tempWalletName.trim());
       setWalletName(tempWalletName.trim());
       setIsEditingName(false);
+      // Persist to Supabase profile (best effort)
+      try {
+        await updateProfile({ display_name: tempWalletName.trim() });
+      } catch (err) {
+        console.warn('Could not persist wallet name to profile:', err);
+      }
       toast.success("Wallet name updated");
     }
   };
@@ -270,7 +291,7 @@ export default function WalletProfile() {
                       )}
                     </button>
                     <a
-                      href={`${solanaMainnet.blockExplorers.default.url}/address/${address}`}
+                      href={getAddressExplorer(address || "")}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-1 sm:p-1.5 rounded-lg hover:bg-muted transition-colors shrink-0"
@@ -281,7 +302,7 @@ export default function WalletProfile() {
                   <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
                     <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary animate-pulse" />
                     <span className="text-xs sm:text-sm text-muted-foreground truncate">
-                      Connected to {solanaMainnet.name}
+                      Connected to {chainDisplayName}
                     </span>
                   </div>
                 </div>
@@ -290,7 +311,7 @@ export default function WalletProfile() {
               <div className="flex flex-col pt-3 sm:pt-0 border-t sm:border-t-0 border-border/50">
                 <div className="text-xs sm:text-sm text-muted-foreground">Balance</div>
                 <div className="text-2xl sm:text-3xl md:text-4xl font-bold">
-                  {formatBalance(balance)} <span className="text-sm sm:text-lg text-muted-foreground">SOL</span>
+                  {formatBalance(balance)} <span className="text-sm sm:text-lg text-muted-foreground">{balanceSymbol}</span>
                 </div>
               </div>
             </div>
@@ -422,10 +443,10 @@ export default function WalletProfile() {
                         </div>
                         <div className="text-right shrink-0">
                           <div className="font-semibold text-sm sm:text-base text-primary">
-                            {tx.price_paid} SOL
+                            {tx.price_paid} {balanceSymbol}
                           </div>
                           <a
-                            href={`${solanaMainnet.blockExplorers.default.url}/tx/${tx.tx_hash}`}
+                            href={getTxExplorer(tx.tx_hash)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[10px] sm:text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 justify-end"
@@ -687,7 +708,7 @@ export default function WalletProfile() {
                   <h3 className="font-medium text-sm sm:text-base">Network</h3>
                   <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg bg-muted flex-wrap">
                     <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-primary animate-pulse shrink-0" />
-                    <span className="text-sm sm:text-base">{solanaMainnet.name}</span>
+                    <span className="text-sm sm:text-base">{chainDisplayName}</span>
                     <Badge variant="secondary" className="text-[10px] sm:text-xs">{network === 'mainnet' ? 'Mainnet' : 'Devnet'}</Badge>
                   </div>
                 </div>

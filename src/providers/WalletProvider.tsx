@@ -5,6 +5,7 @@ import type { BrowserSDK, ConnectResult, InjectedWalletInfo, AuthProviderType } 
 import { toast } from "sonner";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { useChain } from "./ChainProvider";
+import { setStoredChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
 import {
   generateXRPLWallet,
@@ -179,7 +180,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       localStorage.setItem("walletConnected", "true");
       localStorage.setItem("walletType", "phantom");
-      // Default to solana
+      setStoredChain('solana'); // Sync ChainProvider
 
       const networkLabel = state.network === "mainnet" ? "Mainnet" : "Testnet";
       toast.success(`Wallet connected on ${networkLabel}`);
@@ -236,6 +237,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       localStorage.setItem("walletConnected", "true");
       localStorage.setItem("walletType", "solana");
+      setStoredChain('solana'); // Sync ChainProvider
 
       toast.success("Wallet connected on Solana");
     } catch (error: any) {
@@ -318,6 +320,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       localStorage.setItem("walletConnected", "true");
       localStorage.setItem("walletType", "xrpl");
+      setStoredChain('xrpl'); // Sync ChainProvider
 
       toast.success(`XRPL wallet connected on ${network}`);
     } catch (error: any) {
@@ -471,7 +474,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (xrplWallet) {
             const network = getXRPLNetwork();
             let balance = '0';
-            try { balance = await fetchXRPBalance(xrplWallet.address, network); } catch {}
+            try { balance = await fetchXRPBalance(xrplWallet.address, network); } catch { }
             setState(prev => ({
               ...prev,
               address: xrplWallet.address,
@@ -545,7 +548,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Check if current wallet type matches selected chain
     const isCompatible =
       (chain.id === 'solana' && (state.walletType === 'phantom' || state.walletType === 'solana')) ||
-      (chain.id === 'xrpl' && state.walletType === 'phantom') || // Will update when XRPL-specific wallet added
+      (chain.id === 'xrpl' && (state.walletType === 'xrpl' || state.walletType === 'phantom')) || // xrpl browser wallet or phantom
       (chain.id === 'monad' && state.walletType === 'phantom'); // Will update when EVM wallets added
 
     if (!isCompatible) {

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle2, ShoppingBag, Rocket, Radio, Sparkles } from 'lucide-react';
+import { CheckCircle2, ShoppingBag, Rocket, Radio, Sparkles, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useSEO } from '@/hooks/useSEO';
@@ -76,6 +78,7 @@ const roleOptions: RoleOption[] = [
 export default function ProfileTypeSelection() {
     const navigate = useNavigate();
     const [selectedRole, setSelectedRole] = useState<string | null>(null);
+    const [displayName, setDisplayName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { createProfile } = useUserProfile();
 
@@ -96,7 +99,7 @@ export default function ProfileTypeSelection() {
         setIsSubmitting(true);
 
         try {
-            await createProfile(option.roles);
+            await createProfile(option.roles, displayName);
 
             toast.success('Profile created successfully!', {
                 description: 'Welcome to The Lily Pad'
@@ -136,6 +139,29 @@ export default function ProfileTypeSelection() {
                     <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                         Choose your role to get started. You can always change this later.
                     </p>
+                </motion.div>
+
+                {/* Display Name Input */}
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="mb-8 max-w-sm mx-auto"
+                >
+                    <Label htmlFor="display-name" className="block text-sm font-medium mb-2 text-center">
+                        What should we call you? <span className="text-muted-foreground text-xs">(optional)</span>
+                    </Label>
+                    <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                            id="display-name"
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                            placeholder="Your name or alias..."
+                            className="pl-9"
+                            maxLength={30}
+                        />
+                    </div>
                 </motion.div>
 
                 {/* Role Selection Grid */}
