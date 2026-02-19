@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Clock, ShieldCheck, Coins, Image as ImageIcon, Sparkles, Leaf } from "lucide-react";
 import { LaunchpadPhase } from "@/hooks/useSolanaLaunch";
 import { useChain } from "@/providers/ChainProvider";
+import { SupportedChain, CHAINS } from "@/config/chains";
 
 interface LaunchpadPreviewProps {
     name: string;
@@ -13,6 +14,7 @@ interface LaunchpadPreviewProps {
     itemsAvailable: number;
     phases: LaunchpadPhase[];
     activePhaseIndex: number;
+    selectedChain?: SupportedChain;
 }
 
 export function LaunchpadPreview({
@@ -21,9 +23,12 @@ export function LaunchpadPreview({
     coverImage,
     itemsAvailable,
     phases,
-    activePhaseIndex = 0
+    activePhaseIndex = 0,
+    selectedChain
 }: LaunchpadPreviewProps) {
-    const { chain } = useChain();
+    const { chain: globalChain } = useChain();
+    // Use the wizard's selectedChain if provided, otherwise fall back to global chain context
+    const chain = selectedChain ? CHAINS[selectedChain] : globalChain;
     const { theme } = chain;
 
     const activePhase = phases[activePhaseIndex] || phases[0];

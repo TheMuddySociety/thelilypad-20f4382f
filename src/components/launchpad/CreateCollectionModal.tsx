@@ -81,7 +81,7 @@ const BASIC_STEPS = [
   { id: 1, title: "Essentials", icon: Tags, description: "Name, Symbol & Story" },
   { id: 2, title: "Assets", icon: FolderOpen, description: "Upload your Folder" },
   { id: 3, title: "Mint Config", icon: Sparkles, description: "Pricing & Guards" },
-  { id: 4, title: "Launch", icon: Rocket, description: "Deploy to Solana" },
+  { id: 4, title: "Launch", icon: Rocket, description: "Deploy Collection" },
 ];
 
 const ADVANCED_STEPS = [
@@ -91,7 +91,7 @@ const ADVANCED_STEPS = [
   { id: 3, title: "Rarity", icon: Sparkles, description: "Configure Rarity" },
   { id: 4, title: "Generate", icon: Wand2, description: "Create Unique NFTs" },
   { id: 5, title: "Mint Config", icon: Sparkles, description: "Pricing & Guards" },
-  { id: 6, title: "Launch", icon: Rocket, description: "Deploy to Solana" },
+  { id: 6, title: "Launch", icon: Rocket, description: "Deploy Collection" },
 ];
 
 export function CreateCollectionModal({
@@ -868,12 +868,12 @@ export function CreateCollectionModal({
               {currentStep === 1 && "Your name, symbol, and cover create the first impression."}
               {mode === "basic" && currentStep === 2 && "Upload a folder with images and matching JSON metadata."}
               {mode === "basic" && currentStep === 3 && "Set pricing, guards, and treasury wallet."}
-              {mode === "basic" && currentStep === 4 && "Review and deploy your collection to Solana."}
+              {mode === "basic" && currentStep === 4 && `Review and deploy your collection to ${currentChain.name}.`}
               {mode === "advanced" && currentStep === 2 && "Each folder becomes a layer. Drag to reorder."}
               {mode === "advanced" && currentStep === 3 && "Lower percentages = rarer traits."}
               {mode === "advanced" && currentStep === 4 && "We'll create unique combinations for your supply."}
               {mode === "advanced" && currentStep === 5 && "Set pricing, guards, and treasury wallet."}
-              {mode === "advanced" && currentStep === 6 && "Review and deploy your collection to Solana."}
+              {mode === "advanced" && currentStep === 6 && `Review and deploy your collection to ${currentChain.name}.`}
             </p>
           </div>
 
@@ -893,6 +893,7 @@ export function CreateCollectionModal({
                 itemsAvailable={mode === "basic" ? (folderAssets.length || 1000) : (generatedAssets.length || targetSupply)}
                 phases={phases}
                 activePhaseIndex={0}
+                selectedChain={selectedChain}
               />
             </motion.div>
           </div>
