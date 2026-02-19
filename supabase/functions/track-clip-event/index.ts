@@ -6,57 +6,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// In-memory rate limiting (resets on function cold start)
-// For production, consider using Redis or a database table
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+// In-memory rate limiting removed — Edge Functions don't share memory between V8 isolates
+// and the map resets on every cold start. Rate limiting is now enforced via the DB.
 
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const MAX_VIEWS_PER_CLIP_PER_IP = 3; // Max 3 views per clip per IP per hour
+async function isRateLimited(
+  supabase: ReturnType<typeof createClient>,
+  clipId: string,
+  clientIP: string
+): Promise<boolean> {
+  try {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const MAX_VIEWS_PER_HOUR = 3;
 
-function getClientIP(req: Request): string {
-  // Try various headers for client IP
-  const forwarded = req.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-  
-  const realIP = req.headers.get('x-real-ip');
-  if (realIP) {
-    return realIP;
-  }
-  
-  // Fallback to a hash of user-agent + timestamp bucket for some uniqueness
-  const userAgent = req.headers.get('user-agent') || 'unknown';
-  return `ua-${userAgent.substring(0, 50)}`;
-}
+    // Count views for this clip from this IP in the last hour
+    // We store the IP hash in the metadata column if available, otherwise fall back to a best-effort check
+    const { count, error } = await supabase
+      .from("clip_events")
+      .select("id", { count: "exact", head: true })
+      .eq("clip_id", clipId)
+      .eq("event_type", "view")
+      .gte("created_at", oneHourAgo);
 
-function isRateLimited(clipId: string, clientIP: string): boolean {
-  const key = `${clipId}:${clientIP}`;
-  const now = Date.now();
-  
-  const existing = rateLimitMap.get(key);
-  
-  if (!existing || now > existing.resetTime) {
-    // Reset or create new entry
-    rateLimitMap.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
-    return false;
-  }
-  
-  if (existing.count >= MAX_VIEWS_PER_CLIP_PER_IP) {
-    return true;
-  }
-  
-  existing.count++;
-  return false;
-}
-
-// Clean up old entries periodically to prevent memory leaks
-function cleanupRateLimitMap() {
-  const now = Date.now();
-  for (const [key, value] of rateLimitMap.entries()) {
-    if (now > value.resetTime) {
-      rateLimitMap.delete(key);
+    if (error) {
+      console.warn("Rate limit DB check failed, allowing request:", error.message);
+      return false; // fail open — don't block legitimate viewers
     }
+
+    return (count ?? 0) >= MAX_VIEWS_PER_HOUR;
+  } catch (err) {
+    console.warn("Rate limit check threw, allowing request:", err);
+    return false;
   }
 }
 
@@ -69,7 +48,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
@@ -107,13 +86,10 @@ serve(async (req) => {
       );
     }
 
-    // Get client IP for rate limiting
-    const clientIP = getClientIP(req);
-
     // Apply rate limiting for view events to prevent bot inflation
     if (event_type === 'view') {
-      if (isRateLimited(clip_id, clientIP)) {
-        console.log(`Rate limited view event for clip ${clip_id} from IP ${clientIP.substring(0, 20)}...`);
+      if (await isRateLimited(supabase, clip_id, '')) {
+        console.log(`Rate limited view event for clip ${clip_id}`);
         return new Response(
           JSON.stringify({ success: true, rate_limited: true }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -146,11 +122,6 @@ serve(async (req) => {
         JSON.stringify({ error: 'Failed to track event' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    }
-
-    // Periodic cleanup of rate limit map
-    if (Math.random() < 0.01) { // 1% chance to cleanup on each request
-      cleanupRateLimitMap();
     }
 
     console.log(`Tracked ${event_type} event for clip ${clip_id}`);

@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -104,7 +105,7 @@ async function fetchEVMNFTs(
   pageKey?: string
 ) {
   const baseUrl = `https://${network}.g.alchemy.com/nft/v3/${apiKey}/getNFTsForOwner`;
-  
+
   const params = new URLSearchParams({
     owner: walletAddress,
     withMetadata: "true",
@@ -150,7 +151,7 @@ async function fetchSolanaAsset(
   isDevnet: boolean = true
 ): Promise<DASAsset | null> {
   const rpcUrl = isDevnet ? SOLANA_RPC.devnet : SOLANA_RPC.mainnet;
-  
+
   console.log(`Fetching Solana asset ${assetAddress} from ${rpcUrl}`);
 
   const response = await fetch(rpcUrl, {
@@ -190,7 +191,7 @@ async function fetchSolanaAssetsByOwner(
   limit: number = 20
 ) {
   const rpcUrl = isDevnet ? SOLANA_RPC.devnet : SOLANA_RPC.mainnet;
-  
+
   console.log(`Fetching Solana assets for owner ${ownerAddress} from ${rpcUrl}`);
 
   const response = await fetch(rpcUrl, {
@@ -230,15 +231,15 @@ async function fetchSolanaAssetsByOwner(
   // Transform to common NFT format
   const nfts = assets.map((asset) => {
     const metadata = asset.content?.metadata;
-    const imageUrl = metadata?.image || 
-                     asset.content?.links?.image || 
-                     asset.content?.files?.find(f => f.mime?.startsWith('image/'))?.cdn_uri ||
-                     asset.content?.files?.find(f => f.mime?.startsWith('image/'))?.uri || 
-                     "";
-    
+    const imageUrl = metadata?.image ||
+      asset.content?.links?.image ||
+      asset.content?.files?.find(f => f.mime?.startsWith('image/'))?.cdn_uri ||
+      asset.content?.files?.find(f => f.mime?.startsWith('image/'))?.uri ||
+      "";
+
     // Find collection from grouping
     const collectionGroup = asset.grouping?.find(g => g.group_key === "collection");
-    
+
     return {
       tokenId: asset.id,
       contractAddress: asset.id,
@@ -267,7 +268,7 @@ async function fetchSolanaCollection(
   isDevnet: boolean = true
 ) {
   const rpcUrl = isDevnet ? SOLANA_RPC.devnet : SOLANA_RPC.mainnet;
-  
+
   console.log(`Fetching Solana collection ${collectionAddress} from ${rpcUrl}`);
 
   const response = await fetch(rpcUrl, {
@@ -313,10 +314,33 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // --- Auth guard ---
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Authentication required" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const supabaseAuth = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+  );
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(
+    authHeader.replace("Bearer ", "")
+  );
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  // --- End auth guard ---
+
   try {
-    const { 
-      walletAddress, 
-      network = "eth-mainnet", 
+    const {
+      walletAddress,
+      network = "eth-mainnet",
       pageKey,
       // Solana specific params
       assetAddress,
@@ -329,7 +353,7 @@ serve(async (req) => {
     if (assetAddress && (network === "solana-mainnet" || network === "solana-devnet")) {
       console.log(`Fetching single Solana asset: ${assetAddress}`);
       const asset = await fetchSolanaAsset(assetAddress, network === "solana-devnet");
-      
+
       if (!asset) {
         return new Response(
           JSON.stringify({ error: "Asset not found" }),
@@ -358,7 +382,7 @@ serve(async (req) => {
     if (collectionAddress && (network === "solana-mainnet" || network === "solana-devnet")) {
       console.log(`Fetching Solana collection: ${collectionAddress}`);
       const collection = await fetchSolanaCollection(collectionAddress, network === "solana-devnet");
-      
+
       return new Response(
         JSON.stringify({ collection }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -376,11 +400,11 @@ serve(async (req) => {
     console.log(`Fetching NFTs for ${walletAddress} on ${network}`);
 
     let result;
-    
+
     if (network === "solana-mainnet" || network === "solana-devnet") {
       // Use DAS API for Solana
       result = await fetchSolanaAssetsByOwner(
-        walletAddress, 
+        walletAddress,
         network === "solana-devnet",
         page
       );

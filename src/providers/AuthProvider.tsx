@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from "react";
 import { useWallet } from "@/providers/WalletProvider";
-import { useUserProfile } from "@/hooks/useUserProfile";
+import { useUserProfile, UserProfile } from "@/hooks/useUserProfile";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { authReducer } from "@/auth/authMachine";
 import { AuthState } from "@/auth/authTypes";
@@ -8,7 +8,7 @@ import { AuthState } from "@/auth/authTypes";
 interface AuthContextType {
     state: AuthState;
     walletAddress: string | null;
-    profile: any | null;
+    profile: UserProfile | null;
     isAdmin: boolean;
 }
 

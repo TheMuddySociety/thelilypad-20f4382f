@@ -169,27 +169,6 @@ export default function GoLive() {
     return () => subscription.unsubscribe();
   }, []); // Removed navigate dependency and redirect logic
 
-  // ... (existing code)
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-        <div className="max-w-md w-full text-center space-y-4">
-          <div className="p-4 rounded-full bg-yellow-500/10 text-yellow-500 mx-auto w-fit">
-            <Activity className="w-8 h-8" />
-          </div>
-          <h1 className="text-2xl font-bold">Authentication Required</h1>
-          <p className="text-muted-foreground">
-            You are connected to Solana, but not signed into the streaming server.
-            Please ensure you have completed the sign-in process.
-          </p>
-          <div className="flex gap-4 justify-center">
-            <Button onClick={() => window.location.reload()}>Retry Connection</Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Update media stream reference when streaming
   useEffect(() => {

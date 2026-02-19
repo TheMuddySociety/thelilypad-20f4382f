@@ -58,9 +58,9 @@ export const useFeatureUnlock = (
     (followerCount >= (featureLock?.required_followers ?? 0) &&
       subscriberCount >= (featureLock?.required_subscribers ?? 0));
 
-  const progress = featureLock
+  const progress = featureLock && featureLock.required_followers > 0
     ? Math.min(100, (followerCount / featureLock.required_followers) * 100)
-    : 0;
+    : featureLock ? 100 : 0;
 
   return {
     isUnlocked,

@@ -1,7 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -37,12 +38,12 @@ async function fetchEVMFloorPrice(
     }
 
     const data = await response.json();
-    
+
     // Alchemy returns floor prices from multiple marketplaces
     // We'll prioritize OpenSea, then LooksRare, then others
     const openSea = data.openSea;
     const looksRare = data.looksRare;
-    
+
     let floorPrice: number | null = null;
     let marketplace = 'unknown';
     let currency = 'ETH';
@@ -79,6 +80,29 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // --- Auth guard ---
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const supabaseAuth = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!,
+  );
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(
+    authHeader.replace('Bearer ', '')
+  );
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  // --- End auth guard ---
+
   try {
     const { contractAddresses, network } = await req.json();
 
@@ -101,7 +125,7 @@ Deno.serve(async (req) => {
     // Solana doesn't have the same floor price API structure
     if (network === 'solana-mainnet') {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           floorPrices: [],
           note: 'Floor price fetching for Solana is not yet supported'
         }),
@@ -111,7 +135,7 @@ Deno.serve(async (req) => {
 
     // Limit to 10 unique contracts to avoid rate limits
     const uniqueContracts = [...new Set(contractAddresses)].slice(0, 10);
-    
+
     console.log(`Fetching floor prices for ${uniqueContracts.length} contracts on ${network}`);
 
     // Fetch floor prices in parallel with a small delay between requests

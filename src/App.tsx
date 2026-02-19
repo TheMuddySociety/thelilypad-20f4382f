@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WalletProvider, useWallet } from "@/providers/WalletProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { ChainProvider } from "@/providers/ChainProvider";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 import ErrorBoundary from "@/components/ErrorBoundary";
 import NetworkStatusIndicator from "@/components/NetworkStatusIndicator";
@@ -40,6 +41,29 @@ const AuthPageGuard = () => {
   }
 
   return <Auth />;
+};
+
+/**
+ * AdminRoute — waits for the isAdmin async check to resolve before rendering.
+ * Prevents the flash of admin UI that occurs when AdminDashboard redirects
+ * non-admins after its own useIsAdmin hook settles.
+ */
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAdmin, loading } = useIsAdmin();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <FrogLoader size="lg" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
 };
 
 // Lazy load non-critical pages for better initial bundle size
@@ -144,7 +168,7 @@ const App = () => (
                       <Route path="/collection/:collectionId" element={<ProtectedRoute><CollectionDetail /></ProtectedRoute>} />
                       <Route path="/my-nfts" element={<ProtectedRoute><MyNFTs /></ProtectedRoute>} />
                       <Route path="/watch/:playbackId" element={<ProtectedRoute><Watch /></ProtectedRoute>} />
-                      <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+                      <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
                       <Route path="/fees" element={<ProtectedRoute><FeesAndPricing /></ProtectedRoute>} />
                       <Route path="/buyback-program" element={<ProtectedRoute><BuybackProgram /></ProtectedRoute>} />
                       <Route path="/official-packs" element={<ProtectedRoute><OfficialPacks /></ProtectedRoute>} />

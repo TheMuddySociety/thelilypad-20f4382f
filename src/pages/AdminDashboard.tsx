@@ -346,12 +346,15 @@ const AdminDashboard: React.FC = () => {
   const handleToggleVerification = async (user: AdminUser) => {
     try {
       const newStatus = !user.profile?.is_verified;
-      const { error } = await supabase
-        .from('streamer_profiles')
-        .update({ is_verified: newStatus })
-        .eq('user_id', user.id);
+      const response = await supabase.functions.invoke('admin-users', {
+        body: {
+          action: 'verify',
+          userId: user.id,
+          is_verified: newStatus,
+        }
+      });
 
-      if (error) throw error;
+      if (response.error) throw response.error;
 
       toast({
         title: newStatus ? 'User Verified' : 'Verification Removed',

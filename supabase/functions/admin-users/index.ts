@@ -166,6 +166,28 @@ serve(async (req) => {
         });
       }
 
+      case "verify": {
+        const { userId, is_verified } = params;
+
+        if (!userId || typeof is_verified !== "boolean") {
+          return new Response(JSON.stringify({ error: "Missing userId or is_verified" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const { error } = await supabaseAdmin
+          .from("streamer_profiles")
+          .update({ is_verified })
+          .eq("user_id", userId);
+
+        if (error) throw error;
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       default:
         return new Response(JSON.stringify({ error: "Invalid action" }), {
           status: 400,
