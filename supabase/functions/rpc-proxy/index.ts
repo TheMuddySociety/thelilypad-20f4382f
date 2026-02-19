@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Monad RPC endpoints with rate limit info
+// Solana RPC endpoints with rate limit info
 interface RpcEndpoint {
   url: string;
   name: string;

@@ -1,63 +1,56 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Loader2, Volume2, VolumeX, Maximize2, Users, Radio } from 'lucide-react';
+import { Loader2, Volume2, VolumeX, Maximize2, Radio } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 
 interface WebRTCViewerProps {
-  roomId: string;
+  /** A live MediaStream from the broadcaster, passed in-process (e.g. via context or ref). */
+  stream?: MediaStream | null;
   className?: string;
 }
 
-export const WebRTCViewer: React.FC<WebRTCViewerProps> = ({ roomId, className }) => {
+/**
+ * Browser-native stream viewer.
+ * Renders the provided MediaStream directly in a <video> element — no Livepeer dependency.
+ * When a stream URL is known (e.g. from an HLS/WHEP endpoint) it can also be set via
+ * the `stream` prop once that signaling layer is implemented.
+ */
+export const WebRTCViewer: React.FC<WebRTCViewerProps> = ({ stream, className }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [joinUrl, setJoinUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [showControls, setShowControls] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(100);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const joinRoom = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Join the room as a viewer
-      const { data, error: joinError } = await supabase.functions.invoke('webrtc-stream', {
-        body: { action: 'join-as-viewer', roomId },
-      });
-
-      if (joinError || !data?.success) {
-        throw new Error(data?.error || joinError?.message || 'Failed to join room');
-      }
-
-      console.log('Joined room as viewer:', data);
-      setJoinUrl(data.user.joinUrl);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to connect to stream';
-      console.error('WebRTC viewer error:', err);
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [roomId]);
-
+  // Attach the MediaStream to the <video> element whenever it changes
   useEffect(() => {
-    joinRoom();
-  }, [joinRoom]);
-
-  const toggleFullscreen = () => {
-    if (containerRef.current) {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        containerRef.current.requestFullscreen();
-      }
+    const video = videoRef.current;
+    if (!video) return;
+    if (stream) {
+      video.srcObject = stream;
+      video.play().catch(err => console.warn('Autoplay prevented:', err));
+    } else {
+      video.srcObject = null;
     }
-  };
+  }, [stream]);
+
+  // Sync muted/volume state to the video element
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = isMuted;
+    video.volume = isMuted ? 0 : volume / 100;
+  }, [isMuted, volume]);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      containerRef.current.requestFullscreen();
+    }
+  }, []);
 
   const handleVolumeChange = (value: number[]) => {
     const newVolume = value[0];
@@ -65,53 +58,36 @@ export const WebRTCViewer: React.FC<WebRTCViewerProps> = ({ roomId, className })
     setIsMuted(newVolume === 0);
   };
 
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-  };
+  const toggleMute = () => setIsMuted(prev => !prev);
 
-  if (error) {
+  if (!stream) {
     return (
       <div className={cn('relative bg-black rounded-lg overflow-hidden flex items-center justify-center', className)}>
         <div className="text-center p-8">
           <Radio className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-white font-medium mb-2">Unable to join stream</p>
-          <p className="text-muted-foreground text-sm mb-4">{error}</p>
-          <Button onClick={joinRoom} variant="secondary">
-            Try Again
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className={cn('relative bg-black rounded-lg overflow-hidden flex items-center justify-center', className)}>
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Connecting to stream...</p>
+          <p className="text-white font-medium mb-2">No stream available</p>
+          <p className="text-muted-foreground text-sm">Waiting for the broadcaster to go live…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className={cn('relative bg-black rounded-lg overflow-hidden group', className)}
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
-      {/* Livepeer Room Embed */}
-      {joinUrl && (
-        <iframe
-          ref={iframeRef}
-          src={joinUrl}
-          allow="camera; microphone; fullscreen; display-capture; autoplay"
-          className="w-full h-full border-0"
-          title="Live Stream"
-        />
-      )}
+      {/* Native video element — receives MediaStream directly */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={isMuted}
+        className="w-full h-full object-contain"
+        aria-label="Live stream"
+      />
 
       {/* Live indicator */}
       <div className="absolute top-4 left-4 flex items-center gap-2 pointer-events-none">
@@ -119,13 +95,11 @@ export const WebRTCViewer: React.FC<WebRTCViewerProps> = ({ roomId, className })
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
         </span>
-        <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-          LIVE
-        </span>
+        <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">LIVE</span>
       </div>
 
       {/* Controls overlay */}
-      <div 
+      <div
         className={cn(
           'absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300',
           showControls ? 'opacity-100' : 'opacity-0'
@@ -152,7 +126,6 @@ export const WebRTCViewer: React.FC<WebRTCViewerProps> = ({ roomId, className })
               />
             </div>
           </div>
-
           <Button
             variant="ghost"
             size="icon"

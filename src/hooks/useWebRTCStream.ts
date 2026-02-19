@@ -1,11 +1,10 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useStreamPermissions } from '@/hooks/useStreamPermissions';
 import { validateStreamMetadata } from '@/lib/validation';
 import { captureStreamError, captureStreamEvent } from '@/lib/errorTracking';
 import { createStreamPerformanceTracker } from '@/lib/performanceMonitoring';
-
 
 export type StreamSource = 'camera' | 'screen';
 export type StreamQuality = '480p' | '720p' | '1080p';
@@ -16,6 +15,7 @@ interface StreamState {
   isConnecting: boolean;
   isSwitchingSource: boolean;
   isSwitchingCamera: boolean;
+  /** No longer used for Livepeer — kept for DB record reference. */
   roomId: string | null;
   joinUrl: string | null;
   error: string | null;
@@ -45,7 +45,7 @@ const qualitySettings: Record<StreamQuality, { width: number; height: number; fr
 
 export const useWebRTCStream = () => {
   const { toast } = useToast();
-  const { permissions, requestStreamPermission } = useStreamPermissions();
+  const { requestStreamPermission } = useStreamPermissions();
 
   const [state, setState] = useState<StreamState>({
     isStreaming: false,
@@ -65,7 +65,6 @@ export const useWebRTCStream = () => {
   const pipStreamRef = useRef<MediaStream | null>(null);
   const performanceTrackerRef = useRef<ReturnType<typeof createStreamPerformanceTracker> | null>(null);
 
-
   // Check if screen sharing is supported
   const isScreenShareSupported = useCallback(() => {
     return typeof navigator.mediaDevices?.getDisplayMedia === 'function';
@@ -79,22 +78,19 @@ export const useWebRTCStream = () => {
     const settings = qualitySettings[quality];
 
     if (source === 'screen') {
-      // Check if screen sharing is supported (not available on mobile)
       if (!isScreenShareSupported()) {
         throw new Error('Screen sharing is not supported on this device. Please use a desktop browser for screen sharing.');
       }
 
-      // Get screen share with system audio if available
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           width: { ideal: settings.width },
           height: { ideal: settings.height },
           frameRate: { ideal: settings.frameRate },
         },
-        audio: true, // Capture system audio if available
+        audio: true,
       });
 
-      // Try to get microphone audio as well
       try {
         const micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -103,19 +99,13 @@ export const useWebRTCStream = () => {
             autoGainControl: true,
           },
         });
-
-        // Combine screen video with microphone audio
         const audioTracks = [...screenStream.getAudioTracks(), ...micStream.getAudioTracks()];
-        const videoTracks = screenStream.getVideoTracks();
-
-        return new MediaStream([...videoTracks, ...audioTracks]);
+        return new MediaStream([...screenStream.getVideoTracks(), ...audioTracks]);
       } catch {
-        // If mic access fails, just use screen stream
         return screenStream;
       }
     } else {
-      // Camera stream with specified facing mode
-      return await navigator.mediaDevices.getUserMedia({
+      return navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: settings.width },
           height: { ideal: settings.height },
@@ -139,13 +129,9 @@ export const useWebRTCStream = () => {
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     try {
-      // 1. Check permissions first
       const hasPermission = await requestStreamPermission();
-      if (!hasPermission) {
-        throw new Error('Permission denied to create stream');
-      }
+      if (!hasPermission) throw new Error('Permission denied to create stream');
 
-      // 2. Validate metadata if provided
       if (metadata) {
         const validation = validateStreamMetadata(metadata);
         if (!validation.isValid) {
@@ -154,58 +140,28 @@ export const useWebRTCStream = () => {
         }
       }
 
-      // 3. Get current user
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('You must be logged in to stream');
-      }
+      if (!user) throw new Error('You must be logged in to stream');
 
-      // 4. Log stream start attempt
       await captureStreamEvent('stream_start_attempt', undefined, {
         source,
         quality,
         has_metadata: !!metadata,
       });
 
-      // 5. Get media based on source and quality
       const stream = await getMediaStream(source, quality);
-
       mediaStreamRef.current = stream;
-
-      // Create a WebRTC room
-      const { data: roomData, error: roomError } = await supabase.functions.invoke('webrtc-stream', {
-        body: { action: 'create-room' },
-      });
-
-      if (roomError || !roomData?.success) {
-        throw new Error(roomData?.error || roomError?.message || 'Failed to create room');
-      }
-
-      const roomId = roomData.room.id;
-
-      // Join the room as broadcaster
-      const { data: joinData, error: joinError } = await supabase.functions.invoke('webrtc-stream', {
-        body: { action: 'join-room', roomId },
-      });
-
-      if (joinError || !joinData?.success) {
-        throw new Error(joinData?.error || joinError?.message || 'Failed to join room');
-      }
 
       // Create stream record in database
       const streamTitle = metadata?.title?.trim() || 'Live Stream';
-      const streamCategory = metadata?.category || null;
-      const streamThumbnail = metadata?.thumbnailUrl || null;
-
       const { data: streamRecord, error: dbError } = await supabase
         .from('streams')
         .insert({
           user_id: user.id,
           title: streamTitle,
-          category: streamCategory,
-          thumbnail_url: streamThumbnail,
+          category: metadata?.category || null,
+          thumbnail_url: metadata?.thumbnailUrl || null,
           is_live: true,
-          stream_key_id: roomId,
           started_at: new Date().toISOString(),
         })
         .select()
@@ -213,7 +169,6 @@ export const useWebRTCStream = () => {
 
       if (dbError) {
         console.error('Failed to create stream record:', dbError);
-        // Don't throw - stream can still work without DB record
       }
 
       setState(prev => ({
@@ -221,8 +176,8 @@ export const useWebRTCStream = () => {
         isConnecting: false,
         isSwitchingSource: false,
         isSwitchingCamera: false,
-        roomId,
-        joinUrl: joinData.user.joinUrl,
+        roomId: streamRecord?.id || null,
+        joinUrl: null,
         error: null,
         streamDbId: streamRecord?.id || null,
         source,
@@ -235,12 +190,11 @@ export const useWebRTCStream = () => {
         description: `You are now live${source === 'screen' ? ' (Screen Share)' : ''}. Share your stream link with viewers.`,
       });
 
-      return { stream, roomId, joinUrl: joinData.user.joinUrl };
+      return { stream };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to start stream';
       console.error('Stream error:', error);
 
-      // Stop any media tracks
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach(track => track.stop());
         mediaStreamRef.current = null;
@@ -268,42 +222,25 @@ export const useWebRTCStream = () => {
 
       return null;
     }
-  }, [toast, getMediaStream]);
+  }, [toast, getMediaStream, requestStreamPermission]);
 
   const stopStream = useCallback(async () => {
-    // Stop media tracks
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
       mediaStreamRef.current = null;
     }
 
-    // Update stream record to mark as ended
     if (state.streamDbId) {
       try {
         await supabase
           .from('streams')
-          .update({
-            is_live: false,
-            ended_at: new Date().toISOString(),
-          })
+          .update({ is_live: false, ended_at: new Date().toISOString() })
           .eq('id', state.streamDbId);
       } catch (error) {
         console.error('Failed to update stream record:', error);
       }
     }
 
-    // Delete the room if we have one
-    if (state.roomId) {
-      try {
-        await supabase.functions.invoke('webrtc-stream', {
-          body: { action: 'delete-room', roomId: state.roomId },
-        });
-      } catch (error) {
-        console.error('Failed to delete room:', error);
-      }
-    }
-
-    // Stop PiP stream if active
     if (pipStreamRef.current) {
       pipStreamRef.current.getTracks().forEach(track => track.stop());
       pipStreamRef.current = null;
@@ -323,130 +260,72 @@ export const useWebRTCStream = () => {
       cameraFacing: 'user',
     });
 
-    toast({
-      title: 'Stream ended',
-      description: 'Your live stream has ended.',
-    });
-  }, [state.roomId, state.streamDbId, toast]);
+    toast({ title: 'Stream ended', description: 'Your live stream has ended.' });
+  }, [state.streamDbId, toast]);
 
-  const getCurrentMediaStream = useCallback(() => {
-    return mediaStreamRef.current;
-  }, []);
+  const getCurrentMediaStream = useCallback(() => mediaStreamRef.current, []);
 
   const switchSource = useCallback(async (newSource: StreamSource): Promise<MediaStream | null> => {
-    if (!state.isStreaming || state.source === newSource) {
-      return mediaStreamRef.current;
-    }
+    if (!state.isStreaming || state.source === newSource) return mediaStreamRef.current;
 
     setState(prev => ({ ...prev, isSwitchingSource: true }));
 
     try {
-      // Stop current video tracks (keep audio if switching to screen)
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getVideoTracks().forEach(track => track.stop());
       }
-
-      // Get new media stream
       const newStream = await getMediaStream(newSource);
-
-      // Update the media stream reference
       mediaStreamRef.current = newStream;
-
-      setState(prev => ({
-        ...prev,
-        isSwitchingSource: false,
-        source: newSource,
-      }));
-
+      setState(prev => ({ ...prev, isSwitchingSource: false, source: newSource }));
       toast({
         title: 'Source switched',
         description: `Now streaming from ${newSource === 'screen' ? 'screen share' : 'camera'}.`,
       });
-
       return newStream;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to switch source';
-      console.error('Switch source error:', error);
-
       setState(prev => ({ ...prev, isSwitchingSource: false }));
-
-      toast({
-        variant: 'destructive',
-        title: 'Failed to switch source',
-        description: errorMessage,
-      });
-
+      toast({ variant: 'destructive', title: 'Failed to switch source', description: errorMessage });
       return null;
     }
   }, [state.isStreaming, state.source, getMediaStream, toast]);
 
   const togglePip = useCallback(async (): Promise<MediaStream | null> => {
     if (!state.isStreaming || state.source !== 'screen') {
-      toast({
-        variant: 'destructive',
-        title: 'PiP not available',
-        description: 'Picture-in-picture is only available during screen sharing.',
-      });
+      toast({ variant: 'destructive', title: 'PiP not available', description: 'Picture-in-picture is only available during screen sharing.' });
       return null;
     }
 
     if (state.isPipEnabled) {
-      // Disable PiP - stop camera stream
       if (pipStreamRef.current) {
         pipStreamRef.current.getTracks().forEach(track => track.stop());
         pipStreamRef.current = null;
       }
       setState(prev => ({ ...prev, isPipEnabled: false }));
-      toast({
-        title: 'Camera overlay disabled',
-        description: 'Picture-in-picture mode turned off.',
-      });
+      toast({ title: 'Camera overlay disabled', description: 'Picture-in-picture mode turned off.' });
       return null;
     } else {
-      // Enable PiP - start camera stream
       try {
         const cameraStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 320 },
-            height: { ideal: 240 },
-            facingMode: 'user',
-          },
-          audio: false, // Audio already from main stream
+          video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: 'user' },
+          audio: false,
         });
-
         pipStreamRef.current = cameraStream;
         setState(prev => ({ ...prev, isPipEnabled: true }));
-
-        toast({
-          title: 'Camera overlay enabled',
-          description: 'Your camera is now visible as an overlay.',
-        });
-
+        toast({ title: 'Camera overlay enabled', description: 'Your camera is now visible as an overlay.' });
         return cameraStream;
       } catch (error) {
-        console.error('Failed to enable PiP:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Failed to enable camera overlay',
-          description: 'Could not access camera for picture-in-picture.',
-        });
+        toast({ variant: 'destructive', title: 'Failed to enable camera overlay', description: 'Could not access camera for picture-in-picture.' });
         return null;
       }
     }
   }, [state.isStreaming, state.source, state.isPipEnabled, toast]);
 
-  const getPipStream = useCallback(() => {
-    return pipStreamRef.current;
-  }, []);
+  const getPipStream = useCallback(() => pipStreamRef.current, []);
 
-  // Flip camera between front and back (mobile only)
   const flipCamera = useCallback(async (): Promise<MediaStream | null> => {
     if (!state.isStreaming || state.source !== 'camera') {
-      toast({
-        variant: 'destructive',
-        title: 'Cannot flip camera',
-        description: 'Camera flip is only available when streaming from camera.',
-      });
+      toast({ variant: 'destructive', title: 'Cannot flip camera', description: 'Camera flip is only available when streaming from camera.' });
       return null;
     }
 
@@ -454,61 +333,33 @@ export const useWebRTCStream = () => {
 
     try {
       const newFacing: CameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
-
-      // Stop current video tracks
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getVideoTracks().forEach(track => track.stop());
       }
-
-      // Get new camera stream with opposite facing mode
       const newStream = await getMediaStream('camera', '720p', newFacing);
-
-      // Keep existing audio tracks if any
       if (mediaStreamRef.current) {
         const existingAudioTracks = mediaStreamRef.current.getAudioTracks();
         const newVideoTracks = newStream.getVideoTracks();
         mediaStreamRef.current = new MediaStream([...newVideoTracks, ...existingAudioTracks]);
-
-        // Stop the audio from the new stream since we're keeping the old one
         newStream.getAudioTracks().forEach(track => track.stop());
       } else {
         mediaStreamRef.current = newStream;
       }
-
-      setState(prev => ({
-        ...prev,
-        isSwitchingCamera: false,
-        cameraFacing: newFacing,
-      }));
-
-      toast({
-        title: 'Camera flipped',
-        description: `Now using ${newFacing === 'user' ? 'front' : 'back'} camera.`,
-      });
-
+      setState(prev => ({ ...prev, isSwitchingCamera: false, cameraFacing: newFacing }));
+      toast({ title: 'Camera flipped', description: `Now using ${newFacing === 'user' ? 'front' : 'back'} camera.` });
       return mediaStreamRef.current;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to flip camera';
-      console.error('Flip camera error:', error);
-
       setState(prev => ({ ...prev, isSwitchingCamera: false }));
-
-      toast({
-        variant: 'destructive',
-        title: 'Failed to flip camera',
-        description: errorMessage,
-      });
-
+      toast({ variant: 'destructive', title: 'Failed to flip camera', description: errorMessage });
       return null;
     }
   }, [state.isStreaming, state.source, state.cameraFacing, getMediaStream, toast]);
 
-  // Check if device has multiple cameras (for flip button visibility)
   const hasMultipleCameras = useCallback(async (): Promise<boolean> => {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(device => device.kind === 'videoinput');
-      return videoDevices.length > 1;
+      return devices.filter(d => d.kind === 'videoinput').length > 1;
     } catch {
       return false;
     }

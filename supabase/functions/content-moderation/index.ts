@@ -33,21 +33,31 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
+
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const authHeader = req.headers.get("Authorization");
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-    
-    // Get user from auth header
-    let userId: string | null = null;
-    if (authHeader) {
-      const token = authHeader.replace("Bearer ", "");
-      const { data: { user } } = await supabase.auth.getUser(token);
-      userId = user?.id || null;
+
+    // Require authentication — anonymous callers must not consume AI API credits
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid or expired token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const userId: string = user.id;
 
     const body: ModerationRequest = await req.json();
     const { content_type, content_text, content_url, image_base64, reference_id, reference_table, auto_reject = true } = body;
@@ -108,7 +118,7 @@ serve(async (req) => {
       }
 
       console.log(`[Moderation] Blocked by pattern: ${patternMatch}`);
-      
+
       return new Response(
         JSON.stringify({ result, action: "blocked" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -142,7 +152,7 @@ Categories to check:
 This is for NFT art - be strict about adult content. Artistic nudity should still be flagged. Cartoon/anime NSFW content should also be flagged.`;
 
       try {
-        const imageContent = image_base64 
+        const imageContent = image_base64
           ? { type: "image_url", image_url: { url: image_base64 } }
           : { type: "image_url", image_url: { url: content_url } };
 
@@ -156,8 +166,8 @@ This is for NFT art - be strict about adult content. Artistic nudity should stil
             model: "google/gemini-2.5-flash",
             messages: [
               { role: "system", content: imageSystemPrompt },
-              { 
-                role: "user", 
+              {
+                role: "user",
                 content: [
                   { type: "text", text: "Analyze this image for content moderation:" },
                   imageContent
@@ -188,7 +198,7 @@ This is for NFT art - be strict about adult content. Artistic nudity should stil
 
         const aiResponse = await response.json();
         const aiContent = aiResponse.choices?.[0]?.message?.content;
-        
+
         if (aiContent) {
           try {
             const parsed = JSON.parse(aiContent);
@@ -264,7 +274,7 @@ Be strict but fair. If content is borderline, lean towards flagging it for revie
 
         const aiResponse = await response.json();
         const aiContent = aiResponse.choices?.[0]?.message?.content;
-        
+
         if (aiContent) {
           try {
             const parsed = JSON.parse(aiContent);

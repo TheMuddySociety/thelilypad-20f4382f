@@ -116,7 +116,7 @@ const RarityBadge = ({ tier, showLabel = true, size = "default" }: { tier: Rarit
   const Icon = config.icon;
   const sizeClasses = size === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1";
   const iconSize = size === "sm" ? "w-3 h-3" : "w-3.5 h-3.5";
-  
+
   return (
     <span className={`inline-flex items-center gap-1 rounded-full font-medium border ${config.bgColor} ${config.color} ${config.borderColor} ${sizeClasses}`}>
       <Icon className={iconSize} />
@@ -359,7 +359,7 @@ export function GenerationPreview({
   const exportImagesWithMetadata = async () => {
     const count = Math.min(parseInt(exportCount) || 10, 100); // Limit to 100 for browser
     const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
-    
+
     if (!hasImages) {
       toast.error("No images found. Add images to your traits first.");
       return;
@@ -437,7 +437,7 @@ export function GenerationPreview({
   const downloadIndividualImages = async () => {
     const count = Math.min(parseInt(exportCount) || 10, 20); // Limit to 20 for individual downloads
     const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
-    
+
     if (!hasImages) {
       toast.error("No images found. Add images to your traits first.");
       return;
@@ -460,7 +460,7 @@ export function GenerationPreview({
           link.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-${nfts[i].id}.png`;
           link.href = imageDataUrl;
           link.click();
-          
+
           // Delay between downloads
           await new Promise((r) => setTimeout(r, 300));
         }
@@ -509,10 +509,10 @@ export function GenerationPreview({
   const exportAllMetadata = () => {
     const count = parseInt(exportCount) || parseInt(totalSupply) || 100;
     const { nfts } = generateNFTBatch(count);
-    
+
     // Create metadata array
     const allMetadata = nfts.map((nft) => nftToMetadata(nft));
-    
+
     // Export as single JSON file with all metadata
     const exportData = {
       name: collectionName,
@@ -521,7 +521,7 @@ export function GenerationPreview({
       generated_at: new Date().toISOString(),
       metadata: allMetadata,
     };
-    
+
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -538,7 +538,7 @@ export function GenerationPreview({
   const exportIndividualFiles = () => {
     const count = parseInt(exportCount) || parseInt(totalSupply) || 100;
     const { nfts } = generateNFTBatch(count);
-    
+
     // Create a downloadable text file with instructions
     const metadataFiles: { filename: string; content: NFTMetadata }[] = nfts.map((nft) => ({
       filename: `${nft.id}.json`,
@@ -567,7 +567,7 @@ export function GenerationPreview({
   const exportAsZip = async () => {
     const count = Math.min(parseInt(exportCount) || 100, 500); // Limit to 500 for memory
     const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
-    
+
     if (!hasImages) {
       toast.error("No images found. Add images to your traits first.");
       return;
@@ -581,7 +581,7 @@ export function GenerationPreview({
       const zip = new JSZip();
       const imagesFolder = zip.folder("images");
       const metadataFolder = zip.folder("metadata");
-      
+
       if (!imagesFolder || !metadataFolder) {
         throw new Error("Failed to create ZIP folders");
       }
@@ -594,12 +594,12 @@ export function GenerationPreview({
         setExportProgress(((i + 1) / count) * 80);
 
         const imageDataUrl = await compositeNFTImage(nfts[i]);
-        
+
         if (imageDataUrl) {
           // Convert base64 to binary
           const base64Data = imageDataUrl.split(",")[1];
           imagesFolder.file(`${nfts[i].id}.png`, base64Data, { base64: true });
-          
+
           // Create metadata with correct image path
           const metadata = {
             name: `${collectionName} #${nfts[i].id}`,
@@ -610,7 +610,7 @@ export function GenerationPreview({
               value: trait.traitName,
             })),
           };
-          
+
           metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(metadata, null, 2));
         }
 
@@ -633,7 +633,7 @@ export function GenerationPreview({
       setExportProgress(90);
 
       // Generate ZIP blob
-      const zipBlob = await zip.generateAsync({ 
+      const zipBlob = await zip.generateAsync({
         type: "blob",
         compression: "DEFLATE",
         compressionOptions: { level: 6 }
@@ -768,125 +768,11 @@ export function GenerationPreview({
 
   // Upload to IPFS via Pinata
   const uploadToIpfs = async () => {
-    const count = Math.min(parseInt(exportCount) || 100, 100); // Limit for IPFS upload
-    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
-    
-    if (!hasImages) {
-      toast.error("No images found. Add images to your traits first.");
-      return;
-    }
-
-    setIsUploadingToIpfs(true);
-    setExportProgress(0);
-    setExportStatus("Generating NFTs...");
-    setIpfsResult(null);
-
-    try {
-      const { nfts } = generateNFTBatch(count);
-      const files: { name: string; content: string; type: string }[] = [];
-
-      // Generate images
-      for (let i = 0; i < nfts.length; i++) {
-        setExportStatus(`Generating image ${i + 1} of ${count}...`);
-        setExportProgress(((i + 1) / count) * 40);
-
-        const imageDataUrl = await compositeNFTImage(nfts[i]);
-        
-        if (imageDataUrl) {
-          // Extract base64 data
-          const base64Data = imageDataUrl.split(",")[1];
-          files.push({
-            name: `images/${nfts[i].id}.png`,
-            content: base64Data,
-            type: "image/png",
-          });
-        }
-
-        if (i % 10 === 0) {
-          await new Promise((r) => setTimeout(r, 10));
-        }
-      }
-
-      // Generate metadata (will be updated after we get the CID)
-      setExportStatus("Preparing metadata...");
-      setExportProgress(50);
-
-      for (const nft of nfts) {
-        const metadata = {
-          name: `${collectionName} #${nft.id}`,
-          description: collectionDescription || `${collectionName} NFT #${nft.id}`,
-          image: `ipfs://PENDING_CID/${nft.id}.png`, // Will need to update after first upload
-          attributes: nft.traits.map((trait) => ({
-            trait_type: trait.layerName,
-            value: trait.traitName,
-          })),
-        };
-        
-        // Convert to base64
-        const jsonString = JSON.stringify(metadata, null, 2);
-        const base64Content = btoa(unescape(encodeURIComponent(jsonString)));
-        
-        files.push({
-          name: `metadata/${nft.id}.json`,
-          content: base64Content,
-          type: "application/json",
-        });
-      }
-
-      // Add collection metadata
-      const collectionMetadata = {
-        name: collectionName,
-        description: collectionDescription,
-        total_supply: count,
-        generated_at: new Date().toISOString(),
-      };
-      const collectionJsonString = JSON.stringify(collectionMetadata, null, 2);
-      files.push({
-        name: "_collection.json",
-        content: btoa(unescape(encodeURIComponent(collectionJsonString))),
-        type: "application/json",
-      });
-
-      setExportStatus("Uploading to IPFS...");
-      setExportProgress(60);
-
-      // Upload to IPFS via edge function
-      const { data, error } = await supabase.functions.invoke("ipfs-upload", {
-        body: {
-          files,
-          wrapWithDirectory: true,
-          collectionName: collectionName.toLowerCase().replace(/\s+/g, "-"),
-        },
-      });
-
-      if (error) {
-        throw new Error(error.message || "Failed to upload to IPFS");
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setExportProgress(100);
-      setExportStatus("Upload complete!");
-      setIpfsResult({
-        cid: data.cid,
-        gatewayUrl: data.gatewayUrl,
-        ipfsUrl: data.ipfsUrl,
-      });
-      
-      toast.success(`Uploaded ${count} NFTs to IPFS!`);
-    } catch (error) {
-      console.error("IPFS upload failed:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      toast.error(`IPFS upload failed: ${errorMessage}`);
-    } finally {
-      setTimeout(() => {
-        setIsUploadingToIpfs(false);
-        setExportProgress(0);
-        setExportStatus("");
-      }, 2000);
-    }
+    // ipfs-upload Edge Function is not yet deployed.
+    // Until it is, direct users to the ZIP export path.
+    toast.error(
+      "IPFS upload is not yet available. Please use the ZIP Export option and upload the files manually via Pinata or NFT.Storage."
+    );
   };
 
   const copyToClipboard = (text: string) => {
@@ -919,21 +805,21 @@ export function GenerationPreview({
   // Generate rarity report
   const generateRarityReport = useCallback(() => {
     setIsGeneratingReport(true);
-    
+
     try {
       const reportSize = Math.min(parseInt(totalSupply) || 100, 500);
       const { nfts } = generateNFTBatch(reportSize);
-      
+
       // Calculate trait distributions per layer
       const layerTraitCounts = new Map<string, Map<string, number>>();
-      
+
       // Initialize counts
       layers.forEach((layer) => {
         const traitCounts = new Map<string, number>();
         layer.traits.forEach((trait) => traitCounts.set(trait.name, 0));
         layerTraitCounts.set(layer.name, traitCounts);
       });
-      
+
       // Count occurrences
       nfts.forEach((nft) => {
         nft.traits.forEach((trait) => {
@@ -943,12 +829,12 @@ export function GenerationPreview({
           }
         });
       });
-      
+
       // Build layer distributions with tier assignment
       const layerDistributions = layers.map((layer) => {
         const traitCounts = layerTraitCounts.get(layer.name) || new Map();
         const totalRarity = layer.traits.reduce((sum, t) => sum + t.rarity, 0);
-        
+
         return {
           layerName: layer.name,
           traits: layer.traits.map((trait) => {
@@ -965,7 +851,7 @@ export function GenerationPreview({
           }).sort((a, b) => a.percentage - b.percentage),
         };
       });
-      
+
       // Calculate tier summary for traits
       const traitTierCounts: Record<RarityTier, number> = {
         legendary: 0,
@@ -973,48 +859,48 @@ export function GenerationPreview({
         uncommon: 0,
         common: 0,
       };
-      
+
       layerDistributions.forEach((layer) => {
         layer.traits.forEach((trait) => {
           traitTierCounts[trait.tier]++;
         });
       });
-      
+
       // Calculate rarity scores for each NFT and assign overall tier
       const nftRarityScores = nfts.map((nft) => {
         const rarityScore = nft.traits.reduce((score, trait) => {
           const layer = layers.find((l) => l.name === trait.layerName);
           if (!layer) return score;
-          
+
           const traitData = layer.traits.find((t) => t.name === trait.traitName);
           if (!traitData) return score;
-          
+
           const totalRarity = layer.traits.reduce((sum, t) => sum + t.rarity, 0);
           const traitRarity = totalRarity > 0 ? traitData.rarity / totalRarity : 1;
-          
+
           // Lower rarity value = rarer = higher score (inverse)
           return score + (1 / traitRarity);
         }, 0);
-        
+
         return {
           nftId: nft.id,
           rarityScore,
           traits: nft.traits.map((t) => t.traitName),
         };
       });
-      
+
       // Normalize scores and assign tiers to NFTs
       const maxScore = Math.max(...nftRarityScores.map((n) => n.rarityScore));
       const minScore = Math.min(...nftRarityScores.map((n) => n.rarityScore));
       const scoreRange = maxScore - minScore || 1;
-      
+
       const nftTierCounts: Record<RarityTier, number> = {
         legendary: 0,
         rare: 0,
         uncommon: 0,
         common: 0,
       };
-      
+
       const nftsWithTiers = nftRarityScores.map((nft) => {
         // Normalize score to 0-100 (higher score = rarer)
         const normalizedScore = ((nft.rarityScore - minScore) / scoreRange) * 100;
@@ -1022,18 +908,18 @@ export function GenerationPreview({
         const tierPercentage = 100 - normalizedScore;
         const overallTier = getRarityTier(tierPercentage);
         nftTierCounts[overallTier]++;
-        
+
         return {
           ...nft,
           overallTier,
         };
       });
-      
+
       // Get top 10 rarest
       const rarestCombinations = nftsWithTiers
         .sort((a, b) => b.rarityScore - a.rarityScore)
         .slice(0, 10);
-      
+
       // Build tier summary
       const tierSummary: RarityReport["tierSummary"] = [
         { tier: "legendary" as RarityTier, traitCount: traitTierCounts.legendary, nftCount: nftTierCounts.legendary },
@@ -1041,14 +927,14 @@ export function GenerationPreview({
         { tier: "uncommon" as RarityTier, traitCount: traitTierCounts.uncommon, nftCount: nftTierCounts.uncommon },
         { tier: "common" as RarityTier, traitCount: traitTierCounts.common, nftCount: nftTierCounts.common },
       ];
-      
+
       setRarityReport({
         totalGenerated: reportSize,
         layerDistributions,
         rarestCombinations,
         tierSummary,
       });
-      
+
       toast.success(`Generated rarity report for ${reportSize} NFTs`);
     } catch (error) {
       console.error("Failed to generate rarity report:", error);
@@ -1061,7 +947,7 @@ export function GenerationPreview({
   // Export rarity report as JSON
   const exportRarityReport = () => {
     if (!rarityReport) return;
-    
+
     const blob = new Blob([JSON.stringify(rarityReport, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1250,8 +1136,8 @@ export function GenerationPreview({
 
         <TabsContent value="rarity" className="mt-4 space-y-4">
           {/* Generate Report Button */}
-          <Button 
-            onClick={generateRarityReport} 
+          <Button
+            onClick={generateRarityReport}
             disabled={isGeneratingReport || layers.length === 0}
             className="w-full"
           >
@@ -1300,7 +1186,7 @@ export function GenerationPreview({
                       const config = RARITY_TIERS[summary.tier];
                       const Icon = config.icon;
                       const nftPercentage = (summary.nftCount / rarityReport.totalGenerated) * 100;
-                      
+
                       return (
                         <div
                           key={summary.tier}
@@ -1344,7 +1230,7 @@ export function GenerationPreview({
                           <div className="space-y-2">
                             {layer.traits.map((trait) => {
                               const tierConfig = RARITY_TIERS[trait.tier];
-                              
+
                               return (
                                 <div key={trait.traitName} className="space-y-1">
                                   <div className="flex items-center justify-between text-xs gap-2">
@@ -1363,12 +1249,11 @@ export function GenerationPreview({
                                   </div>
                                   <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
                                     <div
-                                      className={`absolute inset-y-0 left-0 rounded-full ${
-                                        trait.tier === "legendary" ? "bg-amber-500" :
-                                        trait.tier === "rare" ? "bg-purple-500" :
-                                        trait.tier === "uncommon" ? "bg-blue-500" :
-                                        "bg-muted-foreground"
-                                      }`}
+                                      className={`absolute inset-y-0 left-0 rounded-full ${trait.tier === "legendary" ? "bg-amber-500" :
+                                          trait.tier === "rare" ? "bg-purple-500" :
+                                            trait.tier === "uncommon" ? "bg-blue-500" :
+                                              "bg-muted-foreground"
+                                        }`}
                                       style={{ width: `${Math.min(trait.percentage, 100)}%` }}
                                     />
                                     <div
@@ -1398,10 +1283,10 @@ export function GenerationPreview({
                     <div className="space-y-2">
                       {rarityReport.rarestCombinations.map((nft, index) => {
                         const tierConfig = RARITY_TIERS[nft.overallTier];
-                        
+
                         return (
-                          <div 
-                            key={nft.nftId} 
+                          <div
+                            key={nft.nftId}
                             className={`flex items-center gap-3 p-2 rounded-lg border ${tierConfig.bgColor} ${tierConfig.borderColor}`}
                           >
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${tierConfig.bgColor} ${tierConfig.color} border ${tierConfig.borderColor}`}>
@@ -1595,8 +1480,8 @@ export function GenerationPreview({
                 Download your collection as a ZIP file with organized folders for images and metadata, ready for IPFS/Arweave deployment.
               </p>
 
-              <Button 
-                onClick={exportAsZip} 
+              <Button
+                onClick={exportAsZip}
                 disabled={isExporting || !hasAnyImages}
                 className="w-full gap-2"
                 size="lg"
@@ -1659,7 +1544,7 @@ export function GenerationPreview({
                     <Check className="w-4 h-4" />
                     <span className="font-medium text-sm">Upload Successful!</span>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-muted-foreground">CID:</span>
@@ -1677,7 +1562,7 @@ export function GenerationPreview({
                         </Button>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-muted-foreground">IPFS URL:</span>
                       <Button
@@ -1690,7 +1575,7 @@ export function GenerationPreview({
                         Copy
                       </Button>
                     </div>
-                    
+
                     <a
                       href={ipfsResult.gatewayUrl}
                       target="_blank"
@@ -1710,8 +1595,8 @@ export function GenerationPreview({
                 </div>
               )}
 
-              <Button 
-                onClick={uploadToIpfs} 
+              <Button
+                onClick={uploadToIpfs}
                 disabled={isUploadingToIpfs || isExporting || !hasAnyImages}
                 className="w-full gap-2 bg-green-600 hover:bg-green-700"
                 size="lg"
@@ -1746,8 +1631,8 @@ export function GenerationPreview({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button 
-                  onClick={exportImagesWithMetadata} 
+                <Button
+                  onClick={exportImagesWithMetadata}
                   disabled={isExporting || !hasAnyImages}
                   variant="outline"
                   className="gap-2"
@@ -1759,8 +1644,8 @@ export function GenerationPreview({
                   )}
                   Full Export (JSON)
                 </Button>
-                <Button 
-                  onClick={downloadIndividualImages} 
+                <Button
+                  onClick={downloadIndividualImages}
                   variant="outline"
                   disabled={isExporting || !hasAnyImages}
                   className="gap-2"

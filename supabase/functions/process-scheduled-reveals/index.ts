@@ -11,17 +11,27 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Cron-only endpoint — verify shared secret to prevent public invocation
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const authHeader = req.headers.get("Authorization");
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     console.log("Processing scheduled reveals...");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Find collections with scheduled reveals that are due
     const now = new Date().toISOString();
-    
+
     const { data: collections, error: fetchError } = await supabase
       .from("collections")
       .select("id, name, scheduled_reveal_at")
@@ -37,14 +47,14 @@ Deno.serve(async (req) => {
     if (!collections || collections.length === 0) {
       console.log("No scheduled reveals to process");
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           message: "No scheduled reveals to process",
-          processed: 0 
+          processed: 0
         }),
-        { 
+        {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200 
+          status: 200
         }
       );
     }
@@ -61,9 +71,9 @@ Deno.serve(async (req) => {
         // Reveal all NFTs in this collection
         const { error: nftError } = await supabase
           .from("minted_nfts")
-          .update({ 
-            is_revealed: true, 
-            revealed_at: now 
+          .update({
+            is_revealed: true,
+            revealed_at: now
           })
           .eq("collection_id", collection.id)
           .eq("is_revealed", false);
@@ -82,9 +92,9 @@ Deno.serve(async (req) => {
         // Mark collection as revealed and clear the schedule
         const { error: collectionError } = await supabase
           .from("collections")
-          .update({ 
+          .update({
             is_revealed: true,
-            scheduled_reveal_at: null 
+            scheduled_reveal_at: null
           })
           .eq("id", collection.id);
 
@@ -121,28 +131,28 @@ Deno.serve(async (req) => {
     console.log(`Processed ${processedCount} of ${collections.length} reveals`);
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
         processed: processedCount,
         total: collections.length,
         results
       }),
-      { 
+      {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
+        status: 200
       }
     );
 
   } catch (error) {
     console.error("Error in process-scheduled-reveals:", error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : "Unknown error" 
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
       }),
-      { 
+      {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500 
+        status: 500
       }
     );
   }

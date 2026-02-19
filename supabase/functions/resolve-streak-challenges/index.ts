@@ -27,6 +27,16 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Cron-only endpoint — verify shared secret to prevent public invocation
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const authHeader = req.headers.get("Authorization");
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -127,22 +137,22 @@ serve(async (req) => {
         // Award badges to winner
         if (winnerId) {
           const winnerStreak = winnerId === challenge.challenger_id ? challengerStreak : challengedStreak;
-          
+
           // Count previous wins for this user
           const { count: previousWins } = await supabase
             .from("challenge_badges")
             .select("*", { count: "exact", head: true })
             .eq("user_id", winnerId)
             .eq("badge_type", "challenge_victory");
-          
+
           const totalWins = (previousWins || 0) + 1;
-          
+
           // Determine badge tier based on total wins
           let badgeType = "challenge_victory";
           let badgeName = "Challenge Victor";
           let badgeIcon = "trophy";
           let description = `Won a ${challenge.duration_days}-day streak challenge with ${winnerStreak} days`;
-          
+
           if (totalWins >= 10) {
             badgeType = "challenge_legend";
             badgeName = "Challenge Legend";
@@ -159,7 +169,7 @@ serve(async (req) => {
             badgeIcon = "award";
             description = `Achieved 3+ challenge victories! Latest: ${winnerStreak} day streak`;
           }
-          
+
           // Special badges for impressive streaks
           if (winnerStreak >= 25) {
             badgeType = "streak_dominator";
@@ -172,7 +182,7 @@ serve(async (req) => {
             badgeIcon = "swords";
             description = `Won with an impressive ${winnerStreak}-day streak!`;
           }
-          
+
           await supabase.from("challenge_badges").insert({
             user_id: winnerId,
             badge_type: badgeType,
@@ -194,11 +204,11 @@ serve(async (req) => {
           user_id: challenge.challenger_id,
           type: "streak_challenge_complete",
           title: "Streak Challenge Complete!",
-          message: winnerId === challenge.challenger_id 
+          message: winnerId === challenge.challenger_id
             ? `You won the streak challenge with ${challengerStreak} days! 🏆`
             : winnerId === null
-            ? `The streak challenge ended in a tie at ${challengerStreak} days!`
-            : `You lost the streak challenge. Your streak: ${challengerStreak}, Opponent: ${challengedStreak}`,
+              ? `The streak challenge ended in a tie at ${challengerStreak} days!`
+              : `You lost the streak challenge. Your streak: ${challengerStreak}, Opponent: ${challengedStreak}`,
           link: "/buyback-program",
           metadata: { challenge_id: challenge.id, won: winnerId === challenge.challenger_id }
         };
@@ -210,8 +220,8 @@ serve(async (req) => {
           message: winnerId === challenge.challenged_id
             ? `You won the streak challenge with ${challengedStreak} days! 🏆`
             : winnerId === null
-            ? `The streak challenge ended in a tie at ${challengedStreak} days!`
-            : `You lost the streak challenge. Your streak: ${challengedStreak}, Opponent: ${challengerStreak}`,
+              ? `The streak challenge ended in a tie at ${challengedStreak} days!`
+              : `You lost the streak challenge. Your streak: ${challengedStreak}, Opponent: ${challengerStreak}`,
           link: "/buyback-program",
           metadata: { challenge_id: challenge.id, won: winnerId === challenge.challenged_id }
         };
@@ -247,16 +257,16 @@ serve(async (req) => {
             (data as VolumeRecord[]).map((v) => v.created_at.split("T")[0])
           );
           const sortedDays = Array.from(tradingDays).sort().reverse();
-          
+
           let streak = 0;
           let expectedDate = new Date(today);
-          
+
           for (const day of sortedDays) {
             const dayDate = new Date(day);
             const diff = Math.floor(
               (expectedDate.getTime() - dayDate.getTime()) / (1000 * 60 * 60 * 24)
             );
-            
+
             if (diff <= 1) {
               streak++;
               expectedDate = dayDate;
@@ -264,7 +274,7 @@ serve(async (req) => {
               break;
             }
           }
-          
+
           return streak;
         };
 
@@ -283,14 +293,14 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         completed: results.length,
-        results 
+        results
       }),
-      { 
+      {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
+        status: 200
       }
     );
   } catch (error: unknown) {
@@ -298,9 +308,9 @@ serve(async (req) => {
     const message = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ error: message }),
-      { 
+      {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500 
+        status: 500
       }
     );
   }

@@ -54,7 +54,7 @@ async function getTransactionDetails(
     });
 
     const data = await response.json();
-    
+
     if (data.error || !data.result) {
       console.error('RPC error:', data.error);
       return null;
@@ -89,7 +89,7 @@ async function getTransactionDetails(
       // Fallback: calculate from balance changes
       const preBalances = meta.preBalances;
       const postBalances = meta.postBalances;
-      const accountKeys = message.accountKeys.map((k: any) => 
+      const accountKeys = message.accountKeys.map((k: any) =>
         typeof k === 'string' ? k : k.pubkey
       );
 
@@ -178,8 +178,30 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Require a valid Supabase JWT — prevents anonymous signature probing
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ verified: false, error: 'Authentication required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ verified: false, error: 'Invalid or expired token' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
 
     const body: VerifyRequest = await req.json();
     const { signature, expectedAmount, expectedRecipient, expectedSender, network } = body;
@@ -212,9 +234,9 @@ Deno.serve(async (req) => {
     const isDuplicate = await checkDuplicateSignature(supabase, signature);
     if (isDuplicate) {
       return new Response(
-        JSON.stringify({ 
-          verified: false, 
-          error: 'Transaction signature already used' 
+        JSON.stringify({
+          verified: false,
+          error: 'Transaction signature already used'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
@@ -226,9 +248,9 @@ Deno.serve(async (req) => {
 
     if (!txDetails) {
       return new Response(
-        JSON.stringify({ 
-          verified: false, 
-          error: 'Transaction not found or failed' 
+        JSON.stringify({
+          verified: false,
+          error: 'Transaction not found or failed'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
@@ -239,8 +261,8 @@ Deno.serve(async (req) => {
     // Verify recipient matches
     if (txDetails.recipient.toLowerCase() !== expectedRecipient.toLowerCase()) {
       return new Response(
-        JSON.stringify({ 
-          verified: false, 
+        JSON.stringify({
+          verified: false,
           error: 'Recipient mismatch',
           details: { expected: expectedRecipient, actual: txDetails.recipient }
         }),
@@ -252,8 +274,8 @@ Deno.serve(async (req) => {
     const amountTolerance = 0.000001; // 1 lamport tolerance
     if (Math.abs(txDetails.amount - expectedAmount) > amountTolerance) {
       return new Response(
-        JSON.stringify({ 
-          verified: false, 
+        JSON.stringify({
+          verified: false,
           error: 'Amount mismatch',
           details: { expected: expectedAmount, actual: txDetails.amount }
         }),
@@ -264,8 +286,8 @@ Deno.serve(async (req) => {
     // Optional: Verify sender if provided
     if (expectedSender && txDetails.sender.toLowerCase() !== expectedSender.toLowerCase()) {
       return new Response(
-        JSON.stringify({ 
-          verified: false, 
+        JSON.stringify({
+          verified: false,
           error: 'Sender mismatch',
           details: { expected: expectedSender, actual: txDetails.sender }
         }),

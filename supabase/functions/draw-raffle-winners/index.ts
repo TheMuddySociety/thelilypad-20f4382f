@@ -25,10 +25,20 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Cron-only endpoint — verify shared secret to prevent public invocation
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  const authHeader = req.headers.get('Authorization');
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     console.log('Starting raffle winner draw process...');
@@ -73,7 +83,7 @@ Deno.serve(async (req) => {
 
       if (!entries || entries.length === 0) {
         console.log(`No entries for raffle ${raffle.id}, marking as drawn`);
-        
+
         // Mark raffle as drawn with no winners
         await supabase
           .from('lily_raffles')
@@ -110,7 +120,7 @@ Deno.serve(async (req) => {
 
       while (winners.length < winnerCount && usedIndices.size < ticketPool.length) {
         const randomIndex = Math.floor(Math.random() * ticketPool.length);
-        
+
         if (usedIndices.has(randomIndex)) continue;
         usedIndices.add(randomIndex);
 

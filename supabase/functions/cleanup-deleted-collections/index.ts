@@ -11,6 +11,16 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Cron-only endpoint — verify shared secret to prevent public invocation
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const authHeader = req.headers.get("Authorization");
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -21,7 +31,7 @@ Deno.serve(async (req) => {
 
     // Find all collections where scheduled_permanent_delete_at has passed
     const now = new Date().toISOString();
-    
+
     const { data: expiredCollections, error: fetchError } = await supabase
       .from("collections")
       .select("id, name, creator_id, deleted_at, scheduled_permanent_delete_at")
@@ -36,10 +46,10 @@ Deno.serve(async (req) => {
     if (!expiredCollections || expiredCollections.length === 0) {
       console.log("No expired collections to permanently delete");
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           message: "No expired collections to delete",
-          deleted: 0 
+          deleted: 0
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -53,7 +63,7 @@ Deno.serve(async (req) => {
     // Delete each expired collection
     for (const collection of expiredCollections) {
       console.log(`Permanently deleting collection: ${collection.name} (${collection.id})`);
-      
+
       // First, delete related allowlist entries
       const { error: allowlistError } = await supabase
         .from("allowlist_entries")

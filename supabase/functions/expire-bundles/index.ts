@@ -11,6 +11,16 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Cron-only endpoint — verify shared secret to prevent public invocation
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const authHeader = req.headers.get("Authorization");
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     console.info("Processing expired bundles...");
 
@@ -42,14 +52,14 @@ Deno.serve(async (req) => {
     if (!expiredBundles || expiredBundles.length === 0) {
       console.info("No expired bundles to process");
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           message: "No expired bundles found",
-          processed: 0 
+          processed: 0
         }),
-        { 
+        {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200 
+          status: 200
         }
       );
     }
@@ -58,7 +68,7 @@ Deno.serve(async (req) => {
 
     // Deactivate all expired bundles
     const bundleIds = expiredBundles.map(b => b.id);
-    
+
     const { error: updateError } = await supabase
       .from("shop_bundles")
       .update({ is_active: false })
@@ -77,28 +87,28 @@ Deno.serve(async (req) => {
     console.info(`Successfully deactivated ${expiredBundles.length} expired bundle(s)`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: `Deactivated ${expiredBundles.length} expired bundle(s)`,
         processed: expiredBundles.length,
         bundles: expiredBundles.map(b => ({ id: b.id, name: b.name }))
       }),
-      { 
+      {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
+        status: 200
       }
     );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Error in expire-bundles function:", error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: errorMessage 
+      JSON.stringify({
+        success: false,
+        error: errorMessage
       }),
-      { 
+      {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500 
+        status: 500
       }
     );
   }
