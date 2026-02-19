@@ -130,11 +130,7 @@ interface Phase {
   candyMachineAddress?: string;
 }
 
-// Solana chain info object for display
-const solanaChainInfo = {
-  name: "Solana",
-  blockExplorers: { default: { url: "https://explorer.solana.com" } }
-};
+// Chain info is now derived dynamically from CHAINS config (see lines ~302-321)
 
 // Verify if address is in allowlist
 const verifyAllowlist = (address: string, allowlistEntries: AllowlistEntry[]): boolean => {

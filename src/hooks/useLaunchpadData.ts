@@ -213,8 +213,8 @@ export function getCollectionPrice(collection: Collection): string {
   if (!phases || phases.length === 0) return "TBA";
   const publicPhase = phases.find((p) => p.id === "public") || phases[0];
   if (!publicPhase?.price) return "Free";
-  // Determine symbol from chain field (xrpl / xrpl-devnet → XRP, else SOL)
-  const chainSymbol = collection.chain?.startsWith("xrpl") ? "XRP" : "SOL";
+  // Determine symbol from chain field
+  const chainSymbol = collection.chain?.startsWith("xrpl") ? "XRP" : collection.chain?.startsWith("monad") ? "MON" : "SOL";
   return `${publicPhase.price} ${chainSymbol}`;
 }
 

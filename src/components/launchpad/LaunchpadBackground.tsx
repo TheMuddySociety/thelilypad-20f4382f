@@ -82,7 +82,7 @@ export function LaunchpadHeroWithBackground() {
                         The Lily Pad
                     </h1>
                     <p className="text-xl md:text-2xl text-center text-white/90 mb-8 max-w-2xl mx-auto">
-                        Launch your NFT collection on Solana with zero code
+                        Launch your NFT collection with zero code
                     </p>
                     <div className="flex gap-4 justify-center flex-wrap">
                         <Button size="lg" className="text-lg px-8">
@@ -98,7 +98,7 @@ export function LaunchpadHeroWithBackground() {
                         {[
                             { label: "Collections", value: "1,234" },
                             { label: "NFTs Minted", value: "50K+" },
-                            { label: "Total Volume", value: "12K SOL" }
+                            { label: "Total Volume", value: "12K+" }
                         ].map((stat) => (
                             <Card key={stat.label} className="p-6 bg-white/10 backdrop-blur-md border-white/20">
                                 <div className="text-center">

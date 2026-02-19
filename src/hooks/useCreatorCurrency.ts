@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type CurrencyType = "SOL";
+export type CurrencyType = "SOL" | "XRP" | "MON";
 
 interface CreatorCurrencySettings {
   preferredCurrency: CurrencyType;
@@ -117,11 +117,19 @@ export const useCreatorCurrency = (userId?: string) => {
   };
 };
 
+// Currency display metadata
+const CURRENCY_META: Record<CurrencyType, { symbol: string; icon: string }> = {
+  SOL: { symbol: "SOL", icon: "◎" },
+  XRP: { symbol: "XRP", icon: "✕" },
+  MON: { symbol: "MON", icon: "⟠" },
+};
+
 // Helper hook for shop item currency display
 export const useCurrencyDisplay = (currency: CurrencyType, priceSol?: number) => {
+  const meta = CURRENCY_META[currency] || CURRENCY_META.SOL;
+
   const getDisplayPrice = () => {
-    // Always use SOL now
-    return { amount: priceSol || 0, symbol: "SOL", icon: "◎" };
+    return { amount: priceSol || 0, symbol: meta.symbol, icon: meta.icon };
   };
 
   const formatPrice = (amount: number, symbol: string) => {
