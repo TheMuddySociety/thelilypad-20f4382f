@@ -212,7 +212,10 @@ export function getCollectionPrice(collection: Collection): string {
   const phases = collection.phases as any[];
   if (!phases || phases.length === 0) return "TBA";
   const publicPhase = phases.find((p) => p.id === "public") || phases[0];
-  return publicPhase?.price ? `${publicPhase.price} SOL` : "Free";
+  if (!publicPhase?.price) return "Free";
+  // Determine symbol from chain field (xrpl / xrpl-devnet → XRP, else SOL)
+  const chainSymbol = collection.chain?.startsWith("xrpl") ? "XRP" : "SOL";
+  return `${publicPhase.price} ${chainSymbol}`;
 }
 
 // Helper to get phase names

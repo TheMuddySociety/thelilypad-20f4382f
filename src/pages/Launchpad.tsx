@@ -53,9 +53,9 @@ interface ChainEntry {
 }
 
 const CHAIN_ENTRIES: ChainEntry[] = [
-  { id: "solana",  label: "Solana",  description: "Metaplex Core & Candy Machine", badge: "Live",  badgeVariant: "default" },
-  { id: "xrpl",   label: "XRPL",    description: "XLS-20 NFT Standard",           badge: "Live",  badgeVariant: "default" },
-  { id: "monad",  label: "Monad",   description: "EVM-Compatible Layer 1",         badge: "Soon",  badgeVariant: "outline" },
+  { id: "solana", label: "Solana", description: "Metaplex Core & Candy Machine", badge: "Live", badgeVariant: "default" },
+  { id: "xrpl", label: "XRPL", description: "XLS-20 NFT Standard", badge: "Live", badgeVariant: "default" },
+  { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Soon", badgeVariant: "outline" },
 ];
 
 // ── Collection type tiles ─────────────────────────────────────────────────────
@@ -108,11 +108,11 @@ const COLLECTION_TYPES: CollectionTypeTile[] = [
 
 // ── Filter tabs ───────────────────────────────────────────────────────────────
 const FILTER_TABS = [
-  { value: "all",      label: "All",      icon: LayoutGrid },
-  { value: "live",     label: "Live",     icon: Sparkles },
+  { value: "all", label: "All", icon: LayoutGrid },
+  { value: "live", label: "Live", icon: Sparkles },
   { value: "upcoming", label: "Upcoming", icon: Clock },
-  { value: "ended",    label: "Ended",    icon: CheckCircle },
-  { value: "drafts",   label: "Drafts",   icon: FileEdit },
+  { value: "ended", label: "Ended", icon: CheckCircle },
+  { value: "drafts", label: "Drafts", icon: FileEdit },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -204,7 +204,7 @@ export default function Launchpad() {
           <img src={lilypadLogo} alt="Lily Launchpad" className="w-14 h-14 rounded-xl object-contain bg-primary/10 p-2" />
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Lily Launchpad</h1>
-            <p className="text-muted-foreground mt-0.5">Create, configure, and deploy NFT collections — no wizard, no friction.</p>
+            <p className="text-muted-foreground mt-0.5">Launch your NFT collection on Solana or XRPL — guided wizard, no friction.</p>
           </div>
         </div>
 
@@ -212,9 +212,9 @@ export default function Launchpad() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
           {[
             { label: "Total Collections", value: statsLoading ? null : stats.totalCollections.toLocaleString(), icon: LayoutGrid },
-            { label: "Live Now",           value: statsLoading ? null : stats.liveNow.toString(),              icon: Sparkles,  pulse: stats.liveNow > 0 },
-            { label: "NFTs Minted",        value: statsLoading ? null : stats.nftsMinted >= 1000 ? `${(stats.nftsMinted/1000).toFixed(1)}K` : stats.nftsMinted.toLocaleString(), icon: TrendingUp },
-            { label: "Total Volume",       value: statsLoading ? null : `${stats.totalVolume >= 1000 ? `${(stats.totalVolume/1000).toFixed(1)}K` : stats.totalVolume} SOL`, icon: BarChart3 },
+            { label: "Live Now", value: statsLoading ? null : stats.liveNow.toString(), icon: Sparkles, pulse: stats.liveNow > 0 },
+            { label: "NFTs Minted", value: statsLoading ? null : stats.nftsMinted >= 1000 ? `${(stats.nftsMinted / 1000).toFixed(1)}K` : stats.nftsMinted.toLocaleString(), icon: TrendingUp },
+            { label: "Total Volume", value: statsLoading ? null : `${stats.totalVolume >= 1000 ? `${(stats.totalVolume / 1000).toFixed(1)}K` : stats.totalVolume} SOL`, icon: BarChart3 },
           ].map(({ label, value, icon: Icon, pulse }) => (
             <Card key={label} className="border-border/60">
               <CardContent className="pt-5 pb-4">

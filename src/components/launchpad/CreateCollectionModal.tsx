@@ -16,12 +16,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Wallet,
   Tags,
   Image as ImageIcon,
   Rocket,
-  ArrowRight,
-  Upload,
   AlertTriangle,
   FolderOpen,
   Layers,
@@ -49,6 +46,8 @@ import { ChainIcon } from "./ChainSelector";
 import { getCollectionStorageInfo, getChainRootUri } from "@/lib/payloadMapper";
 import { useChain } from "@/providers/ChainProvider";
 import { useChainTheme } from "@/hooks/useChainTheme";
+
+const DRAFT_KEY = "collection-draft";
 
 interface CreateCollectionModalProps {
   open: boolean;
@@ -99,7 +98,8 @@ export function CreateCollectionModal({
   open,
   onOpenChange,
   onCollectionCreated,
-  selectedChain = 'solana'
+  selectedChain = 'solana',
+  defaultStandard,
 }: CreateCollectionModalProps) {
   const { address, network } = useWallet();
   const { chain } = useChain();
@@ -133,6 +133,7 @@ export function CreateCollectionModal({
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
   const [description, setDescription] = useState("");
+  const [royaltyPercent, setRoyaltyPercent] = useState(5);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
 
@@ -150,7 +151,44 @@ export function CreateCollectionModal({
   // Config Data
   const [phases, setPhases] = useState<LaunchpadPhase[]>(defaultPhases);
   const [treasuryWallet, setTreasuryWallet] = useState("");
-  const [useGuards, setUseGuards] = useState(true); // Optional candy guard toggle
+
+  // Pre-select mode from tile
+  useEffect(() => {
+    if (open) {
+      // defaultStandard drives mode selection when provided
+      if (defaultStandard === 'advanced') {
+        setMode('advanced');
+      } else {
+        setMode('basic');
+      }
+    }
+  }, [open, defaultStandard]);
+
+  // Draft auto-save whenever key fields change
+  useEffect(() => {
+    if (!open) return;
+    const draft = {
+      name,
+      symbol,
+      description,
+      totalSupply: String(folderAssets.length || targetSupply),
+      royalty: String(royaltyPercent),
+      currentStep,
+      layers,
+      phases,
+      imageUrl: coverImage || '',
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  }, [open, name, symbol, description, currentStep, layers, phases, folderAssets.length, targetSupply, royaltyPercent, coverImage]);
+
+  // Clear draft on modal close without deploy
+  useEffect(() => {
+    if (!open) return;
+    return () => {
+      // Draft persists on close so user can resume — we only clear it on successful deploy
+    };
+  }, [open]);
 
   // Handler for Image Upload (Cover)
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -184,7 +222,8 @@ export function CreateCollectionModal({
 
   // Deployment Logic
   const handleDeploy = async () => {
-    if (!name || !symbol || !coverFile) return toast.error("Please fill in basic info and upload a cover image.");
+    if (!name || !symbol) return toast.error("Please fill in basic info.");
+    if (selectedChain === 'solana' && !coverFile) return toast.error("Please upload a cover image.");
     if (folderAssets.length === 0) return toast.error("Please upload assets.");
 
     try {
@@ -204,11 +243,11 @@ export function CreateCollectionModal({
           creator_id: user.id,
           creator_address: address!,
           status: "upcoming",
-          chain: network === "mainnet" ? selectedChain : `${selectedChain}-devnet`, // Simplified for now
+          chain: network === "mainnet" ? selectedChain : `${selectedChain}-devnet`,
           collection_type: "generative",
           total_supply: folderAssets.length,
           phases: phases as any,
-          royalty_percent: 5,
+          royalty_percent: royaltyPercent,
         })
         .select('id')
         .single();
@@ -259,21 +298,22 @@ export function CreateCollectionModal({
       let finalImageUrl = "";
 
       if (selectedChain === 'solana') {
-        // Solana: Deploy Collection & Candy Machine with prefixUri
-        toast.loading("Deploying Solana Collection...", { id: 'deploy-status' });
+        // Solana: Upload cover to Arweave, deploy Core Collection + Candy Machine
+        toast.loading("Uploading cover to Arweave...", { id: 'deploy-status' });
 
-        const imageUri = await solanaLaunch.uploadFile(coverFile);
+        const imageUri = await solanaLaunch.uploadFile(coverFile!);
         finalImageUrl = imageUri;
 
         const collMetadata = {
           name, symbol, description, image: imageUri,
-          properties: { files: [{ uri: imageUri, type: coverFile.type }], category: "image" }
+          properties: { files: [{ uri: imageUri, type: coverFile!.type }], category: "image" }
         };
         const collMetadataUri = await solanaLaunch.uploadMetadata(collMetadata);
 
+        toast.loading("Deploying Solana Collection...", { id: 'deploy-status' });
         const collection = await solanaLaunch.deploySolanaCollection({
           name, symbol, uri: collMetadataUri,
-          sellerFeeBasisPoints: 500,
+          sellerFeeBasisPoints: royaltyPercent * 100,
           creators: [{ address: address!, share: 100 }]
         });
         if (!collection) throw new Error("Collection deployment failed.");
@@ -282,29 +322,27 @@ export function CreateCollectionModal({
         toast.loading("Creating Solana Candy Machine...", { id: 'deploy-status' });
         const cm = await solanaLaunch.createLaunchpadCandyMachine(
           collection.address, folderAssets.length, phases,
-          { name, symbol, uri: collMetadataUri, sellerFeeBasisPoints: 500, creators: [] },
+          { name, symbol, uri: collMetadataUri, sellerFeeBasisPoints: royaltyPercent * 100, creators: [] },
           treasuryWallet || undefined,
-          baseUri // Deterministic Prefix!
+          baseUri
         );
         if (!cm) throw new Error("Candy Machine creation failed.");
 
-        // Insert items
         const itemsToInsert = folderAssets.map((_, index) => ({ name: `${name} #${index + 1}`, uri: `${index}.json` }));
         await solanaLaunch.insertItemsToCandyMachine(cm.address, itemsToInsert);
 
       } else if (selectedChain === 'xrpl') {
-        // XRPL: Set Domain for deterministic resolution
+        // XRPL: Set Account Domain for deterministic metadata resolution.
+        // Individual NFTs are minted on-demand during mint flow, not at deploy time.
         toast.loading("Setting XRPL Account Domain...", { id: 'deploy-status' });
         const xrplRes = await xrplLaunch.deployXRPLCollection({
           name, symbol, description,
           totalSupply: folderAssets.length,
-          baseUri: baseUri // Deterministic Domain Strategy!
+          baseUri, // Deterministic Domain Strategy
         });
         deployedContractAddress = xrplRes.address;
-
-        // Finalize items on XRPL
-        const itemsToInsert = folderAssets.map((_, index) => ({ name: `${name} #${index + 1}`, uri: `${index}.json` }));
-        await xrplLaunch.mintXRPLItems(xrplRes.address, xrplRes.taxon, itemsToInsert);
+        // Use the first asset's Supabase URL as the cover image for XRPL (no Arweave)
+        finalImageUrl = storageInfo.itemImageUri(0, 'png');
       }
 
       // 4. Update Supabase with final details
@@ -312,10 +350,13 @@ export function CreateCollectionModal({
         .from("collections")
         .update({
           contract_address: deployedContractAddress,
-          image_url: finalImageUrl || storageInfo.itemImageUri(0, 'png'), // Fallback to first asset
+          image_url: finalImageUrl || storageInfo.itemImageUri(0, 'png'),
           status: "active",
         })
         .eq('id', collectionId);
+
+      // Clear draft on successful deploy
+      localStorage.removeItem(DRAFT_KEY);
 
       toast.success(`${currentChain.name} Launch Successful!`, { id: 'deploy-status' });
       onCollectionCreated?.();
@@ -417,7 +458,7 @@ export function CreateCollectionModal({
             <h1 className="text-base font-bold gradient-text">Launchpad Wizard</h1>
           </div>
 
-          {/* Steps Indicator - Compact */}
+          {/* Steps Indicator - Compact (clickable for completed steps) */}
           <div className="px-3 py-2 flex gap-1.5 overflow-x-auto bg-muted/20 border-b border-border/50">
             {STEPS.map((step) => {
               const Icon = step.icon;
@@ -425,9 +466,16 @@ export function CreateCollectionModal({
               const isDone = currentStep > step.id;
 
               return (
-                <div
+                <button
                   key={step.id}
-                  className="flex items-center gap-1 px-2 py-1 rounded-full border text-[10px] font-medium transition-all"
+                  onClick={() => {
+                    if (isDone) {
+                      setDirection(-1);
+                      setCurrentStep(step.id);
+                    }
+                  }}
+                  disabled={!isDone}
+                  className="flex items-center gap-1 px-2 py-1 rounded-full border text-[10px] font-medium transition-all disabled:cursor-default"
                   style={isActive ? {
                     backgroundColor: `${theme.primaryColor}20`,
                     borderColor: theme.primaryColor,
@@ -435,7 +483,8 @@ export function CreateCollectionModal({
                   } : isDone ? {
                     backgroundColor: `${theme.secondaryColor}10`,
                     borderColor: `${theme.secondaryColor}30`,
-                    color: theme.secondaryColor
+                    color: theme.secondaryColor,
+                    cursor: 'pointer'
                   } : {
                     borderColor: 'transparent',
                     opacity: 0.4
@@ -443,7 +492,7 @@ export function CreateCollectionModal({
                 >
                   <Icon className="w-2.5 h-2.5" />
                   <span className="hidden lg:inline">{step.title}</span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -494,7 +543,7 @@ export function CreateCollectionModal({
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-3">
                         <Label>Symbol</Label>
                         <Input
@@ -502,6 +551,18 @@ export function CreateCollectionModal({
                           className="bg-white/5 border-white/10 font-mono uppercase"
                           placeholder="APE"
                           maxLength={10}
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <Label>Royalty %</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={50}
+                          value={royaltyPercent}
+                          onChange={e => setRoyaltyPercent(Math.min(50, Math.max(0, Number(e.target.value) || 0)))}
+                          className="bg-white/5 border-white/10"
+                          placeholder="5"
                         />
                       </div>
                       <div className="space-y-3">
@@ -655,83 +716,27 @@ export function CreateCollectionModal({
                   <div className="space-y-4">
                     {/* Treasury Wallet */}
                     <div className="space-y-2">
-                      <Label className="text-xs">Treasury Wallet</Label>
+                      <Label className="text-xs">Treasury Wallet (Optional)</Label>
                       <Input
                         value={treasuryWallet}
                         onChange={e => setTreasuryWallet(e.target.value)}
-                        placeholder={address || "Your wallet address..."}
+                        placeholder={address || "Defaults to your connected wallet..."}
                         className="bg-muted/50 border-border font-mono text-xs h-8"
                       />
-                      <p className="text-[10px] text-muted-foreground">Receives mint proceeds</p>
-                    </div>
-
-                    {/* Mint Price */}
-                    <div className="space-y-2">
-                      <Label className="text-xs">Mint Price (SOL)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={phases[0].price}
-                        onChange={e => {
-                          const newPhases = [...phases];
-                          newPhases[0] = { ...newPhases[0], price: parseFloat(e.target.value) || 0 };
-                          setPhases(newPhases);
-                        }}
-                        className="bg-muted/50 border-border font-mono text-xs h-8"
-                      />
+                      <p className="text-[10px] text-muted-foreground">Receives mint proceeds. Leave blank to use your connected wallet.</p>
                     </div>
 
                     <Separator className="bg-border" />
 
-                    {/* Candy Guard Toggle */}
-                    <div className="glass-card p-3 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="text-xs font-medium">Enable Candy Guard</Label>
-                          <p className="text-[10px] text-muted-foreground">Add mint limits, bot protection, etc.</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={useGuards}
-                            onChange={(e) => setUseGuards(e.target.checked)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
-                      </div>
-
-                      {useGuards && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="space-y-3 pt-2 border-t border-border"
-                        >
-                          {/* Max Per Wallet */}
-                          <div className="flex items-center justify-between">
-                            <Label className="text-[11px]">Max per Wallet</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={phases[0].maxPerWallet || 10}
-                              onChange={e => {
-                                const newPhases = [...phases];
-                                newPhases[0] = { ...newPhases[0], maxPerWallet: parseInt(e.target.value) || 10 };
-                                setPhases(newPhases);
-                              }}
-                              className="w-20 h-7 text-xs bg-muted/50 border-border"
-                            />
-                          </div>
-
-                          {/* Additional guard options can go here */}
-                          <p className="text-[10px] text-muted-foreground">
-                            More guard options coming soon (whitelist, time gates, etc.)
-                          </p>
-                        </motion.div>
-                      )}
-                    </div>
+                    {/* Full Guard Configurator */}
+                    <GuardConfigurator
+                      phase={phases[0]}
+                      onChange={(updates) => {
+                        const newPhases = [...phases];
+                        newPhases[0] = { ...newPhases[0], ...updates };
+                        setPhases(newPhases);
+                      }}
+                    />
                   </div>
                 )}
 
