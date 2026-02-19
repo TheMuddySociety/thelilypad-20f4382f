@@ -69,6 +69,7 @@ interface ArtworkUploaderProps {
   collectionType: "one_of_one" | "editions";
   creatorId: string;
   maxItems?: number;
+  chainSymbol?: string;
 }
 
 type NamingPattern = "prefix" | "suffix" | "replace" | "numbered";
@@ -78,7 +79,8 @@ export function ArtworkUploader({
   onArtworksChange,
   collectionType,
   creatorId,
-  maxItems = 100
+  maxItems = 100,
+  chainSymbol = 'SOL'
 }: ArtworkUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -469,8 +471,8 @@ export function ArtworkUploader({
       {/* Upload Area */}
       <div
         className={`relative border-2 border-dashed rounded-lg p-8 transition-colors ${isDragging
-            ? 'border-primary bg-primary/5'
-            : 'border-border hover:border-primary/50'
+          ? 'border-primary bg-primary/5'
+          : 'border-border hover:border-primary/50'
           }`}
         onDragEnter={(e) => handleDrag(e, true)}
         onDragOver={(e) => handleDrag(e, true)}
@@ -675,10 +677,10 @@ export function ArtworkUploader({
                       <div key={key} className="space-y-1">
                         <div className="flex justify-between text-xs">
                           <span className={`${key === "legendary" ? "text-yellow-600" :
-                              key === "epic" ? "text-purple-600" :
-                                key === "rare" ? "text-blue-600" :
-                                  key === "uncommon" ? "text-green-600" :
-                                    "text-muted-foreground"
+                            key === "epic" ? "text-purple-600" :
+                              key === "rare" ? "text-blue-600" :
+                                key === "uncommon" ? "text-green-600" :
+                                  "text-muted-foreground"
                             }`}>{label}</span>
                           <span className="text-muted-foreground">{count} ({percentage.toFixed(1)}%)</span>
                         </div>
@@ -770,8 +772,8 @@ export function ArtworkUploader({
                   {isSelectionMode && (
                     <div className="absolute top-2 right-2 z-10">
                       <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${selectedIds.has(artwork.id)
-                          ? 'bg-primary border-primary text-primary-foreground'
-                          : 'bg-background/80 border-border'
+                        ? 'bg-primary border-primary text-primary-foreground'
+                        : 'bg-background/80 border-border'
                         }`}>
                         {selectedIds.has(artwork.id) && <Check className="w-4 h-4" />}
                       </div>
@@ -954,10 +956,10 @@ export function ArtworkUploader({
                               key={i}
                               variant="outline"
                               className={`text-[10px] px-1.5 py-0 ${attr.rarity === "legendary" ? "border-yellow-500 text-yellow-600" :
-                                  attr.rarity === "epic" ? "border-purple-500 text-purple-600" :
-                                    attr.rarity === "rare" ? "border-blue-500 text-blue-600" :
-                                      attr.rarity === "uncommon" ? "border-green-500 text-green-600" :
-                                        ""
+                                attr.rarity === "epic" ? "border-purple-500 text-purple-600" :
+                                  attr.rarity === "rare" ? "border-blue-500 text-blue-600" :
+                                    attr.rarity === "uncommon" ? "border-green-500 text-green-600" :
+                                      ""
                                 }`}
                             >
                               {attr.trait_type}: {attr.value}
@@ -1047,20 +1049,20 @@ export function ArtworkUploader({
                             <div
                               key={i}
                               className={`p-1.5 rounded text-center border ${attr.rarity === "legendary" ? "bg-yellow-500/10 border-yellow-500/30" :
-                                  attr.rarity === "epic" ? "bg-purple-500/10 border-purple-500/30" :
-                                    attr.rarity === "rare" ? "bg-blue-500/10 border-blue-500/30" :
-                                      attr.rarity === "uncommon" ? "bg-green-500/10 border-green-500/30" :
-                                        "bg-muted/50 border-border"
+                                attr.rarity === "epic" ? "bg-purple-500/10 border-purple-500/30" :
+                                  attr.rarity === "rare" ? "bg-blue-500/10 border-blue-500/30" :
+                                    attr.rarity === "uncommon" ? "bg-green-500/10 border-green-500/30" :
+                                      "bg-muted/50 border-border"
                                 }`}
                             >
                               <p className="text-[9px] text-muted-foreground uppercase tracking-wide truncate">
                                 {attr.trait_type}
                               </p>
                               <p className={`text-[10px] font-medium truncate ${attr.rarity === "legendary" ? "text-yellow-600" :
-                                  attr.rarity === "epic" ? "text-purple-600" :
-                                    attr.rarity === "rare" ? "text-blue-600" :
-                                      attr.rarity === "uncommon" ? "text-green-600" :
-                                        ""
+                                attr.rarity === "epic" ? "text-purple-600" :
+                                  attr.rarity === "rare" ? "text-blue-600" :
+                                    attr.rarity === "uncommon" ? "text-green-600" :
+                                      ""
                                 }`}>
                                 {attr.value}
                               </p>
@@ -1078,7 +1080,7 @@ export function ArtworkUploader({
                     {/* Mock Price Display */}
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span className="text-muted-foreground">Price</span>
-                      <span className="font-bold">-- SOL</span>
+                      <span className="font-bold">-- {chainSymbol}</span>
                     </div>
 
                     {/* Mock Buy Button */}

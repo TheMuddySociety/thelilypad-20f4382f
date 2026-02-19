@@ -24,9 +24,10 @@ import { LaunchpadPhase } from "@/hooks/useSolanaLaunch";
 interface GuardConfiguratorProps {
     phase: LaunchpadPhase;
     onChange: (updates: Partial<LaunchpadPhase>) => void;
+    chainSymbol?: string;
 }
 
-export function GuardConfigurator({ phase, onChange }: GuardConfiguratorProps) {
+export function GuardConfigurator({ phase, onChange, chainSymbol = 'SOL' }: GuardConfiguratorProps) {
     const [dateType, setDateType] = useState<'start' | 'end'>('start');
 
     // Helpers to toggle sections
@@ -43,7 +44,7 @@ export function GuardConfigurator({ phase, onChange }: GuardConfiguratorProps) {
             {/* Payment & Limits Config */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2 p-4 rounded-xl bg-secondary/20 border border-white/5 backdrop-blur-sm">
-                    <Label className="flex items-center gap-2 text-primary"><Coins className="w-4 h-4" /> Mint Price (SOL)</Label>
+                    <Label className="flex items-center gap-2 text-primary"><Coins className="w-4 h-4" /> Mint Price ({chainSymbol})</Label>
                     <Input
                         type="number"
                         value={phase.price}

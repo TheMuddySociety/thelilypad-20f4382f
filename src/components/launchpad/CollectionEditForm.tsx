@@ -21,11 +21,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { 
-  Save, 
-  X, 
-  Plus, 
-  Trash2, 
+import {
+  Save,
+  X,
+  Plus,
+  Trash2,
   Loader2,
   AlertTriangle,
   Upload,
@@ -93,6 +93,7 @@ interface Collection {
   layers_metadata?: unknown;
   trait_rules?: unknown;
   artworks_metadata?: unknown;
+  chain?: string;
 }
 
 interface CollectionEditFormProps {
@@ -114,6 +115,9 @@ const collectionSchema = z.object({
 export function CollectionEditForm({ collection, onSave, onCancel }: CollectionEditFormProps) {
   const navigate = useNavigate();
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Derive chain symbol from collection's chain
+  const chainSymbol = collection.chain === 'xrpl' ? 'XRP' : collection.chain === 'monad' ? 'MON' : 'SOL';
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -121,7 +125,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [isDraggingBanner, setIsDraggingBanner] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
-  
+
   // Form state
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -139,30 +143,30 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [totalSupply, setTotalSupply] = useState(0);
   const [royaltyPercent, setRoyaltyPercent] = useState(0);
   const [status, setStatus] = useState("upcoming");
-  
+
   // Social links
   const [socialTwitter, setSocialTwitter] = useState("");
   const [socialDiscord, setSocialDiscord] = useState("");
   const [socialWebsite, setSocialWebsite] = useState("");
   const [socialTelegram, setSocialTelegram] = useState("");
-  
+
   // Collection type
   const [collectionType, setCollectionType] = useState<CollectionType>("generative");
-  
+
   // Layers and traits for generative collections
   const [layers, setLayers] = useState<Layer[]>([]);
   const [traitRules, setTraitRules] = useState<TraitRule[]>([]);
-  
+
   // Artwork for 1-of-1 and editions
   const [artworks, setArtworks] = useState<ArtworkItem[]>([]);
-  
+
   // Phases
   const [phases, setPhases] = useState<Phase[]>([]);
 
   // Initialize form state from collection data
   useEffect(() => {
     if (!collection) return;
-    
+
     // Use requestAnimationFrame to defer heavy parsing to next frame
     const initializeForm = () => {
       // Basic fields
@@ -178,16 +182,16 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       setTotalSupply(collection.total_supply);
       setRoyaltyPercent(collection.royalty_percent);
       setStatus(collection.status);
-      
+
       // Social links
       setSocialTwitter(collection.social_twitter || "");
       setSocialDiscord(collection.social_discord || "");
       setSocialWebsite(collection.social_website || "");
       setSocialTelegram(collection.social_telegram || "");
-      
+
       // Collection type
       setCollectionType((collection.collection_type as CollectionType) || "generative");
-      
+
       // Parse layers
       try {
         const parsedLayers = collection.layers_metadata as unknown as Layer[];
@@ -195,7 +199,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       } catch {
         setLayers([]);
       }
-      
+
       // Parse trait rules
       try {
         const parsedRules = collection.trait_rules as unknown as TraitRule[];
@@ -203,7 +207,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       } catch {
         setTraitRules([]);
       }
-      
+
       // Parse artworks
       try {
         const parsedArtworks = collection.artworks_metadata as unknown as ArtworkItem[];
@@ -211,7 +215,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       } catch {
         setArtworks([]);
       }
-      
+
       // Parse phases
       try {
         const parsedPhases = collection.phases as unknown as Phase[];
@@ -219,7 +223,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       } catch {
         setPhases([]);
       }
-      
+
       setIsInitialized(true);
     };
 
@@ -244,7 +248,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     }
 
     setImageFile(file);
-    
+
     const reader = new FileReader();
     reader.onloadend = () => {
       setImagePreview(reader.result as string);
@@ -311,12 +315,12 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
   const uploadImageToStorage = async (): Promise<string | null> => {
     if (!imageFile) return imageUrl || null;
-    
+
     setIsUploadingImage(true);
     try {
       const fileExt = imageFile.name.split('.').pop();
       const fileName = `${collection.creator_id}/${Date.now()}.${fileExt}`;
-      
+
       const { data, error } = await supabase.storage
         .from('collection-images')
         .upload(fileName, imageFile, {
@@ -346,11 +350,11 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
   const uploadBannerToStorage = async (): Promise<string | null> => {
     if (!bannerFile) return bannerUrl || null;
-    
+
     try {
       const fileExt = bannerFile.name.split('.').pop();
       const fileName = `${collection.creator_id}/banner-${Date.now()}.${fileExt}`;
-      
+
       const { data, error } = await supabase.storage
         .from('collection-images')
         .upload(fileName, bannerFile, {
@@ -411,11 +415,11 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
   const uploadUnrevealedToStorage = async (): Promise<string | null> => {
     if (!unrevealedFile) return unrevealedUrl || null;
-    
+
     try {
       const fileExt = unrevealedFile.name.split('.').pop();
       const fileName = `${collection.creator_id}/unrevealed-${Date.now()}.${fileExt}`;
-      
+
       const { data, error } = await supabase.storage
         .from('collection-images')
         .upload(fileName, unrevealedFile, {
@@ -733,7 +737,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Collection</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete "{collection.name}"? This action cannot be undone. 
+                    Are you sure you want to delete "{collection.name}"? This action cannot be undone.
                     All artwork, allowlist entries, and collection data will be permanently removed.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -754,7 +758,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
               </AlertDialogContent>
             </AlertDialog>
           )}
-          
+
           <Button variant="outline" onClick={onCancel} disabled={isSaving || isDeleting}>
             <X className="w-4 h-4 mr-2" />
             Cancel
@@ -814,458 +818,449 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
         {/* Details Tab */}
         <TabsContent value="details" className="space-y-6 mt-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
-          <CardDescription>Core details about your collection</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Collection Type Selector */}
-          <div className="space-y-3">
-            <Label>Collection Type</Label>
-            <div className="grid grid-cols-3 gap-3">
-              <Card 
-                className={`cursor-pointer transition-all hover:border-primary/50 ${
-                  collectionType === "generative" 
-                    ? "border-primary bg-primary/5 ring-1 ring-primary" 
-                    : "border-border"
-                } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
-                onClick={() => !isLive && setCollectionType("generative")}
-              >
-                <CardContent className="p-3 text-center">
-                  <Shuffle className="w-6 h-6 mx-auto mb-1 text-primary" />
-                  <h4 className="font-semibold text-xs">Generative</h4>
-                </CardContent>
-              </Card>
-              
-              <Card 
-                className={`cursor-pointer transition-all hover:border-primary/50 ${
-                  collectionType === "one_of_one" 
-                    ? "border-primary bg-primary/5 ring-1 ring-primary" 
-                    : "border-border"
-                } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
-                onClick={() => !isLive && setCollectionType("one_of_one")}
-              >
-                <CardContent className="p-3 text-center">
-                  <Gem className="w-6 h-6 mx-auto mb-1 text-amber-500" />
-                  <h4 className="font-semibold text-xs">1 of 1s</h4>
-                </CardContent>
-              </Card>
-              
-              <Card 
-                className={`cursor-pointer transition-all hover:border-primary/50 ${
-                  collectionType === "editions" 
-                    ? "border-primary bg-primary/5 ring-1 ring-primary" 
-                    : "border-border"
-                } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
-                onClick={() => !isLive && setCollectionType("editions")}
-              >
-                <CardContent className="p-3 text-center">
-                  <Copy className="w-6 h-6 mx-auto mb-1 text-emerald-500" />
-                  <h4 className="font-semibold text-xs">Editions</h4>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Basic Information</CardTitle>
+              <CardDescription>Core details about your collection</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Collection Type Selector */}
+              <div className="space-y-3">
+                <Label>Collection Type</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  <Card
+                    className={`cursor-pointer transition-all hover:border-primary/50 ${collectionType === "generative"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border"
+                      } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
+                    onClick={() => !isLive && setCollectionType("generative")}
+                  >
+                    <CardContent className="p-3 text-center">
+                      <Shuffle className="w-6 h-6 mx-auto mb-1 text-primary" />
+                      <h4 className="font-semibold text-xs">Generative</h4>
+                    </CardContent>
+                  </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Collection Name *</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="My Awesome Collection"
-                disabled={isLive}
-                maxLength={100}
-              />
-              {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="symbol">Symbol *</Label>
-              <Input
-                id="symbol"
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                placeholder="MAC"
-                disabled={isLive}
-                maxLength={10}
-              />
-              {errors.symbol && <p className="text-xs text-destructive">{errors.symbol}</p>}
-            </div>
-          </div>
+                  <Card
+                    className={`cursor-pointer transition-all hover:border-primary/50 ${collectionType === "one_of_one"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border"
+                      } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
+                    onClick={() => !isLive && setCollectionType("one_of_one")}
+                  >
+                    <CardContent className="p-3 text-center">
+                      <Gem className="w-6 h-6 mx-auto mb-1 text-amber-500" />
+                      <h4 className="font-semibold text-xs">1 of 1s</h4>
+                    </CardContent>
+                  </Card>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe your collection..."
-              rows={4}
-              maxLength={1000}
-            />
-            <p className="text-xs text-muted-foreground">{description.length}/1000 characters</p>
-            {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Collection Image</Label>
-            <div 
-              className={`flex gap-4 items-start p-3 rounded-lg border-2 border-dashed transition-colors ${
-                isDraggingImage 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-transparent'
-              }`}
-              onDragEnter={(e) => handleImageDrag(e, true)}
-              onDragOver={(e) => handleImageDrag(e, true)}
-              onDragLeave={(e) => handleImageDrag(e, false)}
-              onDrop={handleImageDrop}
-            >
-              {/* Image Preview */}
-              <div 
-                className={`w-24 h-24 rounded-lg border-2 border-dashed overflow-hidden cursor-pointer transition-colors flex items-center justify-center bg-muted ${
-                  isDraggingImage ? 'border-primary' : 'border-border hover:border-primary/50'
-                }`}
-                onClick={() => document.getElementById("edit-image-upload")?.click()}
-              >
-                {imagePreview ? (
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                ) : (
-                  <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                )}
+                  <Card
+                    className={`cursor-pointer transition-all hover:border-primary/50 ${collectionType === "editions"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border"
+                      } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
+                    onClick={() => !isLive && setCollectionType("editions")}
+                  >
+                    <CardContent className="p-3 text-center">
+                      <Copy className="w-6 h-6 mx-auto mb-1 text-emerald-500" />
+                      <h4 className="font-semibold text-xs">Editions</h4>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
-              <div className="flex-1 space-y-2">
-                <div className="flex gap-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Collection Name *</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="My Awesome Collection"
+                    disabled={isLive}
+                    maxLength={100}
+                  />
+                  {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="symbol">Symbol *</Label>
+                  <Input
+                    id="symbol"
+                    value={symbol}
+                    onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                    placeholder="MAC"
+                    disabled={isLive}
+                    maxLength={10}
+                  />
+                  {errors.symbol && <p className="text-xs text-destructive">{errors.symbol}</p>}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe your collection..."
+                  rows={4}
+                  maxLength={1000}
+                />
+                <p className="text-xs text-muted-foreground">{description.length}/1000 characters</p>
+                {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Collection Image</Label>
+                <div
+                  className={`flex gap-4 items-start p-3 rounded-lg border-2 border-dashed transition-colors ${isDraggingImage
+                      ? 'border-primary bg-primary/5'
+                      : 'border-transparent'
+                    }`}
+                  onDragEnter={(e) => handleImageDrag(e, true)}
+                  onDragOver={(e) => handleImageDrag(e, true)}
+                  onDragLeave={(e) => handleImageDrag(e, false)}
+                  onDrop={handleImageDrop}
+                >
+                  {/* Image Preview */}
+                  <div
+                    className={`w-24 h-24 rounded-lg border-2 border-dashed overflow-hidden cursor-pointer transition-colors flex items-center justify-center bg-muted ${isDraggingImage ? 'border-primary' : 'border-border hover:border-primary/50'
+                      }`}
                     onClick={() => document.getElementById("edit-image-upload")?.click()}
-                    disabled={isUploadingImage}
                   >
-                    {isUploadingImage ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {imagePreview ? (
+                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                     ) : (
-                      <Upload className="w-4 h-4 mr-2" />
+                      <ImageIcon className="w-8 h-8 text-muted-foreground" />
                     )}
-                    Upload Image
-                  </Button>
-                  {imageFile && (
-                    <Badge variant="secondary" className="text-xs">
-                      New image selected
-                    </Badge>
-                  )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => document.getElementById("edit-image-upload")?.click()}
+                        disabled={isUploadingImage}
+                      >
+                        {isUploadingImage ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4 mr-2" />
+                        )}
+                        Upload Image
+                      </Button>
+                      {imageFile && (
+                        <Badge variant="secondary" className="text-xs">
+                          New image selected
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Drag & drop or enter an image URL below
+                    </p>
+                    <Input
+                      id="imageUrl"
+                      value={imageUrl}
+                      onChange={(e) => {
+                        setImageUrl(e.target.value);
+                        setImagePreview(e.target.value || null);
+                        setImageFile(null);
+                      }}
+                      placeholder="https://example.com/image.png"
+                      type="url"
+                      className="text-sm"
+                    />
+                    <input
+                      id="edit-image-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Drag & drop or enter an image URL below
+                {errors.image_url && <p className="text-xs text-destructive">{errors.image_url}</p>}
+              </div>
+
+              {/* Banner Upload */}
+              <div className="space-y-2">
+                <Label>Collection Banner</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Recommended size: 1500x500px. This will be displayed on your collection page.
                 </p>
-                <Input
-                  id="imageUrl"
-                  value={imageUrl}
-                  onChange={(e) => {
-                    setImageUrl(e.target.value);
-                    setImagePreview(e.target.value || null);
-                    setImageFile(null);
-                  }}
-                  placeholder="https://example.com/image.png"
-                  type="url"
-                  className="text-sm"
-                />
-                <input 
-                  id="edit-image-upload" 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={handleImageUpload}
-                />
-              </div>
-            </div>
-            {errors.image_url && <p className="text-xs text-destructive">{errors.image_url}</p>}
-          </div>
-
-          {/* Banner Upload */}
-          <div className="space-y-2">
-            <Label>Collection Banner</Label>
-            <p className="text-xs text-muted-foreground mb-2">
-              Recommended size: 1500x500px. This will be displayed on your collection page.
-            </p>
-            <div 
-              className={`space-y-3 p-3 rounded-lg border-2 border-dashed transition-colors ${
-                isDraggingBanner 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-transparent'
-              }`}
-              onDragEnter={(e) => handleBannerDrag(e, true)}
-              onDragOver={(e) => handleBannerDrag(e, true)}
-              onDragLeave={(e) => handleBannerDrag(e, false)}
-              onDrop={handleBannerDrop}
-            >
-              {bannerPreview ? (
-                <div className="relative w-full aspect-[3/1] rounded-lg overflow-hidden border border-border">
-                  <img 
-                    src={bannerPreview} 
-                    alt="Banner Preview" 
-                    className="w-full h-full object-cover" 
+                <div
+                  className={`space-y-3 p-3 rounded-lg border-2 border-dashed transition-colors ${isDraggingBanner
+                      ? 'border-primary bg-primary/5'
+                      : 'border-transparent'
+                    }`}
+                  onDragEnter={(e) => handleBannerDrag(e, true)}
+                  onDragOver={(e) => handleBannerDrag(e, true)}
+                  onDragLeave={(e) => handleBannerDrag(e, false)}
+                  onDrop={handleBannerDrop}
+                >
+                  {bannerPreview ? (
+                    <div className="relative w-full aspect-[3/1] rounded-lg overflow-hidden border border-border">
+                      <img
+                        src={bannerPreview}
+                        alt="Banner Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8"
+                        onClick={() => {
+                          setBannerPreview(null);
+                          setBannerFile(null);
+                          setBannerUrl("");
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                      {bannerFile && (
+                        <Badge variant="secondary" className="absolute bottom-2 left-2 text-xs">
+                          New banner selected
+                        </Badge>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      className={`w-full aspect-[3/1] rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center bg-muted gap-2 ${isDraggingBanner ? 'border-primary' : 'border-border hover:border-primary/50'
+                        }`}
+                      onClick={() => document.getElementById("edit-banner-upload")?.click()}
+                    >
+                      <Upload className="w-8 h-8 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Drag & drop or click to upload banner</span>
+                      <span className="text-xs text-muted-foreground">PNG, JPG up to 5MB</span>
+                    </div>
+                  )}
+                  <input
+                    id="edit-banner-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleBannerUpload}
                   />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2 h-8 w-8"
-                    onClick={() => {
-                      setBannerPreview(null);
-                      setBannerFile(null);
-                      setBannerUrl("");
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  {bannerFile && (
-                    <Badge variant="secondary" className="absolute bottom-2 left-2 text-xs">
-                      New banner selected
-                    </Badge>
+                  {bannerPreview && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById("edit-banner-upload")?.click()}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Change Banner
+                    </Button>
                   )}
                 </div>
-              ) : (
-                <div
-                  className={`w-full aspect-[3/1] rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center bg-muted gap-2 ${
-                    isDraggingBanner ? 'border-primary' : 'border-border hover:border-primary/50'
-                  }`}
-                  onClick={() => document.getElementById("edit-banner-upload")?.click()}
-                >
-                  <Upload className="w-8 h-8 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Drag & drop or click to upload banner</span>
-                  <span className="text-xs text-muted-foreground">PNG, JPG up to 5MB</span>
-                </div>
-              )}
-              <input
-                id="edit-banner-upload"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleBannerUpload}
-              />
-              {bannerPreview && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => document.getElementById("edit-banner-upload")?.click()}
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Change Banner
-                </Button>
-              )}
-            </div>
-          </div>
+              </div>
 
-          {/* Unrevealed Image Upload */}
-          <div className="space-y-2">
-            <Label>Unrevealed Image (Optional)</Label>
-            <p className="text-xs text-muted-foreground mb-2">
-              This image/GIF will be shown before your NFTs are revealed. Perfect for building suspense!
-            </p>
-            <div 
-              className={`space-y-3 p-3 rounded-lg border-2 border-dashed transition-colors ${
-                isDraggingUnrevealed 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-transparent'
-              }`}
-              onDragEnter={(e) => handleUnrevealedDrag(e, true)}
-              onDragOver={(e) => handleUnrevealedDrag(e, true)}
-              onDragLeave={(e) => handleUnrevealedDrag(e, false)}
-              onDrop={handleUnrevealedDrop}
-            >
-              {unrevealedPreview ? (
-                <div className="relative w-40 h-40 rounded-lg overflow-hidden border border-border mx-auto">
-                  <img 
-                    src={unrevealedPreview} 
-                    alt="Unrevealed Preview" 
-                    className="w-full h-full object-cover" 
+              {/* Unrevealed Image Upload */}
+              <div className="space-y-2">
+                <Label>Unrevealed Image (Optional)</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  This image/GIF will be shown before your NFTs are revealed. Perfect for building suspense!
+                </p>
+                <div
+                  className={`space-y-3 p-3 rounded-lg border-2 border-dashed transition-colors ${isDraggingUnrevealed
+                      ? 'border-primary bg-primary/5'
+                      : 'border-transparent'
+                    }`}
+                  onDragEnter={(e) => handleUnrevealedDrag(e, true)}
+                  onDragOver={(e) => handleUnrevealedDrag(e, true)}
+                  onDragLeave={(e) => handleUnrevealedDrag(e, false)}
+                  onDrop={handleUnrevealedDrop}
+                >
+                  {unrevealedPreview ? (
+                    <div className="relative w-40 h-40 rounded-lg overflow-hidden border border-border mx-auto">
+                      <img
+                        src={unrevealedPreview}
+                        alt="Unrevealed Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8"
+                        onClick={() => {
+                          setUnrevealedPreview(null);
+                          setUnrevealedFile(null);
+                          setUnrevealedUrl("");
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                      {unrevealedFile && (
+                        <Badge variant="secondary" className="absolute bottom-2 left-2 text-xs">
+                          New file selected
+                        </Badge>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      className={`w-40 h-40 mx-auto rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center bg-muted gap-2 ${isDraggingUnrevealed ? 'border-primary' : 'border-border hover:border-primary/50'
+                        }`}
+                      onClick={() => document.getElementById("edit-unrevealed-upload")?.click()}
+                    >
+                      <Sparkles className="w-8 h-8 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground text-center px-2">Drag & drop or click to upload</span>
+                      <span className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB</span>
+                    </div>
+                  )}
+                  <input
+                    id="edit-unrevealed-upload"
+                    type="file"
+                    accept="image/*,.gif"
+                    className="hidden"
+                    onChange={handleUnrevealedUpload}
                   />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2 h-8 w-8"
-                    onClick={() => {
-                      setUnrevealedPreview(null);
-                      setUnrevealedFile(null);
-                      setUnrevealedUrl("");
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  {unrevealedFile && (
-                    <Badge variant="secondary" className="absolute bottom-2 left-2 text-xs">
-                      New file selected
-                    </Badge>
+                  {unrevealedPreview && (
+                    <div className="flex justify-center">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => document.getElementById("edit-unrevealed-upload")?.click()}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Change Image
+                      </Button>
+                    </div>
                   )}
                 </div>
-              ) : (
-                <div
-                  className={`w-40 h-40 mx-auto rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center bg-muted gap-2 ${
-                    isDraggingUnrevealed ? 'border-primary' : 'border-border hover:border-primary/50'
-                  }`}
-                  onClick={() => document.getElementById("edit-unrevealed-upload")?.click()}
-                >
-                  <Sparkles className="w-8 h-8 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground text-center px-2">Drag & drop or click to upload</span>
-                  <span className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB</span>
-                </div>
-              )}
-              <input
-                id="edit-unrevealed-upload"
-                type="file"
-                accept="image/*,.gif"
-                className="hidden"
-                onChange={handleUnrevealedUpload}
-              />
-              {unrevealedPreview && (
-                <div className="flex justify-center">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById("edit-unrevealed-upload")?.click()}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Change Image
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          {/* Social Links */}
-          <Separator className="my-4" />
-          <div className="space-y-4">
-            <h4 className="font-medium text-sm flex items-center gap-2">
-              <Globe className="w-4 h-4" />
-              Social Links
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="socialTwitter" className="flex items-center gap-2 text-sm">
-                  <Twitter className="w-4 h-4 text-[#1DA1F2]" />
-                  Twitter / X
-                </Label>
-                <Input
-                  id="socialTwitter"
-                  value={socialTwitter}
-                  onChange={(e) => setSocialTwitter(e.target.value)}
-                  placeholder="https://twitter.com/..."
-                  type="url"
-                />
+              {/* Social Links */}
+              <Separator className="my-4" />
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm flex items-center gap-2">
+                  <Globe className="w-4 h-4" />
+                  Social Links
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="socialTwitter" className="flex items-center gap-2 text-sm">
+                      <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                      Twitter / X
+                    </Label>
+                    <Input
+                      id="socialTwitter"
+                      value={socialTwitter}
+                      onChange={(e) => setSocialTwitter(e.target.value)}
+                      placeholder="https://twitter.com/..."
+                      type="url"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="socialDiscord" className="flex items-center gap-2 text-sm">
+                      <MessageCircle className="w-4 h-4 text-[#5865F2]" />
+                      Discord
+                    </Label>
+                    <Input
+                      id="socialDiscord"
+                      value={socialDiscord}
+                      onChange={(e) => setSocialDiscord(e.target.value)}
+                      placeholder="https://discord.gg/..."
+                      type="url"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="socialWebsite" className="flex items-center gap-2 text-sm">
+                      <Globe className="w-4 h-4 text-emerald-500" />
+                      Website
+                    </Label>
+                    <Input
+                      id="socialWebsite"
+                      value={socialWebsite}
+                      onChange={(e) => setSocialWebsite(e.target.value)}
+                      placeholder="https://..."
+                      type="url"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="socialTelegram" className="flex items-center gap-2 text-sm">
+                      <Send className="w-4 h-4 text-[#0088cc]" />
+                      Telegram
+                    </Label>
+                    <Input
+                      id="socialTelegram"
+                      value={socialTelegram}
+                      onChange={(e) => setSocialTelegram(e.target.value)}
+                      placeholder="https://t.me/..."
+                      type="url"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="socialDiscord" className="flex items-center gap-2 text-sm">
-                  <MessageCircle className="w-4 h-4 text-[#5865F2]" />
-                  Discord
-                </Label>
-                <Input
-                  id="socialDiscord"
-                  value={socialDiscord}
-                  onChange={(e) => setSocialDiscord(e.target.value)}
-                  placeholder="https://discord.gg/..."
-                  type="url"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="socialWebsite" className="flex items-center gap-2 text-sm">
-                  <Globe className="w-4 h-4 text-emerald-500" />
-                  Website
-                </Label>
-                <Input
-                  id="socialWebsite"
-                  value={socialWebsite}
-                  onChange={(e) => setSocialWebsite(e.target.value)}
-                  placeholder="https://..."
-                  type="url"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="socialTelegram" className="flex items-center gap-2 text-sm">
-                  <Send className="w-4 h-4 text-[#0088cc]" />
-                  Telegram
-                </Label>
-                <Input
-                  id="socialTelegram"
-                  value={socialTelegram}
-                  onChange={(e) => setSocialTelegram(e.target.value)}
-                  placeholder="https://t.me/..."
-                  type="url"
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {/* Supply & Royalties */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Supply & Royalties</CardTitle>
-          <CardDescription>Configure your collection economics</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="totalSupply">Total Supply *</Label>
-              <Input
-                id="totalSupply"
-                type="number"
-                value={totalSupply}
-                onChange={(e) => setTotalSupply(parseInt(e.target.value) || 0)}
-                min={1}
-                max={100000}
-                disabled={!canEditSupply}
-              />
-              {!canEditSupply && (
-                <p className="text-xs text-muted-foreground">Cannot change after minting starts</p>
-              )}
-              {errors.total_supply && <p className="text-xs text-destructive">{errors.total_supply}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="royalty">Royalty %</Label>
-              <Input
-                id="royalty"
-                type="number"
-                value={royaltyPercent}
-                onChange={(e) => setRoyaltyPercent(parseFloat(e.target.value) || 0)}
-                min={0}
-                max={15}
-                step={0.5}
-                disabled={isLive}
-              />
-              {errors.royalty_percent && <p className="text-xs text-destructive">{errors.royalty_percent}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={status} onValueChange={setStatus} disabled={isLive}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="upcoming">Upcoming</SelectItem>
-                  <SelectItem value="live">Live</SelectItem>
-                  <SelectItem value="ended">Ended</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.status && <p className="text-xs text-destructive">{errors.status}</p>}
-            </div>
-          </div>
-          
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Minted</span>
-              <span className="font-medium">{collection.minted} / {totalSupply}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          {/* Supply & Royalties */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Supply & Royalties</CardTitle>
+              <CardDescription>Configure your collection economics</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="totalSupply">Total Supply *</Label>
+                  <Input
+                    id="totalSupply"
+                    type="number"
+                    value={totalSupply}
+                    onChange={(e) => setTotalSupply(parseInt(e.target.value) || 0)}
+                    min={1}
+                    max={100000}
+                    disabled={!canEditSupply}
+                  />
+                  {!canEditSupply && (
+                    <p className="text-xs text-muted-foreground">Cannot change after minting starts</p>
+                  )}
+                  {errors.total_supply && <p className="text-xs text-destructive">{errors.total_supply}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="royalty">Royalty %</Label>
+                  <Input
+                    id="royalty"
+                    type="number"
+                    value={royaltyPercent}
+                    onChange={(e) => setRoyaltyPercent(parseFloat(e.target.value) || 0)}
+                    min={0}
+                    max={15}
+                    step={0.5}
+                    disabled={isLive}
+                  />
+                  {errors.royalty_percent && <p className="text-xs text-destructive">{errors.royalty_percent}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={status} onValueChange={setStatus} disabled={isLive}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="upcoming">Upcoming</SelectItem>
+                      <SelectItem value="live">Live</SelectItem>
+                      <SelectItem value="ended">Ended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.status && <p className="text-xs text-destructive">{errors.status}</p>}
+                </div>
+              </div>
+
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Minted</span>
+                  <span className="font-medium">{collection.minted} / {totalSupply}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Artwork / Layers Tab */}
@@ -1283,7 +1278,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <LayerManager 
+                  <LayerManager
                     layers={layers}
                     onLayersChange={setLayers}
                   />
@@ -1316,7 +1311,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <GenerationPreview 
+                      <GenerationPreview
                         layers={layers}
                         rules={traitRules}
                         totalSupply={totalSupply.toString()}
@@ -1338,7 +1333,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                   {collectionType === "one_of_one" ? "1 of 1 Artwork" : "Edition Artwork"}
                 </CardTitle>
                 <CardDescription>
-                  {collectionType === "one_of_one" 
+                  {collectionType === "one_of_one"
                     ? "Upload unique artwork for each NFT in your collection. Each image becomes a unique NFT."
                     : "Upload artwork for your editions collection. You can have multiple editions of the same artwork."}
                 </CardDescription>
@@ -1409,7 +1404,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="space-y-1">
-                        <Label className="text-xs">Price (SOL)</Label>
+                        <Label className="text-xs">Price ({chainSymbol})</Label>
                         <Input
                           type="number"
                           value={phase.price}

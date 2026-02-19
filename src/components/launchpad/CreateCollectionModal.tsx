@@ -736,6 +736,7 @@ export function CreateCollectionModal({
                         newPhases[0] = { ...newPhases[0], ...updates };
                         setPhases(newPhases);
                       }}
+                      chainSymbol={chainSymbol}
                     />
                   </div>
                 )}
