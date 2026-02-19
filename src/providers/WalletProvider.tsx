@@ -331,11 +331,103 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
+  // Connect Monad wallet via Phantom (EVM address)
+  const connectMonad = useCallback(async () => {
+    const sdk = getSDK();
+    setState(prev => ({ ...prev, isConnecting: true, walletType: "phantom", chainType: "monad" }));
+
+    try {
+      // Prefer injected Phantom EVM provider
+      const phantomEvm = (window as any).phantom?.ethereum;
+      if (phantomEvm) {
+        const accounts: string[] = await phantomEvm.request({ method: 'eth_requestAccounts' });
+        const address = accounts[0];
+        if (!address) throw new Error('No EVM address returned from Phantom');
+
+        // Auto Supabase session
+        try {
+          const { data: { user: existingUser } } = await supabase.auth.getUser();
+          if (!existingUser) {
+            await supabase.auth.signInAnonymously({
+              options: { data: { wallet_address: address, wallet_type: 'phantom-evm' } }
+            });
+          }
+        } catch { /* continue */ }
+
+        setState(prev => ({
+          ...prev,
+          address,
+          isConnected: true,
+          isConnecting: false,
+          balance: '0',  // Monad balance fetching can be added later
+          walletType: "phantom",
+          chainType: "monad",
+          authProvider: "injected",
+        }));
+
+        localStorage.setItem("walletConnected", "true");
+        localStorage.setItem("walletType", "phantom");
+        setStoredChain('monad'); // Sync ChainProvider
+        toast.success("Phantom (Monad) wallet connected");
+        return;
+      }
+
+      // Fallback: Phantom SDK — extract ethereum address
+      const result: ConnectResult = await sdk.connect({ provider: "injected" });
+      let address: string | null = null;
+      for (const addr of result.addresses) {
+        if (addr.addressType === AddressType.ethereum) {
+          address = addr.address;
+          break;
+        }
+      }
+      if (!address) throw new Error('No EVM address found in Phantom. Make sure Phantom is set to an EVM network.');
+
+      // Auto Supabase session
+      try {
+        const { data: { user: existingUser } } = await supabase.auth.getUser();
+        if (!existingUser) {
+          await supabase.auth.signInAnonymously({
+            options: { data: { wallet_address: address, wallet_type: 'phantom-evm' } }
+          });
+        }
+      } catch { /* continue */ }
+
+      setState(prev => ({
+        ...prev,
+        address,
+        isConnected: true,
+        isConnecting: false,
+        balance: '0',
+        walletType: "phantom",
+        chainType: "monad",
+        authProvider: result.authProvider || "injected",
+      }));
+
+      localStorage.setItem("walletConnected", "true");
+      localStorage.setItem("walletType", "phantom");
+      setStoredChain('monad'); // Sync ChainProvider
+      toast.success("Phantom (Monad) wallet connected");
+    } catch (error: any) {
+      console.error("Monad connect error:", error);
+      setState(prev => ({ ...prev, isConnecting: false }));
+      const msg = error?.message || "Failed to connect Phantom for Monad";
+      toast.error(msg);
+      throw error;
+    }
+  }, [getSDK]);
+
   // Main connect function
   const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
     // If explicitly requesting XRPL, use XRPL wallet
     if (_walletType === 'xrpl' || _chainType === 'xrpl') {
       await connectXRPL();
+      return;
+    }
+
+    // If explicitly requesting Monad, use Monad/EVM Phantom connect
+    if (_chainType === 'monad') {
+      await connectMonad();
       return;
     }
 
@@ -379,7 +471,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     toast.error("Phantom wallet not found. Please install Phantom extension.");
-  }, [isPhantomAvailable, connectWithSDK, connectSolanaLegacy, connectXRPL]);
+  }, [isPhantomAvailable, connectWithSDK, connectSolanaLegacy, connectXRPL, connectMonad]);
 
   // Connect with OAuth
   const connectWithOAuth = useCallback(async (provider: OAuthProvider) => {
