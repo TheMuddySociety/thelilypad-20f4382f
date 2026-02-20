@@ -55,7 +55,7 @@ interface ChainEntry {
 const CHAIN_ENTRIES: ChainEntry[] = [
   { id: "solana", label: "Solana", description: "Metaplex Core & Candy Machine", badge: "Live", badgeVariant: "default" },
   { id: "xrpl", label: "XRPL", description: "XLS-20 NFT Standard", badge: "Live", badgeVariant: "default" },
-  { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Soon", badgeVariant: "outline" },
+  { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Live", badgeVariant: "default" },
 ];
 
 // ── Collection type tiles ─────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ const COLLECTION_TYPES: CollectionTypeTile[] = [
     description: "Layer-based procedural generation. Upload trait layers and generate thousands of unique combinations with custom rarity weights.",
     icon: Layers,
     highlight: true,
-    chains: ["solana", "xrpl"],
+    chains: ["solana", "xrpl", "monad"],
     tag: "Most Popular",
   },
   {
@@ -85,7 +85,7 @@ const COLLECTION_TYPES: CollectionTypeTile[] = [
     title: "Music NFTs",
     description: "Audio tracks with artwork, rich metadata, and streaming capabilities. FLAC, MP3, and WAV supported.",
     icon: Music,
-    chains: ["solana"],
+    chains: ["solana", "monad"],
   },
   {
     id: "xrpl-589",
@@ -102,7 +102,7 @@ const COLLECTION_TYPES: CollectionTypeTile[] = [
     title: "1/1 & Limited Editions",
     description: "Hand-crafted one-of-a-kind pieces or small numbered editions. Perfect for collectors and gallery drops.",
     icon: Palette,
-    chains: ["solana", "xrpl"],
+    chains: ["solana", "xrpl", "monad"],
   },
 ];
 

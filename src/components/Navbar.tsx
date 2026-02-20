@@ -58,7 +58,7 @@ const adminLinks = [
 export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const { network, isConnected } = useWallet();
+  const { network, isConnected, chainType } = useWallet();
   const { profile, loading: profileLoading } = useUserProfile();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
@@ -233,8 +233,19 @@ export const Navbar: React.FC = () => {
             </Link>
           </div>
 
-          {/* Right side - Wallet & Notifications */}
+          {/* Right side - Chain Indicator, Wallet & Notifications */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {isConnected && chainType && (
+              <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${chainType === 'xrpl'
+                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                  : chainType === 'monad'
+                    ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
+                    : 'bg-green-500/10 text-green-400 border-green-500/30'
+                }`}>
+                <span>{chainType === 'xrpl' ? '✕' : chainType === 'monad' ? '◈' : '◎'}</span>
+                <span>{chainType === 'xrpl' ? 'XRPL' : chainType === 'monad' ? 'Monad' : 'Solana'}</span>
+              </div>
+            )}
             <NotificationBell />
             <ConnectWallet />
           </div>
