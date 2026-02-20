@@ -28,7 +28,6 @@ const BuybackStats = ({ chain = 'solana' }: BuybackStatsProps) => {
       const { data } = await supabase
         .from('buyback_pool')
         .select('*')
-        .eq('chain', chain)
         .maybeSingle();
       return data;
     },
@@ -40,7 +39,6 @@ const BuybackStats = ({ chain = 'solana' }: BuybackStatsProps) => {
       const { data } = await supabase
         .from('volume_tracking')
         .select('source_type, volume_amount, weighted_volume')
-        .eq('chain', chain)
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order('created_at', { ascending: false });
       return data || [];
@@ -53,7 +51,6 @@ const BuybackStats = ({ chain = 'solana' }: BuybackStatsProps) => {
       const { data } = await supabase
         .from('buyback_events')
         .select('*')
-        .eq('chain', chain)
         .order('executed_at', { ascending: false })
         .limit(5);
       return data || [];

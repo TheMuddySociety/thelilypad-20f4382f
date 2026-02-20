@@ -14,16 +14,10 @@ export function useBuybackProgram(chain?: string) {
   const { data: programCollections, isLoading, refetch } = useQuery({
     queryKey: ['buyback-program-collections', chain],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('buyback_program_collections')
         .select('*')
         .eq('is_active', true);
-
-      if (chain) {
-        query = query.eq('chain', chain);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       return data as BuybackProgramCollection[];

@@ -10,7 +10,7 @@ const corsHeaders = {
 // and the map resets on every cold start. Rate limiting is now enforced via the DB.
 
 async function isRateLimited(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   clipId: string,
   clientIP: string
 ): Promise<boolean> {

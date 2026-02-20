@@ -15,7 +15,7 @@ import {
   Plus, Rocket, Clock, CheckCircle, Sparkles, Loader2, FileEdit, Trash2,
   Image as ImageIcon, LayoutGrid, Check, Pencil, Lock, AlertCircle, ArrowRight,
   Layers, Zap, Globe, ChevronRight, Palette, Music, BarChart3, ShoppingCart,
-  Star, TrendingUp,
+  Star, TrendingUp, Repeat,
 } from "lucide-react";
 import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
@@ -104,6 +104,15 @@ const COLLECTION_TYPES: CollectionTypeTile[] = [
     icon: Palette,
     chains: ["solana", "xrpl", "monad"],
   },
+  {
+    id: "hybrid-404",
+    title: "MPL-404 Hybrid",
+    description: "Swap between fungible tokens and NFTs. Build an escrow that lets holders capture NFTs with tokens and release them back.",
+    icon: Repeat,
+    highlight: true,
+    chains: ["solana"],
+    tag: "New",
+  },
 ];
 
 // ── Filter tabs ───────────────────────────────────────────────────────────────
@@ -176,7 +185,11 @@ export default function Launchpad() {
 
   const handleTileClick = (tile: CollectionTypeTile) => {
     if (selectedChain === "monad") return; // soon
-    setCreateModalDefaultStandard(tile.xrplDefault ? "xrpl-589" : tile.id === "music" ? "music" : "core");
+    if (tile.id === "hybrid-404") {
+      setCreateModalDefaultStandard("hybrid-404");
+    } else {
+      setCreateModalDefaultStandard(tile.xrplDefault ? "xrpl-589" : tile.id === "music" ? "music" : "core");
+    }
     setIsCreateModalOpen(true);
   };
 
