@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useRef } from "react";
 import { motion, Reorder } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
   EyeOff,
   Layers,
   Sparkles,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,18 +58,26 @@ interface LayerManagerProps {
 }
 
 export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
-  const handleAddLayer = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Process uploaded files into a layer (works for both folder and file modes)
+  const processFilesIntoLayer = useCallback(async (files: FileList, mode: 'folder' | 'files') => {
     if (!files || files.length === 0) return;
 
-    const firstFile = files[0];
-    const pathParts = firstFile.webkitRelativePath.split("/");
-    const layerName = pathParts[0] || `Layer ${layers.length + 1}`;
+    // Determine the layer name
+    let layerName: string;
+    if (mode === 'folder') {
+      const pathParts = files[0].webkitRelativePath.split("/");
+      layerName = pathParts.length > 1 ? pathParts[pathParts.length - 2] : pathParts[0] || `Layer ${layers.length + 1}`;
+    } else {
+      layerName = `Layer ${layers.length + 1}`;
+    }
 
     const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
 
     if (imageFiles.length === 0) {
-      toast.error("No images found in folder");
+      toast.error("No images found — please select PNG, JPG, or WebP files");
       return;
     }
 
@@ -97,8 +106,21 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
       collapsed: false,
     }]);
     toast.success(`Added "${layerName}" with ${traits.length} traits`);
-    e.target.value = "";
   }, [layers, onLayersChange]);
+
+  const handleFolderInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFilesIntoLayer(e.target.files, 'folder');
+    }
+    e.target.value = "";
+  }, [processFilesIntoLayer]);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFilesIntoLayer(e.target.files, 'files');
+    }
+    e.target.value = "";
+  }, [processFilesIntoLayer]);
 
   return (
     <div className="space-y-3">
@@ -112,27 +134,49 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
           <p className="text-[10px] text-muted-foreground">Import folders for each layer</p>
         </div>
 
-        <label className="cursor-pointer">
-          <Input
+        <div className="flex gap-2">
+          {/* Hidden native inputs — triggered via refs for reliability inside Dialog portals */}
+          <input
+            ref={folderInputRef}
             type="file"
-            // @ts-ignore
+            // @ts-ignore — webkitdirectory is valid but not in TS types
             webkitdirectory=""
             directory=""
             multiple
             className="hidden"
-            onChange={handleAddLayer}
+            onChange={handleFolderInput}
           />
-          <Button className="bg-gradient-to-r from-primary to-accent text-primary-foreground h-7 text-xs px-3" size="sm" asChild>
-            <span><FolderPlus className="w-3 h-3 mr-1" /> Add Layer</span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            multiple
+            className="hidden"
+            onChange={handleFileInput}
+          />
+          <Button
+            className="bg-gradient-to-r from-primary to-accent text-primary-foreground h-7 text-xs px-3"
+            size="sm"
+            onClick={() => folderInputRef.current?.click()}
+          >
+            <FolderPlus className="w-3 h-3 mr-1" /> Add Folder
           </Button>
-        </label>
+          <Button
+            variant="outline"
+            className="h-7 text-xs px-3"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="w-3 h-3 mr-1" /> Add Files
+          </Button>
+        </div>
       </div>
 
       {/* Layers List */}
       {layers.length === 0 ? (
         <div className="glass-card border-dashed border-2 p-6 text-center">
           <ImageIcon className="w-6 h-6 mx-auto text-muted-foreground mb-2" />
-          <p className="text-xs text-muted-foreground">Click "Add Layer" to import trait folders</p>
+          <p className="text-xs text-muted-foreground">Click "Add Folder" to import a trait folder, or "Add Files" to select individual images</p>
         </div>
       ) : (
         <Reorder.Group axis="y" values={layers} onReorder={onLayersChange} className="space-y-2">
