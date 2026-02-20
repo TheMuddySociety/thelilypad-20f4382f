@@ -25,6 +25,8 @@ import {
   Wand2,
   Settings,
   AlertCircle,
+  Hash,
+  Palette,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FolderUploader } from "./FolderUploader";
@@ -33,6 +35,7 @@ import { LaunchpadPreview } from "./LaunchpadPreview";
 import { ModeSelector } from "./ModeSelector";
 import { LayerManager, Layer } from "./LayerManager";
 import { TraitRarityEditor } from "./TraitRarityEditor";
+import { ArtworkUploader, type ArtworkItem } from "./ArtworkUploader";
 import { useWallet } from "@/providers/WalletProvider";
 import { useSolanaLaunch, LaunchpadPhase } from "@/hooks/useSolanaLaunch";
 
@@ -58,10 +61,10 @@ interface CreateCollectionModalProps {
    */
   selectedChain?: SupportedChain;
   /**
-   * Optional standard hint from the Launchpad page (e.g. "core").
-   * Currently unused by this wizard, but accepted to keep Launchpad -> Modal typing consistent.
+   * Collection type from the Launchpad tile click.
+   * Drives step flow: "generative" | "1of1" | "xrpl-589" | "music" | "core" etc.
    */
-  defaultStandard?: unknown;
+  defaultStandard?: string;
 }
 
 // Default Phases
@@ -94,6 +97,23 @@ const ADVANCED_STEPS = [
   { id: 6, title: "Launch", icon: Rocket, description: "Deploy Collection" },
 ];
 
+const ONEOF1_STEPS = [
+  { id: 0, title: "Essentials", icon: Tags, description: "Name & Story" },
+  { id: 1, title: "Artworks", icon: Palette, description: "Upload Pieces" },
+  { id: 2, title: "Editions", icon: Hash, description: "Set Editions" },
+  { id: 3, title: "Mint Config", icon: Sparkles, description: "Pricing & Guards" },
+  { id: 4, title: "Launch", icon: Rocket, description: "Deploy" },
+];
+
+type CollectionFlowType = "generative" | "1of1" | "xrpl-589" | "music";
+
+function resolveFlowType(standard?: string): CollectionFlowType {
+  if (standard === "1of1") return "1of1";
+  if (standard === "xrpl-589") return "xrpl-589";
+  if (standard === "music") return "music";
+  return "generative";
+}
+
 export function CreateCollectionModal({
   open,
   onOpenChange,
@@ -120,13 +140,17 @@ export function CreateCollectionModal({
   // Check if full deployment is supported for this chain
   const isChainFullySupported = selectedChain === 'solana' || selectedChain === 'xrpl' || selectedChain === 'monad';
 
+  // Resolve collection flow type from tile selection
+  const flowType = resolveFlowType(defaultStandard as string);
+  const is1of1 = flowType === "1of1";
+
   // Wizard State
   const [mode, setMode] = useState<"basic" | "advanced">("basic");
-  const [currentStep, setCurrentStep] = useState(0); // Start at mode selection
+  const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(0);
 
-  // Get steps based on mode
-  const STEPS = mode === "basic" ? BASIC_STEPS : ADVANCED_STEPS;
+  // Get steps based on mode and flow type
+  const STEPS = is1of1 ? ONEOF1_STEPS : mode === "basic" ? BASIC_STEPS : ADVANCED_STEPS;
   const maxStep = STEPS.length - 1;
 
   // Collection Data
@@ -148,6 +172,10 @@ export function CreateCollectionModal({
   const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0 });
   const [targetSupply, setTargetSupply] = useState(100); // No limit - user sets their own
 
+  // 1/1 Mode: Artwork Data
+  const [artworks, setArtworks] = useState<ArtworkItem[]>([]);
+  const [editionCounts, setEditionCounts] = useState<Record<string, number>>({});
+
   // Config Data
   const [phases, setPhases] = useState<LaunchpadPhase[]>(defaultPhases);
   const [treasuryWallet, setTreasuryWallet] = useState("");
@@ -155,14 +183,16 @@ export function CreateCollectionModal({
   // Pre-select mode from tile
   useEffect(() => {
     if (open) {
-      // defaultStandard drives mode selection when provided
-      if (defaultStandard === 'advanced') {
+      // 1/1 flow skips mode selection entirely
+      if (is1of1) {
+        setMode('basic');
+      } else if (defaultStandard === 'advanced') {
         setMode('advanced');
       } else {
         setMode('basic');
       }
     }
-  }, [open, defaultStandard]);
+  }, [open, defaultStandard, is1of1]);
 
   // Draft auto-save whenever key fields change
   useEffect(() => {
@@ -369,6 +399,19 @@ export function CreateCollectionModal({
   };
 
   const nextStep = () => {
+    if (is1of1) {
+      // 1/1 flow: Step 0 = Essentials, Step 1 = Artworks, Step 2 = Editions, Step 3 = Mint, Step 4 = Launch
+      if (currentStep === 0 && (!name || !symbol)) {
+        return toast.error("Name and Symbol are required");
+      }
+      if (currentStep === 1 && artworks.length === 0) {
+        return toast.error("Please upload at least one artwork");
+      }
+      setDirection(1);
+      setCurrentStep(s => Math.min(s + 1, maxStep));
+      return;
+    }
+
     // Mode selection step - just move forward
     if (currentStep === 0) {
       setDirection(1);
@@ -453,9 +496,13 @@ export function CreateCollectionModal({
           <div className="px-4 py-3 border-b border-border" style={{ background: `linear-gradient(to right, ${theme.primaryColor}10, transparent)` }}>
             <div className="flex items-center gap-1.5 mb-0.5" style={{ color: theme.primaryColor }}>
               <Sparkles className="w-3 h-3" />
-              <span className="text-[10px] font-mono uppercase tracking-widest">Create Collection</span>
+              <span className="text-[10px] font-mono uppercase tracking-widest">
+                {is1of1 ? '1/1 & Limited Editions' : 'Create Collection'}
+              </span>
             </div>
-            <h1 className="text-base font-bold gradient-text">Launchpad Wizard</h1>
+            <h1 className="text-base font-bold gradient-text">
+              {is1of1 ? 'Artwork Launchpad' : 'Launchpad Wizard'}
+            </h1>
           </div>
 
           {/* Steps Indicator - Compact (clickable for completed steps) */}
@@ -511,13 +558,13 @@ export function CreateCollectionModal({
                 className="space-y-6"
               >
 
-                {/* STEP 0: MODE SELECTION */}
-                {currentStep === 0 && (
+                {/* STEP 0: MODE SELECTION (generative only) or ESSENTIALS (1/1) */}
+                {currentStep === 0 && !is1of1 && (
                   <ModeSelector mode={mode} onModeChange={setMode} />
                 )}
 
-                {/* STEP 1: ESSENTIALS */}
-                {currentStep === 1 && (
+                {/* ESSENTIALS: Step 1 (generative) or Step 0 (1/1) */}
+                {((is1of1 && currentStep === 0) || (!is1of1 && currentStep === 1)) && (
                   <div className="space-y-6">
                     <div className="space-y-4">
                       <Label>Select Cover Image</Label>
@@ -586,8 +633,88 @@ export function CreateCollectionModal({
                   </div>
                 )}
 
-                {/* STEP 2: ASSETS (Basic) or LAYERS (Advanced) */}
-                {currentStep === 2 && (
+                {/* 1/1 STEP 1: ARTWORKS UPLOAD */}
+                {is1of1 && currentStep === 1 && (
+                  <div className="space-y-4">
+                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                      <h3 className="text-sm font-medium mb-1 flex items-center gap-2" style={{ color: theme.primaryColor }}>
+                        <Palette className="w-4 h-4" /> Upload Your Artworks
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Drop individual images — each becomes a unique NFT. You can add titles, descriptions, and trait attributes per piece.
+                      </p>
+                    </div>
+                    <ArtworkUploader
+                      artworks={artworks}
+                      onArtworksChange={setArtworks}
+                      collectionType="one_of_one"
+                      creatorId={address || 'anonymous'}
+                      maxItems={100}
+                      chainSymbol={chainSymbol}
+                    />
+                  </div>
+                )}
+
+                {/* 1/1 STEP 2: EDITIONS */}
+                {is1of1 && currentStep === 2 && (
+                  <div className="space-y-4">
+                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                      <h3 className="text-sm font-medium mb-1 flex items-center gap-2" style={{ color: theme.primaryColor }}>
+                        <Hash className="w-4 h-4" /> Edition Counts
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Set how many copies of each artwork to mint. Use 1 for true 1/1s, or a higher number for limited editions.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
+                      {artworks.map((artwork, idx) => (
+                        <div key={artwork.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card/50">
+                          <div className="w-12 h-12 rounded-md overflow-hidden border border-border shrink-0">
+                            {artwork.imageUrl ? (
+                              <img src={artwork.imageUrl} alt={artwork.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-muted flex items-center justify-center">
+                                <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{artwork.name || `Artwork #${idx + 1}`}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {(editionCounts[artwork.id] || 1) === 1 ? 'True 1/1' : `${editionCounts[artwork.id]} editions`}
+                            </p>
+                          </div>
+                          <div className="shrink-0 w-20">
+                            <Input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={editionCounts[artwork.id] || 1}
+                              onChange={(e) => setEditionCounts(prev => ({
+                                ...prev,
+                                [artwork.id]: Math.max(1, Math.min(100, Number(e.target.value) || 1))
+                              }))}
+                              className="h-8 text-xs text-center"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {artworks.length > 0 && (
+                      <div className="flex items-center justify-between p-3 bg-muted/40 rounded-lg border border-border">
+                        <span className="text-xs text-muted-foreground">Total NFTs to mint</span>
+                        <span className="text-sm font-bold" style={{ color: theme.primaryColor }}>
+                          {artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* STEP 2: ASSETS (Basic) or LAYERS (Advanced) — generative flow only */}
+                {!is1of1 && currentStep === 2 && (
                   <div className="space-y-6">
                     {mode === "basic" ? (
                       <>
@@ -622,13 +749,13 @@ export function CreateCollectionModal({
                   </div>
                 )}
 
-                {/* STEP 3: RARITY (Advanced Only) */}
-                {mode === "advanced" && currentStep === 3 && (
+                {/* STEP 3: RARITY (Advanced Only, not 1/1) */}
+                {!is1of1 && mode === "advanced" && currentStep === 3 && (
                   <TraitRarityEditor layers={layers} onLayersChange={setLayers} />
                 )}
 
-                {/* STEP 4: GENERATE (Advanced Only) */}
-                {mode === "advanced" && currentStep === 4 && (
+                {/* STEP 4: GENERATE (Advanced Only, not 1/1) */}
+                {!is1of1 && mode === "advanced" && currentStep === 4 && (
                   <div className="space-y-6">
                     <div className="text-center space-y-1">
                       <h3 className="text-sm font-bold gradient-text">Generate Your Collection</h3>
@@ -711,8 +838,8 @@ export function CreateCollectionModal({
                   </div>
                 )}
 
-                {/* MINT CONFIG: Step 3 (Basic) or Step 5 (Advanced) */}
-                {((mode === "basic" && currentStep === 3) || (mode === "advanced" && currentStep === 5)) && (
+                {/* MINT CONFIG: Step 3 (Basic/1of1) or Step 5 (Advanced) */}
+                {((is1of1 && currentStep === 3) || (!is1of1 && mode === "basic" && currentStep === 3) || (!is1of1 && mode === "advanced" && currentStep === 5)) && (
                   <div className="space-y-4">
                     {/* Treasury Wallet */}
                     <div className="space-y-2">
@@ -741,8 +868,8 @@ export function CreateCollectionModal({
                   </div>
                 )}
 
-                {/* LAUNCH: Step 4 (Basic) or Step 6 (Advanced) */}
-                {((mode === "basic" && currentStep === 4) || (mode === "advanced" && currentStep === 6)) && (
+                {/* LAUNCH: Step 4 (Basic/1of1) or Step 6 (Advanced) */}
+                {((is1of1 && currentStep === 4) || (!is1of1 && mode === "basic" && currentStep === 4) || (!is1of1 && mode === "advanced" && currentStep === 6)) && (
                   <div className="space-y-6 text-center py-10">
                     <div
                       className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
@@ -853,28 +980,38 @@ export function CreateCollectionModal({
               Step {currentStep + 1} of {STEPS.length}
             </div>
             <h3 className="text-sm font-semibold text-foreground">
-              {currentStep === 0 && "Select Your Creation Mode"}
-              {currentStep === 1 && "Define Collection Identity"}
-              {mode === "basic" && currentStep === 2 && "Upload Your NFT Assets"}
-              {mode === "basic" && currentStep === 3 && "Configure Mint Settings"}
-              {mode === "basic" && currentStep === 4 && "Ready to Launch"}
-              {mode === "advanced" && currentStep === 2 && "Import Trait Layers"}
-              {mode === "advanced" && currentStep === 3 && "Set Trait Rarity"}
-              {mode === "advanced" && currentStep === 4 && "Generate Unique NFTs"}
-              {mode === "advanced" && currentStep === 5 && "Configure Mint Settings"}
-              {mode === "advanced" && currentStep === 6 && "Ready to Launch"}
+              {is1of1 && currentStep === 0 && "Define Collection Identity"}
+              {is1of1 && currentStep === 1 && "Upload Your Artworks"}
+              {is1of1 && currentStep === 2 && "Set Edition Counts"}
+              {is1of1 && currentStep === 3 && "Configure Mint Settings"}
+              {is1of1 && currentStep === 4 && "Ready to Launch"}
+              {!is1of1 && currentStep === 0 && "Select Your Creation Mode"}
+              {!is1of1 && currentStep === 1 && "Define Collection Identity"}
+              {!is1of1 && mode === "basic" && currentStep === 2 && "Upload Your NFT Assets"}
+              {!is1of1 && mode === "basic" && currentStep === 3 && "Configure Mint Settings"}
+              {!is1of1 && mode === "basic" && currentStep === 4 && "Ready to Launch"}
+              {!is1of1 && mode === "advanced" && currentStep === 2 && "Import Trait Layers"}
+              {!is1of1 && mode === "advanced" && currentStep === 3 && "Set Trait Rarity"}
+              {!is1of1 && mode === "advanced" && currentStep === 4 && "Generate Unique NFTs"}
+              {!is1of1 && mode === "advanced" && currentStep === 5 && "Configure Mint Settings"}
+              {!is1of1 && mode === "advanced" && currentStep === 6 && "Ready to Launch"}
             </h3>
             <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
-              {currentStep === 0 && "Choose between uploading ready assets or building generative art."}
-              {currentStep === 1 && "Your name, symbol, and cover create the first impression."}
-              {mode === "basic" && currentStep === 2 && "Upload a folder with images and matching JSON metadata."}
-              {mode === "basic" && currentStep === 3 && "Set pricing, guards, and treasury wallet."}
-              {mode === "basic" && currentStep === 4 && `Review and deploy your collection to ${currentChain.name}.`}
-              {mode === "advanced" && currentStep === 2 && "Each folder becomes a layer. Drag to reorder."}
-              {mode === "advanced" && currentStep === 3 && "Lower percentages = rarer traits."}
-              {mode === "advanced" && currentStep === 4 && "We'll create unique combinations for your supply."}
-              {mode === "advanced" && currentStep === 5 && "Set pricing, guards, and treasury wallet."}
-              {mode === "advanced" && currentStep === 6 && `Review and deploy your collection to ${currentChain.name}.`}
+              {is1of1 && currentStep === 0 && "Your name, symbol, and cover create the first impression."}
+              {is1of1 && currentStep === 1 && "Drop individual artwork images — each one becomes an NFT."}
+              {is1of1 && currentStep === 2 && "1 = true 1/1. Higher = limited edition. Up to 100 per piece."}
+              {is1of1 && currentStep === 3 && "Set pricing, guards, and treasury wallet."}
+              {is1of1 && currentStep === 4 && `Review and deploy your collection to ${currentChain.name}.`}
+              {!is1of1 && currentStep === 0 && "Choose between uploading ready assets or building generative art."}
+              {!is1of1 && currentStep === 1 && "Your name, symbol, and cover create the first impression."}
+              {!is1of1 && mode === "basic" && currentStep === 2 && "Upload a folder with images and matching JSON metadata."}
+              {!is1of1 && mode === "basic" && currentStep === 3 && "Set pricing, guards, and treasury wallet."}
+              {!is1of1 && mode === "basic" && currentStep === 4 && `Review and deploy your collection to ${currentChain.name}.`}
+              {!is1of1 && mode === "advanced" && currentStep === 2 && "Each folder becomes a layer. Drag to reorder."}
+              {!is1of1 && mode === "advanced" && currentStep === 3 && "Lower percentages = rarer traits."}
+              {!is1of1 && mode === "advanced" && currentStep === 4 && "We'll create unique combinations for your supply."}
+              {!is1of1 && mode === "advanced" && currentStep === 5 && "Set pricing, guards, and treasury wallet."}
+              {!is1of1 && mode === "advanced" && currentStep === 6 && `Review and deploy your collection to ${currentChain.name}.`}
             </p>
           </div>
 
@@ -891,7 +1028,7 @@ export function CreateCollectionModal({
                 name={name}
                 description={description}
                 coverImage={coverImage}
-                itemsAvailable={mode === "basic" ? (folderAssets.length || 1000) : (generatedAssets.length || targetSupply)}
+                itemsAvailable={is1of1 ? artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0) : mode === "basic" ? (folderAssets.length || 1000) : (generatedAssets.length || targetSupply)}
                 phases={phases}
                 activePhaseIndex={0}
                 selectedChain={selectedChain}

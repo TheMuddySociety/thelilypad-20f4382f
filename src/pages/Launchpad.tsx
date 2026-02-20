@@ -191,7 +191,7 @@ export default function Launchpad() {
       setShowHybridForm(true);
       return;
     }
-    setCreateModalDefaultStandard(tile.xrplDefault ? "xrpl-589" : tile.id === "music" ? "music" : "core");
+    setCreateModalDefaultStandard(tile.id);
     setIsCreateModalOpen(true);
   };
 
