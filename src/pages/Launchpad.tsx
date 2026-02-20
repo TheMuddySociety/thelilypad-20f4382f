@@ -298,20 +298,15 @@ export default function Launchpad() {
                   <h2 className="text-xl font-bold">{currentChain.name}</h2>
                   <p className="text-xs text-muted-foreground">{isTestnet ? "Testnet Mode" : "Mainnet"}</p>
                 </div>
-                {selectedChain === "monad" && (
-                  <Badge variant="outline" className="ml-2 text-xs">Coming Soon</Badge>
-                )}
               </div>
-              {selectedChain !== "monad" && (
-                <Button
-                  size="default"
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="gap-2 shadow-sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  New Collection
-                </Button>
-              )}
+              <Button
+                size="default"
+                onClick={() => setIsCreateModalOpen(true)}
+                className="gap-2 shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                New Collection
+              </Button>
             </div>
 
             {/* ── Collection type tiles ──────────────────────────────────── */}
@@ -327,18 +322,15 @@ export default function Launchpad() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {chainTiles.map((tile) => {
                     const Icon = tile.icon;
-                    const disabled = selectedChain === "monad";
                     return (
                       <button
                         key={tile.id}
-                        disabled={disabled}
                         onClick={() => handleTileClick(tile)}
                         className={cn(
                           "group relative text-left p-5 rounded-xl border transition-all duration-150",
                           tile.highlight
                             ? "border-primary/40 bg-primary/5 hover:border-primary/70 hover:bg-primary/8"
-                            : "border-border hover:border-border/80 hover:bg-muted/40",
-                          disabled && "opacity-40 cursor-not-allowed"
+                            : "border-border hover:border-border/80 hover:bg-muted/40"
                         )}
                       >
                         {tile.tag && (
@@ -358,8 +350,8 @@ export default function Launchpad() {
                           "flex items-center gap-1 mt-3 text-xs font-medium transition-colors",
                           tile.highlight ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                         )}>
-                          <span>{disabled ? "Coming Soon" : "Start Building"}</span>
-                          {!disabled && <ChevronRight className="w-3.5 h-3.5" />}
+                          <span>Start Building</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
                         </div>
                       </button>
                     );

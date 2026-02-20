@@ -118,7 +118,7 @@ export function CreateCollectionModal({
   const chainSymbol = currentChain.symbol;
 
   // Check if full deployment is supported for this chain
-  const isChainFullySupported = selectedChain === 'solana' || selectedChain === 'xrpl';
+  const isChainFullySupported = selectedChain === 'solana' || selectedChain === 'xrpl' || selectedChain === 'monad';
 
   // Wizard State
   const [mode, setMode] = useState<"basic" | "advanced">("basic");

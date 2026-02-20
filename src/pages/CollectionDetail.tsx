@@ -310,7 +310,7 @@ export default function CollectionDetail() {
   const isSolana = collectionChain === 'solana';
   const isXRPL = collectionChain === 'xrpl';
   const isMonad = collectionChain === 'monad';
-  const isMintingSupported = isSolana; // Only Solana fully supports minting for now
+  const isMintingSupported = isSolana || isMonad; // Solana and Monad support minting
   const currency = chainConfig.symbol;
   const collectionNetwork = chainConfig.name;
   const isCollectionTestnet = isChainTestnet(collectionChainStr);

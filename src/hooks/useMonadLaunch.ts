@@ -121,8 +121,8 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
             const result = await deployMonadCollection(params);
 
             if (!result.success) {
-                toast.info('Monad NFT deployment coming soon!', {
-                    description: 'Monad is currently in testnet. Full NFT deployment will be available at mainnet launch.',
+                toast.error('Monad NFT deployment failed', {
+                    description: result.error || 'Please check your wallet and try again.',
                 });
             }
 
@@ -158,7 +158,7 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
             const result = await mintMonadNFT(contractAddress, quantity, mintPrice);
 
             if (!result.success) {
-                toast.info('Monad minting coming soon!');
+                toast.error(result.error || 'Monad minting failed');
             }
 
             return result;

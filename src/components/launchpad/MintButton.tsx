@@ -30,7 +30,7 @@ export function MintButton({
     const currencySymbol = chainConfig.symbol;
 
     // Check if chain supports minting
-    const isMintingSupported = chain === 'solana';
+    const isMintingSupported = chain === 'solana' || chain === 'monad';
 
     const handleMint = async () => {
         if (!isMintingSupported) {
