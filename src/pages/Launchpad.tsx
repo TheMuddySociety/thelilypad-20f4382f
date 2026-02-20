@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
-import { HybridEscrowForm } from "@/components/launchpad/HybridEscrowForm";
+import { HybridLaunchWizard } from "@/components/launchpad/HybridLaunchWizard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -312,294 +312,294 @@ export default function Launchpad() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <HybridEscrowForm onClose={() => setShowHybridForm(false)} />
+                <HybridLaunchWizard onClose={() => setShowHybridForm(false)} />
               </motion.div>
             ) : (
-            <>
-            {/* ── Chain header + Create button ───────────────────────────── */}
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <ChainIcon chain={selectedChain} className="w-7 h-7" />
-                <div>
-                  <h2 className="text-xl font-bold">{currentChain.name}</h2>
-                  <p className="text-xs text-muted-foreground">{isTestnet ? "Testnet Mode" : "Mainnet"}</p>
-                </div>
-              </div>
-              <Button
-                size="default"
-                onClick={() => setIsCreateModalOpen(true)}
-                className="gap-2 shadow-sm"
-              >
-                <Plus className="w-4 h-4" />
-                New Collection
-              </Button>
-            </div>
-
-            {/* ── Collection type tiles ──────────────────────────────────── */}
-            <AnimatePresence mode="wait">
-              <motion.section
-                key={selectedChain}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Collection Types</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {chainTiles.map((tile) => {
-                    const Icon = tile.icon;
-                    return (
-                      <button
-                        key={tile.id}
-                        onClick={() => handleTileClick(tile)}
-                        className={cn(
-                          "group relative text-left p-5 rounded-xl border transition-all duration-150",
-                          tile.highlight
-                            ? "border-primary/40 bg-primary/5 hover:border-primary/70 hover:bg-primary/8"
-                            : "border-border hover:border-border/80 hover:bg-muted/40"
-                        )}
-                      >
-                        {tile.tag && (
-                          <Badge className="absolute top-3 right-3 text-[9px] h-4 px-1.5 bg-primary/15 text-primary border-primary/30 border">
-                            {tile.tag}
-                          </Badge>
-                        )}
-                        <div className={cn(
-                          "w-9 h-9 rounded-lg flex items-center justify-center mb-3",
-                          tile.highlight ? "bg-primary/15" : "bg-muted"
-                        )}>
-                          <Icon className={cn("w-5 h-5", tile.highlight ? "text-primary" : "text-muted-foreground")} />
-                        </div>
-                        <p className="font-semibold text-sm mb-1">{tile.title}</p>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{tile.description}</p>
-                        <div className={cn(
-                          "flex items-center gap-1 mt-3 text-xs font-medium transition-colors",
-                          tile.highlight ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                        )}>
-                          <span>Start Building</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </motion.section>
-            </AnimatePresence>
-
-            {/* ── Draft resume banner ────────────────────────────────────── */}
-            {draft && (
-              <Card className="border-primary/30 bg-primary/5">
-                <CardContent className="p-4 flex items-center gap-4">
-                  {draft.imageUrl
-                    ? <img src={draft.imageUrl} alt="Draft" className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                    : <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center shrink-0"><ImageIcon className="w-5 h-5 text-primary" /></div>
-                  }
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">{draft.name || "Untitled Draft"}</p>
-                    <p className="text-xs text-muted-foreground">Saved {formatDistanceToNow(new Date(draft.savedAt), { addSuffix: true })} · Step {draft.currentStep + 1} of 5</p>
-                    <div className="w-full bg-muted rounded-full h-1 mt-2">
-                      <div className="bg-primary h-1 rounded-full" style={{ width: `${getProgress(draft.currentStep)}%` }} />
+              <>
+                {/* ── Chain header + Create button ───────────────────────────── */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <ChainIcon chain={selectedChain} className="w-7 h-7" />
+                    <div>
+                      <h2 className="text-xl font-bold">{currentChain.name}</h2>
+                      <p className="text-xs text-muted-foreground">{isTestnet ? "Testnet Mode" : "Mainnet"}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <Button size="sm" onClick={continueDraft} className="gap-1.5">
-                      <FileEdit className="w-3.5 h-3.5" />
-                      Resume
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={deleteDraft} className="text-destructive hover:text-destructive hover:bg-destructive/10 px-2">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* ── Featured collections ────────────────────────────────────── */}
-            <section>
-              <HomepageFeaturedCollections />
-            </section>
-
-            {/* ── Recent Sales ───────────────────────────────────────────── */}
-            <section>
-              <RecentSalesTable />
-            </section>
-
-            {/* ── Collections list ───────────────────────────────────────── */}
-            <section>
-              {/* Filter tabs */}
-              <div className="flex items-center gap-1 mb-5 flex-wrap">
-                {FILTER_TABS.map(({ value, label, icon: Icon }) => (
-                  <button
-                    key={value}
-                    onClick={() => setActiveTab(value)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                      activeTab === value
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                    )}
+                  <Button
+                    size="default"
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="gap-2 shadow-sm"
                   >
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                    {value === "drafts" && draft && (
-                      <Badge variant="secondary" className="h-4 px-1 text-[9px]">1</Badge>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* Drafts tab */}
-              {activeTab === "drafts" && !draft && (
-                <div className="text-center py-16 border border-dashed rounded-xl">
-                  <FileEdit className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium mb-1">No drafts saved</p>
-                  <p className="text-sm text-muted-foreground">Start a collection and your progress will auto-save here.</p>
+                    <Plus className="w-4 h-4" />
+                    New Collection
+                  </Button>
                 </div>
-              )}
 
-              {/* Collection grid */}
-              {activeTab !== "drafts" && (
-                isLoading
-                  ? <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-primary" /></div>
-                  : filteredCollections.length === 0
-                    ? (
-                      <div className="text-center py-16 border border-dashed rounded-xl">
-                        <Rocket className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                        <p className="font-medium mb-1">No collections yet</p>
-                        <p className="text-sm text-muted-foreground mb-5">Be the first to launch!</p>
-                        <Button onClick={() => setIsCreateModalOpen(true)} size="sm">
-                          <Plus className="w-4 h-4 mr-1.5" />
-                          Create Collection
+                {/* ── Collection type tiles ──────────────────────────────────── */}
+                <AnimatePresence mode="wait">
+                  <motion.section
+                    key={selectedChain}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Collection Types</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {chainTiles.map((tile) => {
+                        const Icon = tile.icon;
+                        return (
+                          <button
+                            key={tile.id}
+                            onClick={() => handleTileClick(tile)}
+                            className={cn(
+                              "group relative text-left p-5 rounded-xl border transition-all duration-150",
+                              tile.highlight
+                                ? "border-primary/40 bg-primary/5 hover:border-primary/70 hover:bg-primary/8"
+                                : "border-border hover:border-border/80 hover:bg-muted/40"
+                            )}
+                          >
+                            {tile.tag && (
+                              <Badge className="absolute top-3 right-3 text-[9px] h-4 px-1.5 bg-primary/15 text-primary border-primary/30 border">
+                                {tile.tag}
+                              </Badge>
+                            )}
+                            <div className={cn(
+                              "w-9 h-9 rounded-lg flex items-center justify-center mb-3",
+                              tile.highlight ? "bg-primary/15" : "bg-muted"
+                            )}>
+                              <Icon className={cn("w-5 h-5", tile.highlight ? "text-primary" : "text-muted-foreground")} />
+                            </div>
+                            <p className="font-semibold text-sm mb-1">{tile.title}</p>
+                            <p className="text-xs text-muted-foreground leading-relaxed">{tile.description}</p>
+                            <div className={cn(
+                              "flex items-center gap-1 mt-3 text-xs font-medium transition-colors",
+                              tile.highlight ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                            )}>
+                              <span>Start Building</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.section>
+                </AnimatePresence>
+
+                {/* ── Draft resume banner ────────────────────────────────────── */}
+                {draft && (
+                  <Card className="border-primary/30 bg-primary/5">
+                    <CardContent className="p-4 flex items-center gap-4">
+                      {draft.imageUrl
+                        ? <img src={draft.imageUrl} alt="Draft" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                        : <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center shrink-0"><ImageIcon className="w-5 h-5 text-primary" /></div>
+                      }
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm">{draft.name || "Untitled Draft"}</p>
+                        <p className="text-xs text-muted-foreground">Saved {formatDistanceToNow(new Date(draft.savedAt), { addSuffix: true })} · Step {draft.currentStep + 1} of 5</p>
+                        <div className="w-full bg-muted rounded-full h-1 mt-2">
+                          <div className="bg-primary h-1 rounded-full" style={{ width: `${getProgress(draft.currentStep)}%` }} />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button size="sm" onClick={continueDraft} className="gap-1.5">
+                          <FileEdit className="w-3.5 h-3.5" />
+                          Resume
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={deleteDraft} className="text-destructive hover:text-destructive hover:bg-destructive/10 px-2">
+                          <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
-                    )
-                    : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                        {filteredCollections.map((collection) => {
-                          const StatusIcon = statusIcons[collection.status as keyof typeof statusIcons] ?? Sparkles;
-                          const isOwner = !!(currentUserId && collection.creator_id === currentUserId);
-                          const isDeployed = !!collection.contract_address;
-                          const canEdit = isOwner && !isDeployed;
-                          const progress = getCollectionProgress(collection);
-                          const health = getHealthStatus(collection);
+                    </CardContent>
+                  </Card>
+                )}
 
-                          return (
-                            <Card
-                              key={collection.id}
-                              className={cn(
-                                "overflow-hidden hover:border-primary/40 transition-all cursor-pointer group",
-                                canEdit && "border-primary/20"
-                              )}
-                              onClick={() => navigate(`/launchpad/${collection.id}`)}
-                            >
-                              <div className="aspect-square relative overflow-hidden bg-muted">
-                                {collection.image_url
-                                  ? <img src={collection.image_url} alt={collection.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                                  : <div className="w-full h-full flex items-center justify-center"><Rocket className="w-10 h-10 text-muted-foreground" /></div>
-                                }
-                                {/* Badges overlay */}
-                                <div className="absolute top-2.5 right-2.5 flex gap-1.5 flex-wrap justify-end">
-                                  <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-md border-white/10 h-5 text-[10px]">
-                                    <ChainIcon chain={selectedChain} className="w-2.5 h-2.5 mr-1" />
-                                    {currentChain.symbol}
-                                  </Badge>
-                                  {canEdit && (
-                                    <>
-                                      <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 h-5 text-[10px]">
-                                        <Pencil className="w-2.5 h-2.5 mr-1" />
-                                        Draft
+                {/* ── Featured collections ────────────────────────────────────── */}
+                <section>
+                  <HomepageFeaturedCollections />
+                </section>
+
+                {/* ── Recent Sales ───────────────────────────────────────────── */}
+                <section>
+                  <RecentSalesTable />
+                </section>
+
+                {/* ── Collections list ───────────────────────────────────────── */}
+                <section>
+                  {/* Filter tabs */}
+                  <div className="flex items-center gap-1 mb-5 flex-wrap">
+                    {FILTER_TABS.map(({ value, label, icon: Icon }) => (
+                      <button
+                        key={value}
+                        onClick={() => setActiveTab(value)}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                          activeTab === value
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                        )}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {label}
+                        {value === "drafts" && draft && (
+                          <Badge variant="secondary" className="h-4 px-1 text-[9px]">1</Badge>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Drafts tab */}
+                  {activeTab === "drafts" && !draft && (
+                    <div className="text-center py-16 border border-dashed rounded-xl">
+                      <FileEdit className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                      <p className="font-medium mb-1">No drafts saved</p>
+                      <p className="text-sm text-muted-foreground">Start a collection and your progress will auto-save here.</p>
+                    </div>
+                  )}
+
+                  {/* Collection grid */}
+                  {activeTab !== "drafts" && (
+                    isLoading
+                      ? <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-primary" /></div>
+                      : filteredCollections.length === 0
+                        ? (
+                          <div className="text-center py-16 border border-dashed rounded-xl">
+                            <Rocket className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                            <p className="font-medium mb-1">No collections yet</p>
+                            <p className="text-sm text-muted-foreground mb-5">Be the first to launch!</p>
+                            <Button onClick={() => setIsCreateModalOpen(true)} size="sm">
+                              <Plus className="w-4 h-4 mr-1.5" />
+                              Create Collection
+                            </Button>
+                          </div>
+                        )
+                        : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                            {filteredCollections.map((collection) => {
+                              const StatusIcon = statusIcons[collection.status as keyof typeof statusIcons] ?? Sparkles;
+                              const isOwner = !!(currentUserId && collection.creator_id === currentUserId);
+                              const isDeployed = !!collection.contract_address;
+                              const canEdit = isOwner && !isDeployed;
+                              const progress = getCollectionProgress(collection);
+                              const health = getHealthStatus(collection);
+
+                              return (
+                                <Card
+                                  key={collection.id}
+                                  className={cn(
+                                    "overflow-hidden hover:border-primary/40 transition-all cursor-pointer group",
+                                    canEdit && "border-primary/20"
+                                  )}
+                                  onClick={() => navigate(`/launchpad/${collection.id}`)}
+                                >
+                                  <div className="aspect-square relative overflow-hidden bg-muted">
+                                    {collection.image_url
+                                      ? <img src={collection.image_url} alt={collection.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                      : <div className="w-full h-full flex items-center justify-center"><Rocket className="w-10 h-10 text-muted-foreground" /></div>
+                                    }
+                                    {/* Badges overlay */}
+                                    <div className="absolute top-2.5 right-2.5 flex gap-1.5 flex-wrap justify-end">
+                                      <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-md border-white/10 h-5 text-[10px]">
+                                        <ChainIcon chain={selectedChain} className="w-2.5 h-2.5 mr-1" />
+                                        {currentChain.symbol}
                                       </Badge>
-                                      <button
-                                        className="h-5 w-5 flex items-center justify-center rounded bg-destructive/20 text-destructive border border-destructive/30 hover:bg-destructive/40 transition-colors"
-                                        onClick={(e) => { e.stopPropagation(); setDeleteCollectionId(collection.id); }}
-                                      >
-                                        <Trash2 className="w-2.5 h-2.5" />
-                                      </button>
-                                    </>
-                                  )}
-                                  {isOwner && isDeployed && (
-                                    <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 h-5 text-[10px]">
-                                      <Lock className="w-2.5 h-2.5 mr-1" />
-                                      Deployed
-                                    </Badge>
-                                  )}
-                                </div>
-                                <Badge variant="outline" className={`absolute top-2.5 left-2.5 h-5 text-[10px] ${statusColors[collection.status as keyof typeof statusColors]}`}>
-                                  <StatusIcon className="w-2.5 h-2.5 mr-1" />
-                                  {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
-                                </Badge>
-                              </div>
-
-                              <CardHeader className="pb-2 pt-4 px-4">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <CardTitle className="text-base leading-tight">{collection.name}</CardTitle>
-                                      {isInProgram(collection.id) && <BuybackProgramBadge />}
-                                    </div>
-                                    <CardDescription className="text-xs mt-0.5">
-                                      by {collection.creator_address.slice(0, 6)}…{collection.creator_address.slice(-4)}
-                                    </CardDescription>
-                                  </div>
-                                  {isOwner && (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger>
-                                          <Badge variant="outline" className={`text-[9px] px-1.5 h-5 ${health.color} border-current/30 bg-current/10`}>
-                                            {progress.percentage}%
+                                      {canEdit && (
+                                        <>
+                                          <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 h-5 text-[10px]">
+                                            <Pencil className="w-2.5 h-2.5 mr-1" />
+                                            Draft
                                           </Badge>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="left" className="max-w-[180px]">
-                                          <p className="font-medium mb-1">{health.label}</p>
-                                          <p className="text-xs text-muted-foreground">{progress.completedSteps}/{progress.steps.length} steps</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
-                                </div>
-                              </CardHeader>
+                                          <button
+                                            className="h-5 w-5 flex items-center justify-center rounded bg-destructive/20 text-destructive border border-destructive/30 hover:bg-destructive/40 transition-colors"
+                                            onClick={(e) => { e.stopPropagation(); setDeleteCollectionId(collection.id); }}
+                                          >
+                                            <Trash2 className="w-2.5 h-2.5" />
+                                          </button>
+                                        </>
+                                      )}
+                                      {isOwner && isDeployed && (
+                                        <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 h-5 text-[10px]">
+                                          <Lock className="w-2.5 h-2.5 mr-1" />
+                                          Deployed
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <Badge variant="outline" className={`absolute top-2.5 left-2.5 h-5 text-[10px] ${statusColors[collection.status as keyof typeof statusColors]}`}>
+                                      <StatusIcon className="w-2.5 h-2.5 mr-1" />
+                                      {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
+                                    </Badge>
+                                  </div>
 
-                              <CardContent className="px-4 pb-4 space-y-2.5">
-                                {isOwner && !isDeployed && (
-                                  <div>
-                                    <Progress value={progress.percentage} className="h-1" />
-                                    {progress.nextStep && (
-                                      <p className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
-                                        <ArrowRight className="w-2.5 h-2.5 text-primary" />
-                                        Next: {progress.nextStep.name}
-                                      </p>
+                                  <CardHeader className="pb-2 pt-4 px-4">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <CardTitle className="text-base leading-tight">{collection.name}</CardTitle>
+                                          {isInProgram(collection.id) && <BuybackProgramBadge />}
+                                        </div>
+                                        <CardDescription className="text-xs mt-0.5">
+                                          by {collection.creator_address.slice(0, 6)}…{collection.creator_address.slice(-4)}
+                                        </CardDescription>
+                                      </div>
+                                      {isOwner && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger>
+                                              <Badge variant="outline" className={`text-[9px] px-1.5 h-5 ${health.color} border-current/30 bg-current/10`}>
+                                                {progress.percentage}%
+                                              </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="left" className="max-w-[180px]">
+                                              <p className="font-medium mb-1">{health.label}</p>
+                                              <p className="text-xs text-muted-foreground">{progress.completedSteps}/{progress.steps.length} steps</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                    </div>
+                                  </CardHeader>
+
+                                  <CardContent className="px-4 pb-4 space-y-2.5">
+                                    {isOwner && !isDeployed && (
+                                      <div>
+                                        <Progress value={progress.percentage} className="h-1" />
+                                        {progress.nextStep && (
+                                          <p className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
+                                            <ArrowRight className="w-2.5 h-2.5 text-primary" />
+                                            Next: {progress.nextStep.name}
+                                          </p>
+                                        )}
+                                      </div>
                                     )}
-                                  </div>
-                                )}
-                                {isDeployed && (
-                                  <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                      <span className="text-muted-foreground">Minted</span>
-                                      <span className="font-medium">{collection.minted} / {collection.total_supply}</span>
+                                    {isDeployed && (
+                                      <div>
+                                        <div className="flex justify-between text-xs mb-1">
+                                          <span className="text-muted-foreground">Minted</span>
+                                          <span className="font-medium">{collection.minted} / {collection.total_supply}</span>
+                                        </div>
+                                        <div className="w-full bg-muted rounded-full h-1">
+                                          <div className="bg-primary h-1 rounded-full" style={{ width: `${collection.total_supply > 0 ? (collection.minted / collection.total_supply) * 100 : 0}%` }} />
+                                        </div>
+                                      </div>
+                                    )}
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="text-muted-foreground">Price</span>
+                                      <span className="font-medium">{getCollectionPrice(collection)}</span>
                                     </div>
-                                    <div className="w-full bg-muted rounded-full h-1">
-                                      <div className="bg-primary h-1 rounded-full" style={{ width: `${collection.total_supply > 0 ? (collection.minted / collection.total_supply) * 100 : 0}%` }} />
+                                    <div className="flex flex-wrap gap-1">
+                                      {getPhaseNames(collection).map((phase) => (
+                                        <Badge key={phase} variant="secondary" className="text-[10px] h-4 px-1.5">{phase}</Badge>
+                                      ))}
                                     </div>
-                                  </div>
-                                )}
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="text-muted-foreground">Price</span>
-                                  <span className="font-medium">{getCollectionPrice(collection)}</span>
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {getPhaseNames(collection).map((phase) => (
-                                    <Badge key={phase} variant="secondary" className="text-[10px] h-4 px-1.5">{phase}</Badge>
-                                  ))}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    )
-              )}
-            </section>
-            </>
+                                  </CardContent>
+                                </Card>
+                              );
+                            })}
+                          </div>
+                        )
+                  )}
+                </section>
+              </>
             )}
           </div>
         </div>
