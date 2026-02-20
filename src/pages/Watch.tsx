@@ -99,7 +99,6 @@ const Watch = () => {
           {/* Video Player */}
           <div className="lg:col-span-3">
             <WebRTCViewer
-              roomId={playbackId}
               className="w-full aspect-video rounded-xl overflow-hidden"
             />
             

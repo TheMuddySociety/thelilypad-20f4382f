@@ -26,6 +26,8 @@ export type { MonadCollectionParams, MonadDeployResult } from './monad/types';
 
 // Re-export program wrappers
 export { createCoreCollection, createCoreCandyMachine, insertItemsToCandyMachine } from './solana/programs';
+export { initHybridEscrow, captureHybridNft, releaseHybridNft, deriveEscrowPda, mplHybrid } from './solana/hybrid';
+export type { HybridEscrowConfig, CaptureParams, ReleaseParams } from './solana/hybrid';
 export type { LaunchpadPhase } from './solana/programs';
 export { deployXRPLCollection, mintXRPLItems, setAccountDomain, resolveAccountDomain } from './xrpl/domain';
 export { deployMonadCollection, mintMonadNFT } from './monad/contracts';
