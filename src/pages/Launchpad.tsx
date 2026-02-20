@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
+import { HybridEscrowForm } from "@/components/launchpad/HybridEscrowForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -138,6 +139,7 @@ export default function Launchpad() {
   const [activeTab, setActiveTab] = useState("all");
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState(false);
+  const [showHybridForm, setShowHybridForm] = useState(false);
 
   const {
     collections, isLoading, draft, loadDraft, deleteDraft,
@@ -184,12 +186,12 @@ export default function Launchpad() {
   const chainTiles = COLLECTION_TYPES.filter((t) => t.chains.includes(selectedChain));
 
   const handleTileClick = (tile: CollectionTypeTile) => {
-    if (selectedChain === "monad") return; // soon
+    if (selectedChain === "monad") return;
     if (tile.id === "hybrid-404") {
-      setCreateModalDefaultStandard("hybrid-404");
-    } else {
-      setCreateModalDefaultStandard(tile.xrplDefault ? "xrpl-589" : tile.id === "music" ? "music" : "core");
+      setShowHybridForm(true);
+      return;
     }
+    setCreateModalDefaultStandard(tile.xrplDefault ? "xrpl-589" : tile.id === "music" ? "music" : "core");
     setIsCreateModalOpen(true);
   };
 
@@ -303,6 +305,17 @@ export default function Launchpad() {
           {/* ── Right panel ─────────────────────────────────────────────── */}
           <div className="flex-1 min-w-0 space-y-10">
 
+            {/* ── MPL-404 Hybrid Escrow Form (full-page overlay in panel) ── */}
+            {showHybridForm ? (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <HybridEscrowForm onClose={() => setShowHybridForm(false)} />
+              </motion.div>
+            ) : (
+            <>
             {/* ── Chain header + Create button ───────────────────────────── */}
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -586,6 +599,8 @@ export default function Launchpad() {
                     )
               )}
             </section>
+            </>
+            )}
           </div>
         </div>
       </main>
