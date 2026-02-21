@@ -22,6 +22,7 @@ import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowli
 import { RevealHistory } from "@/components/RevealHistory";
 import { RarityLeaderboard } from "@/components/RarityLeaderboard";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
+import MistBackground from "@/components/ui/mist-background";
 import { NFTRevealModal } from "@/components/NFTRevealModal";
 import { MintProcessOverlay } from "@/components/MintProcessOverlay";
 import { MintCountdown } from "@/components/MintCountdown";
@@ -927,19 +928,28 @@ export default function CollectionDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* WebGL Mist Background */}
+      <MistBackground />
+
       <Navbar />
 
       {/* Banner */}
-      <div className="relative h-48 sm:h-64 md:h-80 bg-gradient-to-br from-primary/20 to-accent/20">
+      <div className="relative h-48 sm:h-64 md:h-80 overflow-hidden">
+        {/* Gradient fallback when no banner */}
+        {!(collection.banner_url || collection.image_url) && (
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
+        )}
         {(collection.banner_url || collection.image_url) && (
           <img
             src={collection.banner_url || collection.image_url || ''}
             alt={collection.name}
-            className="w-full h-full object-cover opacity-30"
+            className="w-full h-full object-cover opacity-40"
+            style={{ aspectRatio: '16/5' }}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+        {/* Bottom gradient fade into content */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
       </div>
 
       <main className="container mx-auto px-4 -mt-20 relative z-10 pb-12">
