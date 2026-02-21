@@ -273,7 +273,10 @@ export default function LaunchpadCreate() {
                 .select('id')
                 .single();
 
-            if (placeholderError) throw new Error("Failed to initialize collection record.");
+            if (placeholderError) {
+                console.error('[deploy] collection insert failed:', placeholderError.message, placeholderError.code, placeholderError.details);
+                throw new Error(`Failed to initialize collection record: ${placeholderError.message}`);
+            }
 
             const collectionId = placeholderCollection.id;
             const storageInfo = getCollectionStorageInfo(collectionId);
@@ -393,7 +396,7 @@ export default function LaunchpadCreate() {
                         contract_address: xrplRes.address,
                         image_url: displayImageUrl,
                         status: 'active',
-                        metadata: { imageCid: imageFolderCid, metadataCid, storage: 'ipfs' },
+                        ipfs_base_cid: metadataCid,
                     }).eq('id', collectionId);
                 } else {
                     // ── Supabase Fallback (no Pinata JWT) ─────────────────────
