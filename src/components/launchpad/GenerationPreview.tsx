@@ -16,6 +16,7 @@ import { NFTImageCompositor } from "./NFTImageCompositor";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadFolderToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob } from "@/lib/pinataUpload";
 
 // XRPL-specific resolution presets
 const RESOLUTION_PRESETS = [
@@ -768,11 +769,101 @@ export function GenerationPreview({
 
   // Upload to IPFS via Pinata
   const uploadToIpfs = async () => {
-    // ipfs-upload Edge Function is not yet deployed.
-    // Until it is, direct users to the ZIP export path.
-    toast.error(
-      "IPFS upload is not yet available. Please use the ZIP Export option and upload the files manually via Pinata or NFT.Storage."
-    );
+    if (!isPinataConfigured()) {
+      toast.error("Pinata JWT not configured. Add VITE_PINATA_JWT to your .env file, or use ZIP Export instead.");
+      return;
+    }
+
+    const count = Math.min(parseInt(exportCount) || 100, 500);
+    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
+    if (!hasImages) {
+      toast.error("No images found. Add images to your traits first.");
+      return;
+    }
+
+    setIsUploadingToIpfs(true);
+    setExportProgress(0);
+    setExportStatus("Generating NFTs for IPFS...");
+
+    try {
+      const { nfts } = generateNFTBatch(count);
+
+      // 1. Render images and build blobs
+      const imageFiles: { path: string; content: Blob }[] = [];
+      for (let i = 0; i < nfts.length; i++) {
+        setExportStatus(`Rendering image ${i + 1} of ${count}...`);
+        setExportProgress(((i + 1) / count) * 40);
+
+        const imageDataUrl = await compositeNFTImage(nfts[i]);
+        if (imageDataUrl) {
+          imageFiles.push({ path: `${nfts[i].id}.png`, content: dataUrlToBlob(imageDataUrl) });
+        }
+      }
+
+      // 2. Pin images folder
+      setExportStatus("Pinning images to IPFS...");
+      setExportProgress(50);
+      const imagePin = await uploadFolderToPinata(imageFiles, `${collectionName}-images`);
+      const imageCid = imagePin.IpfsHash;
+
+      // 3. Build metadata with real IPFS URIs
+      setExportStatus("Building metadata...");
+      setExportProgress(65);
+      const metadataFiles: { path: string; content: Blob }[] = [];
+      for (const nft of nfts) {
+        const isXrpl = xrplMode;
+        const metadata = isXrpl
+          ? {
+            schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
+            nftType: "art.v0",
+            name: `${collectionName} #${nft.id}`,
+            description: collectionDescription || `${collectionName} NFT #${nft.id}`,
+            image: getIpfsUri(imageCid, `${nft.id}.png`),
+            image_mimetype: "image/png",
+            attributes: nft.traits.map((t) => ({ trait_type: t.layerName, value: t.traitName })),
+          }
+          : {
+            name: `${collectionName} #${nft.id}`,
+            description: collectionDescription || `${collectionName} NFT #${nft.id}`,
+            image: getIpfsUri(imageCid, `${nft.id}.png`),
+            attributes: nft.traits.map((t) => ({ trait_type: t.layerName, value: t.traitName })),
+          };
+        metadataFiles.push({
+          path: `${nft.id}.json`,
+          content: new Blob([JSON.stringify(metadata, null, 2)], { type: "application/json" }),
+        });
+      }
+
+      // 4. Pin metadata folder
+      setExportStatus("Pinning metadata to IPFS...");
+      setExportProgress(80);
+      const metadataPin = await uploadFolderToPinata(metadataFiles, `${collectionName}-metadata`);
+      const metadataCid = metadataPin.IpfsHash;
+
+      // 5. Store result for display
+      setIpfsResult({
+        cid: metadataCid,
+        gatewayUrl: getIpfsGatewayUrl(metadataCid),
+        ipfsUrl: getIpfsUri(metadataCid),
+      });
+
+      setExportProgress(100);
+      setExportStatus("Upload complete!");
+      toast.success(`Pinned ${count} NFTs to IPFS!`, {
+        description: `Metadata CID: ${metadataCid.slice(0, 12)}...`,
+      });
+      console.log("[IPFS] Images CID:", imageCid);
+      console.log("[IPFS] Metadata CID:", metadataCid);
+    } catch (err: any) {
+      console.error("IPFS upload failed:", err);
+      toast.error(`IPFS upload failed: ${err.message || "Unknown error"}`);
+    } finally {
+      setTimeout(() => {
+        setIsUploadingToIpfs(false);
+        setExportProgress(0);
+        setExportStatus("");
+      }, 1800);
+    }
   };
 
   const copyToClipboard = (text: string) => {
@@ -1250,9 +1341,9 @@ export function GenerationPreview({
                                   <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
                                     <div
                                       className={`absolute inset-y-0 left-0 rounded-full ${trait.tier === "legendary" ? "bg-amber-500" :
-                                          trait.tier === "rare" ? "bg-purple-500" :
-                                            trait.tier === "uncommon" ? "bg-blue-500" :
-                                              "bg-muted-foreground"
+                                        trait.tier === "rare" ? "bg-purple-500" :
+                                          trait.tier === "uncommon" ? "bg-blue-500" :
+                                            "bg-muted-foreground"
                                         }`}
                                       style={{ width: `${Math.min(trait.percentage, 100)}%` }}
                                     />

@@ -45,9 +45,8 @@ import { getCollectionStorageInfo, getChainRootUri } from "@/lib/payloadMapper";
 import { uploadFolderToPinata, uploadFileToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob } from "@/lib/pinataUpload";
 import { useChain } from "@/providers/ChainProvider";
 import { useChainTheme } from "@/hooks/useChainTheme";
+import { useDraftCollection } from "@/hooks/useDraftCollection";
 import { cn } from "@/lib/utils";
-
-const DRAFT_KEY = "collection-draft";
 
 // Default Phases
 const defaultPhases: LaunchpadPhase[] = [
@@ -113,6 +112,9 @@ export default function LaunchpadCreate() {
     const solanaLaunch = useSolanaLaunch();
     const xrplLaunch = useXRPLLaunch();
 
+    // Draft persistence
+    const { hasDraft, loadDraft, saveDraft, clearDraft } = useDraftCollection(chainParam || 'solana', typeParam || 'generative');
+
     // Get current chain config
     const currentChain = CHAINS[selectedChain];
     const chainSymbol = currentChain.symbol;
@@ -171,22 +173,40 @@ export default function LaunchpadCreate() {
         }
     }, [typeParam, is1of1]);
 
-    // Draft auto-save
+    // Draft restoration on mount
     useEffect(() => {
-        const draft = {
+        const draft = loadDraft();
+        if (draft) {
+            setName(draft.name || '');
+            setSymbol(draft.symbol || '');
+            setDescription(draft.description || '');
+            setRoyaltyPercent(draft.royaltyPercent ?? 5);
+            setTargetSupply(draft.targetSupply ?? 100);
+            setTreasuryWallet(draft.treasuryWallet || '');
+            if (draft.phases?.length) setPhases(draft.phases);
+            if (draft.currentStep > 0) setCurrentStep(draft.currentStep);
+            if (draft.mode) setMode(draft.mode);
+            toast.info('Draft restored — pick up where you left off', { duration: 3000 });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Only run once on mount
+
+    // Draft auto-save (debounced via hook)
+    useEffect(() => {
+        // Only save once user has entered something
+        if (!name && !symbol) return;
+        saveDraft({
             name,
             symbol,
             description,
-            totalSupply: String(folderAssets.length || targetSupply),
-            royalty: String(royaltyPercent),
+            royaltyPercent,
+            targetSupply,
+            mode,
             currentStep,
-            layers,
-            phases,
-            imageUrl: coverImage || '',
-            savedAt: new Date().toISOString(),
-        };
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    }, [name, symbol, description, currentStep, layers, phases, folderAssets.length, targetSupply, royaltyPercent, coverImage]);
+            treasuryWallet,
+            phases: phases as any[],
+        });
+    }, [name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet, phases, saveDraft]);
 
     const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -407,6 +427,7 @@ export default function LaunchpadCreate() {
             }
 
             toast.success(`${currentChain.name} Launch Successful!`, { id: 'deploy-status' });
+            clearDraft();
             navigate('/launchpad');
 
         } catch (e: any) {
@@ -482,9 +503,24 @@ export default function LaunchpadCreate() {
                                 {is1of1 ? '1/1 & Limited Editions' : `Create ${currentChain.name} Collection`}
                             </span>
                         </div>
-                        <h1 className="text-2xl font-bold gradient-text">
-                            {is1of1 ? 'Artwork Launchpad' : 'Collection Setup'}
-                        </h1>
+                        <div className="flex items-center justify-between">
+                            <h1 className="text-2xl font-bold gradient-text">
+                                {is1of1 ? 'Artwork Launchpad' : 'Collection Setup'}
+                            </h1>
+                            {hasDraft && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        clearDraft();
+                                        window.location.reload();
+                                    }}
+                                    className="text-xs text-muted-foreground hover:text-destructive"
+                                >
+                                    Clear Draft
+                                </Button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="px-4 py-2 flex gap-2 overflow-x-auto bg-muted/10 border-b border-border/50">
