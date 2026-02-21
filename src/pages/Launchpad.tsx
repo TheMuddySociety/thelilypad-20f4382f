@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
-import { HybridLaunchWizard } from "@/components/launchpad/HybridLaunchWizard";
+import { HybridEscrowForm } from "@/components/launchpad/HybridEscrowForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -312,7 +312,7 @@ export default function Launchpad() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <HybridLaunchWizard onClose={() => setShowHybridForm(false)} />
+                <HybridEscrowForm onClose={() => setShowHybridForm(false)} />
               </motion.div>
             ) : (
               <>
