@@ -31,7 +31,7 @@ export type { HybridEscrowConfig, CaptureParams, ReleaseParams } from './solana/
 export { createSplToken, mintSplTokens } from './solana/splToken';
 export type { SplTokenConfig, SplTokenResult } from './solana/splToken';
 export type { LaunchpadPhase } from './solana/programs';
-export { deployXRPLCollection, mintXRPLItems, setAccountDomain, resolveAccountDomain } from './xrpl/domain';
+export { deployXRPLCollection, mintXRPLItems, setAccountDomain, resolveAccountDomain, toHexUri, fromHexUri } from './xrpl/domain';
 export { deployMonadCollection, mintMonadNFT } from './monad/contracts';
 
 // Re-export metadata utilities

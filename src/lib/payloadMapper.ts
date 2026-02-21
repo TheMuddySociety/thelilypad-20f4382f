@@ -39,7 +39,7 @@ export const CHAIN_PAYLOAD_CONFIG = {
         requiresIndividualUpload: false,
     },
     xrpl: {
-        strategy: 'domainField',
+        strategy: 'ipfs',
         requiresIndividualUpload: false,
     },
     monad: {

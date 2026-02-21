@@ -42,6 +42,7 @@ import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { SupportedChain, CHAINS } from "@/config/chains";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
 import { getCollectionStorageInfo, getChainRootUri } from "@/lib/payloadMapper";
+import { uploadFolderToPinata, uploadFileToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob } from "@/lib/pinataUpload";
 import { useChain } from "@/providers/ChainProvider";
 import { useChainTheme } from "@/hooks/useChainTheme";
 import { cn } from "@/lib/utils";
@@ -317,10 +318,79 @@ export default function LaunchpadCreate() {
 
                 await supabase.from("collections").update({ contract_address: collection.address, image_url: imageUri, status: "active" }).eq('id', collectionId);
             } else if (selectedChain === 'xrpl') {
-                toast.loading("Setting XRPL Domain...", { id: 'deploy-status' });
                 const totalSupplyCount = mode === 'advanced' ? (generatedAssets.length || targetSupply) : folderAssets.length;
-                const xrplRes = await xrplLaunch.deployXRPLCollection({ name, symbol, description, totalSupply: totalSupplyCount, baseUri });
-                await supabase.from("collections").update({ contract_address: xrplRes.address, image_url: coverImage || storageInfo.itemImageUri(0, 'png'), status: "active" }).eq('id', collectionId);
+
+                if (isPinataConfigured()) {
+                    // ── IPFS Upload Flow ──────────────────────────────────────
+                    toast.loading(`Uploading ${totalSupplyCount} images to IPFS...`, { id: 'deploy-status' });
+
+                    // Build image files array for folder upload
+                    const imageFiles: { path: string; content: Blob }[] = [];
+                    if (mode === 'advanced' && generatedAssets.length > 0) {
+                        for (let i = 0; i < generatedAssets.length; i++) {
+                            const asset = generatedAssets[i];
+                            if (asset.preview) {
+                                imageFiles.push({ path: `${i}.png`, content: dataUrlToBlob(asset.preview) });
+                            }
+                        }
+                    } else {
+                        for (let i = 0; i < folderAssets.length; i++) {
+                            imageFiles.push({ path: `${i}.png`, content: folderAssets[i].file });
+                        }
+                    }
+
+                    // Pin images folder
+                    const imagesFolderPin = await uploadFolderToPinata(imageFiles, `${name}-images`);
+                    const imageFolderCid = imagesFolderPin.IpfsHash;
+                    console.log('[XRPL] Images pinned:', imageFolderCid);
+
+                    // Build XLS-20 metadata with IPFS image URIs
+                    toast.loading('Building metadata with IPFS URIs...', { id: 'deploy-status' });
+                    const metadataFiles: { path: string; content: Blob }[] = [];
+                    for (let i = 0; i < totalSupplyCount; i++) {
+                        const traits = mode === 'advanced' && generatedAssets[i]
+                            ? generatedAssets[i].metadata.attributes
+                            : [];
+                        const xrplMetadata = {
+                            schema: 'ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm',
+                            nftType: 'art.v0',
+                            name: `${name} #${i + 1}`,
+                            description: description || `${name} NFT #${i + 1}`,
+                            image: getIpfsUri(imageFolderCid, `${i}.png`),
+                            image_mimetype: 'image/png',
+                            attributes: traits,
+                        };
+                        metadataFiles.push({
+                            path: `${i}.json`,
+                            content: new Blob([JSON.stringify(xrplMetadata, null, 2)], { type: 'application/json' }),
+                        });
+                    }
+
+                    // Pin metadata folder
+                    toast.loading('Pinning metadata to IPFS...', { id: 'deploy-status' });
+                    const metadataFolderPin = await uploadFolderToPinata(metadataFiles, `${name}-metadata`);
+                    const metadataCid = metadataFolderPin.IpfsHash;
+                    console.log('[XRPL] Metadata pinned:', metadataCid);
+
+                    // Deploy XRPL collection with IPFS base URI
+                    const ipfsBaseUri = getIpfsUri(metadataCid);
+                    toast.loading('Deploying XRPL Collection...', { id: 'deploy-status' });
+                    const xrplRes = await xrplLaunch.deployXRPLCollection({ name, symbol, description, totalSupply: totalSupplyCount, baseUri: ipfsBaseUri });
+
+                    // Use IPFS gateway URL for collection card thumbnail
+                    const displayImageUrl = coverImage || getIpfsGatewayUrl(imageFolderCid, '0.png');
+                    await supabase.from('collections').update({
+                        contract_address: xrplRes.address,
+                        image_url: displayImageUrl,
+                        status: 'active',
+                        metadata: { imageCid: imageFolderCid, metadataCid, storage: 'ipfs' },
+                    }).eq('id', collectionId);
+                } else {
+                    // ── Supabase Fallback (no Pinata JWT) ─────────────────────
+                    toast.loading('Setting XRPL Domain...', { id: 'deploy-status' });
+                    const xrplRes = await xrplLaunch.deployXRPLCollection({ name, symbol, description, totalSupply: totalSupplyCount, baseUri });
+                    await supabase.from('collections').update({ contract_address: xrplRes.address, image_url: coverImage || storageInfo.itemImageUri(0, 'png'), status: 'active' }).eq('id', collectionId);
+                }
             }
 
             toast.success(`${currentChain.name} Launch Successful!`, { id: 'deploy-status' });

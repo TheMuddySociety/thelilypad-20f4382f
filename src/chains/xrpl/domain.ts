@@ -62,3 +62,27 @@ export async function resolveAccountDomain(account: string): Promise<string | nu
 
     return null;
 }
+
+/**
+ * Convert a URI string to hex encoding for XRPL URI field.
+ * XRPL requires URIs to be hex-encoded and ≤256 bytes.
+ */
+export function toHexUri(uri: string): string {
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(uri);
+    if (bytes.length > 256) {
+        throw new Error(`URI exceeds XRPL 256-byte limit (${bytes.length} bytes): ${uri}`);
+    }
+    return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase();
+}
+
+/**
+ * Decode a hex-encoded URI back to a string.
+ */
+export function fromHexUri(hex: string): string {
+    const bytes = new Uint8Array(hex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
+    return new TextDecoder().decode(bytes);
+}
