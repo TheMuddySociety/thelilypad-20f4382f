@@ -255,7 +255,7 @@ export default function LaunchpadCreate() {
                     status: "upcoming",
                     chain: network === "mainnet" ? selectedChain : `${selectedChain}-devnet`,
                     collection_type: is1of1 ? "one_of_one" : "generative",
-                    total_supply: is1of1 ? artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0) : folderAssets.length || targetSupply,
+                    total_supply: is1of1 ? artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0) : (mode === 'advanced' ? generatedAssets.length || targetSupply : folderAssets.length || targetSupply),
                     phases: phases as any,
                     royalty_percent: royaltyPercent,
                 })
@@ -318,8 +318,9 @@ export default function LaunchpadCreate() {
                 await supabase.from("collections").update({ contract_address: collection.address, image_url: imageUri, status: "active" }).eq('id', collectionId);
             } else if (selectedChain === 'xrpl') {
                 toast.loading("Setting XRPL Domain...", { id: 'deploy-status' });
-                const xrplRes = await xrplLaunch.deployXRPLCollection({ name, symbol, description, totalSupply: folderAssets.length, baseUri });
-                await supabase.from("collections").update({ contract_address: xrplRes.address, image_url: storageInfo.itemImageUri(0, 'png'), status: "active" }).eq('id', collectionId);
+                const totalSupplyCount = mode === 'advanced' ? (generatedAssets.length || targetSupply) : folderAssets.length;
+                const xrplRes = await xrplLaunch.deployXRPLCollection({ name, symbol, description, totalSupply: totalSupplyCount, baseUri });
+                await supabase.from("collections").update({ contract_address: xrplRes.address, image_url: coverImage || storageInfo.itemImageUri(0, 'png'), status: "active" }).eq('id', collectionId);
             }
 
             toast.success(`${currentChain.name} Launch Successful!`, { id: 'deploy-status' });
@@ -455,6 +456,49 @@ export default function LaunchpadCreate() {
                                 )}
                                 {is1of1 && currentStep === 1 && <ArtworkUploader artworks={artworks} onArtworksChange={setArtworks} collectionType="one_of_one" creatorId={address || 'anonymous'} maxItems={100} chainSymbol={chainSymbol} />}
                                 {!is1of1 && currentStep === 2 && (mode === "basic" ? <FolderUploader onAssetsLoaded={handleAssetsLoaded} /> : <LayerManager layers={layers} onLayersChange={setLayers} />)}
+                                {!is1of1 && mode === "advanced" && currentStep === 3 && <TraitRarityEditor layers={layers} onLayersChange={setLayers} />}
+                                {!is1of1 && mode === "advanced" && currentStep === 4 && (
+                                    <div className="space-y-6">
+                                        <div className="space-y-3">
+                                            <Label>Target Supply</Label>
+                                            <Input type="number" value={targetSupply} onChange={e => setTargetSupply(Number(e.target.value))} min={1} max={10000} />
+                                            <p className="text-xs text-muted-foreground">How many unique NFTs to generate from your layers.</p>
+                                        </div>
+                                        {generatedAssets.length > 0 ? (
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <Badge variant="secondary">{generatedAssets.length} Generated</Badge>
+                                                    <Button variant="outline" size="sm" onClick={handleGenerate} disabled={isGenerating}>
+                                                        {isGenerating ? 'Regenerating...' : 'Regenerate'}
+                                                    </Button>
+                                                </div>
+                                                <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
+                                                    {generatedAssets.slice(0, 20).map((asset, i) => (
+                                                        <div key={i} className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                                                            <img src={asset.preview} alt={asset.name} className="w-full h-full object-cover" />
+                                                        </div>
+                                                    ))}
+                                                    {generatedAssets.length > 20 && (
+                                                        <div className="aspect-square rounded-lg flex items-center justify-center border border-border bg-muted/50 text-muted-foreground text-sm font-medium">
+                                                            +{generatedAssets.length - 20} more
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <Button onClick={handleGenerate} disabled={isGenerating || layers.length === 0} className="w-full h-14 text-lg" style={{ background: `linear-gradient(to right, ${theme.primaryColor}, ${theme.secondaryColor})` }}>
+                                                {isGenerating ? (
+                                                    <span className="flex items-center gap-2"><Wand2 className="w-5 h-5 animate-spin" /> Generating {generationProgress.current}/{generationProgress.total}...</span>
+                                                ) : (
+                                                    <span className="flex items-center gap-2"><Wand2 className="w-5 h-5" /> Generate {targetSupply} NFTs</span>
+                                                )}
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
+                                {((!is1of1 && mode === "basic" && currentStep === 3) || (!is1of1 && mode === "advanced" && currentStep === 5) || (is1of1 && currentStep === 3)) && (
+                                    <GuardConfigurator phase={phases[0]} onChange={(updates) => setPhases(prev => [{ ...prev[0], ...updates }, ...prev.slice(1)])} chainSymbol={chainSymbol} />
+                                )}
                                 {currentStep === maxStep && (
                                     <div className="space-y-6 text-center py-6">
                                         <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 bg-primary/10 shadow-glow"><ChainIcon chain={selectedChain} className="w-12 h-12" /></div>
