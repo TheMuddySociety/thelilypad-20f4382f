@@ -21,7 +21,6 @@ import {
 import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
-import { CreateCollectionModal } from "@/components/launchpad/CreateCollectionModal";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -134,11 +133,8 @@ export default function Launchpad() {
   const currentChain = CHAINS[selectedChain];
   const isTestnet = network === "testnet";
 
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createModalDefaultStandard, setCreateModalDefaultStandard] = useState<any>("core");
   const [activeTab, setActiveTab] = useState("all");
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
-  const [editingDraft, setEditingDraft] = useState(false);
   const [showHybridForm, setShowHybridForm] = useState(false);
 
   const {
@@ -166,17 +162,23 @@ export default function Launchpad() {
   };
 
   const continueDraft = () => {
-    setEditingDraft(true);
-    setIsCreateModalOpen(true);
+    // Navigate to create page with last stored draft type
+    const draft = localStorage.getItem("collection-draft");
+    if (draft) {
+      try {
+        const { standard } = JSON.parse(draft);
+        navigate(`/launchpad/create/${selectedChain}/${standard || 'generative'}`);
+      } catch (e) {
+        navigate(`/launchpad/create/${selectedChain}/generative`);
+      }
+    } else {
+      navigate(`/launchpad/create/${selectedChain}/generative`);
+    }
   };
 
   useEffect(() => {
-    if (!isCreateModalOpen) {
-      loadDraft();
-      setEditingDraft(false);
-      setCreateModalDefaultStandard("core");
-    }
-  }, [isCreateModalOpen, loadDraft]);
+    loadDraft();
+  }, [loadDraft]);
 
   const filteredCollections = getFilteredCollections(activeTab);
 
@@ -191,26 +193,13 @@ export default function Launchpad() {
       setShowHybridForm(true);
       return;
     }
-    setCreateModalDefaultStandard(tile.id);
-    setIsCreateModalOpen(true);
+    // Navigate to the new creation page
+    navigate(`/launchpad/create/${selectedChain}/${tile.id}`);
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-
-      <CreateCollectionModal
-        open={isCreateModalOpen}
-        onOpenChange={setIsCreateModalOpen}
-        selectedChain={selectedChain}
-        onCollectionCreated={() => {
-          loadDraft();
-          refetch();
-          setIsCreateModalOpen(false);
-          toast.success("Collection created successfully!");
-        }}
-        defaultStandard={createModalDefaultStandard}
-      />
 
       <main className="container mx-auto px-4 pt-24 pb-16">
 
@@ -327,7 +316,7 @@ export default function Launchpad() {
                   </div>
                   <Button
                     size="default"
-                    onClick={() => setIsCreateModalOpen(true)}
+                    onClick={() => navigate(`/launchpad/create/${selectedChain}/generative`)}
                     className="gap-2 shadow-sm"
                   >
                     <Plus className="w-4 h-4" />
@@ -467,7 +456,7 @@ export default function Launchpad() {
                             <Rocket className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                             <p className="font-medium mb-1">No collections yet</p>
                             <p className="text-sm text-muted-foreground mb-5">Be the first to launch!</p>
-                            <Button onClick={() => setIsCreateModalOpen(true)} size="sm">
+                            <Button onClick={() => navigate(`/launchpad/create/${selectedChain}/generative`)} size="sm">
                               <Plus className="w-4 h-4 mr-1.5" />
                               Create Collection
                             </Button>
