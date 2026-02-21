@@ -260,7 +260,29 @@ export function CreateCollectionModal({
       toast.loading(`Initializing ${currentChain.name} deployment...`, { id: 'deploy-status' });
 
       // 1. Get Supabase User & Create Initial Collection Row to get ID
-      const { data: { user } } = await supabase.auth.getUser();
+      let { data: { user } } = await supabase.auth.getUser();
+
+      // Fallback: If no user session found but wallet is connected, try to establish session on the fly
+      if (!user && address) {
+        toast.loading("Establishing secure session...", { id: 'deploy-status' });
+        const { data: authData, error: authError } = await supabase.auth.signInAnonymously({
+          options: {
+            data: {
+              wallet_address: address,
+              wallet_type: selectedChain
+            }
+          }
+        });
+
+        if (authError) {
+          console.error("Auth fallback failed:", authError);
+          throw new Error("Could not establish a secure session. Please try reconnecting your wallet.");
+        }
+
+        user = authData.user;
+        console.log("Auto-established fallback session for deployment:", user?.id);
+      }
+
       if (!user) throw new Error("User session not found. Please log in.");
 
       toast.loading("Reserving collection ID...", { id: 'deploy-status' });
