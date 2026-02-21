@@ -164,7 +164,7 @@ export default function LaunchpadCreate() {
     useEffect(() => {
         if (is1of1) {
             setMode('basic');
-        } else if (typeParam === 'advanced') {
+        } else if (typeParam === 'advanced' || typeParam === 'generative') {
             setMode('advanced');
         } else {
             setMode('basic');
