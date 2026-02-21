@@ -121,6 +121,33 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [connection]);
 
+  // Ensure Supabase auth session is active and linked to the wallet
+  const ensureSupabaseSession = useCallback(async (walletAddress: string, walletType: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      // If no session, or session is for a different wallet, sign in again
+      if (!session || session.user?.user_metadata?.wallet_address !== walletAddress) {
+        const { error } = await supabase.auth.signInAnonymously({
+          options: {
+            data: {
+              wallet_address: walletAddress,
+              wallet_type: walletType
+            }
+          }
+        });
+
+        if (error) {
+          console.error('Supabase anonymous sign-in failed:', error);
+        } else {
+          console.log('Established Supabase session for wallet:', walletAddress);
+        }
+      }
+    } catch (err) {
+      console.error('Error ensuring Supabase session:', err);
+    }
+  }, []);
+
   // Connect with SDK (Phantom)
   const connectWithSDK = useCallback(async (provider?: AuthProviderType) => {
     const sdk = getSDK();
@@ -142,30 +169,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const balance = await fetchSolanaBalance(address);
 
-      // Auto-create Supabase auth session for wallet-only users
-      try {
-        const { data: { user: existingUser } } = await supabase.auth.getUser();
-        if (!existingUser) {
-          // Sign in anonymously to create auth session
-          const { data: authData, error: authError } = await supabase.auth.signInAnonymously({
-            options: {
-              data: {
-                wallet_address: address,
-                wallet_type: 'phantom'
-              }
-            }
-          });
-
-          if (authError) {
-            console.error('Auto auth creation failed:', authError);
-          } else {
-            console.log('Auto-created auth session for wallet:', address);
-          }
-        }
-      } catch (authErr) {
-        console.error('Auth session check failed:', authErr);
-        // Continue anyway - wallet is still connected
-      }
+      // Link Supabase auth session
+      await ensureSupabaseSession(address, 'phantom');
 
       setState(prev => ({
         ...prev,
@@ -208,22 +213,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const address = response.publicKey.toString();
       const balance = await fetchSolanaBalance(address);
 
-      // Auto-create Supabase auth session for wallet-only users
-      try {
-        const { data: { user: existingUser } } = await supabase.auth.getUser();
-        if (!existingUser) {
-          await supabase.auth.signInAnonymously({
-            options: {
-              data: {
-                wallet_address: address,
-                wallet_type: 'solana'
-              }
-            }
-          });
-        }
-      } catch (authErr) {
-        console.error('Auth session check failed:', authErr);
-      }
+      // Link Supabase auth session
+      await ensureSupabaseSession(address, 'solana');
 
       setState(prev => ({
         ...prev,
@@ -291,22 +282,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // New accounts may not be funded yet
       }
 
-      // Auto-create Supabase auth session
-      try {
-        const { data: { user: existingUser } } = await supabase.auth.getUser();
-        if (!existingUser) {
-          await supabase.auth.signInAnonymously({
-            options: {
-              data: {
-                wallet_address: walletData.address,
-                wallet_type: 'xrpl'
-              }
-            }
-          });
-        }
-      } catch (authErr) {
-        console.error('Auth session check failed:', authErr);
-      }
+      // Link Supabase auth session
+      await ensureSupabaseSession(walletData.address, 'xrpl');
 
       setState(prev => ({
         ...prev,
@@ -345,15 +322,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const address = accounts[0];
         if (!address) throw new Error('No EVM address returned from Phantom');
 
-        // Auto Supabase session
-        try {
-          const { data: { user: existingUser } } = await supabase.auth.getUser();
-          if (!existingUser) {
-            await supabase.auth.signInAnonymously({
-              options: { data: { wallet_address: address, wallet_type: 'phantom-evm' } }
-            });
-          }
-        } catch { /* continue */ }
+        // Link Supabase auth session
+        await ensureSupabaseSession(address, 'phantom-evm');
 
         setState(prev => ({
           ...prev,
@@ -385,15 +355,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       if (!address) throw new Error('No EVM address found in Phantom. Make sure Phantom is set to an EVM network.');
 
-      // Auto Supabase session
-      try {
-        const { data: { user: existingUser } } = await supabase.auth.getUser();
-        if (!existingUser) {
-          await supabase.auth.signInAnonymously({
-            options: { data: { wallet_address: address, wallet_type: 'phantom-evm' } }
-          });
-        }
-      } catch { /* continue */ }
+      // Link Supabase auth session
+      await ensureSupabaseSession(address, 'phantom-evm');
 
       setState(prev => ({
         ...prev,
@@ -575,6 +538,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               const accounts: string[] = await phantomEvm.request({ method: 'eth_requestAccounts' });
               const address = accounts[0];
               if (address) {
+                // Link Supabase auth session
+                await ensureSupabaseSession(address, 'phantom-evm');
+
                 setState(prev => ({
                   ...prev,
                   address,
@@ -601,6 +567,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const network = getXRPLNetwork();
             let balance = '0';
             try { balance = await fetchXRPBalance(xrplWallet.address, network); } catch { }
+
+            // Link Supabase auth session
+            await ensureSupabaseSession(xrplWallet.address, 'xrpl');
+
             setState(prev => ({
               ...prev,
               address: xrplWallet.address,
@@ -625,6 +595,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               if (addr) {
                 const address = addr.address;
                 const balance = await fetchSolanaBalance(address);
+
+                // Link Supabase auth session
+                await ensureSupabaseSession(address, 'phantom');
+
                 setState(prev => ({
                   ...prev,
                   address,
@@ -647,6 +621,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const resp = await provider.connect({ onlyIfTrusted: true }); // Silent connect
           const address = resp.publicKey.toString();
           const balance = await fetchSolanaBalance(address);
+
+          // Link Supabase auth session
+          await ensureSupabaseSession(address, 'solana');
+
           setState(prev => ({
             ...prev,
             address,

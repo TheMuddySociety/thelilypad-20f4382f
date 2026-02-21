@@ -128,7 +128,7 @@ const FILTER_TABS = [
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function Launchpad() {
   const navigate = useNavigate();
-  const { network, isConnected } = useWallet();
+  const { network, isConnected, address } = useWallet();
 
   const [selectedChain, setSelectedChain] = useState<SupportedChain>(getStoredChain);
   const currentChain = CHAINS[selectedChain];
@@ -477,7 +477,11 @@ export default function Launchpad() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                             {filteredCollections.map((collection) => {
                               const StatusIcon = statusIcons[collection.status as keyof typeof statusIcons] ?? Sparkles;
-                              const isOwner = !!(currentUserId && collection.creator_id === currentUserId);
+                              // Robust owner check: Check ID (auth session) OR match wallet addresses directly
+                              const isOwner = !!(
+                                (currentUserId && collection.creator_id === currentUserId) ||
+                                (address && collection.creator_address === address)
+                              );
                               const isDeployed = !!collection.contract_address;
                               const canEdit = isOwner && !isDeployed;
                               const progress = getCollectionProgress(collection);
