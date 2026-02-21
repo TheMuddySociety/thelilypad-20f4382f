@@ -164,8 +164,12 @@ export const useUserProfile = () => {
             throw new Error('Wallet not connected');
         }
 
+        // Get the current auth user to link profile
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+
         const upsertData = {
             wallet_address: address,
+            user_id: authUser?.id || null, // Include user_id for RLS compliance
             ...updates,
             profile_setup_completed: true,
         };
