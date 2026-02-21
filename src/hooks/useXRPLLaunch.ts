@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import {
-    deployXRPLCollection,
-    mintXRPLItems,
+    deployXRPLCollection as deployXRPLCollectionChain,
+    mintXRPLItems as mintXRPLItemsChain,
     XRPLCollectionParams,
     XRPLDeployResult
 } from '@/chains';
@@ -28,7 +28,7 @@ export function useXRPLLaunch() {
         try {
             toast.loading(`Deploying XRPL Collection...`, { id: 'xrpl-deploy' });
 
-            const result = await deployXRPLCollection(params);
+            const result = await deployXRPLCollectionChain(params);
 
             toast.success(`XRPL Collection deployed!`, { id: 'xrpl-deploy' });
             return result;
@@ -44,7 +44,7 @@ export function useXRPLLaunch() {
     /**
      * Mint XRPL NFTs
      */
-    const mintXRPLItems = useCallback(async (
+    const mintItems = useCallback(async (
         issuerAddress: string,
         taxon: number,
         items: { name: string; uri: string }[]
@@ -53,7 +53,7 @@ export function useXRPLLaunch() {
         try {
             toast.loading(`Minting ${items.length} XRPL NFTs...`, { id: 'xrpl-mint' });
 
-            const result = await mintXRPLItems(issuerAddress, taxon, items);
+            const result = await mintXRPLItemsChain(issuerAddress, taxon, items);
 
             toast.success(`XRPL NFTs minted!`, { id: 'xrpl-mint' });
             return result;
@@ -68,7 +68,7 @@ export function useXRPLLaunch() {
 
     return {
         deployXRPLCollection,
-        mintXRPLItems,
+        mintXRPLItems: mintItems,
         isDeploying,
         isMinting,
     };
