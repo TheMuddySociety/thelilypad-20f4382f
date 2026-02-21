@@ -237,6 +237,7 @@ export default function LaunchpadCreate() {
 
     const handleDeploy = async () => {
         if (!name || !symbol) return toast.error("Please fill in basic info.");
+        if (!address) return toast.error("Please connect your wallet first.");
         if (selectedChain === 'solana' && !coverFile) return toast.error("Please upload a cover image.");
         if (folderAssets.length === 0 && !is1of1 && mode === "basic") return toast.error("Please upload assets.");
         if (generatedAssets.length === 0 && !is1of1 && mode === "advanced") return toast.error("Please generate assets.");
@@ -272,29 +273,45 @@ export default function LaunchpadCreate() {
                 }
             }
 
-            if (!user) throw new Error("User session not found.");
+            if (!user) throw new Error("User session not found. Please refresh and try again.");
+
+            const totalSupplyCount = is1of1
+                ? artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0)
+                : (mode === 'advanced' ? generatedAssets.length || targetSupply : folderAssets.length || targetSupply);
+
+            const chainValue = network === "mainnet" ? selectedChain : `${selectedChain}-devnet`;
+
+            const insertPayload = {
+                name,
+                symbol,
+                description,
+                creator_id: user.id,
+                creator_address: address,
+                status: "upcoming",
+                chain: chainValue,
+                collection_type: is1of1 ? "one_of_one" : "generative",
+                total_supply: totalSupplyCount,
+                phases: phases as any,
+                royalty_percent: royaltyPercent,
+            };
+
+            console.log('[deploy] inserting collection:', JSON.stringify(insertPayload, null, 2));
 
             toast.loading("Reserving collection ID...", { id: 'deploy-status' });
             const { data: placeholderCollection, error: placeholderError } = await supabase
                 .from("collections")
-                .insert({
-                    name,
-                    symbol,
-                    description,
-                    creator_id: user.id,
-                    creator_address: address!,
-                    status: "upcoming",
-                    chain: network === "mainnet" ? selectedChain : `${selectedChain}-devnet`,
-                    collection_type: is1of1 ? "one_of_one" : "generative",
-                    total_supply: is1of1 ? artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0) : (mode === 'advanced' ? generatedAssets.length || targetSupply : folderAssets.length || targetSupply),
-                    phases: phases as any,
-                    royalty_percent: royaltyPercent,
-                })
+                .insert(insertPayload)
                 .select('id')
                 .single();
 
             if (placeholderError) {
-                console.error('[deploy] collection insert failed:', placeholderError.message, placeholderError.code, placeholderError.details);
+                console.error('[deploy] collection insert failed:', {
+                    message: placeholderError.message,
+                    code: placeholderError.code,
+                    details: placeholderError.details,
+                    hint: (placeholderError as any).hint,
+                    payload: insertPayload,
+                });
                 throw new Error(`Failed to initialize collection record: ${placeholderError.message}`);
             }
 
