@@ -238,8 +238,18 @@ export default function LaunchpadCreate() {
                     }
                 });
 
-                if (authError) throw new Error("Could not establish a secure session.");
-                user = authData.user;
+                if (authError || !authData.user) {
+                    console.error('[auth] signInAnonymously failed:', authError?.message, authError?.status);
+                    // Fallback: try without metadata (some Supabase configs reject it)
+                    const { data: fallbackData, error: fallbackError } = await supabase.auth.signInAnonymously();
+                    if (fallbackError || !fallbackData.user) {
+                        console.error('[auth] fallback signInAnonymously failed:', fallbackError?.message);
+                        throw new Error(`Could not establish a secure session: ${authError?.message || fallbackError?.message || 'Unknown error'}`);
+                    }
+                    user = fallbackData.user;
+                } else {
+                    user = authData.user;
+                }
             }
 
             if (!user) throw new Error("User session not found.");
