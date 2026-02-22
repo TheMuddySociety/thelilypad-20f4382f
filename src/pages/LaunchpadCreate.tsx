@@ -42,7 +42,7 @@ import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { SupportedChain, CHAINS } from "@/config/chains";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
 import { getCollectionStorageInfo, getChainRootUri } from "@/lib/payloadMapper";
-import { uploadFolderToPinata, uploadFileToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob } from "@/lib/pinataUpload";
+import { uploadFolderToPinata, uploadFileToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob, createPinataGroup } from "@/lib/pinataUpload";
 import { useChain } from "@/providers/ChainProvider";
 import { useChainTheme } from "@/hooks/useChainTheme";
 import { useDraftCollection } from "@/hooks/useDraftCollection";
@@ -368,15 +368,32 @@ export default function LaunchpadCreate() {
 
                 await supabase.from("collections").update({ contract_address: collection.address, image_url: imageUri, status: "active" }).eq('id', collectionId);
             } else if (selectedChain === 'xrpl') {
-                const totalSupplyCount = mode === 'advanced' ? (generatedAssets.length || targetSupply) : folderAssets.length;
+                const totalSupplyCount = is1of1
+                    ? artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0)
+                    : (mode === 'advanced' ? generatedAssets.length || targetSupply : folderAssets.length || targetSupply);
 
                 if (isPinataConfigured()) {
                     // ── IPFS Upload Flow ──────────────────────────────────────
+                    // 1. Create a Pinata Group for better organization
+                    toast.loading("Creating Pinata asset group...", { id: 'deploy-status' });
+                    let groupId: string | undefined;
+                    try {
+                        const group = await createPinataGroup(name);
+                        groupId = group.id;
+                        console.log('[XRPL] Created Pinata group:', groupId);
+                    } catch (err) {
+                        console.warn('Metadata grouping failed, continuing with direct pinning:', err);
+                    }
+
                     toast.loading(`Uploading ${totalSupplyCount} images to IPFS...`, { id: 'deploy-status' });
 
                     // Build image files array for folder upload
                     const imageFiles: { path: string; content: Blob }[] = [];
-                    if (mode === 'advanced' && generatedAssets.length > 0) {
+                    if (is1of1) {
+                        for (let i = 0; i < artworks.length; i++) {
+                            imageFiles.push({ path: `${i}.png`, content: artworks[i].file });
+                        }
+                    } else if (mode === 'advanced' && generatedAssets.length > 0) {
                         for (let i = 0; i < generatedAssets.length; i++) {
                             const asset = generatedAssets[i];
                             if (asset.preview) {
@@ -390,7 +407,7 @@ export default function LaunchpadCreate() {
                     }
 
                     // Pin images folder
-                    const imagesFolderPin = await uploadFolderToPinata(imageFiles, `${name}-images`);
+                    const imagesFolderPin = await uploadFolderToPinata(imageFiles, `${name}-images`, groupId);
                     const imageFolderCid = imagesFolderPin.IpfsHash;
                     console.log('[XRPL] Images pinned:', imageFolderCid);
 
@@ -398,13 +415,16 @@ export default function LaunchpadCreate() {
                     toast.loading('Building metadata with IPFS URIs...', { id: 'deploy-status' });
                     const metadataFiles: { path: string; content: Blob }[] = [];
                     for (let i = 0; i < totalSupplyCount; i++) {
-                        const traits = mode === 'advanced' && generatedAssets[i]
-                            ? generatedAssets[i].metadata.attributes
-                            : [];
+                        const traits = is1of1
+                            ? [{ trait_type: 'Edition', value: artworks[i]?.name || '1/1' }]
+                            : (mode === 'advanced' && generatedAssets[i]
+                                ? generatedAssets[i].metadata.attributes
+                                : []);
+
                         const xrplMetadata = {
                             schema: 'ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm',
                             nftType: 'art.v0',
-                            name: `${name} #${i + 1}`,
+                            name: is1of1 ? (artworks[i]?.name || `${name} #${i + 1}`) : `${name} #${i + 1}`,
                             description: description || `${name} NFT #${i + 1}`,
                             image: getIpfsUri(imageFolderCid, `${i}.png`),
                             image_mimetype: 'image/png',
@@ -418,7 +438,7 @@ export default function LaunchpadCreate() {
 
                     // Pin metadata folder
                     toast.loading('Pinning metadata to IPFS...', { id: 'deploy-status' });
-                    const metadataFolderPin = await uploadFolderToPinata(metadataFiles, `${name}-metadata`);
+                    const metadataFolderPin = await uploadFolderToPinata(metadataFiles, `${name}-metadata`, groupId);
                     const metadataCid = metadataFolderPin.IpfsHash;
                     console.log('[XRPL] Metadata pinned:', metadataCid);
 

@@ -16,7 +16,7 @@ import { NFTImageCompositor } from "./NFTImageCompositor";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadFolderToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob } from "@/lib/pinataUpload";
+import { uploadFolderToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob, createPinataGroup } from "@/lib/pinataUpload";
 
 // XRPL-specific resolution presets
 const RESOLUTION_PRESETS = [
@@ -788,7 +788,18 @@ export function GenerationPreview({
     try {
       const { nfts } = generateNFTBatch(count);
 
-      // 1. Render images and build blobs
+      // 1. Create a Pinata Group for better organization
+      setExportStatus("Creating Pinata asset group...");
+      let groupId: string | undefined;
+      try {
+        const group = await createPinataGroup(`${collectionName}-preview`);
+        groupId = group.id;
+        console.log('[IPFS] Created Pinata group:', groupId);
+      } catch (err) {
+        console.warn('Metadata grouping failed, continuing with direct pinning:', err);
+      }
+
+      // 2. Render images and build blobs
       const imageFiles: { path: string; content: Blob }[] = [];
       for (let i = 0; i < nfts.length; i++) {
         setExportStatus(`Rendering image ${i + 1} of ${count}...`);
@@ -800,13 +811,13 @@ export function GenerationPreview({
         }
       }
 
-      // 2. Pin images folder
+      // 3. Pin images folder
       setExportStatus("Pinning images to IPFS...");
       setExportProgress(50);
-      const imagePin = await uploadFolderToPinata(imageFiles, `${collectionName}-images`);
+      const imagePin = await uploadFolderToPinata(imageFiles, `${collectionName}-images`, groupId);
       const imageCid = imagePin.IpfsHash;
 
-      // 3. Build metadata with real IPFS URIs
+      // 4. Build metadata with real IPFS URIs
       setExportStatus("Building metadata...");
       setExportProgress(65);
       const metadataFiles: { path: string; content: Blob }[] = [];
@@ -834,10 +845,10 @@ export function GenerationPreview({
         });
       }
 
-      // 4. Pin metadata folder
+      // 5. Pin metadata folder
       setExportStatus("Pinning metadata to IPFS...");
       setExportProgress(80);
-      const metadataPin = await uploadFolderToPinata(metadataFiles, `${collectionName}-metadata`);
+      const metadataPin = await uploadFolderToPinata(metadataFiles, `${collectionName}-metadata`, groupId);
       const metadataCid = metadataPin.IpfsHash;
 
       // 5. Store result for display

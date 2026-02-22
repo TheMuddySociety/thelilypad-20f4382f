@@ -8,6 +8,7 @@
  */
 
 const PINATA_API_URL = 'https://api.pinata.cloud';
+const PINATA_UPLOADS_URL = 'https://uploads.pinata.cloud/v3';
 const PINATA_GATEWAY = 'https://gateway.pinata.cloud/ipfs';
 
 function getPinataJWT(): string {
@@ -26,6 +27,38 @@ export interface PinataPinResponse {
     IpfsHash: string;
     PinSize: number;
     Timestamp: string;
+    id?: string; // v3 file ID
+}
+
+/** Result returned by Pinata after creating a group */
+export interface PinataGroupResponse {
+    id: string;
+    name: string;
+    created_at: string;
+}
+
+/**
+ * Create a Pinata Group to organize collection assets.
+ */
+export async function createPinataGroup(name: string): Promise<PinataGroupResponse> {
+    const jwt = getPinataJWT();
+
+    const res = await fetch(`${PINATA_API_URL}/v3/groups`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({ name }),
+    });
+
+    if (!res.ok) {
+        const errorBody = await res.text();
+        throw new Error(`Failed to create Pinata group (${res.status}): ${errorBody}`);
+    }
+
+    const { data } = await res.json();
+    return data;
 }
 
 /**
@@ -33,17 +66,23 @@ export interface PinataPinResponse {
  */
 export async function uploadFileToPinata(
     file: File | Blob,
-    name?: string
+    name?: string,
+    groupId?: string
 ): Promise<PinataPinResponse> {
     const jwt = getPinataJWT();
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('network', 'public');
 
     if (name) {
-        formData.append('pinataMetadata', JSON.stringify({ name }));
+        formData.append('name', name);
     }
 
-    const res = await fetch(`${PINATA_API_URL}/pinning/pinFileToIPFS`, {
+    if (groupId) {
+        formData.append('group', groupId);
+    }
+
+    const res = await fetch(`${PINATA_UPLOADS_URL}/files`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${jwt}` },
         body: formData,
@@ -54,7 +93,14 @@ export async function uploadFileToPinata(
         throw new Error(`Pinata upload failed (${res.status}): ${errorBody}`);
     }
 
-    return res.json();
+    const { data } = await res.json();
+    // Map v3 response to our shared interface if possible
+    return {
+        IpfsHash: data.cid,
+        PinSize: data.size,
+        Timestamp: data.created_at,
+        id: data.id
+    };
 }
 
 /**
@@ -96,25 +142,34 @@ export async function uploadJsonToPinata(
  *
  * @param files Array of { path, content } where path is the relative filename
  * @param folderName Optional name for the pinned folder
+ * @param groupId Optional group ID to add assets to
  */
 export async function uploadFolderToPinata(
     files: { path: string; content: Blob }[],
-    folderName?: string
+    folderName?: string,
+    groupId?: string
 ): Promise<PinataPinResponse> {
     const jwt = getPinataJWT();
     const formData = new FormData();
 
     for (const file of files) {
-        // Pinata expects the path prefix to group files into a folder
-        formData.append('file', file.content, file.path);
+        // Folder upload via fetch requires the path in the filename param
+        formData.append('file', file.content, `${folderName || 'assets'}/${file.path}`);
     }
 
-    const metadata: Record<string, unknown> = {};
-    if (folderName) metadata.name = folderName;
-    formData.append('pinataMetadata', JSON.stringify(metadata));
+    if (folderName) {
+        formData.append('pinataMetadata', JSON.stringify({ name: folderName }));
+    }
 
-    // Tell Pinata to wrap files in a directory
-    formData.append('pinataOptions', JSON.stringify({ wrapWithDirectory: true }));
+    if (groupId) {
+        // v3 API supports grouping during upload for some endpoints, 
+        // but for classic folder pinning we might need to add to group after.
+        // However, pinFileToIPFS still works for recursive folders best.
+        formData.append('pinataOptions', JSON.stringify({
+            wrapWithDirectory: true,
+            groupId: groupId // Some internal Pinata versions use this
+        }));
+    }
 
     const res = await fetch(`${PINATA_API_URL}/pinning/pinFileToIPFS`, {
         method: 'POST',
@@ -127,7 +182,25 @@ export async function uploadFolderToPinata(
         throw new Error(`Pinata folder upload failed (${res.status}): ${errorBody}`);
     }
 
-    return res.json();
+    const result = await res.json();
+
+    // If we have a groupId, we should also associate the directory CID with the group via v3 API
+    if (groupId && result.IpfsHash) {
+        try {
+            await fetch(`${PINATA_API_URL}/v3/groups/${groupId}/files`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${jwt}`,
+                },
+                body: JSON.stringify({ files: [result.IpfsHash] }),
+            });
+        } catch (err) {
+            console.warn('Failed to add folder to Pinata group, but upload succeeded:', err);
+        }
+    }
+
+    return result;
 }
 
 /**
