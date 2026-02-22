@@ -422,7 +422,7 @@ export default function LaunchpadCreate() {
                     const imageFolderCid = imagesFolderPin.IpfsHash;
                     console.log('[XRPL] Images pinned:', imageFolderCid);
 
-                    // Build XLS-20 metadata with IPFS image URIs
+                    // Build XLS-20 metadata with IPFS image URIs - Production Grade
                     toast.loading('Building metadata with IPFS URIs...', { id: 'deploy-status' });
                     const metadataFiles: { path: string; content: Blob }[] = [];
                     for (let i = 0; i < totalSupplyCount; i++) {
@@ -432,14 +432,25 @@ export default function LaunchpadCreate() {
                                 ? generatedAssets[i].metadata.attributes
                                 : []);
 
+                        // Production Grade XRPL Metadata Template (XLS-20)
                         const xrplMetadata = {
                             schema: 'ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm',
                             nftType: 'art.v0',
                             name: is1of1 ? (artworks[i]?.name || `${name} #${i + 1}`) : `${name} #${i + 1}`,
                             description: description || `${name} NFT #${i + 1}`,
                             image: getIpfsUri(imageFolderCid, `${i}.png`),
-                            image_mimetype: 'image/png',
+                            animation_url: getIpfsUri(imageFolderCid, `${i}.png`), // High-res / Interactive version
+                            external_url: "https://thelilypad.io",
                             attributes: traits,
+                            properties: {
+                                files: [
+                                    {
+                                        uri: getIpfsUri(imageFolderCid, `${i}.png`),
+                                        type: "image/png"
+                                    }
+                                ],
+                                category: "image"
+                            }
                         };
                         metadataFiles.push({
                             path: `${i}.json`,

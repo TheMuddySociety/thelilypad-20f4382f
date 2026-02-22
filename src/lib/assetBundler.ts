@@ -98,31 +98,41 @@ export const nftToSolanaMetadata = (
 };
 
 /**
- * Generate metadata for XRPL (XLS-20 style)
+ * Generate metadata for XRPL (XLS-20 style) - Production Grade
  */
 export const nftToXrplMetadata = (
     nft: GeneratedNFT,
     collectionName: string,
     collectionDescription: string,
-    baseImageUri: string = ""
+    imageCid: string = "YOUR_IMAGE_CID",
+    externalUrl: string = ""
 ) => {
     return {
         schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
         nftType: "art.v0",
         name: `${collectionName} #${nft.id}`,
         description: collectionDescription || `${collectionName} NFT #${nft.id}`,
-        image: baseImageUri ? `${baseImageUri}/${nft.id}.png` : `ipfs://YOUR_IMAGE_CID/${nft.id}.png`,
-        image_integrity: "",
-        image_mimetype: "image/png",
+        image: `ipfs://${imageCid}/${nft.id}.png`,
+        animation_url: `ipfs://${imageCid}/${nft.id}.png`, // High-res version
+        external_url: externalUrl || "https://thelilypad.io",
         attributes: nft.traits.map((t) => ({
             trait_type: t.layerName,
             value: t.traitName,
         })),
+        properties: {
+            files: [
+                {
+                    uri: `ipfs://${imageCid}/${nft.id}.png`,
+                    type: "image/png"
+                }
+            ],
+            category: "image"
+        }
     };
 };
 
 /**
- * Bundle assets into a ZIP file
+ * Bundle assets into a ZIP file with professional folder structure
  */
 export const bundleAssetsAsZip = async (
     nfts: GeneratedNFT[],
@@ -130,13 +140,16 @@ export const bundleAssetsAsZip = async (
     collectionDescription: string,
     chain: string,
     resolution: number,
-    onProgress: (status: string, progress: number) => void
+    onProgress: (status: string, progress: number) => void,
+    imageCid: string = "CID_ESTIMATE"
 ): Promise<Blob> => {
     const zip = new JSZip();
     const imagesFolder = zip.folder("images");
     const metadataFolder = zip.folder("metadata");
+    const interactiveFolder = zip.folder("interactive"); // Placeholder for future use
 
-    if (!imagesFolder || !metadataFolder) throw new Error("Failed to create ZIP folders");
+    if (!imagesFolder || !metadataFolder || !interactiveFolder)
+        throw new Error("Failed to create ZIP folders");
 
     for (let i = 0; i < nfts.length; i++) {
         onProgress(`Compositing ${i + 1} / ${nfts.length}…`, Math.round(((i + 1) / nfts.length) * 80));
@@ -149,7 +162,7 @@ export const bundleAssetsAsZip = async (
         }
 
         const metadata = chain.toLowerCase() === "xrpl"
-            ? nftToXrplMetadata(nfts[i], collectionName, collectionDescription)
+            ? nftToXrplMetadata(nfts[i], collectionName, collectionDescription, imageCid)
             : nftToSolanaMetadata(nfts[i], collectionName, collectionDescription);
 
         metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(metadata, null, 2));
@@ -159,13 +172,14 @@ export const bundleAssetsAsZip = async (
     }
 
     // Collection manifest
-    zip.file("_collection.json", JSON.stringify({
+    zip.file("collection.json", JSON.stringify({
         name: collectionName,
         description: collectionDescription,
         total_supply: nfts.length,
         resolution: `${resolution}x${resolution}`,
         chain: chain.toUpperCase(),
         generated_at: new Date().toISOString(),
+        image_cid: imageCid
     }, null, 2));
 
     onProgress("Compressing ZIP…", 90);
