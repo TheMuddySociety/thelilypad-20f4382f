@@ -2,6 +2,8 @@
  * XRPL Client - XRP Ledger client initialization and network management
  */
 
+import { Client } from 'xrpl';
+
 export type XRPLNetwork = 'mainnet' | 'testnet' | 'devnet';
 
 const XRPL_ENDPOINTS = {
@@ -18,17 +20,21 @@ export function getXRPLEndpoint(network: XRPLNetwork): string {
 }
 
 /**
- * Create XRPL client (placeholder - requires xrpl.js integration)
+ * Create and connect an xrpl.js Client.
  */
-export async function createXRPLClient(network: XRPLNetwork = 'testnet') {
+export async function createXRPLClient(network: XRPLNetwork = 'testnet'): Promise<Client> {
     const endpoint = getXRPLEndpoint(network);
+    const client = new Client(endpoint);
+    await client.connect();
+    console.log(`[XRPL] Client connected to ${network} (${endpoint})`);
+    return client;
+}
 
-    // TODO: Initialize actual xrpl.js client when ready
-    console.log(`XRPL Client initialized for ${network} at ${endpoint}`);
-
-    return {
-        network,
-        endpoint,
-        isConnected: false,
-    };
+/**
+ * Disconnect an xrpl.js Client.
+ */
+export async function disconnectXRPLClient(client: Client): Promise<void> {
+    if (client.isConnected()) {
+        await client.disconnect();
+    }
 }
