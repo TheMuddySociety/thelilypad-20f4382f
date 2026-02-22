@@ -144,6 +144,63 @@ export async function uploadJsonToPinata(
  * @param folderName Optional name for the pinned folder
  * @param groupId Optional group ID to add assets to
  */
+/**
+ * Upload a ZIP file to Pinata IPFS.
+ * This is the most resilient way to upload folders on Windows.
+ *
+ * @param zipBlob The ZIP file as a Blob
+ * @param fileName Name for the pinned file/folder
+ * @param groupId Optional group ID
+ */
+export async function uploadZipToPinata(
+    zipBlob: Blob,
+    fileName: string,
+    groupId?: string
+): Promise<PinataPinResponse> {
+    const jwt = getPinataJWT();
+    const formData = new FormData();
+
+    // In Pinata's classic API, we send a zip and they unpack it
+    // if we provide the right metadata
+    formData.append('file', zipBlob, `${fileName}.zip`);
+    formData.append('pinataMetadata', JSON.stringify({ name: fileName }));
+
+    // We can also include expandZip: true if using specific endpoints,
+    // but pinning a zip file as a single entry is safer for root CID stability.
+    // Pinata UI and typical gateways handle .zip well, or we can use the 
+    // directory pinning strategy if we need it unpacked.
+
+    const res = await fetch(`${PINATA_API_URL}/pinning/pinFileToIPFS`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}` },
+        body: formData,
+    });
+
+    if (!res.ok) {
+        const errorBody = await res.text();
+        throw new Error(`Pinata ZIP upload failed (${res.status}): ${errorBody}`);
+    }
+
+    const result = await res.json();
+
+    if (groupId && result.IpfsHash) {
+        try {
+            await fetch(`${PINATA_API_URL}/v3/groups/${groupId}/files`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${jwt}`,
+                },
+                body: JSON.stringify({ files: [result.IpfsHash] }),
+            });
+        } catch (err) {
+            console.warn('Failed to add ZIP to Pinata group:', err);
+        }
+    }
+
+    return result;
+}
+
 export async function uploadFolderToPinata(
     files: { path: string; content: Blob }[],
     folderName?: string,
