@@ -44,7 +44,7 @@ import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { SupportedChain, CHAINS } from "@/config/chains";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
 import { getCollectionStorageInfo, getChainRootUri } from "@/lib/payloadMapper";
-import { uploadFolderToPinata, uploadZipToPinata, uploadFileToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob, createPinataGroup } from "@/lib/pinataUpload";
+import { uploadZipToPinata, uploadFileToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob, createPinataGroup } from "@/lib/pinataUpload";
 import JSZip from "jszip";
 import { useChain } from "@/providers/ChainProvider";
 import { useChainTheme } from "@/hooks/useChainTheme";
@@ -403,22 +403,21 @@ export default function LaunchpadCreate() {
                     // 2. Zip and Upload Images
                     toast.loading(`Zipping ${totalSupplyCount} images...`, { id: 'deploy-status' });
                     const imagesZip = new JSZip();
-                    const imagesFolder = imagesZip.folder("images");
 
                     if (is1of1) {
                         for (let i = 0; i < artworks.length; i++) {
-                            imagesFolder?.file(`${i}.png`, artworks[i].file);
+                            imagesZip.file(`${i}.png`, artworks[i].file);
                         }
                     } else if (mode === 'advanced' && generatedAssets.length > 0) {
                         for (let i = 0; i < generatedAssets.length; i++) {
                             const asset = generatedAssets[i];
                             if (asset.preview) {
-                                imagesFolder?.file(`${i}.png`, dataUrlToBlob(asset.preview));
+                                imagesZip.file(`${i}.png`, dataUrlToBlob(asset.preview));
                             }
                         }
                     } else {
                         for (let i = 0; i < folderAssets.length; i++) {
-                            imagesFolder?.file(`${i}.png`, folderAssets[i].file);
+                            imagesZip.file(`${i}.png`, folderAssets[i].file);
                         }
                     }
 
@@ -431,7 +430,6 @@ export default function LaunchpadCreate() {
                     // 3. Build Metadata and Upload as ZIP
                     toast.loading('Building metadata with IPFS URIs...', { id: 'deploy-status' });
                     const metadataZip = new JSZip();
-                    const metadataFolder = metadataZip.folder("metadata");
 
                     for (let i = 0; i < totalSupplyCount; i++) {
                         const traits = is1of1
@@ -445,16 +443,16 @@ export default function LaunchpadCreate() {
                             nftType: 'art.v0',
                             name: is1of1 ? (artworks[i]?.name || `${name} #${i + 1}`) : `${name} #${i + 1}`,
                             description: description || `${name} NFT #${i + 1}`,
-                            image: getIpfsUri(imageFolderCid, `images/${i}.png`),
-                            animation_url: getIpfsUri(imageFolderCid, `images/${i}.png`),
+                            image: getIpfsUri(imageFolderCid, `${i}.png`),
+                            animation_url: getIpfsUri(imageFolderCid, `${i}.png`),
                             external_url: "https://thelilypad.io",
                             attributes: traits,
                             properties: {
-                                files: [{ uri: getIpfsUri(imageFolderCid, `images/${i}.png`), type: "image/png" }],
+                                files: [{ uri: getIpfsUri(imageFolderCid, `${i}.png`), type: "image/png" }],
                                 category: "image"
                             }
                         };
-                        metadataFolder?.file(`${i}.json`, JSON.stringify(xrplMetadata, null, 2));
+                        metadataZip.file(`${i}.json`, JSON.stringify(xrplMetadata, null, 2));
                     }
 
                     const metadataZipBlob = await metadataZip.generateAsync({ type: "blob" });
@@ -464,7 +462,7 @@ export default function LaunchpadCreate() {
                     console.log('[XRPL] Metadata pinned (ZIP):', metadataCid);
 
                     // Deploy XRPL collection with IPFS base URI
-                    const ipfsBaseUri = getIpfsUri(metadataCid, 'metadata'); // Point to the subfolder inside the zipCID
+                    const ipfsBaseUri = getIpfsUri(metadataCid); // Now points directly to the folder root
                     toast.loading('Deploying XRPL Collection...', { id: 'deploy-status' });
                     const xrplRes = await xrplLaunch.deployXRPLCollection({ name, symbol, description, totalSupply: totalSupplyCount, baseUri: ipfsBaseUri });
 

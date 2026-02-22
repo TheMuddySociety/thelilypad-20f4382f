@@ -22,6 +22,17 @@ function getPinataJWT(): string {
     return jwt;
 }
 
+/** 
+ * Slugifies a string to be safe for Pinata folder names and metadata.
+ */
+function slugifyName(name: string): string {
+    return name
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+}
+
 /** Result returned by Pinata after a successful pin */
 export interface PinataPinResponse {
     IpfsHash: string;
@@ -162,8 +173,23 @@ export async function uploadZipToPinata(
 
     // In Pinata's classic API, we send a zip and they unpack it
     // if we provide the right metadata
-    formData.append('file', zipBlob, `${fileName}.zip`);
-    formData.append('pinataMetadata', JSON.stringify({ name: fileName }));
+    const safeName = slugifyName(fileName);
+    formData.append('file', zipBlob, `${safeName}.zip`);
+
+    // pinataMetadata should be a JSON string
+    formData.append('pinataMetadata', JSON.stringify({
+        name: safeName,
+        keyvalues: {
+            source: 'lilypad-launchpad',
+            type: 'collection-assets'
+        }
+    }));
+
+    // pinataOptions can include expandZip: true to have Pinata unpack it
+    formData.append('pinataOptions', JSON.stringify({
+        cidVersion: 1, // Use V1 CIDs for better compatibility
+        expandZip: true // This tells Pinata to unpack the ZIP and return the directory CID
+    }));
 
     // We can also include expandZip: true if using specific endpoints,
     // but pinning a zip file as a single entry is safer for root CID stability.
@@ -208,26 +234,38 @@ export async function uploadFolderToPinata(
 ): Promise<PinataPinResponse> {
     const jwt = getPinataJWT();
     const formData = new FormData();
+    const safeFolderName = slugifyName(folderName || 'assets');
 
-    // Field ordering: Metadata must come BEFORE files for some Pinata parser versions
-    if (folderName) {
-        formData.append('pinataMetadata', JSON.stringify({ name: folderName }));
-    }
+    // For directory pinning, the order and names are CRITICAL.
+    // metadata FIRST
+    formData.append('pinataMetadata', JSON.stringify({
+        name: safeFolderName
+    }));
 
-    // We can also include pinataOptions here if needed (e.g. cidVersion: 1)
+    // options (recommended to use CID v1 for folders)
+    formData.append('pinataOptions', JSON.stringify({
+        cidVersion: 1
+    }));
 
     for (const file of files) {
-        // Wrap content in a fresh Blob to strip any browser-added File metadata 
-        // that might interfere with the multi-part boundary/parser.
-        const cleanBlob = new Blob([file.content], { type: file.content.type });
+        // Important: Ensure no leading slashes in path
+        const cleanPath = file.path.startsWith('/') ? file.path.substring(1) : file.path;
 
-        // The third parameter is the path that creates the IPFS directory structure
-        formData.append('file', cleanBlob, `${folderName || 'assets'}/${file.path}`);
+        // Pinata requires the root folder name to be included in the 'filename' parameter of the multipart field
+        const fullPath = `${safeFolderName}/${cleanPath}`;
+
+        // Use a clean Blob instance
+        const blob = new Blob([file.content], { type: file.content.type });
+
+        formData.append('file', blob, fullPath);
     }
 
     const res = await fetch(`${PINATA_API_URL}/pinning/pinFileToIPFS`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${jwt}` },
+        headers: {
+            Authorization: `Bearer ${jwt}`
+            // DO NOT set Content-Type header, let fetch set it with the boundary
+        },
         body: formData,
     });
 

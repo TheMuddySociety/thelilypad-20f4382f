@@ -16,7 +16,7 @@ import { NFTImageCompositor } from "./NFTImageCompositor";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadFolderToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob, createPinataGroup } from "@/lib/pinataUpload";
+import { uploadFolderToPinata, uploadZipToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob, createPinataGroup } from "@/lib/pinataUpload";
 
 // XRPL-specific resolution presets
 const RESOLUTION_PRESETS = [
@@ -799,28 +799,30 @@ export function GenerationPreview({
         console.warn('Metadata grouping failed, continuing with direct pinning:', err);
       }
 
-      // 2. Render images and build blobs
-      const imageFiles: { path: string; content: Blob }[] = [];
+      // 2. Render images and build zip
+      setExportStatus("Rendering images...");
+      const imagesZip = new JSZip();
       for (let i = 0; i < nfts.length; i++) {
         setExportStatus(`Rendering image ${i + 1} of ${count}...`);
         setExportProgress(((i + 1) / count) * 40);
 
         const imageDataUrl = await compositeNFTImage(nfts[i]);
         if (imageDataUrl) {
-          imageFiles.push({ path: `${nfts[i].id}.png`, content: dataUrlToBlob(imageDataUrl) });
+          imagesZip.file(`${nfts[i].id}.png`, dataUrlToBlob(imageDataUrl));
         }
       }
 
-      // 3. Pin images folder
+      // 3. Pin images folder (ZIP)
       setExportStatus("Pinning images to IPFS...");
       setExportProgress(50);
-      const imagePin = await uploadFolderToPinata(imageFiles, `${collectionName}-images`, groupId);
+      const imagesZipBlob = await imagesZip.generateAsync({ type: "blob" });
+      const imagePin = await uploadZipToPinata(imagesZipBlob, `${collectionName}-images`, groupId);
       const imageCid = imagePin.IpfsHash;
 
-      // 4. Build metadata with real IPFS URIs
+      // 4. Build metadata with real IPFS URIs and build zip
       setExportStatus("Building metadata...");
       setExportProgress(65);
-      const metadataFiles: { path: string; content: Blob }[] = [];
+      const metadataZip = new JSZip();
       for (const nft of nfts) {
         const isXrpl = xrplMode;
         const metadata = isXrpl
@@ -839,16 +841,14 @@ export function GenerationPreview({
             image: getIpfsUri(imageCid, `${nft.id}.png`),
             attributes: nft.traits.map((t) => ({ trait_type: t.layerName, value: t.traitName })),
           };
-        metadataFiles.push({
-          path: `${nft.id}.json`,
-          content: new Blob([JSON.stringify(metadata, null, 2)], { type: "application/json" }),
-        });
+        metadataZip.file(`${nft.id}.json`, JSON.stringify(metadata, null, 2));
       }
 
-      // 5. Pin metadata folder
+      // 5. Pin metadata folder (ZIP)
       setExportStatus("Pinning metadata to IPFS...");
       setExportProgress(80);
-      const metadataPin = await uploadFolderToPinata(metadataFiles, `${collectionName}-metadata`, groupId);
+      const metadataZipBlob = await metadataZip.generateAsync({ type: "blob" });
+      const metadataPin = await uploadZipToPinata(metadataZipBlob, `${collectionName}-metadata`, groupId);
       const metadataCid = metadataPin.IpfsHash;
 
       // 5. Store result for display
