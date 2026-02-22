@@ -23,6 +23,8 @@ import {
     Hash,
     Palette,
     ArrowLeft,
+    Download,
+    Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { FolderUploader } from "@/components/launchpad/FolderUploader";
@@ -47,6 +49,7 @@ import { useChain } from "@/providers/ChainProvider";
 import { useChainTheme } from "@/hooks/useChainTheme";
 import { useDraftCollection } from "@/hooks/useDraftCollection";
 import { cn } from "@/lib/utils";
+import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 
 // Default Phases
 const defaultPhases: LaunchpadPhase[] = [
@@ -153,6 +156,9 @@ export default function LaunchpadCreate() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0 });
     const [targetSupply, setTargetSupply] = useState(100);
+    const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+    const [downloadProgress, setDownloadProgress] = useState(0);
+    const [downloadStatus, setDownloadStatus] = useState("");
 
     // 1/1 Mode: Artwork Data
     const [artworks, setArtworks] = useState<ArtworkItem[]>([]);
@@ -521,6 +527,63 @@ export default function LaunchpadCreate() {
         }
     };
 
+    const handleDownloadZip = async () => {
+        if (generatedAssets.length === 0) return toast.error("Please generate assets first.");
+
+        setIsDownloadingZip(true);
+        setDownloadProgress(0);
+        setDownloadStatus("Starting export...");
+
+        try {
+            // Map GeneratedAsset[] to GeneratedNFT[] for the bundler
+            const nftBatch: GeneratedNFT[] = generatedAssets.map((asset, index) => ({
+                id: index + 1,
+                traits: asset.traits.map(t => {
+                    const layer = layers.find(l => l.name === t.layer);
+                    return {
+                        layerId: layer?.id || t.layer,
+                        layerName: t.layer,
+                        traitId: t.trait, // simplified mapping
+                        traitName: t.trait,
+                        imageUrl: asset.preview, // use the composite preview for the ZIP
+                        blendMode: "source-over" as any,
+                        opacity: 100
+                    };
+                })
+            }));
+
+            const zipBlob = await bundleAssetsAsZip(
+                nftBatch,
+                name || "Collection",
+                description || "",
+                selectedChain,
+                selectedChain === 'xrpl' ? 4000 : 1024,
+                (status, progress) => {
+                    setDownloadStatus(status);
+                    setDownloadProgress(progress);
+                }
+            );
+
+            const url = URL.createObjectURL(zipBlob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${(name || "collection").toLowerCase().replace(/\s+/g, "-")}-assets.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            toast.success("Assets downloaded successfully!");
+        } catch (err: any) {
+            console.error("ZIP export failed:", err);
+            toast.error("Failed to generate ZIP. Please try again.");
+        } finally {
+            setIsDownloadingZip(false);
+            setDownloadProgress(0);
+            setDownloadStatus("");
+        }
+    };
+
     const variants = {
         enter: (direction: number) => ({ x: direction > 0 ? 50 : -50, opacity: 0 }),
         center: { x: 0, opacity: 1 },
@@ -629,9 +692,24 @@ export default function LaunchpadCreate() {
                                             <div className="space-y-3">
                                                 <div className="flex items-center justify-between">
                                                     <Badge variant="secondary">{generatedAssets.length} Generated</Badge>
-                                                    <Button variant="outline" size="sm" onClick={handleGenerate} disabled={isGenerating}>
-                                                        {isGenerating ? 'Regenerating...' : 'Regenerate'}
-                                                    </Button>
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={handleDownloadZip}
+                                                            disabled={isDownloadingZip || isGenerating}
+                                                            className="flex-1"
+                                                        >
+                                                            {isDownloadingZip ? (
+                                                                <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> {downloadProgress}% </span>
+                                                            ) : (
+                                                                <span className="flex items-center gap-2"><Download className="w-3 h-3" /> Download ZIP</span>
+                                                            )}
+                                                        </Button>
+                                                        <Button variant="outline" size="sm" onClick={handleGenerate} disabled={isGenerating || isDownloadingZip}>
+                                                            {isGenerating ? 'Regenerating...' : 'Regenerate'}
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                                 <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
                                                     {generatedAssets.slice(0, 20).map((asset, i) => (
