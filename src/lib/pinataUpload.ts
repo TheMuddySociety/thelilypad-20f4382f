@@ -161,16 +161,6 @@ export async function uploadFolderToPinata(
         formData.append('pinataMetadata', JSON.stringify({ name: folderName }));
     }
 
-    if (groupId) {
-        // v3 API supports grouping during upload for some endpoints, 
-        // but for classic folder pinning we might need to add to group after.
-        // However, pinFileToIPFS still works for recursive folders best.
-        formData.append('pinataOptions', JSON.stringify({
-            wrapWithDirectory: true,
-            groupId: groupId // Some internal Pinata versions use this
-        }));
-    }
-
     const res = await fetch(`${PINATA_API_URL}/pinning/pinFileToIPFS`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${jwt}` },
