@@ -374,6 +374,11 @@ export default function LaunchpadCreate() {
 
                 if (isPinataConfigured()) {
                     // ── IPFS Upload Flow ──────────────────────────────────────
+                    // check for Pinata free tier limits (500 items)
+                    if (totalSupplyCount > 500) {
+                        toast.warning(`Collection size (${totalSupplyCount}) exceeds Pinata's free tier limit of 500 items. Ensure you have a paid plan to avoid 400 errors.`, { duration: 6000 });
+                    }
+
                     // 1. Create a Pinata Group for better organization
                     toast.loading("Creating Pinata asset group...", { id: 'deploy-status' });
                     let groupId: string | undefined;

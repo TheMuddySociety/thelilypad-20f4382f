@@ -152,13 +152,20 @@ export async function uploadFolderToPinata(
     const jwt = getPinataJWT();
     const formData = new FormData();
 
-    for (const file of files) {
-        // Folder upload via fetch requires the path in the filename param
-        formData.append('file', file.content, `${folderName || 'assets'}/${file.path}`);
-    }
-
+    // Field ordering: Metadata must come BEFORE files for some Pinata parser versions
     if (folderName) {
         formData.append('pinataMetadata', JSON.stringify({ name: folderName }));
+    }
+
+    // We can also include pinataOptions here if needed (e.g. cidVersion: 1)
+
+    for (const file of files) {
+        // Wrap content in a fresh Blob to strip any browser-added File metadata 
+        // that might interfere with the multi-part boundary/parser.
+        const cleanBlob = new Blob([file.content], { type: file.content.type });
+
+        // The third parameter is the path that creates the IPFS directory structure
+        formData.append('file', cleanBlob, `${folderName || 'assets'}/${file.path}`);
     }
 
     const res = await fetch(`${PINATA_API_URL}/pinning/pinFileToIPFS`, {
