@@ -126,10 +126,20 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ].filter(Boolean),
+  optimizeDeps: {
+    include: [
+      "@metaplex-foundation/mpl-hybrid",
+      "@metaplex-foundation/umi",
+      "@metaplex-foundation/mpl-core",
+    ],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  ssr: {
+    noExternal: ["@metaplex-foundation/mpl-hybrid"],
   },
   build: {
     target: "esnext",
@@ -147,6 +157,7 @@ export default defineConfig(({ mode }) => ({
           "vendor-metaplex": [
             "@metaplex-foundation/umi",
             "@metaplex-foundation/mpl-core",
+            "@metaplex-foundation/mpl-hybrid",
           ],
           "vendor-ui": [
             "@radix-ui/react-dialog",
