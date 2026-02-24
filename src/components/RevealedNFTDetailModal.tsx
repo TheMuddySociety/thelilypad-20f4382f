@@ -83,9 +83,9 @@ export const RevealedNFTDetailModal: React.FC<RevealedNFTDetailModalProps> = ({
                 <ImageIcon className="w-16 h-16 text-muted-foreground" />
               </div>
             )}
-            
+
             {/* Token ID Badge */}
-            <Badge 
+            <Badge
               className="absolute top-3 right-3 bg-black/70 text-white border-none"
             >
               <Hash className="w-3 h-3 mr-1" />
@@ -103,7 +103,7 @@ export const RevealedNFTDetailModal: React.FC<RevealedNFTDetailModalProps> = ({
             )}
             <div className="flex items-center gap-2 text-muted-foreground">
               <Clock className="w-4 h-4" />
-              <span>Revealed {format(new Date(nft.revealed_at), "MMM d, yyyy")}</span>
+              <span>Revealed {!isNaN(new Date(nft.revealed_at).getTime()) ? format(new Date(nft.revealed_at), "MMM d, yyyy") : "Unknown"}</span>
             </div>
           </div>
 

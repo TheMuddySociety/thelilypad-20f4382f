@@ -18,16 +18,16 @@ interface TimeRemaining {
 const calculateTimeRemaining = (targetDate: Date): TimeRemaining => {
   const now = new Date();
   const total = differenceInSeconds(targetDate, now);
-  
+
   if (total <= 0) {
     return { days: 0, hours: 0, minutes: 0, seconds: 0, total: 0 };
   }
-  
+
   const days = Math.floor(total / (60 * 60 * 24));
   const hours = Math.floor((total % (60 * 60 * 24)) / (60 * 60));
   const minutes = Math.floor((total % (60 * 60)) / 60);
   const seconds = total % 60;
-  
+
   return { days, hours, minutes, seconds, total };
 };
 
@@ -47,7 +47,7 @@ export const RevealCountdown: React.FC<RevealCountdownProps> = ({
     const updateCountdown = () => {
       const revealDate = new Date(scheduledRevealAt);
       const remaining = calculateTimeRemaining(revealDate);
-      
+
       if (remaining.total <= 0) {
         setTimeRemaining(null);
       } else {
@@ -82,21 +82,19 @@ export const RevealCountdown: React.FC<RevealCountdownProps> = ({
   );
 
   return (
-    <div className={`p-5 rounded-xl border-2 ${
-      isRevealingSoon 
-        ? 'bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-amber-500/10 border-amber-500/40' 
+    <div className={`p-5 rounded-xl border-2 ${isRevealingSoon
+        ? 'bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-amber-500/10 border-amber-500/40'
         : 'bg-gradient-to-br from-primary/10 via-primary/5 to-purple-500/10 border-primary/30'
-    } relative overflow-hidden`}>
+      } relative overflow-hidden`}>
       {/* Animated background effect */}
       <div className="absolute inset-0 opacity-30">
         <div className="absolute top-0 left-1/4 w-32 h-32 bg-primary/20 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-0 right-1/4 w-24 h-24 bg-purple-500/20 rounded-full blur-2xl animate-pulse delay-500" />
       </div>
-      
+
       <div className="relative z-10">
-        <div className={`flex items-center justify-center gap-2 mb-4 ${
-          isRevealingSoon ? 'text-amber-500' : 'text-primary'
-        }`}>
+        <div className={`flex items-center justify-center gap-2 mb-4 ${isRevealingSoon ? 'text-amber-500' : 'text-primary'
+          }`}>
           {isRevealingSoon ? (
             <Sparkles className="w-5 h-5 animate-pulse" />
           ) : (
@@ -109,7 +107,7 @@ export const RevealCountdown: React.FC<RevealCountdownProps> = ({
             <Sparkles className="w-5 h-5 animate-pulse" />
           )}
         </div>
-        
+
         <div className="flex items-center justify-center gap-2 sm:gap-3">
           {timeRemaining.days > 0 && (
             <>
@@ -124,9 +122,11 @@ export const RevealCountdown: React.FC<RevealCountdownProps> = ({
           <TimeBlock value={timeRemaining.seconds} label="Secs" />
         </div>
 
-        <p className="text-xs text-center text-muted-foreground mt-4">
-          NFTs reveal on {format(new Date(scheduledRevealAt), "MMMM d, yyyy 'at' h:mm a")}
-        </p>
+        {!isNaN(new Date(scheduledRevealAt).getTime()) && (
+          <p className="text-xs text-center text-muted-foreground mt-4">
+            NFTs reveal on {format(new Date(scheduledRevealAt), "MMMM d, yyyy 'at' h:mm a")}
+          </p>
+        )}
       </div>
     </div>
   );

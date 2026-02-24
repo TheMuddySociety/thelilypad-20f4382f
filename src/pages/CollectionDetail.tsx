@@ -135,7 +135,7 @@ interface Phase {
 
 // Verify if address is in allowlist
 const verifyAllowlist = (address: string, allowlistEntries: AllowlistEntry[]): boolean => {
-  return allowlistEntries.some(e => e.walletAddress.toLowerCase() === address.toLowerCase());
+  return allowlistEntries.some(e => e.walletAddress?.toLowerCase() === address?.toLowerCase());
 };
 
 // Check if a phase is currently live based on dates OR manual isActive flag
@@ -379,12 +379,8 @@ export default function CollectionDetail() {
   };
 
   const getPhases = (): Phase[] => {
-    if (!collection?.phases) return [];
-    try {
-      return collection.phases as unknown as Phase[];
-    } catch {
-      return [];
-    }
+    if (!collection?.phases || !Array.isArray(collection.phases)) return [];
+    return collection.phases as unknown as Phase[];
   };
 
   // Note: allowlistEntries is already loaded in the earlier useEffect (lines 174-200)
@@ -640,7 +636,7 @@ export default function CollectionDetail() {
         if (activePhase.requiresAllowlist) {
           // Find user in allowlist
           const allowlistEntry = allowlistEntries.find(
-            e => e.walletAddress.toLowerCase() === address.toLowerCase()
+            e => e.walletAddress?.toLowerCase() === address?.toLowerCase()
           );
 
           if (!allowlistEntry) {
@@ -1077,7 +1073,7 @@ export default function CollectionDetail() {
                     }
                   >
                     <Sparkles className="w-3 h-3 mr-1" />
-                    {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
+                    {(collection.status || 'upcoming').charAt(0).toUpperCase() + (collection.status || 'upcoming').slice(1)}
                   </Badge>
                   <Badge
                     variant="outline"

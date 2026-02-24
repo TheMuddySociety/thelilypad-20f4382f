@@ -119,7 +119,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
           className={`absolute top-3 right-3 ${statusColors[collection.status as keyof typeof statusColors] || statusColors.upcoming}`}
         >
           <StatusIcon className="w-3 h-3 mr-1" />
-          {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
+          {(collection.status || 'upcoming').charAt(0).toUpperCase() + (collection.status || 'upcoming').slice(1)}
         </Badge>
       </div>
 

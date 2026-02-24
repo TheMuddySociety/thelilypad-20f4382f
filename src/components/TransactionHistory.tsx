@@ -171,7 +171,7 @@ export function TransactionHistory({ userId, collectionId, limit = 10 }: Transac
                   {tx.price_paid > 0 ? `${tx.price_paid} SOL` : "Free"}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(tx.created_at), { addSuffix: true })}
+                  {!isNaN(new Date(tx.created_at).getTime()) ? formatDistanceToNow(new Date(tx.created_at), { addSuffix: true }) : "Unknown"}
                 </div>
               </div>
               {getStatusBadge(tx.status)}

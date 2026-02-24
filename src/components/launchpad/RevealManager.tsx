@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -16,11 +16,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { 
-  Sparkles, 
-  Eye, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  Sparkles,
+  Eye,
+  Loader2,
+  CheckCircle2,
   Image as ImageIcon,
   Wand2,
   Flame,
@@ -77,7 +77,7 @@ export function RevealManager({
   const [revealedNftsForAnimation, setRevealedNftsForAnimation] = useState<MintedNFT[]>([]);
   const [revealMode, setRevealMode] = useState<"all" | "selected">("all");
   const [selectedTheme, setSelectedTheme] = useState<RevealTheme>("magic");
-  
+
   // Scheduled reveal state
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
@@ -153,14 +153,14 @@ export function RevealManager({
     }
 
     const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
-    
+
     if (!isFuture(scheduledDateTime)) {
       toast.error("Scheduled time must be in the future");
       return;
     }
 
     setIsSavingSchedule(true);
-    
+
     try {
       const { error } = await supabase
         .from("collections")
@@ -185,7 +185,7 @@ export function RevealManager({
 
   const handleCancelSchedule = async () => {
     setIsSavingSchedule(true);
-    
+
     try {
       const { error } = await supabase
         .from("collections")
@@ -212,11 +212,11 @@ export function RevealManager({
     try {
       const now = new Date().toISOString();
       let nftsToAnimate: MintedNFT[] = [];
-      
+
       if (revealMode === "all") {
         // Get the NFTs that will be revealed for animation
         nftsToAnimate = nfts.filter(nft => !nft.is_revealed);
-        
+
         // Reveal all unrevealed NFTs
         const { error: nftError } = await supabase
           .from("minted_nfts")
@@ -236,7 +236,7 @@ export function RevealManager({
       } else {
         // Get the NFTs that will be revealed for animation
         nftsToAnimate = nfts.filter(nft => selectedNfts.has(nft.id));
-        
+
         // Reveal only selected NFTs
         const { error } = await supabase
           .from("minted_nfts")
@@ -362,9 +362,9 @@ export function RevealManager({
           {unrevealedImageUrl && unrevealedCount > 0 && (
             <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg border border-border">
               <div className="w-16 h-16 rounded-lg overflow-hidden border border-border shrink-0">
-                <img 
-                  src={unrevealedImageUrl} 
-                  alt="Unrevealed placeholder" 
+                <img
+                  src={unrevealedImageUrl}
+                  alt="Unrevealed placeholder"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -386,11 +386,10 @@ export function RevealManager({
                   <button
                     key={theme.id}
                     onClick={() => setSelectedTheme(theme.id)}
-                    className={`p-3 rounded-lg border-2 transition-all text-left ${
-                      selectedTheme === theme.id
+                    className={`p-3 rounded-lg border-2 transition-all text-left ${selectedTheme === theme.id
                         ? "border-primary bg-primary/10"
                         : "border-border hover:border-primary/50"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span className={selectedTheme === theme.id ? "text-primary" : "text-muted-foreground"}>
@@ -420,14 +419,16 @@ export function RevealManager({
                   </Badge>
                 )}
               </div>
-              
+
               {localScheduledAt ? (
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm">
                       Auto-reveal scheduled for{" "}
                       <span className="font-medium text-primary">
-                        {format(parseISO(localScheduledAt), "MMM d, yyyy 'at' h:mm a")}
+                        {!isNaN(new Date(localScheduledAt).getTime())
+                          ? format(parseISO(localScheduledAt), "MMM d, yyyy 'at' h:mm a")
+                          : "Invalid Date"}
                       </span>
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -512,7 +513,7 @@ export function RevealManager({
           {/* Actions */}
           {unrevealedCount > 0 && (
             <div className="flex flex-wrap gap-2">
-              <Button 
+              <Button
                 onClick={handleRevealAll}
                 disabled={isRevealing}
                 className="flex-1 sm:flex-none"
@@ -567,13 +568,12 @@ export function RevealManager({
                   {nfts.map((nft) => (
                     <div
                       key={nft.id}
-                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
-                        nft.is_revealed 
-                          ? "border-emerald-500/50 opacity-60" 
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${nft.is_revealed
+                          ? "border-emerald-500/50 opacity-60"
                           : selectedNfts.has(nft.id)
                             ? "border-primary ring-2 ring-primary/30"
                             : "border-border hover:border-primary/50"
-                      }`}
+                        }`}
                       onClick={() => !nft.is_revealed && handleSelectNft(nft.id)}
                     >
                       <img
@@ -581,7 +581,7 @@ export function RevealManager({
                         alt={nft.name || `#${nft.token_id}`}
                         className="w-full h-full object-cover"
                       />
-                      
+
                       {/* Selection Checkbox */}
                       {!nft.is_revealed && (
                         <div className="absolute top-1 left-1">

@@ -20,16 +20,16 @@ interface TimeRemaining {
 const calculateTimeRemaining = (targetDate: Date): TimeRemaining => {
   const now = new Date();
   const total = differenceInSeconds(targetDate, now);
-  
+
   if (total <= 0) {
     return { days: 0, hours: 0, minutes: 0, seconds: 0, total: 0 };
   }
-  
+
   const days = Math.floor(total / (60 * 60 * 24));
   const hours = Math.floor((total % (60 * 60 * 24)) / (60 * 60));
   const minutes = Math.floor((total % (60 * 60)) / 60);
   const seconds = total % 60;
-  
+
   return { days, hours, minutes, seconds, total };
 };
 
@@ -159,7 +159,7 @@ export const MintCountdown: React.FC<MintCountdownProps> = ({
         <Icon className="w-4 h-4" />
         <span className="text-sm font-medium">{config.label}</span>
       </div>
-      
+
       <div className="flex items-center justify-center gap-2">
         {timeRemaining.days > 0 && (
           <>
@@ -174,12 +174,12 @@ export const MintCountdown: React.FC<MintCountdownProps> = ({
         <TimeBlock value={timeRemaining.seconds} label="Sec" />
       </div>
 
-      {startTime && status === 'upcoming' && (
+      {startTime && status === 'upcoming' && !isNaN(new Date(startTime).getTime()) && (
         <p className="text-xs text-center text-muted-foreground mt-3">
           Starts: {format(new Date(startTime), "MMM d, yyyy 'at' h:mm a")}
         </p>
       )}
-      {endTime && (status === 'active' || status === 'ending-soon') && (
+      {endTime && (status === 'active' || status === 'ending-soon') && !isNaN(new Date(endTime).getTime()) && (
         <p className="text-xs text-center text-muted-foreground mt-3">
           Ends: {format(new Date(endTime), "MMM d, yyyy 'at' h:mm a")}
         </p>
