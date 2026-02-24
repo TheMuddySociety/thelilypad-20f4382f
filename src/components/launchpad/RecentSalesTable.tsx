@@ -183,7 +183,7 @@ export const RecentSalesTable = () => {
                   {sale.price} {sale.currency}
                 </TableCell>
                 <TableCell className="text-right text-sm text-muted-foreground">
-                  {sale.sold_at
+                  {sale.sold_at && !isNaN(new Date(sale.sold_at).getTime())
                     ? formatDistanceToNow(new Date(sale.sold_at), { addSuffix: true })
                     : "Unknown"}
                 </TableCell>

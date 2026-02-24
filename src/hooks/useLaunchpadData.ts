@@ -209,8 +209,8 @@ export function useLaunchpadData(selectedChain: SupportedChain = "solana") {
 
 // Helper to get price from phases
 export function getCollectionPrice(collection: Collection): string {
-  const phases = collection.phases as any[];
-  if (!phases || phases.length === 0) return "TBA";
+  const phases = Array.isArray(collection.phases) ? (collection.phases as any[]) : [];
+  if (phases.length === 0) return "TBA";
   const publicPhase = phases.find((p) => p.id === "public") || phases[0];
   if (!publicPhase?.price) return "Free";
   // Determine symbol from chain field
@@ -220,8 +220,8 @@ export function getCollectionPrice(collection: Collection): string {
 
 // Helper to get phase names
 export function getPhaseNames(collection: Collection): string[] {
-  const phases = collection.phases as any[];
-  if (!phases || phases.length === 0) return ["public"];
+  const phases = Array.isArray(collection.phases) ? (collection.phases as any[]) : [];
+  if (phases.length === 0) return ["public"];
   return phases.map((p) => p.id || p.name?.toLowerCase() || "public");
 }
 
@@ -229,18 +229,18 @@ export function getPhaseNames(collection: Collection): string[] {
 export function hasArtwork(collection: Collection): boolean {
   const type = collection.collection_type || "generative";
   if (type === "generative") {
-    const layers = collection.layers_metadata as any[] | null;
-    return layers && layers.length > 0 && layers.some((l) => l.traits && l.traits.length > 0);
+    const layers = Array.isArray(collection.layers_metadata) ? (collection.layers_metadata as any[]) : null;
+    return layers && layers.length > 0 && layers.some((l) => l.traits && Array.isArray(l.traits) && l.traits.length > 0);
   } else {
-    const artworks = collection.artworks_metadata as any[] | null;
+    const artworks = Array.isArray(collection.artworks_metadata) ? (collection.artworks_metadata as any[]) : null;
     return artworks && artworks.length > 0;
   }
 }
 
 // Helper to check if collection has valid phases
 export function hasValidPhases(collection: Collection): boolean {
-  const phases = collection.phases as any[];
-  return phases && phases.length > 0 && phases.some((p) => p.supply > 0);
+  const phases = Array.isArray(collection.phases) ? (collection.phases as any[]) : [];
+  return phases.length > 0 && phases.some((p) => p.supply > 0);
 }
 
 // Helper to get collection progress

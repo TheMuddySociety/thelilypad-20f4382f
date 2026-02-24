@@ -40,7 +40,7 @@ export const HomepageFeaturedCollections: React.FC = () => {
   const fetchFeaturedCollections = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      
+
       const { data, error } = await supabase
         .from("featured_collections")
         .select(`
@@ -78,8 +78,8 @@ export const HomepageFeaturedCollections: React.FC = () => {
     }
   };
 
-  const formatAddress = (address: string) =>
-    `${address.slice(0, 6)}...${address.slice(-4)}`;
+  const formatAddress = (address: string | null) =>
+    address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Anonymous";
 
   if (isLoading) {
     return (

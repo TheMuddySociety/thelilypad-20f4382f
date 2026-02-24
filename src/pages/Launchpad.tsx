@@ -398,7 +398,7 @@ export default function Launchpad() {
                       }
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm">{draft.name || "Untitled Draft"}</p>
-                        <p className="text-xs text-muted-foreground">Saved {formatDistanceToNow(new Date(draft.savedAt), { addSuffix: true })} · Step {draft.currentStep + 1} of 5</p>
+                        <p className="text-xs text-muted-foreground">Saved {draft.savedAt && !isNaN(new Date(draft.savedAt).getTime()) ? formatDistanceToNow(new Date(draft.savedAt), { addSuffix: true }) : "recently"} · Step {draft.currentStep + 1} of 5</p>
                         <div className="w-full bg-muted rounded-full h-1 mt-2">
                           <div className="bg-primary h-1 rounded-full" style={{ width: `${getProgress(draft.currentStep)}%` }} />
                         </div>
@@ -482,7 +482,7 @@ export default function Launchpad() {
                               // Robust owner check: Check ID (auth session) OR match wallet addresses directly
                               const isOwner = !!(
                                 (currentUserId && collection.creator_id === currentUserId) ||
-                                (address && collection.creator_address === address)
+                                (address && collection.creator_address && collection.creator_address === address)
                               );
                               const isDeployed = !!collection.contract_address;
                               const canEdit = isOwner && !isDeployed;
@@ -532,7 +532,7 @@ export default function Launchpad() {
                                     </div>
                                     <Badge variant="outline" className={`absolute top-2.5 left-2.5 h-5 text-[10px] ${statusColors[collection.status as keyof typeof statusColors]}`}>
                                       <StatusIcon className="w-2.5 h-2.5 mr-1" />
-                                      {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
+                                      {collection.status ? (collection.status.charAt(0).toUpperCase() + collection.status.slice(1)) : "Unknown"}
                                     </Badge>
                                   </div>
 
@@ -544,7 +544,7 @@ export default function Launchpad() {
                                           {isInProgram(collection.id) && <BuybackProgramBadge />}
                                         </div>
                                         <CardDescription className="text-xs mt-0.5">
-                                          by {collection.creator_address.slice(0, 6)}…{collection.creator_address.slice(-4)}
+                                          by {collection.creator_address ? `${collection.creator_address.slice(0, 6)}…${collection.creator_address.slice(-4)}` : "Anonymous"}
                                         </CardDescription>
                                       </div>
                                       {isOwner && (
@@ -631,7 +631,7 @@ export default function Launchpad() {
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold truncate">{c.name}</p>
                   <p className="text-xs text-muted-foreground">{c.total_supply} items · {c.status}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Created {formatDistanceToNow(new Date(c.created_at))} ago</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Created {c.created_at && !isNaN(new Date(c.created_at).getTime()) ? formatDistanceToNow(new Date(c.created_at)) : "some time"} ago</p>
                 </div>
               </div>
             );
