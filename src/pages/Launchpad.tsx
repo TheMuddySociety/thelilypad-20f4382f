@@ -72,6 +72,15 @@ interface CollectionTypeTile {
 
 const COLLECTION_TYPES: CollectionTypeTile[] = [
   {
+    id: "easy-xrp",
+    title: "Easy XRP Generator",
+    description: "The fastest way to launch on XRP. Drop your images, set your brand, and mint in 3 simple steps.",
+    icon: Zap,
+    highlight: true,
+    chains: ["xrpl"],
+    tag: "Simple Mode",
+  },
+  {
     id: "generative",
     title: "Generative Art",
     description: "Layer-based procedural generation. Upload trait layers and generate thousands of unique combinations with custom rarity weights.",
@@ -90,7 +99,7 @@ const COLLECTION_TYPES: CollectionTypeTile[] = [
   {
     id: "xrpl-589",
     title: "XRPL Collection · 589 Supply",
-    description: "XLS-20 ready collection built for XRPL. Default 589 supply at 4000×4000px. Export includes XLS-20 metadata ZIP.",
+    description: "XLS-20 ready collection built for XRPL. Bulk upload assets and metadata to IPFS with deterministic resolution.",
     icon: Star,
     highlight: true,
     xrplDefault: true,
@@ -191,6 +200,10 @@ export default function Launchpad() {
     if (selectedChain === "monad") return;
     if (tile.id === "hybrid-404") {
       setShowHybridForm(true);
+      return;
+    }
+    if (tile.id === "easy-xrp") {
+      navigate(`/launchpad/easy-xrp`);
       return;
     }
     // Navigate to the new creation page

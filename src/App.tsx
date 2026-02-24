@@ -107,6 +107,7 @@ const ProfileTypeSelection = lazy(() => import("./pages/ProfileTypeSelection"));
 const LimitedEditionMint = lazy(() => import("./pages/LimitedEditionMint"));
 const ReadyTrade = lazy(() => import("./pages/ReadyTrade"));
 const CreateCollectionPage = lazy(() => import("./pages/LaunchpadCreate"));
+const XRPLEasyGenerator = lazy(() => import("./pages/XRPLEasyGenerator"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -182,6 +183,7 @@ const App = () => (
                       <Route path="/limited-edition" element={<ProtectedRoute><LimitedEditionMint /></ProtectedRoute>} />
                       <Route path="/ready-trade" element={<ProtectedRoute><ReadyTrade /></ProtectedRoute>} />
                       <Route path="/launchpad/create/:chain/:type" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreateCollectionPage /></Suspense></ProtectedRoute>} />
+                      <Route path="/launchpad/easy-xrp" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><XRPLEasyGenerator /></Suspense></ProtectedRoute>} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
