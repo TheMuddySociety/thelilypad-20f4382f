@@ -1543,7 +1543,7 @@ export function GenerationPreview({
                 ) : (
                   <Download className="w-4 h-4" />
                 )}
-                {isXrplZipExporting ? exportStatus : `Download XRPL ZIP (${outputResolution}px)`}
+                {isXrplZipExporting ? exportStatus : `Download ZIP of Image + Data (${outputResolution}px)`}
               </Button>
 
               {!hasAnyImages && (

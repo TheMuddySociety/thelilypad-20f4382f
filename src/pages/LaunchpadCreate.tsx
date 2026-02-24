@@ -695,6 +695,12 @@ export default function LaunchpadCreate() {
                                             <Label>Target Supply</Label>
                                             <Input type="number" value={targetSupply} onChange={e => setTargetSupply(Number(e.target.value))} min={1} max={10000} />
                                             <p className="text-xs text-muted-foreground">How many unique NFTs to generate from your layers.</p>
+                                            {selectedChain === 'xrpl' && (
+                                                <p className="text-xs text-amber-500 mt-2">
+                                                    ⚠️ XRPL uses high-resolution (4000px) composites by default.
+                                                    Generating and zipping many items may require significant browser memory.
+                                                </p>
+                                            )}
                                         </div>
                                         {generatedAssets.length > 0 ? (
                                             <div className="space-y-3">
@@ -711,7 +717,7 @@ export default function LaunchpadCreate() {
                                                             {isDownloadingZip ? (
                                                                 <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> {downloadProgress}% </span>
                                                             ) : (
-                                                                <span className="flex items-center gap-2"><Download className="w-3 h-3" /> Download ZIP</span>
+                                                                <span className="flex items-center gap-2"><Download className="w-3 h-3" /> Download ZIP of Image + Data</span>
                                                             )}
                                                         </Button>
                                                         <Button variant="outline" size="sm" onClick={handleGenerate} disabled={isGenerating || isDownloadingZip}>

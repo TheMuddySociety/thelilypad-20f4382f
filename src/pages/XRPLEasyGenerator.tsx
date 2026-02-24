@@ -34,6 +34,8 @@ import { useSEO } from "@/hooks/useSEO";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { setStoredChain } from "@/config/chains";
+import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
+import { Download, FileArchive } from "lucide-react";
 
 export default function XRPLEasyGenerator() {
     const navigate = useNavigate();
@@ -55,6 +57,8 @@ export default function XRPLEasyGenerator() {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [collectionCid, setCollectionCid] = useState("");
     const [deployedResult, setDeployedResult] = useState<{ address: string; taxon: number } | null>(null);
+    const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+    const [downloadProgress, setDownloadProgress] = useState(0);
 
     // Handlers
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -182,6 +186,65 @@ export default function XRPLEasyGenerator() {
             navigate("/launchpad");
         } catch (err: any) {
             toast.error(err.message || "Minting failed", { id: 'easy-mint' });
+        }
+    };
+
+    const handleDownloadZip = async () => {
+        if (files.length === 0) return;
+        setIsDownloadingZip(true);
+        setDownloadProgress(0);
+
+        try {
+            const zip = new JSZip();
+            const imagesFolder = zip.folder("images");
+            const metadataFolder = zip.folder("metadata");
+
+            if (!imagesFolder || !metadataFolder) throw new Error("Failed to create ZIP");
+
+            for (let i = 0; i < files.length; i++) {
+                setDownloadProgress(Math.round(((i + 1) / files.length) * 90));
+
+                // Add Image
+                imagesFolder.file(`${i}.png`, files[i]);
+
+                // Add XLS-20 Metadata
+                const metadata = {
+                    schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
+                    nftType: "art.v0",
+                    name: `${name} #${i + 1}`,
+                    description,
+                    image: `ipfs://YOUR_IMAGE_CID/${i}.png`,
+                    attributes: []
+                };
+                metadataFolder.file(`${i}.json`, JSON.stringify(metadata, null, 2));
+            }
+
+            // Collection Manifest
+            zip.file("collection.json", JSON.stringify({
+                name,
+                symbol,
+                description,
+                total_supply: files.length,
+                chain: "XRPL",
+                generated_at: new Date().toISOString()
+            }, null, 2));
+
+            const blob = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${name.toLowerCase().replace(/\s+/g, '-')}-assets.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            toast.success("Collection ZIP downloaded!");
+        } catch (err: any) {
+            toast.error("Failed to generate ZIP: " + err.message);
+        } finally {
+            setIsDownloadingZip(false);
+            setDownloadProgress(0);
         }
     };
 
@@ -414,29 +477,45 @@ export default function XRPLEasyGenerator() {
                                         </div>
                                     </div>
 
-                                    {!isConnected ? (
-                                        <Button className="w-full h-14 text-xl gap-2" variant="destructive" disabled>
-                                            Connect XRPL Wallet to Mint
-                                        </Button>
-                                    ) : (
+                                    <div className="flex flex-col gap-3">
+                                        {!isConnected ? (
+                                            <Button className="w-full h-14 text-xl gap-2" variant="destructive" disabled>
+                                                Connect XRPL Wallet to Mint
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                className="w-full h-14 text-xl gap-2 bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/20"
+                                                onClick={launchNfts}
+                                                disabled={isMinting}
+                                            >
+                                                {isMinting ? (
+                                                    <>
+                                                        <Loader2 className="w-6 h-6 animate-spin" />
+                                                        Minting on Ledger...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Zap className="w-6 h-6 fill-current" />
+                                                        MINT {files.length} NFTs NOW
+                                                    </>
+                                                )}
+                                            </Button>
+                                        )}
+
                                         <Button
-                                            className="w-full h-14 text-xl gap-2 bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/20"
-                                            onClick={launchNfts}
-                                            disabled={isMinting}
+                                            variant="outline"
+                                            className="w-full h-12 gap-2"
+                                            onClick={handleDownloadZip}
+                                            disabled={isDownloadingZip}
                                         >
-                                            {isMinting ? (
-                                                <>
-                                                    <Loader2 className="w-6 h-6 animate-spin" />
-                                                    Minting on Ledger...
-                                                </>
+                                            {isDownloadingZip ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
                                             ) : (
-                                                <>
-                                                    <Zap className="w-6 h-6 fill-current" />
-                                                    MINT {files.length} NFTs NOW
-                                                </>
+                                                <Download className="w-4 h-4" />
                                             )}
+                                            Download ZIP of Image + Data
                                         </Button>
-                                    )}
+                                    </div>
 
                                     <p className="text-center text-xs text-muted-foreground px-8">
                                         By clicking mint, you will sign a batch of XLS-20 transactions.
