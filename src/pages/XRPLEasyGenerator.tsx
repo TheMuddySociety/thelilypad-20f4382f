@@ -32,6 +32,7 @@ import { uploadZipToPinata, getIpfsUri, isPinataConfigured, dataUrlToBlob, creat
 import JSZip from "jszip";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { storageClient, NFT_BUCKETS } from "@/integrations/supabase/storageClient";
 import { useSEO } from "@/hooks/useSEO";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -120,21 +121,32 @@ export default function XRPLEasyGenerator() {
                 await Promise.all(batch.map(async (file, index) => {
                     const tokenId = i + index;
                     const fileExt = file.name.split('.').pop() || 'png';
-                    await supabase.storage.from('nfts').upload(`${collectionId}/${tokenId}.${fileExt}`, file, { upsert: true });
+
+                    // Upload image to dedicated NFT Storage Supabase
+                    await storageClient.storage
+                        .from(NFT_BUCKETS.IMAGES)
+                        .upload(`collections/${collectionId}/${tokenId}.${fileExt}`, file, { upsert: true });
+
+                    const { data: { publicUrl: imagePublicUrl } } = storageClient.storage
+                        .from(NFT_BUCKETS.IMAGES)
+                        .getPublicUrl(`collections/${collectionId}/${tokenId}.${fileExt}`);
 
                     const metadata = {
                         schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
                         nftType: "art.v0",
                         name: `${name} #${tokenId + 1}`,
                         description,
-                        image: storageInfo.itemImageUri(tokenId, fileExt),
+                        image: imagePublicUrl,
                         attributes: []
                     };
 
-                    await supabase.storage.from('nfts').upload(`${collectionId}/${tokenId}.json`, JSON.stringify(metadata), {
-                        upsert: true,
-                        contentType: 'application/json'
-                    });
+                    // Upload metadata JSON to dedicated NFT Metadata bucket
+                    await storageClient.storage
+                        .from(NFT_BUCKETS.METADATA)
+                        .upload(`collections/${collectionId}/${tokenId}.json`, JSON.stringify(metadata), {
+                            upsert: true,
+                            contentType: 'application/json'
+                        });
                 }));
                 setUploadProgress(15 + Math.round(((i + batchSize) / files.length) * 40));
             }

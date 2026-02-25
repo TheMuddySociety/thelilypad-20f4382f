@@ -39,6 +39,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useSolanaLaunch, LaunchpadPhase } from "@/hooks/useSolanaLaunch";
 import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
 import { supabase } from "@/integrations/supabase/client";
+import { storageClient, NFT_BUCKETS } from "@/integrations/supabase/storageClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { validateAssets, AssetFile } from "@/utils/assetValidator";
 import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
@@ -349,7 +350,14 @@ export default function LaunchpadCreate() {
                             file = dataUrlToBlob((asset as GeneratedAsset).preview);
                         }
 
-                        await supabase.storage.from('nfts').upload(`${collectionId}/${tokenId}.${fileExt}`, file, { upsert: true });
+                        // Upload image to dedicated NFT Storage Supabase
+                        await storageClient.storage
+                            .from(NFT_BUCKETS.IMAGES)
+                            .upload(`collections/${collectionId}/${tokenId}.${fileExt}`, file, { upsert: true });
+
+                        const { data: { publicUrl: imagePublicUrl } } = storageClient.storage
+                            .from(NFT_BUCKETS.IMAGES)
+                            .getPublicUrl(`collections/${collectionId}/${tokenId}.${fileExt}`);
 
                         const traits = is1of1
                             ? [{ trait_type: 'Edition', value: (asset as ArtworkItem).name }]
@@ -359,18 +367,21 @@ export default function LaunchpadCreate() {
                             name: is1of1 ? (asset as ArtworkItem).name : `${name} #${tokenId + 1}`,
                             symbol: symbol,
                             description: description,
-                            image: storageInfo.itemImageUri(tokenId, fileExt),
+                            image: imagePublicUrl,
                             attributes: traits,
                             properties: {
-                                files: [{ uri: storageInfo.itemImageUri(tokenId, fileExt), type: `image/${fileExt}` }],
+                                files: [{ uri: imagePublicUrl, type: `image/${fileExt}` }],
                                 category: 'image',
                             }
                         };
 
-                        await supabase.storage.from('nfts').upload(`${collectionId}/${tokenId}.json`, JSON.stringify(metadata), {
-                            upsert: true,
-                            contentType: 'application/json'
-                        });
+                        // Upload metadata JSON to dedicated NFT Metadata bucket
+                        await storageClient.storage
+                            .from(NFT_BUCKETS.METADATA)
+                            .upload(`collections/${collectionId}/${tokenId}.json`, JSON.stringify(metadata), {
+                                upsert: true,
+                                contentType: 'application/json'
+                            });
                     }));
                 }
             }
