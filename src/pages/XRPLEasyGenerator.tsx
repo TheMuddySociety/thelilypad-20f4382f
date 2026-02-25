@@ -20,13 +20,15 @@ import {
     ShieldCheck,
     Zap,
     Cloud,
-    Image as ImageIcon
+    Image as ImageIcon,
+    Database
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
+import { useAuth } from "@/providers/AuthProvider";
 import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
-import { uploadZipToPinata, getIpfsUri, isPinataConfigured, dataUrlToBlob } from "@/lib/pinataUpload";
+import { uploadZipToPinata, getIpfsUri, isPinataConfigured, dataUrlToBlob, createPinataGroup } from "@/lib/pinataUpload";
 import JSZip from "jszip";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,11 +37,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { setStoredChain } from "@/config/chains";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
+import { getCollectionStorageInfo } from "@/lib/payloadMapper";
 import { Download, FileArchive } from "lucide-react";
 
 export default function XRPLEasyGenerator() {
     const navigate = useNavigate();
     const { address, isConnected } = useWallet();
+    const { isAdmin } = useAuth();
     const { deployXRPLCollection, mintXRPLItems, isDeploying, isMinting } = useXRPLLaunch();
 
     useSEO({
@@ -78,56 +82,113 @@ export default function XRPLEasyGenerator() {
             return;
         }
 
-        if (!isPinataConfigured()) {
-            toast.error("Pinata JWT not configured. Add VITE_PINATA_JWT to your .env file.");
-            return;
-        }
-
         setIsUploading(true);
-        setUploadProgress(10);
+        setUploadProgress(5);
 
         try {
-            // 1. Zip files
-            setUploadProgress(20);
-            const zip = new JSZip();
+            // 1. Get current user & reserve ID
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Authentication required to save collection");
 
-            // Build basic metadata for each file
-            for (let i = 0; i < files.length; i++) {
-                zip.file(`${i}.png`, files[i]);
-            }
-
-            const zipBlob = await zip.generateAsync({ type: "blob" });
-            setUploadProgress(40);
-
-            // 2. Upload images zip
-            toast.loading("Uploading collection assets...", { id: 'easy-mint' });
-            const pinResult = await uploadZipToPinata(zipBlob, `${name.toLowerCase().replace(/\s+/g, '-')}-assets`);
-            const imagesCid = pinResult.IpfsHash;
-
-            // 3. Build metadata zip
-            setUploadProgress(60);
-            const metaZip = new JSZip();
-            for (let i = 0; i < files.length; i++) {
-                const metadata = {
-                    schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
-                    nftType: "art.v0",
-                    name: `${name} #${i + 1}`,
+            toast.loading("Reserving collection ID...", { id: 'easy-mint' });
+            const { data: placeholderCollection, error: placeholderError } = await supabase
+                .from("collections")
+                .insert({
+                    name,
+                    symbol,
                     description,
-                    image: getIpfsUri(imagesCid, `${i}.png`),
-                    attributes: []
-                };
-                metaZip.file(`${i}.json`, JSON.stringify(metadata, null, 2));
+                    chain: "xrpl",
+                    total_supply: files.length,
+                    status: "draft",
+                    creator_id: user.id,
+                    creator_address: address
+                })
+                .select('id')
+                .single();
+
+            if (placeholderError) throw placeholderError;
+            const collectionId = placeholderCollection.id;
+            const storageInfo = getCollectionStorageInfo(collectionId);
+
+            setUploadProgress(15);
+
+            // 2. Upload individual assets to Supabase Storage
+            toast.loading(`Uploading ${files.length} images to Supabase...`, { id: 'easy-mint' });
+            const batchSize = 5;
+            for (let i = 0; i < files.length; i += batchSize) {
+                const batch = files.slice(i, i + batchSize);
+                await Promise.all(batch.map(async (file, index) => {
+                    const tokenId = i + index;
+                    const fileExt = file.name.split('.').pop() || 'png';
+                    await supabase.storage.from('nfts').upload(`${collectionId}/${tokenId}.${fileExt}`, file, { upsert: true });
+
+                    const metadata = {
+                        schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
+                        nftType: "art.v0",
+                        name: `${name} #${tokenId + 1}`,
+                        description,
+                        image: storageInfo.itemImageUri(tokenId, fileExt),
+                        attributes: []
+                    };
+
+                    await supabase.storage.from('nfts').upload(`${collectionId}/${tokenId}.json`, JSON.stringify(metadata), {
+                        upsert: true,
+                        contentType: 'application/json'
+                    });
+                }));
+                setUploadProgress(15 + Math.round(((i + batchSize) / files.length) * 40));
             }
 
-            const metaZipBlob = await metaZip.generateAsync({ type: "blob" });
-            const metaPinResult = await uploadZipToPinata(metaZipBlob, `${name.toLowerCase().replace(/\s+/g, '-')}-metadata`);
-            const metadataCid = metaPinResult.IpfsHash;
-            setCollectionCid(metadataCid);
+            // 3. Optional Admin-Only Pinata Upload (IPFS)
+            let metadataCid = "";
+            let imagesCid = "";
+
+            if (isAdmin && isPinataConfigured()) {
+                toast.loading("Admin: Pining assets to IPFS (fallback)...", { id: 'easy-mint' });
+
+                // Create pinata group
+                let groupId: string | undefined;
+                try {
+                    const group = await createPinataGroup(name);
+                    groupId = group.id;
+                } catch (e) { console.warn("Pinata grouping failed"); }
+
+                // Zip images
+                const imagesZip = new JSZip();
+                files.forEach((file, i) => imagesZip.file(`${i}.png`, file));
+                const imagesZipBlob = await imagesZip.generateAsync({ type: "blob" });
+                const imagesPin = await uploadZipToPinata(imagesZipBlob, `${name}-assets`, groupId);
+                imagesCid = imagesPin.IpfsHash;
+
+                // Zip metadata
+                const metaZip = new JSZip();
+                for (let i = 0; i < files.length; i++) {
+                    const metadata = {
+                        schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
+                        nftType: "art.v0",
+                        name: `${name} #${i + 1}`,
+                        description,
+                        image: getIpfsUri(imagesCid, `${i}.png`),
+                        attributes: []
+                    };
+                    metaZip.file(`${i}.json`, JSON.stringify(metadata, null, 2));
+                }
+                const metaZipBlob = await metaZip.generateAsync({ type: "blob" });
+                const metaPin = await uploadZipToPinata(metaZipBlob, `${name}-metadata`, groupId);
+                metadataCid = metaPin.IpfsHash;
+                setCollectionCid(metadataCid);
+            } else {
+                // For non-admins or no pinata config, collectionCid identifies Supabase root
+                setCollectionCid("supabase");
+            }
 
             // 4. Deploy Collection (Setup Domain)
             setUploadProgress(80);
             toast.loading("Setting up XRPL Collection...", { id: 'easy-mint' });
-            const baseUri = getIpfsUri(metadataCid);
+
+            // XRPL Base URI strategy: Use Supabase root if not admin, or IPFS if admin
+            const baseUri = (isAdmin && metadataCid) ? getIpfsUri(metadataCid) : storageInfo.rootUri;
+
             const result = await deployXRPLCollection({
                 name,
                 symbol,
@@ -138,24 +199,13 @@ export default function XRPLEasyGenerator() {
 
             setDeployedResult(result);
 
-            // Get current user for owner fields
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("Authentication required to save collection");
-
-            // Save to Supabase
-            await supabase.from("collections").insert({
-                name,
-                symbol,
-                description,
-                chain: "xrpl",
+            // Update collection record with final results
+            await supabase.from("collections").update({
                 contract_address: result.address,
-                total_supply: files.length,
                 status: "active",
-                ipfs_base_cid: metadataCid,
-                image_url: `https://gateway.pinata.cloud/ipfs/${imagesCid}/0.png`,
-                creator_id: user.id,
-                creator_address: address
-            });
+                ipfs_base_cid: metadataCid || null,
+                image_url: storageInfo.itemImageUri(0)
+            }).eq('id', collectionId);
 
             setUploadProgress(100);
             setStep(3);
@@ -170,13 +220,18 @@ export default function XRPLEasyGenerator() {
 
     const launchNfts = async () => {
         if (!deployedResult || !collectionCid) return;
+        const collectionId = (await supabase.from("collections").select('id').eq('contract_address', deployedResult.address).single()).data?.id;
+        if (!collectionId) return;
+        const storageInfo = getCollectionStorageInfo(collectionId);
 
         try {
             toast.loading(`Minting ${files.length} NFTs...`, { id: 'easy-mint' });
 
             const items = files.map((_, i) => ({
                 name: `${name} #${i + 1}`,
-                uri: getIpfsUri(collectionCid, `${i}.json`)
+                uri: (isAdmin && collectionCid !== "supabase")
+                    ? getIpfsUri(collectionCid, `${i}.json`)
+                    : storageInfo.itemMetadataUri(i)
             }));
 
             await mintXRPLItems(deployedResult.address, deployedResult.taxon, items);
@@ -468,8 +523,8 @@ export default function XRPLEasyGenerator() {
                                         </div>
                                         <Separator />
                                         <div className="flex justify-between items-center text-xs text-muted-foreground">
-                                            <span className="flex items-center gap-1"><Cloud className="w-3 h-3" /> IPFS Status</span>
-                                            <span className="text-green-500 flex items-center gap-1"><Check className="w-3 h-3" /> Pinned</span>
+                                            <span className="flex items-center gap-1"><Database className="w-3 h-3" /> Storage Status</span>
+                                            <span className="text-green-500 flex items-center gap-1"><Check className="w-3 h-3" /> Supabase Hosted</span>
                                         </div>
                                         <div className="flex justify-between items-center text-xs text-muted-foreground">
                                             <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Ledger Status</span>

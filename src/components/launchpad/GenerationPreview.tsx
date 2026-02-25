@@ -9,13 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3, Crown, Gem, Star, Circle, Archive, Cloud, ExternalLink, Copy, Check, Zap, Settings2 } from "lucide-react";
+import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3, Crown, Gem, Star, Circle, Archive, Cloud, ExternalLink, Copy, Check, Zap, Settings2, ShieldCheck } from "lucide-react";
 import { Layer, Trait, BlendMode } from "./LayerManager";
 import { TraitRule, RuleType } from "./TraitRulesManager";
 import { NFTImageCompositor } from "./NFTImageCompositor";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/providers/AuthProvider";
 import { uploadFolderToPinata, uploadZipToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob, createPinataGroup } from "@/lib/pinataUpload";
 
 // XRPL-specific resolution presets
@@ -159,6 +160,7 @@ export function GenerationPreview({
   collectionDescription = "",
   xrplMode = false,
 }: GenerationPreviewProps) {
+  const { isAdmin } = useAuth();
   const [previewCount, setPreviewCount] = useState("5");
   const [generatedPreviews, setGeneratedPreviews] = useState<GeneratedNFT[]>([]);
   const [exportCount, setExportCount] = useState(xrplMode ? "589" : (totalSupply || "100"));
@@ -1697,29 +1699,43 @@ export function GenerationPreview({
                 </div>
               )}
 
-              <Button
-                onClick={uploadToIpfs}
-                disabled={isUploadingToIpfs || isExporting || !hasAnyImages}
-                className="w-full gap-2 bg-green-600 hover:bg-green-700"
-                size="lg"
-              >
-                {isUploadingToIpfs ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Cloud className="w-4 h-4" />
-                )}
-                Upload to IPFS
-              </Button>
+              {isAdmin ? (
+                <>
+                  <Button
+                    onClick={uploadToIpfs}
+                    disabled={isUploadingToIpfs || isExporting || !hasAnyImages}
+                    className="w-full gap-2 bg-green-600 hover:bg-green-700"
+                    size="lg"
+                  >
+                    {isUploadingToIpfs ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Cloud className="w-4 h-4" />
+                    )}
+                    Admin: Sync to IPFS
+                  </Button>
 
-              {!hasAnyImages && (
-                <p className="text-xs text-yellow-600 dark:text-yellow-500">
-                  ⚠️ Add images to your traits to enable IPFS upload
-                </p>
+                  {!hasAnyImages && (
+                    <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                      ⚠️ Add images to your traits to enable IPFS sync
+                    </p>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    Direct IPFS hosting via Pinata. Global availability.
+                  </p>
+                </>
+              ) : (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                  <p className="text-xs text-amber-600 dark:text-amber-500 flex items-center gap-2">
+                    <ShieldCheck className="w-3 h-3" />
+                    IPFS Hosting is managed by platform admins.
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Your collection will be primary hosted on Supabase Cloud. Use ZIP export for local backups.
+                  </p>
+                </div>
               )}
-
-              <p className="text-xs text-muted-foreground">
-                Max 100 NFTs per upload. Requires Pinata JWT configured.
-              </p>
             </CardContent>
           </Card>
 

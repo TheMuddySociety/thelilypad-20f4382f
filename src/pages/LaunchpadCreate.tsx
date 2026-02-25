@@ -35,6 +35,7 @@ import { LayerManager, Layer } from "@/components/launchpad/LayerManager";
 import { TraitRarityEditor } from "@/components/launchpad/TraitRarityEditor";
 import { ArtworkUploader, type ArtworkItem } from "@/components/launchpad/ArtworkUploader";
 import { useWallet } from "@/providers/WalletProvider";
+import { useAuth } from "@/providers/AuthProvider";
 import { useSolanaLaunch, LaunchpadPhase } from "@/hooks/useSolanaLaunch";
 import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
 import { supabase } from "@/integrations/supabase/client";
@@ -103,6 +104,7 @@ export default function LaunchpadCreate() {
     const { chain: chainParam, type: typeParam } = useParams<{ chain: string; type: string }>();
     const navigate = useNavigate();
     const { address, network } = useWallet();
+    const { isAdmin } = useAuth();
     const { chain } = useChain();
     const { theme } = chain;
 
@@ -326,27 +328,45 @@ export default function LaunchpadCreate() {
             const storageInfo = getCollectionStorageInfo(collectionId);
             const baseUri = getChainRootUri(selectedChain, collectionId);
 
-            // 1. Upload Assets if in Basic Mode
-            if (mode === "basic" && folderAssets.length > 0) {
-                toast.loading(`Uploading ${folderAssets.length} assets...`, { id: 'deploy-status' });
+            // 1. Upload Assets and Metadata to Supabase Storage (Platform Primary Host)
+            const assetsToUpload = is1of1 ? artworks : (mode === 'basic' ? folderAssets : generatedAssets);
+
+            if (assetsToUpload.length > 0) {
+                toast.loading(`Uploading ${assetsToUpload.length} assets to Supabase...`, { id: 'deploy-status' });
                 const batchSize = 5;
-                for (let i = 0; i < folderAssets.length; i += batchSize) {
-                    const batch = folderAssets.slice(i, i + batchSize);
+                for (let i = 0; i < assetsToUpload.length; i += batchSize) {
+                    const batch = assetsToUpload.slice(i, i + batchSize);
                     await Promise.all(batch.map(async (asset, index) => {
                         const tokenId = i + index;
-                        const fileExt = asset.file.name.split('.').pop() || 'png';
-                        await supabase.storage.from('nfts').upload(`${collectionId}/${tokenId}.${fileExt}`, asset.file, { upsert: true });
+                        let file: File | Blob;
+                        let fileExt = 'png';
+
+                        if ('file' in asset) {
+                            const actualFile = (asset as any).file as File;
+                            file = actualFile;
+                            fileExt = actualFile.name?.split('.').pop() || 'png';
+                        } else {
+                            file = dataUrlToBlob((asset as GeneratedAsset).preview);
+                        }
+
+                        await supabase.storage.from('nfts').upload(`${collectionId}/${tokenId}.${fileExt}`, file, { upsert: true });
+
+                        const traits = is1of1
+                            ? [{ trait_type: 'Edition', value: (asset as ArtworkItem).name }]
+                            : (mode === 'advanced' ? (asset as GeneratedAsset).metadata.attributes : []);
+
                         const metadata = {
-                            name: `${name} #${tokenId + 1}`,
+                            name: is1of1 ? (asset as ArtworkItem).name : `${name} #${tokenId + 1}`,
                             symbol: symbol,
                             description: description,
                             image: storageInfo.itemImageUri(tokenId, fileExt),
-                            attributes: [],
+                            attributes: traits,
                             properties: {
-                                files: [{ uri: storageInfo.itemImageUri(tokenId, fileExt), type: asset.file.type || `image/${fileExt}` }],
+                                files: [{ uri: storageInfo.itemImageUri(tokenId, fileExt), type: `image/${fileExt}` }],
                                 category: 'image',
                             }
                         };
+
                         await supabase.storage.from('nfts').upload(`${collectionId}/${tokenId}.json`, JSON.stringify(metadata), {
                             upsert: true,
                             contentType: 'application/json'
@@ -377,10 +397,10 @@ export default function LaunchpadCreate() {
             } else if (selectedChain === 'xrpl') {
                 const totalSupplyCount = is1of1
                     ? artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0)
-                    : (mode === 'advanced' ? generatedAssets.length || targetSupply : folderAssets.length || targetSupply);
+                    : (mode === 'advanced' ? (generatedAssets.length || targetSupply) : (folderAssets.length || targetSupply));
 
-                if (isPinataConfigured()) {
-                    // ── IPFS Upload Flow (Windows-Safe ZIP Strategy) ────────────────
+                if (isAdmin && isPinataConfigured()) {
+                    // ── Admin-Only IPFS Upload Flow (ZIP Strategy) ────────────────
                     // check for Pinata free tier limits (500 items)
                     if (totalSupplyCount > 500) {
                         toast.warning(`Collection size (${totalSupplyCount}) exceeds Pinata's free tier limit of 500 items. Ensure you have a paid plan to avoid 400 errors.`, { duration: 6000 });
@@ -475,10 +495,15 @@ export default function LaunchpadCreate() {
                         ipfs_base_cid: metadataCid,
                     }).eq('id', collectionId);
                 } else {
-                    // ── Supabase Fallback (no Pinata JWT) ─────────────────────
-                    toast.loading('Setting XRPL Domain...', { id: 'deploy-status' });
+                    // ── Supabase Default Path (Primary Hosting) ─────────────────────
+                    toast.loading('Deploying XRPL Collection...', { id: 'deploy-status' });
                     const xrplRes = await xrplLaunch.deployXRPLCollection({ name, symbol, description, totalSupply: totalSupplyCount, baseUri });
-                    await supabase.from('collections').update({ contract_address: xrplRes.address, image_url: coverImage || storageInfo.itemImageUri(0, 'png'), status: 'active' }).eq('id', collectionId);
+
+                    await supabase.from('collections').update({
+                        contract_address: xrplRes.address,
+                        image_url: storageInfo.itemImageUri(0),
+                        status: 'active',
+                    }).eq('id', collectionId);
                 }
             }
 
