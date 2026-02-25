@@ -17,7 +17,7 @@
 
 import JSZip from 'jszip';
 import { storageClient, NFT_BUCKETS, uploadToNftStorage, getStoragePublicUrl, isNftStorageConfigured } from '@/integrations/supabase/storageClient';
-import { dataUrlToBlob } from '@/lib/pinataUpload';
+import { dataUrlToBlob } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

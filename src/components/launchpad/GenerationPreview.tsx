@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
-import { dataUrlToBlob } from "@/lib/pinataUpload";
+import { dataUrlToBlob } from "@/lib/utils";
 
 // XRPL-specific resolution presets
 const RESOLUTION_PRESETS = [
