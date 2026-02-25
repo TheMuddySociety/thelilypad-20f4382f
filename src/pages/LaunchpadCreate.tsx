@@ -46,8 +46,7 @@ import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { SupportedChain, CHAINS } from "@/config/chains";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
 import { getCollectionStorageInfo, getChainRootUri } from "@/lib/payloadMapper";
-import { uploadZipToPinata, uploadFileToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob, createPinataGroup } from "@/lib/pinataUpload";
-import JSZip from "jszip";
+import { dataUrlToBlob } from "@/lib/pinataUpload"; // dataUrlToBlob utility only; no Pinata uploads in launchpad flow
 import { useChain } from "@/providers/ChainProvider";
 import { useChainTheme } from "@/hooks/useChainTheme";
 import { useDraftCollection } from "@/hooks/useDraftCollection";
@@ -406,116 +405,28 @@ export default function LaunchpadCreate() {
 
                 await supabase.from("collections").update({ contract_address: collection.address, image_url: imageUri, status: "active" }).eq('id', collectionId);
             } else if (selectedChain === 'xrpl') {
+                // ── Supabase Cloud Storage Path (Primary Hosting for ALL creators) ──
+                // Pinata / IPFS is admin-only and handled outside the launchpad deploy flow.
                 const totalSupplyCount = is1of1
                     ? artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0)
                     : (mode === 'advanced' ? (generatedAssets.length || targetSupply) : (folderAssets.length || targetSupply));
 
-                if (isAdmin && isPinataConfigured()) {
-                    // ── Admin-Only IPFS Upload Flow (ZIP Strategy) ────────────────
-                    // check for Pinata free tier limits (500 items)
-                    if (totalSupplyCount > 500) {
-                        toast.warning(`Collection size (${totalSupplyCount}) exceeds Pinata's free tier limit of 500 items. Ensure you have a paid plan to avoid 400 errors.`, { duration: 6000 });
-                    }
+                toast.loading('Deploying XRPL Collection...', { id: 'deploy-status' });
+                const xrplRes = await xrplLaunch.deployXRPLCollection({
+                    name,
+                    symbol,
+                    description,
+                    totalSupply: totalSupplyCount,
+                    baseUri
+                });
 
-                    // 1. Create a Pinata Group for better organization
-                    toast.loading("Creating Pinata asset group...", { id: 'deploy-status' });
-                    let groupId: string | undefined;
-                    try {
-                        const group = await createPinataGroup(name);
-                        groupId = group.id;
-                        console.log('[XRPL] Created Pinata group:', groupId);
-                    } catch (err) {
-                        console.warn('Metadata grouping failed, continuing with direct pinning:', err);
-                    }
-
-                    // Sanitize folder name for XRPL URI length compliance
-                    const safeFolderName = (name || "collection").toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 10) || "xrpl";
-
-                    // 2. Zip and Upload Images
-                    toast.loading(`Zipping ${totalSupplyCount} images...`, { id: 'deploy-status' });
-                    const imagesZip = new JSZip();
-
-                    if (is1of1) {
-                        for (let i = 0; i < artworks.length; i++) {
-                            imagesZip.file(`${i}.png`, artworks[i].file);
-                        }
-                    } else if (mode === 'advanced' && generatedAssets.length > 0) {
-                        for (let i = 0; i < generatedAssets.length; i++) {
-                            const asset = generatedAssets[i];
-                            if (asset.preview) {
-                                imagesZip.file(`${i}.png`, dataUrlToBlob(asset.preview));
-                            }
-                        }
-                    } else {
-                        for (let i = 0; i < folderAssets.length; i++) {
-                            imagesZip.file(`${i}.png`, folderAssets[i].file);
-                        }
-                    }
-
-                    const imagesZipBlob = await imagesZip.generateAsync({ type: "blob" });
-                    toast.loading(`Uploading images.zip to IPFS...`, { id: 'deploy-status' });
-                    const imagesFolderPin = await uploadZipToPinata(imagesZipBlob, `${safeFolderName}-images`, groupId);
-                    const imageFolderCid = imagesFolderPin.IpfsHash;
-                    console.log('[XRPL] Images pinned (ZIP):', imageFolderCid);
-
-                    // 3. Build Metadata and Upload as ZIP
-                    toast.loading('Building metadata with IPFS URIs...', { id: 'deploy-status' });
-                    const metadataZip = new JSZip();
-
-                    for (let i = 0; i < totalSupplyCount; i++) {
-                        const traits = is1of1
-                            ? [{ trait_type: 'Edition', value: artworks[i]?.name || '1/1' }]
-                            : (mode === 'advanced' && generatedAssets[i]
-                                ? generatedAssets[i].metadata.attributes
-                                : []);
-
-                        const xrplMetadata = {
-                            schema: 'ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm',
-                            nftType: 'art.v0',
-                            name: is1of1 ? (artworks[i]?.name || `${name} #${i + 1}`) : `${name} #${i + 1}`,
-                            description: description || `${name} NFT #${i + 1}`,
-                            image: getIpfsUri(imageFolderCid, `${i}.png`),
-                            animation_url: getIpfsUri(imageFolderCid, `${i}.png`),
-                            external_url: "https://thelilypad.io",
-                            attributes: traits,
-                            properties: {
-                                files: [{ uri: getIpfsUri(imageFolderCid, `${i}.png`), type: "image/png" }],
-                                category: "image"
-                            }
-                        };
-                        metadataZip.file(`${i}.json`, JSON.stringify(xrplMetadata, null, 2));
-                    }
-
-                    const metadataZipBlob = await metadataZip.generateAsync({ type: "blob" });
-                    toast.loading('Uploading metadata.zip to IPFS...', { id: 'deploy-status' });
-                    const metadataFolderPin = await uploadZipToPinata(metadataZipBlob, `${safeFolderName}-metadata`, groupId);
-                    const metadataCid = metadataFolderPin.IpfsHash;
-                    console.log('[XRPL] Metadata pinned (ZIP):', metadataCid);
-
-                    // Deploy XRPL collection with IPFS base URI
-                    const ipfsBaseUri = getIpfsUri(metadataCid); // Now points directly to the folder root
-                    toast.loading('Deploying XRPL Collection...', { id: 'deploy-status' });
-                    const xrplRes = await xrplLaunch.deployXRPLCollection({ name, symbol, description, totalSupply: totalSupplyCount, baseUri: ipfsBaseUri });
-
-                    // Use IPFS gateway URL for collection card thumbnail
-                    const displayImageUrl = coverImage || getIpfsGatewayUrl(imageFolderCid, '0.png');
-                    await supabase.from('collections').update({
-                        contract_address: xrplRes.address,
-                        image_url: displayImageUrl,
-                        status: 'active',
-                        ipfs_base_cid: metadataCid,
-                    }).eq('id', collectionId);
-                } else {
-                    // ── Supabase Default Path (Primary Hosting) ─────────────────────
-                    toast.loading('Deploying XRPL Collection...', { id: 'deploy-status' });
-                    const xrplRes = await xrplLaunch.deployXRPLCollection({ name, symbol, description, totalSupply: totalSupplyCount, baseUri });
-
-                    await supabase.from('collections').update({
-                        contract_address: xrplRes.address,
-                        image_url: storageInfo.itemImageUri(0),
-                        status: 'active',
-                    }).eq('id', collectionId);
-                }
+                // Use the first token's Supabase-hosted image as the collection thumbnail
+                const thumbImageUrl = coverImage || storageInfo.itemImageUri(0);
+                await supabase.from('collections').update({
+                    contract_address: xrplRes.address,
+                    image_url: thumbImageUrl,
+                    status: 'active',
+                }).eq('id', collectionId);
             }
 
             toast.success(`${currentChain.name} Launch Successful!`, { id: 'deploy-status' });

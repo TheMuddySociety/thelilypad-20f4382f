@@ -2,31 +2,41 @@ import { SupportedChain } from "@/config/chains";
 
 /**
  * PayloadMapper - Deterministic Metadata Resolution
- * 
- * Generates root URIs and item paths for high-performance, 
- * cost-efficient NFT storage on Supabase Cloud.
+ *
+ * Generates root URIs and item paths for the dedicated NFT Storage
+ * Supabase project (jlkupdukwgsadvzxafed).
+ *
+ * All creators use Supabase Cloud as primary hosting.
+ * Pinata / IPFS is admin-only and is NOT part of the launchpad flow.
  */
 
-const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_URL?.split('//')[1]?.split('.')[0] || 'your-project';
-const STORAGE_BUCKET = 'nfts';
+// Points to the NFT Storage Supabase project (not the main app project)
+const NFT_STORAGE_URL = import.meta.env.VITE_STORAGE_SUPABASE_URL || '';
+const NFT_STORAGE_HOST = NFT_STORAGE_URL.replace('https://', '').split('.')[0] || 'jlkupdukwgsadvzxafed';
 
 export interface CollectionStorageInfo {
+    /** Root URL of the metadata folder */
     rootUri: string;
+    /** Full public URL to a specific token's JSON metadata */
     itemMetadataUri: (tokenId: string | number) => string;
+    /** Full public URL to a specific token's image */
     itemImageUri: (tokenId: string | number, extension?: string) => string;
 }
 
 /**
- * Get storage info for a collection
- * @param collectionId Supabase collection ID
+ * Get storage info for a collection.
+ * Uses the dedicated NFT Storage Supabase project buckets.
+ *
+ * @param collectionId  Supabase collection ID
  */
 export function getCollectionStorageInfo(collectionId: string): CollectionStorageInfo {
-    const baseUrl = `https://${SUPABASE_PROJECT_ID}.supabase.co/storage/v1/object/public/${STORAGE_BUCKET}/${collectionId}`;
+    const imageBase = `https://${NFT_STORAGE_HOST}.supabase.co/storage/v1/object/public/nft-images/collections/${collectionId}`;
+    const metadataBase = `https://${NFT_STORAGE_HOST}.supabase.co/storage/v1/object/public/nft-metadata/collections/${collectionId}`;
 
     return {
-        rootUri: `${baseUrl}/`,
-        itemMetadataUri: (tokenId) => `${baseUrl}/${tokenId}.json`,
-        itemImageUri: (tokenId, extension = 'png') => `${baseUrl}/${tokenId}.${extension}`,
+        rootUri: `${metadataBase}/`,
+        itemMetadataUri: (tokenId) => `${metadataBase}/${tokenId}.json`,
+        itemImageUri: (tokenId, extension = 'png') => `${imageBase}/${tokenId}.${extension}`,
     };
 }
 
@@ -39,7 +49,8 @@ export const CHAIN_PAYLOAD_CONFIG = {
         requiresIndividualUpload: false,
     },
     xrpl: {
-        strategy: 'ipfs',
+        // Supabase cloud hosting — no IPFS required for creators
+        strategy: 'supabaseCloud',
         requiresIndividualUpload: false,
     },
     monad: {
@@ -49,23 +60,11 @@ export const CHAIN_PAYLOAD_CONFIG = {
 };
 
 /**
- * Get the Root URI string for a specific chain's metadata resolution
+ * Get the Root URI string for a specific chain's metadata resolution.
+ * All chains now resolve to Supabase Cloud.
  */
 export function getChainRootUri(chain: SupportedChain, collectionId: string): string {
     const info = getCollectionStorageInfo(collectionId);
-
-    switch (chain) {
-        case 'xrpl':
-            // For XRPL, we return the domain field root
-            // Note: XRPL Domain field is often encoded or uses a standard web root
-            return info.rootUri;
-        case 'solana':
-            // For Metaplex Core Candy Machine prefixUri
-            return info.rootUri;
-        case 'monad':
-            // For ERC-721 baseURI
-            return info.rootUri;
-        default:
-            return info.rootUri;
-    }
+    // All chains use Supabase metadata root — IPFS is admin-only via Pinata outside this flow
+    return info.rootUri;
 }

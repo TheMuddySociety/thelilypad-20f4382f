@@ -21,14 +21,15 @@ import {
     Zap,
     Cloud,
     Image as ImageIcon,
-    Database
+    Database,
+    Download
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
-import { uploadZipToPinata, getIpfsUri, isPinataConfigured, dataUrlToBlob, createPinataGroup } from "@/lib/pinataUpload";
+// Note: dataUrlToBlob kept for potential future use; no Pinata in the creator flow
 import JSZip from "jszip";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,7 +40,7 @@ import { cn } from "@/lib/utils";
 import { setStoredChain } from "@/config/chains";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 import { getCollectionStorageInfo } from "@/lib/payloadMapper";
-import { Download, FileArchive } from "lucide-react";
+import { triggerCollectionDownload } from "@/lib/nftStorageService";
 
 export default function XRPLEasyGenerator() {
     const navigate = useNavigate();
@@ -62,8 +63,8 @@ export default function XRPLEasyGenerator() {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [collectionCid, setCollectionCid] = useState("");
     const [deployedResult, setDeployedResult] = useState<{ address: string; taxon: number } | null>(null);
+    const [collectionId, setCollectionId] = useState("");
     const [isDownloadingZip, setIsDownloadingZip] = useState(false);
-    const [downloadProgress, setDownloadProgress] = useState(0);
 
     // Handlers
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,55 +152,15 @@ export default function XRPLEasyGenerator() {
                 setUploadProgress(15 + Math.round(((i + batchSize) / files.length) * 40));
             }
 
-            // 3. Optional Admin-Only Pinata Upload (IPFS)
-            let metadataCid = "";
-            let imagesCid = "";
+            // 3. Supabase is the only host — no IPFS needed for creators
+            setCollectionId(collectionId);
+            setCollectionCid("supabase");
 
-            if (isAdmin && isPinataConfigured()) {
-                toast.loading("Admin: Pining assets to IPFS (fallback)...", { id: 'easy-mint' });
-
-                // Create pinata group
-                let groupId: string | undefined;
-                try {
-                    const group = await createPinataGroup(name);
-                    groupId = group.id;
-                } catch (e) { console.warn("Pinata grouping failed"); }
-
-                // Zip images
-                const imagesZip = new JSZip();
-                files.forEach((file, i) => imagesZip.file(`${i}.png`, file));
-                const imagesZipBlob = await imagesZip.generateAsync({ type: "blob" });
-                const imagesPin = await uploadZipToPinata(imagesZipBlob, `${name}-assets`, groupId);
-                imagesCid = imagesPin.IpfsHash;
-
-                // Zip metadata
-                const metaZip = new JSZip();
-                for (let i = 0; i < files.length; i++) {
-                    const metadata = {
-                        schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
-                        nftType: "art.v0",
-                        name: `${name} #${i + 1}`,
-                        description,
-                        image: getIpfsUri(imagesCid, `${i}.png`),
-                        attributes: []
-                    };
-                    metaZip.file(`${i}.json`, JSON.stringify(metadata, null, 2));
-                }
-                const metaZipBlob = await metaZip.generateAsync({ type: "blob" });
-                const metaPin = await uploadZipToPinata(metaZipBlob, `${name}-metadata`, groupId);
-                metadataCid = metaPin.IpfsHash;
-                setCollectionCid(metadataCid);
-            } else {
-                // For non-admins or no pinata config, collectionCid identifies Supabase root
-                setCollectionCid("supabase");
-            }
-
-            // 4. Deploy Collection (Setup Domain)
+            // 4. Deploy Collection — always Supabase metadata root as baseUri
             setUploadProgress(80);
             toast.loading("Setting up XRPL Collection...", { id: 'easy-mint' });
 
-            // XRPL Base URI strategy: Use Supabase root if not admin, or IPFS if admin
-            const baseUri = (isAdmin && metadataCid) ? getIpfsUri(metadataCid) : storageInfo.rootUri;
+            const baseUri = storageInfo.rootUri;
 
             const result = await deployXRPLCollection({
                 name,
@@ -215,7 +176,6 @@ export default function XRPLEasyGenerator() {
             await supabase.from("collections").update({
                 contract_address: result.address,
                 status: "active",
-                ipfs_base_cid: metadataCid || null,
                 image_url: storageInfo.itemImageUri(0)
             }).eq('id', collectionId);
 
@@ -232,18 +192,23 @@ export default function XRPLEasyGenerator() {
 
     const launchNfts = async () => {
         if (!deployedResult || !collectionCid) return;
-        const collectionId = (await supabase.from("collections").select('id').eq('contract_address', deployedResult.address).single()).data?.id;
-        if (!collectionId) return;
-        const storageInfo = getCollectionStorageInfo(collectionId);
+
+        // Look up the collection to get its storageInfo for Supabase URIs
+        const { data: collData } = await supabase
+            .from("collections")
+            .select('id')
+            .eq('contract_address', deployedResult.address)
+            .single();
+        const cid = collData?.id || collectionId;
+        const storageInfo = getCollectionStorageInfo(cid);
 
         try {
             toast.loading(`Minting ${files.length} NFTs...`, { id: 'easy-mint' });
 
+            // Always use Supabase-hosted metadata URIs for minting
             const items = files.map((_, i) => ({
                 name: `${name} #${i + 1}`,
-                uri: (isAdmin && collectionCid !== "supabase")
-                    ? getIpfsUri(collectionCid, `${i}.json`)
-                    : storageInfo.itemMetadataUri(i)
+                uri: storageInfo.itemMetadataUri(i)
             }));
 
             await mintXRPLItems(deployedResult.address, deployedResult.taxon, items);
@@ -257,61 +222,28 @@ export default function XRPLEasyGenerator() {
     };
 
     const handleDownloadZip = async () => {
-        if (files.length === 0) return;
+        if (files.length === 0 || !collectionId) {
+            toast.error("Deploy the collection first before downloading.");
+            return;
+        }
         setIsDownloadingZip(true);
-        setDownloadProgress(0);
-
         try {
-            const zip = new JSZip();
-            const imagesFolder = zip.folder("images");
-            const metadataFolder = zip.folder("metadata");
-
-            if (!imagesFolder || !metadataFolder) throw new Error("Failed to create ZIP");
-
-            for (let i = 0; i < files.length; i++) {
-                setDownloadProgress(Math.round(((i + 1) / files.length) * 90));
-
-                // Add Image
-                imagesFolder.file(`${i}.png`, files[i]);
-
-                // Add XLS-20 Metadata
-                const metadata = {
-                    schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
-                    nftType: "art.v0",
-                    name: `${name} #${i + 1}`,
-                    description,
-                    image: `ipfs://YOUR_IMAGE_CID/${i}.png`,
-                    attributes: []
-                };
-                metadataFolder.file(`${i}.json`, JSON.stringify(metadata, null, 2));
-            }
-
-            // Collection Manifest
-            zip.file("collection.json", JSON.stringify({
-                name,
-                symbol,
-                description,
-                total_supply: files.length,
-                chain: "XRPL",
-                generated_at: new Date().toISOString()
-            }, null, 2));
-
-            const blob = await zip.generateAsync({ type: "blob" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${name.toLowerCase().replace(/\s+/g, '-')}-assets.zip`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            toast.success("Collection ZIP downloaded!");
+            await triggerCollectionDownload(
+                collectionId,
+                name || 'collection',
+                files.length,
+                'png',
+                (current, total, status) => {
+                    setUploadProgress(Math.round((current / total) * 100));
+                    toast.loading(status, { id: 'zip-download' });
+                }
+            );
+            toast.success("Collection ZIP downloaded!", { id: 'zip-download' });
         } catch (err: any) {
-            toast.error("Failed to generate ZIP: " + err.message);
+            toast.error("Failed to generate ZIP: " + err.message, { id: 'zip-download' });
         } finally {
             setIsDownloadingZip(false);
-            setDownloadProgress(0);
+            setUploadProgress(0);
         }
     };
 
