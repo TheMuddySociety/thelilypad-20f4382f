@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
-import { uploadFolderToPinata, uploadZipToPinata, getIpfsUri, getIpfsGatewayUrl, isPinataConfigured, dataUrlToBlob, createPinataGroup } from "@/lib/pinataUpload";
+import { dataUrlToBlob } from "@/lib/pinataUpload";
 
 // XRPL-specific resolution presets
 const RESOLUTION_PRESETS = [
@@ -170,9 +170,9 @@ export function GenerationPreview({
   const [exportStatus, setExportStatus] = useState("");
   const [rarityReport, setRarityReport] = useState<RarityReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [isUploadingToIpfs, setIsUploadingToIpfs] = useState(false);
-  const [ipfsResult, setIpfsResult] = useState<{ cid: string; gatewayUrl: string; ipfsUrl: string } | null>(null);
-  const [copiedCid, setCopiedCid] = useState(false);
+  const [isDownloadingAssets, setIsDownloadingAssets] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadStatus, setDownloadStatus] = useState("");
   const [isXrplZipExporting, setIsXrplZipExporting] = useState(false);
 
   const selectTraitForLayer = (
@@ -769,121 +769,136 @@ export function GenerationPreview({
     }
   };
 
-  // Upload to IPFS via Pinata
-  const uploadToIpfs = async () => {
-    if (!isPinataConfigured()) {
-      toast.error("Pinata JWT not configured. Add VITE_PINATA_JWT to your .env file, or use ZIP Export instead.");
-      return;
-    }
-
-    const count = Math.min(parseInt(exportCount) || 100, 500);
+  // Download generated collection as ZIP (images + metadata) — no Pinata, purely local
+  const downloadGeneratedAssets = async () => {
+    const count = Math.min(parseInt(exportCount) || 100, 10000);
+    const resolution = outputResolution;
     const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
+
     if (!hasImages) {
       toast.error("No images found. Add images to your traits first.");
       return;
     }
 
-    setIsUploadingToIpfs(true);
-    setExportProgress(0);
-    setExportStatus("Generating NFTs for IPFS...");
+    setIsDownloadingAssets(true);
+    setDownloadProgress(0);
+    setDownloadStatus(`Generating ${count} NFTs...`);
 
     try {
       const { nfts } = generateNFTBatch(count);
+      const zip = new JSZip();
+      const imagesFolder = zip.folder("images")!;
+      const metadataFolder = zip.folder("metadata")!;
 
-      // 1. Create a Pinata Group for better organization
-      setExportStatus("Creating Pinata asset group...");
-      let groupId: string | undefined;
-      try {
-        const group = await createPinataGroup(`${collectionName}-preview`);
-        groupId = group.id;
-        console.log('[IPFS] Created Pinata group:', groupId);
-      } catch (err) {
-        console.warn('Metadata grouping failed, continuing with direct pinning:', err);
-      }
+      // Render & pack in batches of 10
+      const batchSize = 10;
+      for (let i = 0; i < nfts.length; i += batchSize) {
+        const batch = nfts.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (nft) => {
+          setDownloadStatus(`Rendering NFT ${nft.id} of ${count}...`);
+          setDownloadProgress(((nft.id) / count) * 70);
 
-      // 2. Render images and build zip
-      setExportStatus("Rendering images...");
-      const imagesZip = new JSZip();
-      for (let i = 0; i < nfts.length; i++) {
-        setExportStatus(`Rendering image ${i + 1} of ${count}...`);
-        setExportProgress(((i + 1) / count) * 40);
-
-        const imageDataUrl = await compositeNFTImage(nfts[i]);
-        if (imageDataUrl) {
-          imagesZip.file(`${nfts[i].id}.png`, dataUrlToBlob(imageDataUrl));
-        }
-      }
-
-      // 3. Pin images folder (ZIP)
-      setExportStatus("Pinning images to IPFS...");
-      setExportProgress(50);
-      const imagesZipBlob = await imagesZip.generateAsync({ type: "blob" });
-      const imagePin = await uploadZipToPinata(imagesZipBlob, `${collectionName}-images`, groupId);
-      const imageCid = imagePin.IpfsHash;
-
-      // 4. Build metadata with real IPFS URIs and build zip
-      setExportStatus("Building metadata...");
-      setExportProgress(65);
-      const metadataZip = new JSZip();
-      for (const nft of nfts) {
-        const isXrpl = xrplMode;
-        const metadata = isXrpl
-          ? {
-            schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
-            nftType: "art.v0",
-            name: `${collectionName} #${nft.id}`,
-            description: collectionDescription || `${collectionName} NFT #${nft.id}`,
-            image: getIpfsUri(imageCid, `${nft.id}.png`),
-            image_mimetype: "image/png",
-            attributes: nft.traits.map((t) => ({ trait_type: t.layerName, value: t.traitName })),
+          const imageDataUrl = await compositeNFTImage(nft, resolution);
+          if (imageDataUrl) {
+            imagesFolder.file(`${nft.id}.png`, dataUrlToBlob(imageDataUrl));
           }
-          : {
-            name: `${collectionName} #${nft.id}`,
-            description: collectionDescription || `${collectionName} NFT #${nft.id}`,
-            image: getIpfsUri(imageCid, `${nft.id}.png`),
-            attributes: nft.traits.map((t) => ({ trait_type: t.layerName, value: t.traitName })),
-          };
-        metadataZip.file(`${nft.id}.json`, JSON.stringify(metadata, null, 2));
+
+          const isXrpl = xrplMode;
+          const metadata = isXrpl
+            ? {
+              schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
+              nftType: "art.v0",
+              name: `${collectionName} #${nft.id}`,
+              description: collectionDescription || `${collectionName} NFT #${nft.id}`,
+              image: `ipfs://YOUR_IMAGE_CID/${nft.id}.png`,
+              image_mimetype: "image/png",
+              attributes: nft.traits.map((t) => ({ trait_type: t.layerName, value: t.traitName })),
+            }
+            : {
+              name: `${collectionName} #${nft.id}`,
+              description: collectionDescription || `${collectionName} NFT #${nft.id}`,
+              image: `ipfs://YOUR_IMAGE_CID/${nft.id}.png`,
+              attributes: nft.traits.map((t) => ({ trait_type: t.layerName, value: t.traitName })),
+            };
+
+          metadataFolder.file(`${nft.id}.json`, JSON.stringify(metadata, null, 2));
+        }));
       }
 
-      // 5. Pin metadata folder (ZIP)
-      setExportStatus("Pinning metadata to IPFS...");
-      setExportProgress(80);
-      const metadataZipBlob = await metadataZip.generateAsync({ type: "blob" });
-      const metadataPin = await uploadZipToPinata(metadataZipBlob, `${collectionName}-metadata`, groupId);
-      const metadataCid = metadataPin.IpfsHash;
+      setDownloadStatus("Packaging ZIP...");
+      setDownloadProgress(85);
 
-      // 5. Store result for display
-      setIpfsResult({
-        cid: metadataCid,
-        gatewayUrl: getIpfsGatewayUrl(metadataCid),
-        ipfsUrl: getIpfsUri(metadataCid),
+      zip.file("_collection.json", JSON.stringify({
+        name: collectionName,
+        total_supply: count,
+        resolution: `${resolution}x${resolution}`,
+        exported_at: new Date().toISOString(),
+        source: "The Lily Pad — https://thelilypad.io",
+        note: "Replace 'YOUR_IMAGE_CID' in metadata files with your actual IPFS CID after uploading the images/ folder.",
+      }, null, 2));
+
+      zip.file("README.txt",
+        `${collectionName || "Collection"} — NFT Collection Assets
+${"━".repeat(44)}
+
+CONTENTS
+  images/      ${count} rendered NFT images at ${resolution}x${resolution}px
+  metadata/    ${count} JSON metadata files
+
+HOW TO LAUNCH ON ANOTHER LAUNCHPAD
+${"━".repeat(36)}
+1. Upload the images/ folder to IPFS (Pinata, NFT.Storage, etc.)
+2. Copy the resulting folder CID
+3. In each metadata JSON, replace:
+   "image": "ipfs://YOUR_IMAGE_CID/N.png"
+   with your real CID, e.g. "image": "ipfs://bafybeif.../N.png"
+4. Upload the updated metadata/ folder to IPFS
+5. Use that metadata CID as your baseUri / baseURI
+
+Generated: ${new Date().toUTCString()}
+Source: The Lily Pad (thelilypad.io)
+`);
+
+      setDownloadStatus("Compressing...");
+      setDownloadProgress(93);
+
+      const zipBlob = await zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 },
       });
 
-      setExportProgress(100);
-      setExportStatus("Upload complete!");
-      toast.success(`Pinned ${count} NFTs to IPFS!`, {
-        description: `Metadata CID: ${metadataCid.slice(0, 12)}...`,
+      const safeName = (collectionName || "collection")
+        .toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${safeName}-${count}nfts-${resolution}px.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setDownloadProgress(100);
+      setDownloadStatus("Done!");
+      toast.success(`Downloaded ${count} NFTs!`, {
+        description: `${resolution}×${resolution}px images + metadata ready for any launchpad.`,
       });
-      console.log("[IPFS] Images CID:", imageCid);
-      console.log("[IPFS] Metadata CID:", metadataCid);
     } catch (err: any) {
-      console.error("IPFS upload failed:", err);
-      toast.error(`IPFS upload failed: ${err.message || "Unknown error"}`);
+      console.error("Asset download failed:", err);
+      toast.error(`Download failed: ${err.message || "Unknown error"}`);
     } finally {
       setTimeout(() => {
-        setIsUploadingToIpfs(false);
-        setExportProgress(0);
-        setExportStatus("");
+        setIsDownloadingAssets(false);
+        setDownloadProgress(0);
+        setDownloadStatus("");
       }, 1800);
     }
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedCid(true);
     toast.success("Copied to clipboard!");
-    setTimeout(() => setCopiedCid(false), 2000);
   };
 
   // Calculate rarity statistics
@@ -1618,124 +1633,70 @@ export function GenerationPreview({
             </CardContent>
           </Card>
 
-          {/* IPFS Upload */}
-          <Card className="border-green-500/50">
+          {/* Download Image + Data */}
+          <Card className="border-emerald-500/50 bg-gradient-to-br from-emerald-500/5 to-teal-500/5">
             <CardHeader className="py-3">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Cloud className="w-4 h-4 text-green-500" />
-                Upload to IPFS
-                <Badge variant="outline" className="text-xs border-green-500/50 text-green-600 dark:text-green-400">Pinata</Badge>
+                <Cloud className="w-4 h-4 text-emerald-500" />
+                Download Image + Data
+                <Badge className="text-xs bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/40">ZIP</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Upload your generated collection directly to IPFS via Pinata. Get a CID to use in your smart contract.
+                Render <strong>{exportCount}</strong> NFTs at <strong>{outputResolution}×{outputResolution}px</strong> and download a ZIP with images + metadata — ready to upload to any launchpad.
               </p>
 
-              {isUploadingToIpfs && (
+              {isDownloadingAssets && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-green-500" />
-                    <span className="text-sm">{exportStatus}</span>
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
+                    <span className="text-sm">{downloadStatus}</span>
                   </div>
-                  <Progress value={exportProgress} className="h-2" />
+                  <Progress value={downloadProgress} className="h-2" />
+                  <p className="text-xs text-muted-foreground">{Math.round(downloadProgress)}% complete</p>
                 </div>
               )}
 
-              {ipfsResult && (
-                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                    <Check className="w-4 h-4" />
-                    <span className="font-medium text-sm">Upload Successful!</span>
-                  </div>
+              <Button
+                onClick={downloadGeneratedAssets}
+                disabled={isDownloadingAssets || isExporting || isXrplZipExporting || !hasAnyImages}
+                className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
+                size="lg"
+              >
+                {isDownloadingAssets ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {isDownloadingAssets ? downloadStatus : `Download ZIP — Images + Metadata`}
+              </Button>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-muted-foreground">CID:</span>
-                      <div className="flex items-center gap-1">
-                        <code className="text-xs bg-muted px-2 py-1 rounded font-mono truncate max-w-[200px]">
-                          {ipfsResult.cid}
-                        </code>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          onClick={() => copyToClipboard(ipfsResult.cid)}
-                        >
-                          {copiedCid ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-muted-foreground">IPFS URL:</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 text-xs gap-1"
-                        onClick={() => copyToClipboard(ipfsResult.ipfsUrl)}
-                      >
-                        <Copy className="w-3 h-3" />
-                        Copy
-                      </Button>
-                    </div>
-
-                    <a
-                      href={ipfsResult.gatewayUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 hover:underline"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      View on Pinata Gateway
-                    </a>
-                  </div>
-
-                  <div className="pt-2 border-t border-green-500/20">
-                    <p className="text-xs text-muted-foreground">
-                      Use <code className="bg-muted px-1 rounded">ipfs://{ipfsResult.cid}/images/</code> as your base URI in your smart contract.
-                    </p>
-                  </div>
-                </div>
+              {!hasAnyImages && (
+                <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                  ⚠️ Add images to your traits to enable download
+                </p>
               )}
 
-              {isAdmin ? (
-                <>
-                  <Button
-                    onClick={uploadToIpfs}
-                    disabled={isUploadingToIpfs || isExporting || !hasAnyImages}
-                    className="w-full gap-2 bg-green-600 hover:bg-green-700"
-                    size="lg"
-                  >
-                    {isUploadingToIpfs ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Cloud className="w-4 h-4" />
-                    )}
-                    Admin: Sync to IPFS
-                  </Button>
-
-                  {!hasAnyImages && (
-                    <p className="text-xs text-yellow-600 dark:text-yellow-500">
-                      ⚠️ Add images to your traits to enable IPFS sync
-                    </p>
-                  )}
-
-                  <p className="text-xs text-muted-foreground">
-                    Direct IPFS hosting via Pinata. Global availability.
-                  </p>
-                </>
-              ) : (
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                  <p className="text-xs text-amber-600 dark:text-amber-500 flex items-center gap-2">
-                    <ShieldCheck className="w-3 h-3" />
-                    IPFS Hosting is managed by platform admins.
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Your collection will be primary hosted on Supabase Cloud. Use ZIP export for local backups.
-                  </p>
+              <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono">
+                <p className="text-muted-foreground mb-2">ZIP structure:</p>
+                <div className="space-y-0.5 text-foreground">
+                  <p>📁 {(collectionName || "collection").toLowerCase().replace(/\s+/g, "-")}-{exportCount}nfts.zip</p>
+                  <p className="pl-4">📁 images/</p>
+                  <p className="pl-8">🖼️ 1.png … {exportCount}.png ({outputResolution}px)</p>
+                  <p className="pl-4">📁 metadata/</p>
+                  <p className="pl-8">📄 1.json … {exportCount}.json</p>
+                  <p className="pl-4">📄 _collection.json</p>
+                  <p className="pl-4">📄 README.txt</p>
                 </div>
-              )}
+              </div>
+
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">🚀 Launch anywhere</p>
+                <p className="text-xs text-muted-foreground">
+                  Upload <code className="bg-muted px-1 rounded">images/</code> to any IPFS service, update the CID in metadata files, then use that metadata CID on Magic Eden, Tensor, OpenSea, or any XRPL launchpad.
+                </p>
+              </div>
             </CardContent>
           </Card>
 
