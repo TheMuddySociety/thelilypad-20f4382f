@@ -167,7 +167,7 @@ const App = () => (
                       <Route path="/channel-emotes" element={<ProtectedRoute><ChannelEmotes /></ProtectedRoute>} />
                       <Route path="/launchpad" element={<ProtectedRoute><Launchpad /></ProtectedRoute>} />
                       <Route path="/launchpad/:collectionId" element={<ProtectedRoute><CollectionDetail /></ProtectedRoute>} />
-                      <Route path="/collection/:collectionId" element={<ProtectedRoute><CollectionDetail /></ProtectedRoute>} />
+                      <Route path="/collection/:collectionId" element={<CollectionDetail />} />
                       <Route path="/my-nfts" element={<ProtectedRoute><MyNFTs /></ProtectedRoute>} />
                       <Route path="/watch/:playbackId" element={<ProtectedRoute><Watch /></ProtectedRoute>} />
                       <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
