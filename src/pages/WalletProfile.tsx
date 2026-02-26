@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { useSEO } from "@/hooks/useSEO";
+import { useCryptoPrice } from "@/hooks/useCryptoPrice";
 import { useWalletNFTs, NFT } from "@/hooks/useWalletNFTs";
 import { useNFTFloorPrices } from "@/hooks/useNFTFloorPrices";
 import { toast } from "sonner";
@@ -86,6 +87,10 @@ export default function WalletProfile() {
   const chainCfg = CHAINS[chainType as SupportedChain] ?? CHAINS.solana;
   const balanceSymbol = chainCfg.symbol;
   const chainDisplayName = chainCfg.name;
+
+  // Live USD price for the connected chain's native token
+  const priceSymbol = balanceSymbol === "XRP" ? "XRP" : balanceSymbol === "SOL" ? "SOL" : balanceSymbol === "MON" ? "MON" : "ETH";
+  const { toUSD, price: spotPrice } = useCryptoPrice(priceSymbol as any);
   const getAddressExplorer = (addr: string) =>
     getExplorerUrl(chainType as SupportedChain, addr, 'address', network === 'mainnet' ? 'mainnet' : 'testnet');
   const getTxExplorer = (hash: string) =>
@@ -320,6 +325,12 @@ export default function WalletProfile() {
                 <div className="text-2xl sm:text-3xl md:text-4xl font-bold">
                   {formatBalance(balance)} <span className="text-sm sm:text-lg text-muted-foreground">{balanceSymbol}</span>
                 </div>
+                {spotPrice && balance && (
+                  <div className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                    ≈ {toUSD(balance)}
+                    <span className="ml-1.5 opacity-60">@ ${spotPrice.toFixed(4)}/{balanceSymbol}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

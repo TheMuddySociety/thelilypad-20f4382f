@@ -39,6 +39,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { useSEO } from "@/hooks/useSEO";
+import { useCryptoPrice } from "@/hooks/useCryptoPrice";
 // EVM hooks removed
 import { LaunchpadMintSection } from '@/components/launchpad/LaunchpadMintSection';
 import { CandyMachineManager } from '@/components/launchpad/CandyMachineManager';
@@ -314,6 +315,10 @@ export default function CollectionDetail() {
   const isMintingSupported = isSolana || isMonad; // Solana and Monad support minting
   const currency = chainConfig.symbol;
   const collectionNetwork = chainConfig.name;
+
+  // Live USD price for the collection's chain token
+  const priceSymbol = currency === "XRP" ? "XRP" : currency === "SOL" ? "SOL" : currency === "MON" ? "MON" : "ETH";
+  const { toUSD: toCollectionUSD, price: collectionSpotPrice } = useCryptoPrice(priceSymbol as any);
   const isCollectionTestnet = isChainTestnet(collectionChainStr);
   const collectionExplorerUrl = chainConfig.networks[isCollectionTestnet ? 'testnet' : 'mainnet']?.explorer || '';
 
@@ -1427,6 +1432,9 @@ export default function CollectionDetail() {
                       </div>
                       <span className={`font-bold ${hasInsufficientBalance ? 'text-destructive' : 'text-primary'}`}>
                         {userBalance.toFixed(4)} {currency}
+                        {collectionSpotPrice && (
+                          <span className="text-xs font-normal text-muted-foreground ml-1.5">(≈ {toCollectionUSD(userBalance)})</span>
+                        )}
                       </span>
                     </div>
                     {hasInsufficientBalance && (
