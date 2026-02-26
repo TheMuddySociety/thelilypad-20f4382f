@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Import, PlusCircle, ArrowRight } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
-import { loadXRPLWallet } from "@/lib/xrpl-wallet";
+import { hasStoredXRPLWallet } from "@/lib/xrpl-wallet";
 import { motion, AnimatePresence } from "framer-motion";
 
 const fallbackAuthBranding = "/auth-branding.webp";
@@ -74,7 +74,7 @@ export default function Auth() {
   const [showImport, setShowImport] = useState(false);
   const [importSeed, setImportSeed] = useState("");
 
-  const hasExistingXRPLWallet = !!loadXRPLWallet();
+  const hasExistingXRPLWallet = hasStoredXRPLWallet();
 
   // Fetch dynamic auth branding from site_assets, fallback to local
   const { assetUrl: authBranding } = useSiteAsset('auth_branding', fallbackAuthBranding);
@@ -132,7 +132,7 @@ export default function Auth() {
       // For import, we need to call importXRPLWallet + saveXRPLWallet first
       const { importXRPLWallet, saveXRPLWallet } = await import("@/lib/xrpl-wallet");
       const wallet = importXRPLWallet(importSeed.trim());
-      saveXRPLWallet(wallet);
+      await saveXRPLWallet(wallet);
       await connect("xrpl", "xrpl");
       setImportSeed("");
       setShowImport(false);
@@ -196,8 +196,8 @@ export default function Auth() {
                   key={id}
                   onClick={() => setSelectedChain(id)}
                   className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors duration-200 ${selectedChain === id
-                      ? "text-foreground"
-                      : "text-muted-foreground hover:text-foreground/80"
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground/80"
                     }`}
                 >
                   <Icon />

@@ -102,7 +102,7 @@ const MusicStore = lazy(() => import("./pages/MusicStore"));
 const ArtistProfile = lazy(() => import("./pages/ArtistProfile"));
 const Raffles = lazy(() => import("./pages/Raffles"));
 const BlindBoxes = lazy(() => import("./pages/BlindBoxes"));
-const Governance = lazy(() => import("./pages/Governance"));
+// (ProfileSuspended already imported above at line 81)
 const ProfileTypeSelection = lazy(() => import("./pages/ProfileTypeSelection"));
 const LimitedEditionMint = lazy(() => import("./pages/LimitedEditionMint"));
 const ReadyTrade = lazy(() => import("./pages/ReadyTrade"));
@@ -179,7 +179,7 @@ const App = () => (
                       <Route path="/artist/:artistAddress" element={<ProtectedRoute><ArtistProfile /></ProtectedRoute>} />
                       <Route path="/raffles" element={<ProtectedRoute><Raffles /></ProtectedRoute>} />
                       <Route path="/blind-boxes" element={<ProtectedRoute><BlindBoxes /></ProtectedRoute>} />
-                      <Route path="/governance" element={<ProtectedRoute><Governance /></ProtectedRoute>} />
+                      <Route path="/profile-suspended" element={<ProfileSuspended />} />
                       <Route path="/limited-edition" element={<ProtectedRoute><LimitedEditionMint /></ProtectedRoute>} />
                       <Route path="/ready-trade" element={<ProtectedRoute><ReadyTrade /></ProtectedRoute>} />
                       <Route path="/launchpad/create/:chain/:type" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreateCollectionPage /></Suspense></ProtectedRoute>} />

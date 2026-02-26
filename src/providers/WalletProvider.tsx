@@ -12,6 +12,7 @@ import {
   importXRPLWallet,
   saveXRPLWallet,
   loadXRPLWallet,
+  hasStoredXRPLWallet,
   clearXRPLWallet,
   fetchXRPBalance,
   type StoredXRPLWallet,
@@ -263,7 +264,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       let walletData: StoredXRPLWallet;
 
       // Check for existing stored wallet first
-      const stored = loadXRPLWallet();
+      const stored = await loadXRPLWallet();
       if (stored && action === 'generate') {
         walletData = stored;
       } else if (action === 'import' && seed) {
@@ -272,7 +273,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         walletData = generateXRPLWallet();
       }
 
-      saveXRPLWallet(walletData);
+      await saveXRPLWallet(walletData);
 
       const network = getXRPLNetwork();
       let balance = '0';
@@ -558,8 +559,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // 2. XRPL Re-connection
         if (storedWalletType === 'xrpl') {
-          const xrplWallet = loadXRPLWallet();
-          if (xrplWallet) {
+          if (hasStoredXRPLWallet()) {
             await connectXRPL();
             return;
           }

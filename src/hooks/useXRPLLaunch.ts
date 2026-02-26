@@ -34,7 +34,7 @@ export function useXRPLLaunch() {
         try {
             toast.loading(`Deploying XRPL Collection...`, { id: 'xrpl-deploy' });
 
-            const storedWallet = loadXRPLWallet();
+            const storedWallet = await loadXRPLWallet();
             if (!storedWallet) {
                 throw new Error('No XRPL wallet found. Please generate or import a wallet first.');
             }
@@ -74,7 +74,7 @@ export function useXRPLLaunch() {
         try {
             toast.loading(`Minting ${items.length} XRPL NFTs...`, { id: 'xrpl-mint' });
 
-            const storedWallet = loadXRPLWallet();
+            const storedWallet = await loadXRPLWallet();
             if (!storedWallet) {
                 throw new Error('No XRPL wallet found. Please generate or import a wallet first.');
             }

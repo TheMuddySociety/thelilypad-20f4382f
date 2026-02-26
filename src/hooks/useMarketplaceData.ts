@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMultiTableSubscription } from "./useRealtimeSubscription";
 import { useInfiniteScroll } from "./useInfiniteScroll";
 import { getCollectionPrice as getPriceFromUtils } from "@/lib/chainUtils";
+import { getDbChainValues, type SupportedChain } from "@/config/chains";
 
 const ITEMS_PER_PAGE = 12;
 
-export type ChainFilter = "solana";
+export type ChainFilter = "all" | SupportedChain;
 
 export interface Collection {
   id: string;
@@ -152,8 +153,10 @@ async function fetchCollectionsPage(pageParam: number, chain: ChainFilter): Prom
     .in("status", ["active", "minting", "soldout", "live", "upcoming"])
     .order("created_at", { ascending: false });
 
-  // Always filter by solana-related chain identifiers
-  query = query.in("chain", ["solana", "solana-devnet", "solana-mainnet"]);
+  // Filter by chain (support 'all' to show everything)
+  if (chain !== 'all') {
+    query = query.in("chain", getDbChainValues(chain));
+  }
 
   const { data: collectionsData, error: collectionsError } = await query.range(
     pageParam * ITEMS_PER_PAGE,

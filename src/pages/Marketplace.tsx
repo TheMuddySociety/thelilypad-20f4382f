@@ -10,6 +10,7 @@ import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHi
 import { BackToTop } from "@/components/BackToTop";
 import { FeaturedCardStack } from "@/components/sections/FeaturedCardStack";
 import { useWallet, ChainType } from "@/providers/WalletProvider";
+import { useChain } from "@/providers/ChainProvider";
 import { useSEO } from "@/hooks/useSEO";
 import {
   useMarketplaceData,
@@ -33,13 +34,16 @@ import {
 
 export default function Marketplace() {
   const { chainType } = useWallet();
+  const { chain } = useChain();
   const [activeFilter, setActiveFilter] = useState("all");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [showHotOnly, setShowHotOnly] = useState(false);
   const [showNewOnly, setShowNewOnly] = useState(false);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
-  // Locked to Solana
-  const selectedChain: ChainFilter = "solana";
+  // Default to connected chain, or 'all' if none
+  const [selectedChain, setSelectedChain] = useState<ChainFilter>(() => {
+    return (chain?.id as ChainFilter) || 'all';
+  });
 
   // Use the custom hook for data fetching with infinite scroll and chain filter
   const {
@@ -54,9 +58,11 @@ export default function Marketplace() {
     loadMoreRef,
   } = useMarketplaceData(selectedChain);
 
+  const chainLabel = selectedChain === 'all' ? 'All Chains' : selectedChain === 'xrpl' ? 'XRP Ledger' : selectedChain === 'monad' ? 'Monad' : 'Solana';
+
   useSEO({
     title: "Lily Marketplace | The Lily Pad",
-    description: "Browse NFT collections, listings, and sticker packs on Lily Marketplace. Discover unique digital collectibles on Solana."
+    description: `Browse NFT collections, listings, and sticker packs on Lily Marketplace. Discover unique digital collectibles on ${chainLabel}.`
   });
 
   // Filter collections
@@ -119,8 +125,33 @@ export default function Marketplace() {
           <PageHeader
             logo={<LilyPadLogo size={56} />}
             title="Lily Marketplace"
-            subtitle={`Browse collections and sticker packs on Solana`}
+            subtitle={`Browse collections and digital assets on ${chainLabel}`}
           />
+        </div>
+
+        {/* Chain Selector Tabs */}
+        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+          {[
+            { id: 'all' as ChainFilter, label: 'All Chains', icon: '🌐' },
+            { id: 'solana' as ChainFilter, label: 'Solana', icon: '◎' },
+            { id: 'xrpl' as ChainFilter, label: 'XRPL', icon: '✕' },
+            { id: 'monad' as ChainFilter, label: 'Monad', icon: '◈' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedChain(tab.id)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${selectedChain === tab.id
+                  ? tab.id === 'solana' ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                    : tab.id === 'xrpl' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                      : tab.id === 'monad' ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                        : 'bg-primary/15 text-primary border border-primary/30'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent'
+                }`}
+            >
+              <span>{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
         </div>
 
 

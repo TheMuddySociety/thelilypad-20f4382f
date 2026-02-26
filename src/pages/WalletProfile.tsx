@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, type SetStateAction } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { useWallet } from "@/providers/WalletProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { loadXRPLWallet } from "@/lib/xrpl-wallet";
+import { loadXRPLWallet, type StoredXRPLWallet } from "@/lib/xrpl-wallet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -66,7 +66,14 @@ export default function WalletProfile() {
   const [copied, setCopied] = useState(false);
   const [showSeed, setShowSeed] = useState(false);
   const [seedCopied, setSeedCopied] = useState(false);
-  const [xrplWalletData] = useState(() => loadXRPLWallet());
+  const [xrplWalletData, setXrplWalletData] = useState<StoredXRPLWallet | null>(null);
+
+  // Load XRPL wallet data asynchronously (seed is encrypted at rest)
+  useEffect(() => {
+    if (chainType === 'xrpl') {
+      loadXRPLWallet().then(data => setXrplWalletData(data));
+    }
+  }, [chainType]);
   const [isLoading, setIsLoading] = useState(true);
   const [walletName, setWalletName] = useState<string>("");
   const [isEditingName, setIsEditingName] = useState(false);
