@@ -24,6 +24,7 @@ export interface Collection {
     blockchain?: 'solana' | 'xrpl' | 'monad';
     chain?: string;
     solana_standard?: string;
+    ipfs_base_cid?: string | null;
     layers_metadata?: any;
     artworks_metadata?: any;
     phases?: any;

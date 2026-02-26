@@ -1,25 +1,26 @@
 import React from "react";
 import { ArrowLeft, Rocket } from "lucide-react";
-import Navbar from "@/components/Navbar";
+import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MistBackground } from "@/components/MistBackground";
-import LaunchpadMintSection from "@/components/launchpad/LaunchpadMintSection";
-import CollectionEditForm from "@/components/launchpad/CollectionEditForm";
-import LaunchChecklist from "@/components/launchpad/LaunchChecklist";
-import RevealManager from "@/components/launchpad/RevealManager";
-import NFTGallery from "@/components/launchpad/NFTGallery";
-import PhaseConfigManager from "@/components/launchpad/PhaseConfigManager";
-import CandyMachineManager from "@/components/launchpad/CandyMachineManager";
-import ContractDeployModal from "@/components/launchpad/ContractDeployModal";
-import ContractAllowlistManager from "@/components/launchpad/ContractAllowlistManager";
-import RevealHistory from "@/components/launchpad/RevealHistory";
-import RarityLeaderboard from "@/components/launchpad/RarityLeaderboard";
-import CollectionAnalytics from "@/components/launchpad/CollectionAnalytics";
-import BuybackProgramInfo from "@/components/launchpad/BuybackProgramInfo";
+import MistBackground from "@/components/ui/mist-background";
+import { LaunchpadMintSection } from "@/components/launchpad/LaunchpadMintSection";
+import { CollectionEditForm } from "@/components/launchpad/CollectionEditForm";
+import { LaunchChecklist } from "@/components/launchpad/LaunchChecklist";
+import { RevealManager } from "@/components/launchpad/RevealManager";
+import { NFTGallery } from "@/components/NFTGallery";
+import { PhaseConfigManager } from "@/components/launchpad/PhaseConfigManager";
+import { CandyMachineManager } from "@/components/launchpad/CandyMachineManager";
+import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
+import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
+import { RevealHistory } from "@/components/RevealHistory";
+import { RarityLeaderboard } from "@/components/RarityLeaderboard";
+import { CollectionAnalytics } from "@/components/CollectionAnalytics";
+import { BuybackProgramInfo } from "@/components/BuybackProgramInfo";
 import { NFTRevealModal } from "@/components/NFTRevealModal";
 import { useCollectionDetail } from "@/components/collection-detail/useCollectionDetail";
 import { useSEO } from "@/hooks/useSEO";
+import { getExplorerUrl } from "@/config/chains";
 
 // Section Components
 import { CollectionHero } from "@/components/collection-detail/CollectionHero";
@@ -33,6 +34,7 @@ export default function CollectionDetail() {
     collection,
     isLoading,
     isConnected,
+    address,
     mintQuantity,
     setMintQuantity,
     activePhase,
@@ -269,6 +271,8 @@ export default function CollectionDetail() {
               currency={currency}
               isLive={isLive}
               isWhitelisted={isWhitelisted}
+              isTestnet={isCollectionTestnet}
+              walletAddress={address}
             />
           </div>
         </div>
@@ -280,6 +284,7 @@ export default function CollectionDetail() {
         onOpenChange={setShowRevealModal}
         nfts={revealedNfts}
         txHash={revealTxHash}
+        explorerUrl={getExplorerUrl(collectionChain, revealTxHash, 'tx', isCollectionTestnet ? 'testnet' : 'mainnet')}
         collectionName={collection.name}
       />
 
@@ -297,6 +302,8 @@ export default function CollectionDetail() {
         open={isAllowlistModalOpen}
         onOpenChange={setIsAllowlistModalOpen}
         collectionId={collection.id}
+        contractAddress={collection.contract_address || ""}
+        creatorId={collection.creator_id}
         phases={phases}
       />
     </div>

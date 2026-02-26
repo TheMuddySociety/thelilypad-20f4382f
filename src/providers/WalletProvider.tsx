@@ -18,6 +18,7 @@ import {
   type StoredXRPLWallet,
   type XRPLNetworkType,
   getXRPLNetwork,
+  fundXRPLTestnetWallet,
 } from "@/lib/xrpl-wallet";
 
 // Types
@@ -49,6 +50,8 @@ interface WalletContextType extends WalletState {
   isPhantomAvailable: boolean;
   discoveredWallets: InjectedWalletInfo[];
   connection: Connection;
+  signXRPLTransaction: (tx: any) => Promise<{ tx_blob: string; hash: string }>;
+  fundXRPLTestnetWallet: (address: string, network: XRPLNetworkType) => Promise<boolean>;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -616,6 +619,22 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setState(prev => ({ ...prev, isTransactionPending: pending }));
   }, []);
 
+  // Sign XRPL transaction using stored wallet
+  const signXRPLTransaction = useCallback(async (tx: any) => {
+    const stored = await loadXRPLWallet();
+    if (!stored) throw new Error("XRPL wallet not found. Please connect your wallet.");
+
+    const wallet = importXRPLWallet(stored.seed);
+    const xrplWallet = (window as any).xrpl?.Wallet ? (window as any).xrpl.Wallet.fromSeed(stored.seed) : null;
+
+    // Fallback to internal library if window.xrpl is not available
+    const signer = xrplWallet || (import.meta.env.MODE === 'test' ? null : (await import('xrpl')).Wallet.fromSeed(stored.seed));
+
+    if (!signer) throw new Error("XRPL library not loaded");
+
+    return signer.sign(tx);
+  }, []);
+
   return (
     <WalletContext.Provider
       value={{
@@ -628,7 +647,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setTransactionPending,
         isPhantomAvailable,
         discoveredWallets,
-        connection
+        connection,
+        signXRPLTransaction,
+        fundXRPLTestnetWallet
       }}
     >
       {children}

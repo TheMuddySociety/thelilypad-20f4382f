@@ -290,7 +290,12 @@ export function NFTRevealModal({
                 >
                   <div className="flex gap-3">
                     <Button
-                      onClick={() => window.open(`${explorerUrl}/tx/${txHash}`, "_blank")}
+                      onClick={() => {
+                        const finalUrl = explorerUrl?.includes(txHash)
+                          ? explorerUrl
+                          : `${explorerUrl}/tx/${txHash}`;
+                        window.open(finalUrl, "_blank");
+                      }}
                       variant="outline"
                       className="flex-1 rounded-2xl h-12 border-primary/20 hover:bg-primary/5 font-bold"
                     >

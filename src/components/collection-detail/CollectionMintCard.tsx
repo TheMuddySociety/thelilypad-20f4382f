@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Phase } from "./types";
 import { useCryptoPrice } from "@/hooks/useCryptoPrice";
+import { useWallet } from "@/providers/WalletProvider";
+import { toast } from "sonner";
 
 interface CollectionMintCardProps {
     activePhase: Phase | null;
@@ -34,6 +36,8 @@ interface CollectionMintCardProps {
     estimatedFee?: string;
     handleSwitchNetwork?: () => void;
     isWrongNetwork?: boolean;
+    isTestnet?: boolean;
+    walletAddress?: string | null;
 }
 
 export const CollectionMintCard: React.FC<CollectionMintCardProps> = ({
@@ -54,9 +58,14 @@ export const CollectionMintCard: React.FC<CollectionMintCardProps> = ({
     estimatedFee,
     handleSwitchNetwork,
     isWrongNetwork,
+    isTestnet,
+    walletAddress,
 }) => {
     const { toUSD } = useCryptoPrice(currency as any);
+    const { fundXRPLTestnetWallet } = useWallet();
+    const [isFunding, setIsFunding] = React.useState(false);
 
+    const isXRPL = currency === 'XRP';
     const totalPrice = activePhase ? parseFloat(activePhase.price) * mintQuantity : 0;
     const isBalanceLow = userBalance < totalPrice;
 
@@ -300,10 +309,43 @@ export const CollectionMintCard: React.FC<CollectionMintCardProps> = ({
                 )}
 
                 {isBalanceLow && isWalletConnected && (
-                    <p className="text-[11px] text-center text-destructive font-bold flex items-center justify-center gap-1.5 animate-bounce">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        Top up your wallet to continue
-                    </p>
+                    <div className="space-y-3">
+                        <p className="text-[11px] text-center text-destructive font-bold flex items-center justify-center gap-1.5 animate-bounce">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            Top up your wallet to continue
+                        </p>
+
+                        {isXRPL && isTestnet && walletAddress && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full h-9 rounded-lg text-xs font-semibold border-primary/30 hover:bg-primary/5 transition-all"
+                                onClick={async () => {
+                                    setIsFunding(true);
+                                    try {
+                                        const success = await fundXRPLTestnetWallet(walletAddress, 'testnet');
+                                        if (success) {
+                                            toast.success("Testnet XRP requested successfully!");
+                                        } else {
+                                            toast.error("Failed to fund wallet via faucet.");
+                                        }
+                                    } catch (err) {
+                                        toast.error("Faucet error occurred.");
+                                    } finally {
+                                        setIsFunding(false);
+                                    }
+                                }}
+                                disabled={isFunding}
+                            >
+                                {isFunding ? (
+                                    <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                                ) : (
+                                    <Fuel className="w-3 h-3 mr-2 text-primary" />
+                                )}
+                                {isFunding ? "Funded Requested..." : "Get Testnet XRP (Faucet)"}
+                            </Button>
+                        )}
+                    </div>
                 )}
             </CardContent>
         </Card>

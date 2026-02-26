@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { useSolanaMint } from "@/hooks/useSolanaMint";
+import { useXRPLMint } from "@/hooks/useXRPLMint";
 import { initializeUmi } from "@/config/solana";
 import { publicKey } from "@metaplex-foundation/umi";
 import { fetchCandyMachine } from "@metaplex-foundation/mpl-core-candy-machine";
@@ -18,6 +19,7 @@ export function useCollectionDetail() {
     const navigate = useNavigate();
     const { network, isConnected, connect, balance, address } = useWallet();
     const solanaMint = useSolanaMint();
+    const xrplMint = useXRPLMint();
 
     // ── State ──────────────────────────────────────────────────────────────────
     const [collection, setCollection] = useState<Collection | null>(null);
@@ -215,6 +217,41 @@ export function useCollectionDetail() {
                     fetchCollection();
                     toast.success("Mint successful!");
                 }
+            } else if (isXRPL) {
+                toast.loading(`Minting your NFT on XRPL...`, { id: 'xrpl-mint' });
+
+                // Construct metadata URI for XRPL (XLS-20)
+                // If the collection has an ipfs_base_cid, we use it. 
+                // Otherwise fall back to the image_url or a placeholder
+                const baseCid = collection.ipfs_base_cid;
+                let lastResult = null;
+
+                for (let i = 0; i < amount; i++) {
+                    const itemIndex = (collection.minted || 0) + i + 1;
+                    const metadataUri = baseCid
+                        ? `ipfs://${baseCid}/${itemIndex}.json`
+                        : (collection.image_url || "");
+
+                    const result = await xrplMint.mintNFT(metadataUri, {
+                        collectionId: collection.id,
+                        phaseId: activePhase.id,
+                        price: Number(activePhase.price) || 0,
+                        transferFee: (collection.royalty_percent || 0) * 500, // XLS-20 uses 0-50000
+                    });
+                    lastResult = result;
+
+                    if (amount > 1) {
+                        toast.info(`Minted ${i + 1}/${amount} on XRPL...`);
+                    }
+                }
+
+                if (lastResult) {
+                    setMintTxHash(lastResult.hash);
+                    setRevealTxHash(lastResult.hash);
+                    setRevealedNfts(generateRandomAttributes(amount, collection.minted));
+                    setShowRevealModal(true);
+                    fetchCollection();
+                }
             } else {
                 toast.info(`${collectionNetwork} minting logic coming soon`);
             }
@@ -310,6 +347,7 @@ export function useCollectionDetail() {
         collectionExplorerUrl,
         currency,
         isCreator,
+        address,
         isSolana,
         isXRPL,
         isMonad,
