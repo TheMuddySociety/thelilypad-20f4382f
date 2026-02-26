@@ -222,13 +222,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isConnected: true,
         isConnecting: false,
         balance,
-        walletType: "solana",
+        walletType: "phantom",
         chainType: "solana",
         authProvider: "injected",
       }));
 
       localStorage.setItem("walletConnected", "true");
-      localStorage.setItem("walletType", "solana");
+      localStorage.setItem("walletType", "phantom");
       setStoredChain('solana'); // Sync ChainProvider
 
       toast.success("Wallet connected on Solana");
@@ -385,18 +385,27 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Main connect function
   const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
-    // If explicitly requesting XRPL, use XRPL wallet
-    if (_walletType === 'xrpl' || _chainType === 'xrpl') {
+    // Determine target chain: prioritize argument, then current global chain, default to solana
+    const targetChain = _chainType || (chain.id as ChainType) || "solana";
+
+    // Determine target wallet: prioritize argument, then match to chain
+    const targetWallet = _walletType || (targetChain === 'xrpl' ? 'xrpl' : 'phantom');
+
+    console.log(`Connecting to ${targetChain} using ${targetWallet} wallet`);
+
+    // If explicitly (or defaulted) requesting XRPL, use XRPL wallet
+    if (targetChain === 'xrpl') {
       await connectXRPL();
       return;
     }
 
-    // If explicitly requesting Monad, use Monad/EVM Phantom connect
-    if (_chainType === 'monad') {
+    // If explicitly (or defaulted) requesting Monad, use Monad/EVM Phantom connect
+    if (targetChain === 'monad') {
       await connectMonad();
       return;
     }
 
+    // Default: Solana connection
     // Prefer injected Solana provider first (most reliable for Phantom extension)
     const injected = getSolanaProvider();
     if (injected) {
@@ -437,7 +446,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     toast.error("Phantom wallet not found. Please install Phantom extension.");
-  }, [isPhantomAvailable, connectWithSDK, connectSolanaLegacy, connectXRPL, connectMonad]);
+  }, [chain.id, isPhantomAvailable, connectWithSDK, connectSolanaLegacy, connectXRPL, connectMonad]);
 
   // Connect with OAuth
   const connectWithOAuth = useCallback(async (provider: OAuthProvider) => {
@@ -521,7 +530,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Auto-connect
   useEffect(() => {
     const wasConnected = localStorage.getItem("walletConnected") === "true";
-
     if (!wasConnected) return;
 
     const autoConnect = async () => {
@@ -530,120 +538,61 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const storedWalletType = localStorage.getItem("walletType");
         const storedChainType = localStorage.getItem("chainType");
 
-        // Bug 3 fix: Auto-connect Monad (EVM) via Phantom
+        // Wait for extension to be ready before auto-connecting
+        const available = await waitForPhantomExtension(2000);
+
+        // 1. Monad Re-connection
         if (storedChainType === 'monad') {
           const phantomEvm = (window as any).phantom?.ethereum;
           if (phantomEvm) {
-            try {
-              const accounts: string[] = await phantomEvm.request({ method: 'eth_requestAccounts' });
-              const address = accounts[0];
-              if (address) {
-                // Link Supabase auth session
-                await ensureSupabaseSession(address, 'phantom-evm');
-
-                setState(prev => ({
-                  ...prev,
-                  address,
-                  isConnected: true,
-                  isConnecting: false,
-                  balance: '0',
-                  walletType: "phantom",
-                  chainType: "monad",
-                  authProvider: "injected",
-                }));
-                setStoredChain('monad');
-                return;
-              }
-            } catch {
-              // Monad silent reconnect failed, fall through to Solana
+            const accounts = await phantomEvm.request({ method: 'eth_accounts' });
+            if (accounts?.[0]) {
+              await connectMonad();
+              return;
             }
           }
+          // Fallback to SDK for Monad reconnect attempt
+          await connectMonad();
+          return;
         }
 
-        // Auto-connect XRPL if that was the last wallet type
+        // 2. XRPL Re-connection
         if (storedWalletType === 'xrpl') {
           const xrplWallet = loadXRPLWallet();
           if (xrplWallet) {
-            const network = getXRPLNetwork();
-            let balance = '0';
-            try { balance = await fetchXRPBalance(xrplWallet.address, network); } catch { }
-
-            // Link Supabase auth session
-            await ensureSupabaseSession(xrplWallet.address, 'xrpl');
-
-            setState(prev => ({
-              ...prev,
-              address: xrplWallet.address,
-              isConnected: true,
-              isConnecting: false,
-              balance,
-              walletType: "xrpl",
-              chainType: "xrpl",
-              authProvider: "xrpl-browser",
-            }));
+            await connectXRPL();
             return;
           }
         }
 
-        // Attempt silent connect for Solana
-        if (isPhantomAvailable) {
-          const sdk = getSDK();
-          if (sdk.autoConnect) {
-            const result = await sdk.autoConnect() as unknown as ConnectResult | undefined;
-            if (result?.addresses) {
-              const addr = result.addresses.find(a => a.addressType === AddressType.solana);
-              if (addr) {
-                const address = addr.address;
-                const balance = await fetchSolanaBalance(address);
-
-                // Link Supabase auth session
-                await ensureSupabaseSession(address, 'phantom');
-
-                setState(prev => ({
-                  ...prev,
-                  address,
-                  isConnected: true,
-                  isConnecting: false,
-                  balance,
-                  walletType: "phantom",
-                  chainType: "solana",
-                  authProvider: result.authProvider || "injected",
-                }));
-                return;
-              }
+        // 3. Solana Re-connection (Phantom)
+        if (storedWalletType === "phantom" || storedWalletType === "solana") {
+          // Check for injected Solana provider first (Silent Connect)
+          const provider = getSolanaProvider();
+          if (provider?.publicKey) {
+            try {
+              await provider.connect({ onlyIfTrusted: true });
+              await connectSolanaLegacy();
+              return;
+            } catch (e) {
+              console.log("Injected silent connect failed, trying SDK...");
             }
           }
+
+          // Fallback to SDK (will attempt silent reconnect if possible)
+          await connectWithSDK();
+          return;
         }
-
-        // Try legacy if SDK failed or not available (but wasConnected is true)
-        const provider = getSolanaProvider();
-        if (provider) {
-          const resp = await provider.connect({ onlyIfTrusted: true }); // Silent connect
-          const address = resp.publicKey.toString();
-          const balance = await fetchSolanaBalance(address);
-
-          // Link Supabase auth session
-          await ensureSupabaseSession(address, 'solana');
-
-          setState(prev => ({
-            ...prev,
-            address,
-            isConnected: true,
-            isConnecting: false,
-            balance,
-            walletType: "solana",
-            chainType: "solana",
-            authProvider: "injected",
-          }));
-        }
-      } catch (err) {
-        console.error("Auto connect failed", err);
+      } catch (e) {
+        console.warn("Auto-connect failed:", e);
+        // Don't clear walletConnected yet, might be transient
+      } finally {
+        setState(prev => ({ ...prev, isConnecting: false }));
       }
-      setState(prev => ({ ...prev, isConnecting: false }));
     };
 
     autoConnect();
-  }, [getSDK, fetchSolanaBalance, isPhantomAvailable]);
+  }, [connectWithSDK, connectSolanaLegacy, connectXRPL, connectMonad]);
 
   // Chain-Wallet Compatibility Validation
   useEffect(() => {

@@ -7,14 +7,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Wallet, ExternalLink, Clock } from "lucide-react";
+import { Wallet, ExternalLink, Clock, Sparkles, Zap, Hexagon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getPhantomSDK, waitForPhantomExtension } from "@/config/phantom";
+import { useChain } from "@/providers/ChainProvider";
+import { cn } from "@/lib/utils";
 import type { InjectedWalletInfo } from "@phantom/browser-sdk";
 
 export type WalletType = "phantom" | "solana" | "xrpl";
-export type ChainType = "solana" | "xrpl";
+export type ChainType = "solana" | "xrpl" | "monad";
 
 // OAuth-based embedded wallets (optional; ConnectWallet may pass this handler)
 export type OAuthProvider = "google" | "apple";
@@ -22,9 +24,10 @@ export type OAuthProvider = "google" | "apple";
 interface WalletOption {
   id: WalletType;
   name: string;
-  icon: string;
+  icon: string | React.ReactNode;
   isInstalled: boolean;
   installUrl: string;
+  description?: string;
 }
 
 interface WalletSelectorModalProps {
@@ -42,6 +45,7 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
   onSelect,
   isConnecting,
 }) => {
+  const { chain } = useChain();
   const [walletOptions, setWalletOptions] = useState<WalletOption[]>([]);
   const [discoveredWallets, setDiscoveredWallets] = useState<InjectedWalletInfo[]>([]);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -51,33 +55,43 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
       setIsInitializing(true);
 
       try {
-        // Wait for Phantom extension
-        await waitForPhantomExtension(2000);
+        const options: WalletOption[] = [];
 
-        // Get Phantom SDK
-        const sdk = getPhantomSDK();
-        if (sdk) {
-          try {
-            const wallets = await (sdk as any).getInjectedWallets?.() || [];
-            setDiscoveredWallets(wallets);
-          } catch (e) {
-            // SDK method may not exist in all versions
-            console.log("Could not get injected wallets:", e);
+        if (chain.id === 'xrpl') {
+          options.push({
+            id: "xrpl",
+            name: "XRPL Browser Wallet",
+            icon: "✕",
+            isInstalled: true,
+            installUrl: "",
+            description: "Non-custodial browser extension",
+          });
+        } else {
+          // Solana or Monad
+          await waitForPhantomExtension(2000);
+
+          // Get Phantom SDK for discovery
+          const sdk = getPhantomSDK();
+          if (sdk) {
+            try {
+              const wallets = await (sdk as any).getInjectedWallets?.() || [];
+              setDiscoveredWallets(wallets);
+            } catch (e) {
+              console.log("Could not get injected wallets:", e);
+            }
           }
-        }
 
-        // Check Phantom availability
-        const isPhantomInstalled = !!(window as any).phantom?.solana?.isPhantom;
+          const isPhantomInstalled = !!(window as any).phantom?.solana?.isPhantom || !!(window as any).phantom?.ethereum;
 
-        const options: WalletOption[] = [
-          {
+          options.push({
             id: "phantom",
             name: "Phantom",
             icon: "👻",
             isInstalled: isPhantomInstalled,
             installUrl: "https://phantom.app/",
-          },
-        ];
+            description: chain.id === 'monad' ? "Connect Monad via Phantom EVM" : "Solana, EVM & more",
+          });
+        }
 
         setWalletOptions(options);
       } catch (e) {
@@ -100,7 +114,7 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
     if (open) {
       initWallets();
     }
-  }, [open]);
+  }, [open, chain.id]);
 
   const handleWalletClick = (wallet: WalletOption) => {
     if (!wallet.isInstalled) {
@@ -110,34 +124,54 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
     onSelect(wallet.id);
   };
 
+  const getChainIcon = () => {
+    switch (chain.id) {
+      case 'solana': return <span className="mr-1 text-emerald-400">◎</span>;
+      case 'xrpl': return <span className="mr-1 text-blue-400">✕</span>;
+      case 'monad': return <Hexagon className="w-3 h-3 mr-1 text-purple-400" />;
+      default: return null;
+    }
+  };
+
+  const getChainBadgeStyles = () => {
+    switch (chain.id) {
+      case 'solana': return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+      case 'xrpl': return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+      case 'monad': return "bg-purple-500/10 text-purple-400 border-purple-500/30";
+      default: return "";
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Wallet className="w-5 h-5" />
+            <Wallet className="w-5 h-5 text-primary" />
             Connect Wallet
           </DialogTitle>
           <DialogDescription>
-            Connect your Solana wallet to get started
+            Connect your {chain.name} wallet to get started on The Lily Pad
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Solana Network Badge */}
+          {/* Chain Network Badge */}
           <div className="flex items-center justify-center">
-            <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
-              <span className="mr-1">◎</span>
-              Solana Network
+            <Badge variant="outline" className={cn("px-3 py-1", getChainBadgeStyles())}>
+              {getChainIcon()}
+              {chain.name} Network
             </Badge>
           </div>
 
+          <Separator className="opacity-50" />
 
           {/* Wallet Options */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             {isInitializing ? (
-              <div className="flex items-center justify-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <div className="flex flex-col items-center justify-center py-8 gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <p className="text-sm text-muted-foreground">Detecting wallets...</p>
               </div>
             ) : (
               <>
@@ -145,36 +179,50 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
                   <Button
                     key={wallet.id}
                     variant="outline"
-                    className="w-full justify-between h-14"
+                    className="w-full justify-between h-16 px-4 border-2 hover:border-primary/50 hover:bg-primary/5 transition-all group"
                     onClick={() => handleWalletClick(wallet)}
                     disabled={isConnecting}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{wallet.icon}</span>
+                    <div className="flex items-center gap-4">
+                      <div className="text-3xl group-hover:scale-110 transition-transform">
+                        {typeof wallet.icon === 'string' ? wallet.icon : wallet.icon}
+                      </div>
                       <div className="text-left">
-                        <div className="font-medium">{wallet.name}</div>
+                        <div className="font-bold text-base">{wallet.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {wallet.isInstalled ? "Detected" : "Not installed"}
+                          {wallet.isInstalled ? (wallet.description || "Detected") : "Not installed"}
                         </div>
                       </div>
                     </div>
-                    {!wallet.isInstalled && (
-                      <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                    )}
-                    {wallet.isInstalled && isConnecting && (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    {!wallet.isInstalled ? (
+                      <ExternalLink className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    ) : (
+                      isConnecting ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                      ) : (
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                      )
                     )}
                   </Button>
                 ))}
-
               </>
             )}
           </div>
 
           {/* Discovered wallets from SDK */}
-          {discoveredWallets.length > 0 && (
-            <div className="text-xs text-muted-foreground text-center">
-              {discoveredWallets.length} wallet(s) detected via Phantom SDK
+          {!isInitializing && discoveredWallets.length > 1 && (
+            <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+              <Sparkles className="w-3 h-3" />
+              {discoveredWallets.length} wallets detected
+            </div>
+          )}
+
+          {chain.id === 'monad' && (
+            <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 flex gap-3">
+              <Zap className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                Monad is currently in Testnet. Make sure your Phantom wallet is set to an EVM network to connect successfully.
+              </p>
             </div>
           )}
         </div>

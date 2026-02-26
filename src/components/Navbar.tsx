@@ -5,8 +5,10 @@ import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smi
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { RpcSettings } from "@/components/wallet/RpcSettings";
+import { ChainSelector } from "@/components/launchpad/ChainSelector";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useWallet } from "@/providers/WalletProvider";
+import { useChain } from "@/providers/ChainProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +22,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
 
 import type { LucideIcon } from "lucide-react";
 import { Store, Rocket, Video } from "lucide-react";
@@ -59,6 +62,7 @@ export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const { network, isConnected, chainType } = useWallet();
+  const { chain, setChain } = useChain();
   const { profile, loading: profileLoading } = useUserProfile();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
@@ -71,8 +75,6 @@ export const Navbar: React.FC = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  // Auth state tracking removed - using wallet-based auth only
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -104,6 +106,18 @@ export const Navbar: React.FC = () => {
                   </SheetTitle>
                 </SheetHeader>
                 <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-180px)]">
+                  {/* Chain Selection (Mobile) */}
+                  <div className="space-y-2 px-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Select Blockchain</p>
+                    <ChainSelector
+                      selectedChain={chain.id}
+                      onChainChange={setChain}
+                      className="w-full justify-start h-12"
+                    />
+                  </div>
+
+                  <Separator className="opacity-50" />
+
                   {/* Primary Links */}
                   <div className="space-y-1">
                     {primaryLinks.map((link, index) => (
@@ -176,7 +190,6 @@ export const Navbar: React.FC = () => {
                       if (link.href === "/go-live" || link.label === "Go Live" || link.label === "Streamer Dashboard") {
                         return profile?.is_streamer;
                       }
-                      // Hide donations if not using that feature (optional)
                       return true;
                     }).map((link, index) => (
                       <SheetClose asChild key={link.label}>
@@ -218,7 +231,7 @@ export const Navbar: React.FC = () => {
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 border-t border-border/50 bg-background">
                   <div className="flex items-center justify-center gap-2">
-                    <NetworkSwitch />
+                    {chain.id === 'solana' && <NetworkSwitch />}
                     <RpcSettings variant="icon" />
                   </div>
                   <ConnectWallet className="w-full justify-center" />
@@ -235,15 +248,24 @@ export const Navbar: React.FC = () => {
 
           {/* Right side - Chain Indicator, Wallet & Notifications */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Desktop Chain Selector */}
+            <div className="hidden lg:block">
+              <ChainSelector
+                selectedChain={chain.id}
+                onChainChange={setChain}
+                compact
+              />
+            </div>
+
             {isConnected && chainType && (
               <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${chainType === 'xrpl'
-                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
-                  : chainType === 'monad'
-                    ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
-                    : 'bg-green-500/10 text-green-400 border-green-500/30'
+                ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                : chainType === 'monad'
+                  ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
+                  : 'bg-green-500/10 text-green-400 border-green-500/30'
                 }`}>
                 <span>{chainType === 'xrpl' ? '✕' : chainType === 'monad' ? '◈' : '◎'}</span>
-                <span>{chainType === 'xrpl' ? 'XRPL' : chainType === 'monad' ? 'Monad' : 'Solana'}</span>
+                <span className="hidden md:inline">{chainType === 'xrpl' ? 'XRPL' : chainType === 'monad' ? 'Monad' : 'Solana'}</span>
               </div>
             )}
             <NotificationBell />
