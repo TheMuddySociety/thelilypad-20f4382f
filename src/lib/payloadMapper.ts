@@ -7,7 +7,7 @@ import { SupportedChain } from "@/config/chains";
  * Supabase project (jlkupdukwgsadvzxafed).
  *
  * All creators use Supabase Cloud as primary hosting.
- * Pinata / IPFS is admin-only and is NOT part of the launchpad flow.
+ * IPFS (via Cloudflare gateway) is admin-only and is NOT part of the launchpad flow.
  */
 
 // Points to the NFT Storage Supabase project (not the main app project)
@@ -65,6 +65,6 @@ export const CHAIN_PAYLOAD_CONFIG = {
  */
 export function getChainRootUri(chain: SupportedChain, collectionId: string): string {
     const info = getCollectionStorageInfo(collectionId);
-    // All chains use Supabase metadata root — IPFS is admin-only via Pinata outside this flow
+    // All chains use Supabase metadata root — IPFS is admin-only via Cloudflare gateway outside this flow
     return info.rootUri;
 }

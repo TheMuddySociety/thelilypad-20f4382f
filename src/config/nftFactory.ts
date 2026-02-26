@@ -5,6 +5,8 @@
 export const LILYPAD_PLATFORM_NAME = "The Lily Pad";
 export const LILYPAD_PLATFORM_VERSION = "1.0.0";
 
+import { ipfsToHttp, IPFS_GATEWAY } from '@/lib/ipfs';
+
 // Helper function to validate IPFS CIDs
 export function isValidIPFSCID(cid: string): boolean {
   if (!cid) return false;
@@ -15,6 +17,11 @@ export function isValidIPFSCID(cid: string): boolean {
 // Helper to construct token URI from IPFS base CID
 export function constructTokenURI(ipfsBaseCID: string, tokenId: number): string {
   return `ipfs://${ipfsBaseCID}/${tokenId}.json`;
+}
+
+// Resolve an ipfs:// URI to an HTTP gateway URL for browser preview
+export function resolveTokenURI(uri: string): string {
+  return ipfsToHttp(uri, IPFS_GATEWAY);
 }
 
 // Platform fee configuration

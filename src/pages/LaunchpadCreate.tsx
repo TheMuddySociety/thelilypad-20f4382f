@@ -406,7 +406,7 @@ export default function LaunchpadCreate() {
                 await supabase.from("collections").update({ contract_address: collection.address, image_url: imageUri, status: "active" }).eq('id', collectionId);
             } else if (selectedChain === 'xrpl') {
                 // ── Supabase Cloud Storage Path (Primary Hosting for ALL creators) ──
-                // Pinata / IPFS is admin-only and handled outside the launchpad deploy flow.
+                // IPFS is admin-only and handled outside the launchpad deploy flow.
                 const totalSupplyCount = is1of1
                     ? artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0)
                     : (mode === 'advanced' ? (generatedAssets.length || targetSupply) : (folderAssets.length || targetSupply));

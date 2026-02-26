@@ -433,7 +433,7 @@ export function useNFTExport(
                 resolution: `${resolution}x${resolution}`,
                 exported_at: new Date().toISOString(),
                 source: "The Lily Pad — https://thelilypad.io",
-                note: "Replace 'YOUR_IMAGE_CID' in metadata files with your actual IPFS CID after uploading the images/ folder.",
+                note: "Replace 'YOUR_IMAGE_CID' in metadata files with your actual IPFS CID after uploading the images/ folder. Preview via https://cloudflare-ipfs.com/ipfs/<CID>",
             }, null, 2));
 
             zip.file("README.txt",
@@ -446,13 +446,17 @@ CONTENTS
 
 HOW TO LAUNCH ON ANOTHER LAUNCHPAD
 ${"━".repeat(36)}
-1. Upload the images/ folder to IPFS (Pinata, NFT.Storage, etc.)
+1. Upload the images/ folder to IPFS (web3.storage, Filebase, or \`ipfs add\`)
 2. Copy the resulting folder CID
 3. In each metadata JSON, replace:
    "image": "ipfs://YOUR_IMAGE_CID/N.png"
    with your real CID, e.g. "image": "ipfs://bafybeif.../N.png"
 4. Upload the updated metadata/ folder to IPFS
 5. Use that metadata CID as your baseUri / baseURI
+
+IPFS GATEWAY (preview your files via HTTP)
+   https://cloudflare-ipfs.com/ipfs/<YOUR_CID>
+   https://cloudflare-ipfs.com/ipfs/<YOUR_CID>/0.png
 
 Generated: ${new Date().toUTCString()}
 Source: The Lily Pad (thelilypad.io)

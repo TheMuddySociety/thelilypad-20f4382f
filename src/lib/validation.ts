@@ -263,9 +263,12 @@ export function validateURL(url: string): ValidationResult {
         const allowedDomains = [
             'supabase.co',
             'cloudflare.com',
+            'cloudflare-ipfs.com',    // Cloudflare IPFS gateway
+            'dweb.link',              // Cloudflare IPFS fallback
+            'w3s.link',               // web3.storage gateway
+            'ipfs.io',                // Public IPFS gateway
             'imgur.com',
             'cloudinary.com',
-            'ipfs.io',
             // Add your CDN domains
         ];
 

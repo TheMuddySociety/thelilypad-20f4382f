@@ -29,7 +29,7 @@ import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
-// Note: dataUrlToBlob kept for potential future use; no Pinata in the creator flow
+// Note: dataUrlToBlob kept for potential future use; no direct IPFS uploads in the creator flow
 import JSZip from "jszip";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";

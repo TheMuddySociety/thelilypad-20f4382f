@@ -287,12 +287,13 @@ CONTENTS
 
 HOW TO LAUNCH ON AN EXTERNAL LAUNCHPAD
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Upload the images/ folder to IPFS (Pinata, NFT.Storage, etc.)
+1. Upload the images/ folder to IPFS (web3.storage, Filebase, or \`ipfs add\`)
    → Note the resulting CID (e.g. Qm… or bafy…)
 
 2. Update each metadata/ file:
    Replace the "image" field with:
    "image": "ipfs://<YOUR_IMAGE_CID>/<token_id>.png"
+   Gateway preview: https://cloudflare-ipfs.com/ipfs/<YOUR_IMAGE_CID>/<token_id>.png
 
 3. Upload the updated metadata/ folder to IPFS
    → Note the metadata CID
