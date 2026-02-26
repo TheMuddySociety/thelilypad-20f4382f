@@ -37,14 +37,14 @@ import { storageClient, NFT_BUCKETS } from "@/integrations/supabase/storageClien
 import { useSEO } from "@/hooks/useSEO";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { setStoredChain } from "@/config/chains";
+import { setStoredChain, getDbChainValue } from "@/config/chains";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 import { getCollectionStorageInfo } from "@/lib/payloadMapper";
 import { triggerCollectionDownload } from "@/lib/nftStorageService";
 
 export default function XRPLEasyGenerator() {
     const navigate = useNavigate();
-    const { address, isConnected } = useWallet();
+    const { address, isConnected, network } = useWallet();
     const { isAdmin } = useAuth();
     const { deployXRPLCollection, mintXRPLItems, isDeploying, isMinting } = useXRPLLaunch();
 
@@ -100,7 +100,7 @@ export default function XRPLEasyGenerator() {
                     name,
                     symbol,
                     description,
-                    chain: "xrpl",
+                    chain: getDbChainValue('xrpl', network as 'mainnet' | 'testnet'),
                     total_supply: files.length,
                     status: "draft",
                     creator_id: user.id,

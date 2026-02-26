@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+﻿import React, { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -9,23 +9,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3, Crown, Gem, Star, Circle, Archive, Cloud, ExternalLink, Copy, Check, Zap, Settings2, ShieldCheck } from "lucide-react";
+import { Shuffle, Eye, Download, Sparkles, Info, Image as ImageIcon, FileJson, Package, Loader2, Images, FolderArchive, BarChart3, Archive, Cloud, ExternalLink, Copy, Check, Zap, Settings2, ShieldCheck } from "lucide-react";
 import { Layer, Trait, BlendMode } from "./LayerManager";
 import { TraitRule, RuleType } from "./TraitRulesManager";
 import { NFTImageCompositor } from "./NFTImageCompositor";
 import { toast } from "sonner";
-import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
 import { dataUrlToBlob } from "@/lib/utils";
-import { nftToXrplMetadata, nftToSolanaMetadata } from "@/lib/assetBundler";
+import { nftToXrplMetadata, nftToSolanaMetadata, loadImage, compositeNFTImage, type GeneratedNFT, type NFTMetadata } from "@/lib/assetBundler";
+import { type RarityTier, type RarityReport, RARITY_TIERS, getRarityTier, RarityBadge } from "./rarity";
+import { useNFTGenerator } from "@/hooks/useNFTGenerator";
+import { useNFTExport } from "@/hooks/useNFTExport";
 
 // XRPL-specific resolution presets
 const RESOLUTION_PRESETS = [
-  { label: "512 × 512 (Preview)", value: 512 },
-  { label: "1024 × 1024 (Standard)", value: 1024 },
-  { label: "2048 × 2048 (High Quality)", value: 2048 },
-  { label: "4000 × 4000 (Ultra HD / XRPL)", value: 4000 },
+  { label: "512 Ã— 512 (Preview)", value: 512 },
+  { label: "1024 Ã— 1024 (Standard)", value: 1024 },
+  { label: "2048 Ã— 2048 (High Quality)", value: 2048 },
+  { label: "4000 Ã— 4000 (Ultra HD / XRPL)", value: 4000 },
 ];
 
 interface GenerationPreviewProps {
@@ -34,124 +36,15 @@ interface GenerationPreviewProps {
   totalSupply: string;
   collectionName?: string;
   collectionDescription?: string;
-  /** When true, pre-sets XRPL-optimised defaults (589 supply, 4000×4000) */
+  /** When true, pre-sets XRPL-optimised defaults (589 supply, 4000Ã—4000) */
   xrplMode?: boolean;
-}
-
-interface GeneratedNFT {
-  id: number;
-  traits: { layerId: string; layerName: string; traitId: string; traitName: string; imageUrl?: string; blendMode?: BlendMode; opacity?: number }[];
 }
 
 interface GeneratedNFTWithImage extends GeneratedNFT {
   imageDataUrl?: string;
 }
 
-interface NFTMetadata {
-  name: string;
-  description: string;
-  image: string;
-  external_url?: string;
-  attributes: {
-    trait_type: string;
-    value: string;
-  }[];
-}
 
-// Rarity tier definitions
-type RarityTier = "legendary" | "rare" | "uncommon" | "common";
-
-interface RarityTierConfig {
-  name: string;
-  maxPercentage: number;
-  color: string;
-  bgColor: string;
-  borderColor: string;
-  icon: typeof Crown;
-}
-
-const RARITY_TIERS: Record<RarityTier, RarityTierConfig> = {
-  legendary: {
-    name: "Legendary",
-    maxPercentage: 5,
-    color: "text-amber-500",
-    bgColor: "bg-amber-500/10",
-    borderColor: "border-amber-500/50",
-    icon: Crown,
-  },
-  rare: {
-    name: "Rare",
-    maxPercentage: 15,
-    color: "text-purple-500",
-    bgColor: "bg-purple-500/10",
-    borderColor: "border-purple-500/50",
-    icon: Gem,
-  },
-  uncommon: {
-    name: "Uncommon",
-    maxPercentage: 35,
-    color: "text-blue-500",
-    bgColor: "bg-blue-500/10",
-    borderColor: "border-blue-500/50",
-    icon: Star,
-  },
-  common: {
-    name: "Common",
-    maxPercentage: 100,
-    color: "text-muted-foreground",
-    bgColor: "bg-muted/50",
-    borderColor: "border-muted",
-    icon: Circle,
-  },
-};
-
-// Get rarity tier based on percentage
-const getRarityTier = (percentage: number): RarityTier => {
-  if (percentage <= RARITY_TIERS.legendary.maxPercentage) return "legendary";
-  if (percentage <= RARITY_TIERS.rare.maxPercentage) return "rare";
-  if (percentage <= RARITY_TIERS.uncommon.maxPercentage) return "uncommon";
-  return "common";
-};
-
-// Rarity Badge Component
-const RarityBadge = ({ tier, showLabel = true, size = "default" }: { tier: RarityTier; showLabel?: boolean; size?: "sm" | "default" }) => {
-  const config = RARITY_TIERS[tier];
-  const Icon = config.icon;
-  const sizeClasses = size === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1";
-  const iconSize = size === "sm" ? "w-3 h-3" : "w-3.5 h-3.5";
-
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full font-medium border ${config.bgColor} ${config.color} ${config.borderColor} ${sizeClasses}`}>
-      <Icon className={iconSize} />
-      {showLabel && config.name}
-    </span>
-  );
-};
-
-interface RarityReport {
-  totalGenerated: number;
-  layerDistributions: {
-    layerName: string;
-    traits: {
-      traitName: string;
-      count: number;
-      percentage: number;
-      expectedPercentage: number;
-      tier: RarityTier;
-    }[];
-  }[];
-  rarestCombinations: {
-    nftId: number;
-    rarityScore: number;
-    traits: string[];
-    overallTier: RarityTier;
-  }[];
-  tierSummary: {
-    tier: RarityTier;
-    traitCount: number;
-    nftCount: number;
-  }[];
-}
 
 export function GenerationPreview({
   layers,
@@ -163,718 +56,50 @@ export function GenerationPreview({
 }: GenerationPreviewProps) {
   const { isAdmin } = useAuth();
   const [previewCount, setPreviewCount] = useState("5");
-  const [generatedPreviews, setGeneratedPreviews] = useState<GeneratedNFT[]>([]);
   const [exportCount, setExportCount] = useState(xrplMode ? "589" : (totalSupply || "100"));
   const [outputResolution, setOutputResolution] = useState<number>(xrplMode ? 4000 : 512);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState(0);
-  const [exportStatus, setExportStatus] = useState("");
   const [rarityReport, setRarityReport] = useState<RarityReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [isDownloadingAssets, setIsDownloadingAssets] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [downloadStatus, setDownloadStatus] = useState("");
-  const [isXrplZipExporting, setIsXrplZipExporting] = useState(false);
 
-  const selectTraitForLayer = (
-    layer: Layer,
-    selectedTraits: Map<string, string>,
-    allLayers: Layer[]
-  ): string | null => {
-    // Check if layer is optional and randomly skip
-    if (layer.isOptional && Math.random() * 100 > layer.optionalChance) {
-      return null;
-    }
-
-    if (layer.traits.length === 0) return null;
-
-    // Get applicable rules for already selected traits
-    const applicableRules = rules.filter((rule) => {
-      // Check if source trait was selected
-      const sourceSelected = selectedTraits.get(rule.sourceLayerId);
-      return sourceSelected === rule.sourceTraitId;
-    });
-
-    // Find forced traits for this layer
-    const forcedTraits = applicableRules
-      .filter(
-        (r) => r.type === "forces" && r.targetLayerId === layer.id
-      )
-      .map((r) => r.targetTraitId);
-
-    if (forcedTraits.length > 0) {
-      return forcedTraits[0]; // Return first forced trait
-    }
-
-    // Filter out incompatible traits
-    const incompatibleTraits = applicableRules
-      .filter(
-        (r) => r.type === "incompatible" && r.targetLayerId === layer.id
-      )
-      .map((r) => r.targetTraitId);
-
-    const availableTraits = layer.traits.filter(
-      (t) => !incompatibleTraits.includes(t.id)
-    );
-
-    if (availableTraits.length === 0) {
-      // If all traits are incompatible, just pick from original
-      const totalRarity = layer.traits.reduce((sum, t) => sum + t.rarity, 0);
-      let random = Math.random() * totalRarity;
-      for (const trait of layer.traits) {
-        random -= trait.rarity;
-        if (random <= 0) return trait.id;
-      }
-      return layer.traits[0].id;
-    }
-
-    // Weighted random selection from available traits
-    const totalRarity = availableTraits.reduce((sum, t) => sum + t.rarity, 0);
-    let random = Math.random() * totalRarity;
-    for (const trait of availableTraits) {
-      random -= trait.rarity;
-      if (random <= 0) return trait.id;
-    }
-
-    return availableTraits[0].id;
-  };
-
-  // Generate a unique trait combination hash for duplicate detection
-  const getTraitHash = (traits: GeneratedNFT["traits"]): string => {
-    return traits
-      .map((t) => `${t.layerId}:${t.traitId}`)
-      .sort()
-      .join("|");
-  };
-
-  // Generate a single NFT
-  const generateSingleNFT = (id: number, sortedLayers: Layer[]): GeneratedNFT => {
-    const selectedTraits = new Map<string, string>();
-    const nftTraits: GeneratedNFT["traits"] = [];
-
-    for (const layer of sortedLayers) {
-      const selectedTraitId = selectTraitForLayer(layer, selectedTraits, layers);
-      if (selectedTraitId) {
-        selectedTraits.set(layer.id, selectedTraitId);
-        const trait = layer.traits.find((t) => t.id === selectedTraitId);
-        if (trait) {
-          nftTraits.push({
-            layerId: layer.id,
-            layerName: layer.name,
-            traitId: trait.id,
-            traitName: trait.name,
-            imageUrl: trait.imageUrl,
-            blendMode: layer.blendMode,
-            opacity: layer.opacity,
-          });
-        }
-      }
-    }
-
-    return { id, traits: nftTraits };
-  };
-
-  const generateNFTBatch = (count: number, ensureUnique: boolean = true): { nfts: GeneratedNFT[]; duplicatesAvoided: number } => {
-    const sortedLayers = [...layers].sort((a, b) => a.order - b.order);
-    const previews: GeneratedNFT[] = [];
-    const seenHashes = new Set<string>();
-    let duplicatesAvoided = 0;
-    const maxAttempts = count * 10; // Prevent infinite loops
-    let attempts = 0;
-
-    while (previews.length < count && attempts < maxAttempts) {
-      attempts++;
-      const nft = generateSingleNFT(previews.length + 1, sortedLayers);
-      const hash = getTraitHash(nft.traits);
-
-      if (!ensureUnique || !seenHashes.has(hash)) {
-        seenHashes.add(hash);
-        previews.push({ ...nft, id: previews.length + 1 });
-      } else {
-        duplicatesAvoided++;
-      }
-    }
-
-    if (previews.length < count) {
-      toast.warning(
-        `Only ${previews.length} unique combinations possible. Add more traits for ${count} unique NFTs.`
-      );
-    }
-
-    return { nfts: previews, duplicatesAvoided };
-  };
-
-  const [duplicatesAvoided, setDuplicatesAvoided] = useState(0);
+  // NFT generation engine (extracted hook)
+  const { generatedPreviews, duplicatesAvoided, generatePreviews: generatePreviewsRaw, generateNFTBatch } = useNFTGenerator(layers, rules);
 
   const generatePreviews = () => {
     const count = parseInt(previewCount) || 5;
-    const { nfts, duplicatesAvoided: avoided } = generateNFTBatch(count);
-    setGeneratedPreviews(nfts);
-    setDuplicatesAvoided(avoided);
-    if (avoided > 0) {
-      toast.info(`Avoided ${avoided} duplicate combinations`);
-    }
+    generatePreviewsRaw(count);
   };
 
-  // Load image helper
-  const loadImage = (src: string): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = src;
-    });
-  };
-
-  // Composite a single NFT image
-  const compositeNFTImage = async (nft: GeneratedNFT, canvasSize: number = outputResolution): Promise<string | null> => {
-    const hasImages = nft.traits.some((t) => t.imageUrl);
-    if (!hasImages) return null;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = canvasSize;
-    canvas.height = canvasSize;
-    const ctx = canvas.getContext("2d");
-
-    if (!ctx) throw new Error("Could not get canvas context");
-
-    ctx.clearRect(0, 0, canvasSize, canvasSize);
-
-    for (const trait of nft.traits) {
-      if (trait.imageUrl) {
-        try {
-          const img = await loadImage(trait.imageUrl);
-          ctx.save();
-          ctx.globalCompositeOperation = trait.blendMode || "source-over";
-          ctx.globalAlpha = (trait.opacity ?? 100) / 100;
-          ctx.drawImage(img, 0, 0, canvasSize, canvasSize);
-          ctx.restore();
-        } catch (error) {
-          console.warn(`Failed to load image for trait: ${trait.traitName}`, error);
-        }
-      }
-    }
-
-    return canvas.toDataURL("image/png");
-  };
-
-  // Export images with metadata
-  const exportImagesWithMetadata = async () => {
-    const count = Math.min(parseInt(exportCount) || 10, 100); // Limit to 100 for browser
-    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
-
-    if (!hasImages) {
-      toast.error("No images found. Add images to your traits first.");
-      return;
-    }
-
-    setIsExporting(true);
-    setExportProgress(0);
-    setExportStatus("Generating NFTs...");
-
-    try {
-      const { nfts } = generateNFTBatch(count);
-      const results: { id: number; imageDataUrl: string; metadata: NFTMetadata }[] = [];
-
-      for (let i = 0; i < nfts.length; i++) {
-        setExportStatus(`Compositing image ${i + 1} of ${count}...`);
-        setExportProgress(((i + 1) / count) * 80);
-
-        const imageDataUrl = await compositeNFTImage(nfts[i]);
-        if (imageDataUrl) {
-          results.push({
-            id: nfts[i].id,
-            imageDataUrl,
-            metadata: nftToMetadata(nfts[i]),
-          });
-        }
-
-        // Small delay to prevent browser freeze
-        await new Promise((r) => setTimeout(r, 10));
-      }
-
-      setExportStatus("Preparing download...");
-      setExportProgress(90);
-
-      // Create export package
-      const exportPackage = {
-        collection: {
-          name: collectionName,
-          description: collectionDescription,
-          total_generated: results.length,
-          generated_at: new Date().toISOString(),
-        },
-        nfts: results.map((r) => ({
-          id: r.id,
-          metadata: r.metadata,
-          image_data: r.imageDataUrl,
-        })),
-      };
-
-      const blob = new Blob([JSON.stringify(exportPackage, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-full-export.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      setExportProgress(100);
-      setExportStatus("Complete!");
-      toast.success(`Exported ${results.length} NFTs with images and metadata`);
-    } catch (error) {
-      console.error("Export failed:", error);
-      toast.error("Export failed. Please try again.");
-    } finally {
-      setTimeout(() => {
-        setIsExporting(false);
-        setExportProgress(0);
-        setExportStatus("");
-      }, 1500);
-    }
-  };
-
-  // Download individual images
-  const downloadIndividualImages = async () => {
-    const count = Math.min(parseInt(exportCount) || 10, 20); // Limit to 20 for individual downloads
-    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
-
-    if (!hasImages) {
-      toast.error("No images found. Add images to your traits first.");
-      return;
-    }
-
-    setIsExporting(true);
-    setExportProgress(0);
-    setExportStatus("Generating images...");
-
-    try {
-      const { nfts } = generateNFTBatch(count);
-
-      for (let i = 0; i < nfts.length; i++) {
-        setExportStatus(`Downloading image ${i + 1} of ${count}...`);
-        setExportProgress(((i + 1) / count) * 100);
-
-        const imageDataUrl = await compositeNFTImage(nfts[i]);
-        if (imageDataUrl) {
-          const link = document.createElement("a");
-          link.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-${nfts[i].id}.png`;
-          link.href = imageDataUrl;
-          link.click();
-
-          // Delay between downloads
-          await new Promise((r) => setTimeout(r, 300));
-        }
-      }
-
-      toast.success(`Downloaded ${count} NFT images`);
-    } catch (error) {
-      console.error("Download failed:", error);
-      toast.error("Download failed. Please try again.");
-    } finally {
-      setIsExporting(false);
-      setExportProgress(0);
-      setExportStatus("");
-    }
-  };
-
-  // Convert generated NFT to ERC-721 metadata format
-  const nftToMetadata = (nft: GeneratedNFT, baseImageUri: string = ""): NFTMetadata => {
-    return {
-      name: `${collectionName} #${nft.id}`,
-      description: collectionDescription || `${collectionName} NFT #${nft.id}`,
-      image: baseImageUri ? `${baseImageUri}/${nft.id}.png` : `ipfs://YOUR_CID/${nft.id}.png`,
-      attributes: nft.traits.map((trait) => ({
-        trait_type: trait.layerName,
-        value: trait.traitName,
-      })),
-    };
-  };
-
-  // Export single metadata JSON
-  const exportSingleMetadata = (nft: GeneratedNFT) => {
-    const metadata = nftToMetadata(nft);
-    const blob = new Blob([JSON.stringify(metadata, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${nft.id}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success(`Exported metadata for NFT #${nft.id}`);
-  };
-
-  // Export all metadata as a zip-like bundle (individual files in a folder structure)
-  const exportAllMetadata = () => {
-    const count = parseInt(exportCount) || parseInt(totalSupply) || 100;
-    const { nfts } = generateNFTBatch(count);
-
-    // Create metadata array
-    const allMetadata = nfts.map((nft) => nftToMetadata(nft));
-
-    // Export as single JSON file with all metadata
-    const exportData = {
-      name: collectionName,
-      description: collectionDescription,
-      total_supply: count,
-      generated_at: new Date().toISOString(),
-      metadata: allMetadata,
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-metadata.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${count} NFT metadata files`);
-  };
-
-  // Export individual metadata files (for IPFS folder upload)
-  const exportIndividualFiles = () => {
-    const count = parseInt(exportCount) || parseInt(totalSupply) || 100;
-    const { nfts } = generateNFTBatch(count);
-
-    // Create a downloadable text file with instructions
-    const metadataFiles: { filename: string; content: NFTMetadata }[] = nfts.map((nft) => ({
-      filename: `${nft.id}.json`,
-      content: nftToMetadata(nft),
-    }));
-
-    // Export as a single file with array of all metadata for easy parsing
-    const exportData = metadataFiles.map((f) => ({
-      filename: f.filename,
-      ...f.content,
-    }));
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-individual-metadata.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${count} individual metadata entries`);
-  };
-
-  // Export as ZIP file with organized folder structure
-  const exportAsZip = async () => {
-    const count = Math.min(parseInt(exportCount) || 100, 500); // Limit to 500 for memory
-    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
-
-    if (!hasImages) {
-      toast.error("No images found. Add images to your traits first.");
-      return;
-    }
-
-    setIsExporting(true);
-    setExportProgress(0);
-    setExportStatus("Generating NFTs...");
-
-    try {
-      const zip = new JSZip();
-      const imagesFolder = zip.folder("images");
-      const metadataFolder = zip.folder("metadata");
-
-      if (!imagesFolder || !metadataFolder) {
-        throw new Error("Failed to create ZIP folders");
-      }
-
-      const { nfts } = generateNFTBatch(count);
-
-      // Generate images and metadata
-      for (let i = 0; i < nfts.length; i++) {
-        setExportStatus(`Generating NFT ${i + 1} of ${count}...`);
-        setExportProgress(((i + 1) / count) * 80);
-
-        const imageDataUrl = await compositeNFTImage(nfts[i]);
-
-        if (imageDataUrl) {
-          // Convert base64 to binary
-          const base64Data = imageDataUrl.split(",")[1];
-          imagesFolder.file(`${nfts[i].id}.png`, base64Data, { base64: true });
-
-          // Create metadata with correct image path
-          const metadata = {
-            name: `${collectionName} #${nfts[i].id}`,
-            description: collectionDescription || `${collectionName} NFT #${nfts[i].id}`,
-            image: `ipfs://YOUR_CID/${nfts[i].id}.png`,
-            attributes: nfts[i].traits.map((trait) => ({
-              trait_type: trait.layerName,
-              value: trait.traitName,
-            })),
-          };
-
-          metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(metadata, null, 2));
-        }
-
-        // Small delay to prevent browser freeze
-        if (i % 10 === 0) {
-          await new Promise((r) => setTimeout(r, 10));
-        }
-      }
-
-      // Add collection metadata
-      const collectionMetadata = {
-        name: collectionName,
-        description: collectionDescription,
-        total_supply: count,
-        generated_at: new Date().toISOString(),
-      };
-      zip.file("_collection.json", JSON.stringify(collectionMetadata, null, 2));
-
-      setExportStatus("Creating ZIP file...");
-      setExportProgress(90);
-
-      // Generate ZIP blob
-      const zipBlob = await zip.generateAsync({
-        type: "blob",
-        compression: "DEFLATE",
-        compressionOptions: { level: 6 }
-      });
-
-      // Download ZIP
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-collection.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      setExportProgress(100);
-      setExportStatus("Complete!");
-      toast.success(`Exported ${count} NFTs as ZIP file`);
-    } catch (error) {
-      console.error("ZIP export failed:", error);
-      toast.error("ZIP export failed. Please try again.");
-    } finally {
-      setTimeout(() => {
-        setIsExporting(false);
-        setExportProgress(0);
-        setExportStatus("");
-      }, 1500);
-    }
-  };
-
-
-  // XRPL-optimised ZIP export: 4000×4000 PNG images + XLS-20 compatible metadata
-  const exportXRPLZip = async () => {
-    const count = parseInt(exportCount) || 589;
-    const resolution = outputResolution;
-    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
-
-    if (!hasImages) {
-      toast.error("No images found. Add images to your traits first.");
-      return;
-    }
-
-    setIsXrplZipExporting(true);
-    setExportProgress(0);
-    setExportStatus(`Preparing XRPL collection (${count} NFTs @ ${resolution}×${resolution})…`);
-
-    try {
-      const zip = new JSZip();
-      const imagesFolder = zip.folder("images");
-      const metadataFolder = zip.folder("metadata");
-
-      if (!imagesFolder || !metadataFolder) throw new Error("Failed to create ZIP folders");
-
-      const { nfts } = generateNFTBatch(count);
-
-      for (let i = 0; i < nfts.length; i++) {
-        setExportStatus(`Compositing ${i + 1} / ${count} at ${resolution}×${resolution}px…`);
-        setExportProgress(Math.round(((i + 1) / count) * 80));
-
-        const imageDataUrl = await compositeNFTImage(nfts[i], resolution);
-
-        if (imageDataUrl) {
-          const base64Data = imageDataUrl.split(",")[1];
-          imagesFolder.file(`${nfts[i].id}.png`, base64Data, { base64: true });
-        }
-
-        // XLS-20 metadata (canonical from assetBundler)
-        const xrplMetadata = nftToXrplMetadata(nfts[i], collectionName, collectionDescription);
-        metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(xrplMetadata, null, 2));
-
-        // Yield to keep UI responsive
-        if (i % 5 === 0) await new Promise((r) => setTimeout(r, 0));
-      }
-
-      // Collection-level manifest
-      zip.file("_collection.json", JSON.stringify({
-        name: collectionName,
-        description: collectionDescription,
-        total_supply: count,
-        resolution: `${resolution}x${resolution}`,
-        chain: "XRPL",
-        standard: "XLS-20",
-        generated_at: new Date().toISOString(),
-      }, null, 2));
-
-      setExportStatus("Compressing ZIP…");
-      setExportProgress(90);
-
-      const zipBlob = await zip.generateAsync({
-        type: "blob",
-        compression: "DEFLATE",
-        compressionOptions: { level: 6 },
-      }, (meta) => {
-        setExportProgress(90 + Math.round(meta.percent * 0.1));
-      });
-
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${collectionName.toLowerCase().replace(/\s+/g, "-")}-xrpl-${resolution}px.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      setExportProgress(100);
-      setExportStatus("Done!");
-      toast.success(`XRPL collection exported! ${count} NFTs at ${resolution}×${resolution}px`);
-    } catch (err) {
-      console.error("XRPL ZIP export failed:", err);
-      toast.error("XRPL ZIP export failed. Please try again.");
-    } finally {
-      setTimeout(() => {
-        setIsXrplZipExporting(false);
-        setExportProgress(0);
-        setExportStatus("");
-      }, 1800);
-    }
-  };
-
-  // Download generated collection as ZIP (images + metadata) — no Pinata, purely local
-  const downloadGeneratedAssets = async () => {
-    const count = Math.min(parseInt(exportCount) || 100, 10000);
-    const resolution = outputResolution;
-    const hasImages = layers.some((l) => l.traits.some((t) => t.imageUrl));
-
-    if (!hasImages) {
-      toast.error("No images found. Add images to your traits first.");
-      return;
-    }
-
-    setIsDownloadingAssets(true);
-    setDownloadProgress(0);
-    setDownloadStatus(`Generating ${count} NFTs...`);
-
-    try {
-      const { nfts } = generateNFTBatch(count);
-      const zip = new JSZip();
-      const imagesFolder = zip.folder("images")!;
-      const metadataFolder = zip.folder("metadata")!;
-
-      // Render & pack in batches of 10
-      const batchSize = 10;
-      for (let i = 0; i < nfts.length; i += batchSize) {
-        const batch = nfts.slice(i, i + batchSize);
-        await Promise.all(batch.map(async (nft) => {
-          setDownloadStatus(`Rendering NFT ${nft.id} of ${count}...`);
-          setDownloadProgress(((nft.id) / count) * 70);
-
-          const imageDataUrl = await compositeNFTImage(nft, resolution);
-          if (imageDataUrl) {
-            imagesFolder.file(`${nft.id}.png`, dataUrlToBlob(imageDataUrl));
-          }
-
-          const metadata = xrplMode
-            ? nftToXrplMetadata(nft, collectionName, collectionDescription)
-            : nftToSolanaMetadata(nft, collectionName, collectionDescription);
-
-          metadataFolder.file(`${nft.id}.json`, JSON.stringify(metadata, null, 2));
-        }));
-      }
-
-      setDownloadStatus("Packaging ZIP...");
-      setDownloadProgress(85);
-
-      zip.file("_collection.json", JSON.stringify({
-        name: collectionName,
-        total_supply: count,
-        resolution: `${resolution}x${resolution}`,
-        exported_at: new Date().toISOString(),
-        source: "The Lily Pad — https://thelilypad.io",
-        note: "Replace 'YOUR_IMAGE_CID' in metadata files with your actual IPFS CID after uploading the images/ folder.",
-      }, null, 2));
-
-      zip.file("README.txt",
-        `${collectionName || "Collection"} — NFT Collection Assets
-${"━".repeat(44)}
-
-CONTENTS
-  images/      ${count} rendered NFT images at ${resolution}x${resolution}px
-  metadata/    ${count} JSON metadata files
-
-HOW TO LAUNCH ON ANOTHER LAUNCHPAD
-${"━".repeat(36)}
-1. Upload the images/ folder to IPFS (Pinata, NFT.Storage, etc.)
-2. Copy the resulting folder CID
-3. In each metadata JSON, replace:
-   "image": "ipfs://YOUR_IMAGE_CID/N.png"
-   with your real CID, e.g. "image": "ipfs://bafybeif.../N.png"
-4. Upload the updated metadata/ folder to IPFS
-5. Use that metadata CID as your baseUri / baseURI
-
-Generated: ${new Date().toUTCString()}
-Source: The Lily Pad (thelilypad.io)
-`);
-
-      setDownloadStatus("Compressing...");
-      setDownloadProgress(93);
-
-      const zipBlob = await zip.generateAsync({
-        type: "blob",
-        compression: "DEFLATE",
-        compressionOptions: { level: 6 },
-      });
-
-      const safeName = (collectionName || "collection")
-        .toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${safeName}-${count}nfts-${resolution}px.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      setDownloadProgress(100);
-      setDownloadStatus("Done!");
-      toast.success(`Downloaded ${count} NFTs!`, {
-        description: `${resolution}×${resolution}px images + metadata ready for any launchpad.`,
-      });
-    } catch (err: any) {
-      console.error("Asset download failed:", err);
-      toast.error(`Download failed: ${err.message || "Unknown error"}`);
-    } finally {
-      setTimeout(() => {
-        setIsDownloadingAssets(false);
-        setDownloadProgress(0);
-        setDownloadStatus("");
-      }, 1800);
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!");
-  };
+  // NFT export / download logic (extracted hook)
+  const {
+    isExporting,
+    exportProgress,
+    exportStatus,
+    isXrplZipExporting,
+    isDownloadingAssets,
+    downloadProgress,
+    downloadStatus,
+    exportImagesWithMetadata: exportImagesWithMetadataRaw,
+    downloadIndividualImages: downloadIndividualImagesRaw,
+    exportSingleMetadata,
+    exportAllMetadata: exportAllMetadataRaw,
+    exportIndividualFiles: exportIndividualFilesRaw,
+    exportAsZip: exportAsZipRaw,
+    exportXRPLZip: exportXRPLZipRaw,
+    downloadGeneratedAssets: downloadGeneratedAssetsRaw,
+    copyToClipboard,
+  } = useNFTExport(
+    { collectionName, collectionDescription, outputResolution, xrplMode, layers },
+    generateNFTBatch,
+  );
+
+  // Wrappers that pass through the current exportCount/totalSupply
+  const exportImagesWithMetadata = () => exportImagesWithMetadataRaw(exportCount);
+  const downloadIndividualImages = () => downloadIndividualImagesRaw(exportCount);
+  const exportAllMetadata = () => exportAllMetadataRaw(exportCount, totalSupply);
+  const exportIndividualFiles = () => exportIndividualFilesRaw(exportCount, totalSupply);
+  const exportAsZip = () => exportAsZipRaw(exportCount);
+  const exportXRPLZip = () => exportXRPLZipRaw(exportCount);
+  const downloadGeneratedAssets = () => downloadGeneratedAssetsRaw(exportCount);
 
   // Calculate rarity statistics
   const rarityStats = useMemo(() => {
@@ -1095,7 +320,7 @@ Source: The Lily Pad (thelilypad.io)
           <Card className="col-span-3 border-primary/50 bg-primary/5">
             <CardContent className="p-3 text-center">
               <p className="text-sm text-primary font-medium">
-                ✓ {duplicatesAvoided} duplicate combinations avoided
+                âœ“ {duplicatesAvoided} duplicate combinations avoided
               </p>
             </CardContent>
           </Card>
@@ -1305,7 +530,7 @@ Source: The Lily Pad (thelilypad.io)
                     })}
                   </div>
                   <p className="text-xs text-muted-foreground mt-3 text-center">
-                    Legendary: ≤5% | Rare: ≤15% | Uncommon: ≤35% | Common: &gt;35%
+                    Legendary: â‰¤5% | Rare: â‰¤15% | Uncommon: â‰¤35% | Common: &gt;35%
                   </p>
                 </CardContent>
               </Card>
@@ -1336,7 +561,7 @@ Source: The Lily Pad (thelilypad.io)
                                       {trait.count} ({trait.percentage.toFixed(1)}%)
                                       {Math.abs(trait.percentage - trait.expectedPercentage) > 5 && (
                                         <span className={trait.percentage < trait.expectedPercentage ? "text-orange-500 ml-1" : "text-green-500 ml-1"}>
-                                          {trait.percentage < trait.expectedPercentage ? "↓" : "↑"}
+                                          {trait.percentage < trait.expectedPercentage ? "â†“" : "â†‘"}
                                         </span>
                                       )}
                                     </span>
@@ -1435,7 +660,7 @@ Source: The Lily Pad (thelilypad.io)
                 <Zap className="w-5 h-5 text-blue-400 shrink-0" />
                 <div>
                   <p className="text-sm font-semibold text-blue-400">XRPL Mode Active</p>
-                  <p className="text-xs text-muted-foreground">Pre-set to 589 supply · 4000 × 4000 px · XLS-20 metadata</p>
+                  <p className="text-xs text-muted-foreground">Pre-set to 589 supply Â· 4000 Ã— 4000 px Â· XLS-20 metadata</p>
                 </div>
               </CardContent>
             </Card>
@@ -1503,7 +728,7 @@ Source: The Lily Pad (thelilypad.io)
                 </Select>
                 {outputResolution >= 2048 && (
                   <p className="text-xs text-amber-500">
-                    ⚠️ High resolution may take longer. Ensure your browser has enough memory.
+                    âš ï¸ High resolution may take longer. Ensure your browser has enough memory.
                   </p>
                 )}
               </div>
@@ -1521,7 +746,7 @@ Source: The Lily Pad (thelilypad.io)
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Download a ZIP with <strong>{exportCount}</strong> images at <strong>{outputResolution}×{outputResolution}px</strong> plus XLS-20 compatible metadata, ready for XRPL NFT deployment.
+                Download a ZIP with <strong>{exportCount}</strong> images at <strong>{outputResolution}Ã—{outputResolution}px</strong> plus XLS-20 compatible metadata, ready for XRPL NFT deployment.
               </p>
 
               <Button
@@ -1540,19 +765,19 @@ Source: The Lily Pad (thelilypad.io)
 
               {!hasAnyImages && (
                 <p className="text-xs text-yellow-600 dark:text-yellow-500">
-                  ⚠️ Add images to your traits to enable export
+                  âš ï¸ Add images to your traits to enable export
                 </p>
               )}
 
               <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono">
                 <p className="text-muted-foreground mb-2">ZIP structure:</p>
                 <div className="space-y-0.5 text-foreground">
-                  <p>📁 {collectionName.toLowerCase().replace(/\s+/g, "-")}-xrpl-{outputResolution}px.zip</p>
-                  <p className="pl-4">📁 images/</p>
-                  <p className="pl-8">🖼️ 1.png … {exportCount}.png ({outputResolution}×{outputResolution})</p>
-                  <p className="pl-4">📁 metadata/</p>
-                  <p className="pl-8">📄 1.json … {exportCount}.json (XLS-20)</p>
-                  <p className="pl-4">📄 _collection.json</p>
+                  <p>ðŸ“ {collectionName.toLowerCase().replace(/\s+/g, "-")}-xrpl-{outputResolution}px.zip</p>
+                  <p className="pl-4">ðŸ“ images/</p>
+                  <p className="pl-8">ðŸ–¼ï¸ 1.png â€¦ {exportCount}.png ({outputResolution}Ã—{outputResolution})</p>
+                  <p className="pl-4">ðŸ“ metadata/</p>
+                  <p className="pl-8">ðŸ“„ 1.json â€¦ {exportCount}.json (XLS-20)</p>
+                  <p className="pl-4">ðŸ“„ _collection.json</p>
                 </div>
               </div>
             </CardContent>
@@ -1590,19 +815,19 @@ Source: The Lily Pad (thelilypad.io)
 
               {!hasAnyImages && (
                 <p className="text-xs text-yellow-600 dark:text-yellow-500">
-                  ⚠️ Add images to your traits to enable ZIP export
+                  âš ï¸ Add images to your traits to enable ZIP export
                 </p>
               )}
 
               <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono">
                 <p className="text-muted-foreground mb-2">ZIP structure:</p>
                 <div className="space-y-0.5 text-foreground">
-                  <p>📁 {collectionName.toLowerCase().replace(/\s+/g, "-")}-collection.zip</p>
-                  <p className="pl-4">📁 images/</p>
-                  <p className="pl-8">🖼️ 1.png, 2.png, ...</p>
-                  <p className="pl-4">📁 metadata/</p>
-                  <p className="pl-8">📄 1.json, 2.json, ...</p>
-                  <p className="pl-4">📄 _collection.json</p>
+                  <p>ðŸ“ {collectionName.toLowerCase().replace(/\s+/g, "-")}-collection.zip</p>
+                  <p className="pl-4">ðŸ“ images/</p>
+                  <p className="pl-8">ðŸ–¼ï¸ 1.png, 2.png, ...</p>
+                  <p className="pl-4">ðŸ“ metadata/</p>
+                  <p className="pl-8">ðŸ“„ 1.json, 2.json, ...</p>
+                  <p className="pl-4">ðŸ“„ _collection.json</p>
                 </div>
               </div>
             </CardContent>
@@ -1619,7 +844,7 @@ Source: The Lily Pad (thelilypad.io)
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Render <strong>{exportCount}</strong> NFTs at <strong>{outputResolution}×{outputResolution}px</strong> and download a ZIP with images + metadata — ready to upload to any launchpad.
+                Render <strong>{exportCount}</strong> NFTs at <strong>{outputResolution}Ã—{outputResolution}px</strong> and download a ZIP with images + metadata â€” ready to upload to any launchpad.
               </p>
 
               {isDownloadingAssets && (
@@ -1644,30 +869,30 @@ Source: The Lily Pad (thelilypad.io)
                 ) : (
                   <Download className="w-4 h-4" />
                 )}
-                {isDownloadingAssets ? downloadStatus : `Download ZIP — Images + Metadata`}
+                {isDownloadingAssets ? downloadStatus : `Download ZIP â€” Images + Metadata`}
               </Button>
 
               {!hasAnyImages && (
                 <p className="text-xs text-yellow-600 dark:text-yellow-500">
-                  ⚠️ Add images to your traits to enable download
+                  âš ï¸ Add images to your traits to enable download
                 </p>
               )}
 
               <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono">
                 <p className="text-muted-foreground mb-2">ZIP structure:</p>
                 <div className="space-y-0.5 text-foreground">
-                  <p>📁 {(collectionName || "collection").toLowerCase().replace(/\s+/g, "-")}-{exportCount}nfts.zip</p>
-                  <p className="pl-4">📁 images/</p>
-                  <p className="pl-8">🖼️ 1.png … {exportCount}.png ({outputResolution}px)</p>
-                  <p className="pl-4">📁 metadata/</p>
-                  <p className="pl-8">📄 1.json … {exportCount}.json</p>
-                  <p className="pl-4">📄 _collection.json</p>
-                  <p className="pl-4">📄 README.txt</p>
+                  <p>ðŸ“ {(collectionName || "collection").toLowerCase().replace(/\s+/g, "-")}-{exportCount}nfts.zip</p>
+                  <p className="pl-4">ðŸ“ images/</p>
+                  <p className="pl-8">ðŸ–¼ï¸ 1.png â€¦ {exportCount}.png ({outputResolution}px)</p>
+                  <p className="pl-4">ðŸ“ metadata/</p>
+                  <p className="pl-8">ðŸ“„ 1.json â€¦ {exportCount}.json</p>
+                  <p className="pl-4">ðŸ“„ _collection.json</p>
+                  <p className="pl-4">ðŸ“„ README.txt</p>
                 </div>
               </div>
 
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">🚀 Launch anywhere</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">ðŸš€ Launch anywhere</p>
                 <p className="text-xs text-muted-foreground">
                   Upload <code className="bg-muted px-1 rounded">images/</code> to any IPFS service, update the CID in metadata files, then use that metadata CID on Magic Eden, Tensor, OpenSea, or any XRPL launchpad.
                 </p>

@@ -51,6 +51,7 @@ import { useChainTheme } from "@/hooks/useChainTheme";
 import { useDraftCollection } from "@/hooks/useDraftCollection";
 import { cn, dataUrlToBlob } from "@/lib/utils";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
+import { getDbChainValue } from "@/config/chains";
 
 // Default Phases
 const defaultPhases: LaunchpadPhase[] = [
@@ -287,7 +288,7 @@ export default function LaunchpadCreate() {
                 ? artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0)
                 : (mode === 'advanced' ? generatedAssets.length || targetSupply : folderAssets.length || targetSupply);
 
-            const chainValue = network === "mainnet" ? selectedChain : `${selectedChain}-devnet`;
+            const chainValue = getDbChainValue(selectedChain, network as 'mainnet' | 'testnet');
 
             const insertPayload = {
                 name,

@@ -133,7 +133,10 @@ export const nftToXrplMetadata = (
 };
 
 /**
- * Bundle assets into a ZIP file with professional folder structure
+ * Bundle assets into a ZIP file with professional folder structure.
+ *
+ * Memory guard: 4K resolution images at ~6MB each can easily OOM
+ * the browser. We cap at 2000 NFTs at 4K and 5000 at 1K.
  */
 export const bundleAssetsAsZip = async (
     nfts: GeneratedNFT[],
@@ -144,6 +147,23 @@ export const bundleAssetsAsZip = async (
     onProgress: (status: string, progress: number) => void,
     imageCid: string = "YOUR_IMAGE_CID"
 ): Promise<Blob> => {
+    // ── Memory guard ──────────────────────────────────────────────────────
+    const isHighRes = resolution >= 2048;
+    const hardLimit = isHighRes ? 2000 : 5000;
+    const warnThreshold = isHighRes ? 500 : 2000;
+
+    if (nfts.length > hardLimit) {
+        const msg = `Cannot export ${nfts.length} NFTs at ${resolution}px — maximum is ${hardLimit} to prevent browser crashes. Reduce resolution or split into batches.`;
+        toast.error(msg, { duration: 8000 });
+        throw new Error(msg);
+    }
+
+    if (nfts.length > warnThreshold) {
+        toast.warning(
+            `Exporting ${nfts.length} NFTs at ${resolution}px — this may use significant memory. Consider closing other tabs.`,
+            { duration: 6000 }
+        );
+    }
     const zip = new JSZip();
     const imagesFolder = zip.folder("images");
     const metadataFolder = zip.folder("metadata");

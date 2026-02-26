@@ -10,14 +10,9 @@
  */
 
 import { Client, Wallet, xrpToDrops, dropsToXrp } from 'xrpl';
+import { getXRPLEndpoint, type XRPLNetwork } from '@/chains/xrpl/client';
 
-export type XRPLNetworkType = 'mainnet' | 'testnet' | 'devnet';
-
-const XRPL_ENDPOINTS: Record<XRPLNetworkType, string> = {
-  mainnet: 'wss://xrplcluster.com',
-  testnet: 'wss://s.altnet.rippletest.net:51233',
-  devnet: 'wss://s.devnet.rippletest.net:51233',
-};
+export type XRPLNetworkType = XRPLNetwork;
 
 const STORAGE_KEY = 'xrpl_wallet_encrypted';
 const NETWORK_KEY = 'xrpl_network';
@@ -216,7 +211,7 @@ export function setXRPLNetwork(network: XRPLNetworkType): void {
 
 /** Create and connect an XRPL client */
 export async function connectXRPLClient(network: XRPLNetworkType = 'testnet'): Promise<Client> {
-  const client = new Client(XRPL_ENDPOINTS[network]);
+  const client = new Client(getXRPLEndpoint(network));
   await client.connect();
   return client;
 }

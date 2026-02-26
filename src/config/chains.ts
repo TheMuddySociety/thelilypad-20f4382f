@@ -249,15 +249,37 @@ export function setStoredChain(chain: SupportedChain): void {
     }
 }
 
-// Chain-specific database chain values
+/**
+ * Get the single correct DB chain value for a chain + network pair.
+ * Use this when *writing* to the DB (insert / update).
+ *
+ * Solana uses "devnet", XRPL and Monad use "testnet" – this
+ * mirrors the actual network names used by each chain.
+ */
+export function getDbChainValue(
+    chain: SupportedChain,
+    network: 'mainnet' | 'testnet' = 'testnet'
+): string {
+    if (network === 'mainnet') return chain; // e.g. 'xrpl'
+    // Solana historically uses "devnet" for its test environment
+    if (chain === 'solana') return 'solana-devnet';
+    // XRPL and Monad use "testnet"
+    return `${chain}-testnet`;
+}
+
+/**
+ * Get ALL DB chain values that should match a given chain when *reading*.
+ * Includes both '-testnet' and '-devnet' aliases so that collections
+ * saved with either naming convention are found.
+ */
 export function getDbChainValues(chain: SupportedChain): string[] {
     switch (chain) {
         case 'solana':
             return ['solana', 'solana-devnet', 'solana-mainnet'];
         case 'xrpl':
-            return ['xrpl', 'xrpl-testnet', 'xrpl-mainnet'];
+            return ['xrpl', 'xrpl-testnet', 'xrpl-devnet', 'xrpl-mainnet'];
         case 'monad':
-            return ['monad', 'monad-testnet', 'monad-mainnet'];
+            return ['monad', 'monad-testnet', 'monad-devnet', 'monad-mainnet'];
         default:
             return ['solana'];
     }
