@@ -89,7 +89,7 @@ export const nftToSolanaMetadata = (
     return {
         name: `${collectionName} #${nft.id}`,
         description: collectionDescription || `${collectionName} NFT #${nft.id}`,
-        image: baseImageUri ? `${baseImageUri}/${nft.id}.png` : `ipfs://YOUR_CID/${nft.id}.png`,
+        image: baseImageUri ? `${baseImageUri}/${nft.id}.png` : `ipfs://YOUR_IMAGE_CID/${nft.id}.png`,
         attributes: nft.traits.map((trait) => ({
             trait_type: trait.layerName,
             value: trait.traitName,
@@ -115,6 +115,7 @@ export const nftToXrplMetadata = (
         image: `ipfs://${imageCid}/${nft.id}.png`,
         animation_url: `ipfs://${imageCid}/${nft.id}.png`, // High-res version
         external_url: externalUrl || "https://thelilypad.io",
+        image_mimetype: "image/png",
         attributes: nft.traits.map((t) => ({
             trait_type: t.layerName,
             value: t.traitName,
@@ -141,7 +142,7 @@ export const bundleAssetsAsZip = async (
     chain: string,
     resolution: number,
     onProgress: (status: string, progress: number) => void,
-    imageCid: string = "CID_ESTIMATE"
+    imageCid: string = "YOUR_IMAGE_CID"
 ): Promise<Blob> => {
     const zip = new JSZip();
     const imagesFolder = zip.folder("images");

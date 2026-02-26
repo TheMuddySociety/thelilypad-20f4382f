@@ -65,6 +65,7 @@ export default function XRPLEasyGenerator() {
     const [deployedResult, setDeployedResult] = useState<{ address: string; taxon: number } | null>(null);
     const [collectionId, setCollectionId] = useState("");
     const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+    const [transferFee, setTransferFee] = useState(5);
 
     // Handlers
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -211,7 +212,7 @@ export default function XRPLEasyGenerator() {
                 uri: storageInfo.itemMetadataUri(i)
             }));
 
-            await mintXRPLItems(deployedResult.address, deployedResult.taxon, items);
+            await mintXRPLItems(deployedResult.address, deployedResult.taxon, items, Math.round(transferFee * 1000));
 
             toast.success("Successfully Minted!", { id: 'easy-mint' });
             setStoredChain('xrpl');
@@ -313,7 +314,15 @@ export default function XRPLEasyGenerator() {
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="fee">Transfer Fee (%)</Label>
-                                            <Input id="fee" type="number" defaultValue={5} placeholder="5" />
+                                            <Input
+                                                id="fee"
+                                                type="number"
+                                                min={0}
+                                                max={50}
+                                                step={0.1}
+                                                value={transferFee}
+                                                onChange={(e) => setTransferFee(Math.min(50, Math.max(0, parseFloat(e.target.value) || 0)))}
+                                            />
                                         </div>
                                     </div>
                                     <div className="space-y-2">
@@ -332,8 +341,8 @@ export default function XRPLEasyGenerator() {
                                     <div className="bg-primary/5 rounded-lg p-4 flex gap-3 border border-primary/10">
                                         <Info className="w-5 h-5 text-primary shrink-0" />
                                         <p className="text-xs text-muted-foreground leading-relaxed">
-                                            On XRP Ledger, "Creating a Collection" sets your Account Domain to your IPFS metadata URI.
-                                            This allows marketplaces to find your NFTs automatically.
+                                            On XRP Ledger, "Creating a Collection" sets your Account Domain to your Supabase Cloud metadata URI.
+                                            This allows marketplaces to find your NFTs automatically. Transfer fee is applied per-NFT during minting.
                                         </p>
                                     </div>
 

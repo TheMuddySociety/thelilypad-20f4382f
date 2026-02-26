@@ -18,6 +18,7 @@ import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
 import { dataUrlToBlob } from "@/lib/utils";
+import { nftToXrplMetadata, nftToSolanaMetadata } from "@/lib/assetBundler";
 
 // XRPL-specific resolution presets
 const RESOLUTION_PRESETS = [
@@ -703,20 +704,8 @@ export function GenerationPreview({
           imagesFolder.file(`${nfts[i].id}.png`, base64Data, { base64: true });
         }
 
-        // XLS-20 / XRPL metadata format
-        const xrplMetadata = {
-          schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
-          nftType: "art.v0",
-          name: `${collectionName} #${nfts[i].id}`,
-          description: collectionDescription || `${collectionName} NFT #${nfts[i].id}`,
-          image: `ipfs://YOUR_IMAGE_CID/${nfts[i].id}.png`,
-          image_integrity: "",
-          image_mimetype: "image/png",
-          attributes: nfts[i].traits.map((t) => ({
-            trait_type: t.layerName,
-            value: t.traitName,
-          })),
-        };
+        // XLS-20 metadata (canonical from assetBundler)
+        const xrplMetadata = nftToXrplMetadata(nfts[i], collectionName, collectionDescription);
         metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(xrplMetadata, null, 2));
 
         // Yield to keep UI responsive
@@ -803,23 +792,9 @@ export function GenerationPreview({
             imagesFolder.file(`${nft.id}.png`, dataUrlToBlob(imageDataUrl));
           }
 
-          const isXrpl = xrplMode;
-          const metadata = isXrpl
-            ? {
-              schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
-              nftType: "art.v0",
-              name: `${collectionName} #${nft.id}`,
-              description: collectionDescription || `${collectionName} NFT #${nft.id}`,
-              image: `ipfs://YOUR_IMAGE_CID/${nft.id}.png`,
-              image_mimetype: "image/png",
-              attributes: nft.traits.map((t) => ({ trait_type: t.layerName, value: t.traitName })),
-            }
-            : {
-              name: `${collectionName} #${nft.id}`,
-              description: collectionDescription || `${collectionName} NFT #${nft.id}`,
-              image: `ipfs://YOUR_IMAGE_CID/${nft.id}.png`,
-              attributes: nft.traits.map((t) => ({ trait_type: t.layerName, value: t.traitName })),
-            };
+          const metadata = xrplMode
+            ? nftToXrplMetadata(nft, collectionName, collectionDescription)
+            : nftToSolanaMetadata(nft, collectionName, collectionDescription);
 
           metadataFolder.file(`${nft.id}.json`, JSON.stringify(metadata, null, 2));
         }));
