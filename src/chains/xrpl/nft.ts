@@ -88,10 +88,19 @@ export async function mintNFToken(
     wallet: Wallet,
     params: XRPLMintParams,
 ): Promise<XRPLMintResult> {
+    // XRPL URI field is limited to 256 bytes (512 hex chars)
+    const hexUri = convertStringToHex(params.uri);
+    if (hexUri.length > 512) {
+        throw new Error(
+            `URI exceeds XRPL 256-byte limit (${Math.ceil(hexUri.length / 2)} bytes). ` +
+            `Shorten the metadata URL or use a URL shortener.`
+        );
+    }
+
     const tx: NFTokenMint = {
         TransactionType: 'NFTokenMint',
         Account: wallet.address,
-        URI: convertStringToHex(params.uri),
+        URI: hexUri,
         Flags: params.flags ?? (NFTokenFlag.Burnable | NFTokenFlag.Transferable),
         NFTokenTaxon: params.taxon,
         TransferFee: params.transferFee ?? 0,

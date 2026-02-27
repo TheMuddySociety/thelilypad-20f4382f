@@ -68,9 +68,17 @@ export default function XRPLEasyGenerator() {
     const [transferFee, setTransferFee] = useState(5);
 
     // Handlers
+    const MAX_FILE_SIZE_MB = 10;
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            setFiles(Array.from(e.target.files));
+            const selected = Array.from(e.target.files);
+            const oversized = selected.filter(f => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
+            if (oversized.length > 0) {
+                toast.error(`${oversized.length} file(s) exceed ${MAX_FILE_SIZE_MB}MB limit and were removed.`);
+                setFiles(selected.filter(f => f.size <= MAX_FILE_SIZE_MB * 1024 * 1024));
+            } else {
+                setFiles(selected);
+            }
         }
     };
 
@@ -186,6 +194,12 @@ export default function XRPLEasyGenerator() {
         } catch (err: any) {
             console.error(err);
             toast.error(err.message || "Failed to create collection", { id: 'easy-mint' });
+            // Clean up orphaned draft collection to avoid storage/DB bloat
+            if (collectionId) {
+                await supabase.from("collections").delete().eq('id', collectionId).eq('status', 'draft').then(() => {
+                    console.log('[EasyGen] Cleaned up orphaned draft collection:', collectionId);
+                });
+            }
         } finally {
             setIsUploading(false);
         }
@@ -213,6 +227,13 @@ export default function XRPLEasyGenerator() {
             }));
 
             await mintXRPLItems(deployedResult.address, deployedResult.taxon, items, Math.round(transferFee * 1000));
+
+            // Update the minted count and status in the database
+            const finalCollectionId = collectionId || cid;
+            await supabase.from("collections").update({
+                minted: files.length,
+                status: "minted"
+            }).eq('id', finalCollectionId);
 
             toast.success("Successfully Minted!", { id: 'easy-mint' });
             setStoredChain('xrpl');
