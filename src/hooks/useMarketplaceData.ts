@@ -150,7 +150,7 @@ async function fetchCollectionsPage(pageParam: number, chain: ChainFilter): Prom
     .from("collections")
     .select("*")
     .is("deleted_at", null)
-    .in("status", ["active", "minting", "soldout", "live", "upcoming"])
+    .in("status", ["active", "minting", "soldout", "live", "upcoming", "minted"])
     .order("created_at", { ascending: false });
 
   // Filter by chain (support 'all' to show everything)

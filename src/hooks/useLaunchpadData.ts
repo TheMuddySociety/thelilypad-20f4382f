@@ -184,7 +184,8 @@ export function useLaunchpadData(selectedChain: SupportedChain = "solana") {
     (activeTab: string) => {
       const collections = collectionsQuery.data || [];
       if (activeTab === "all") return collections;
-      if (activeTab === "drafts") return collections.filter((c) => c.status === "upcoming");
+      if (activeTab === "drafts") return collections.filter((c) => c.status === "upcoming" || c.status === "draft");
+      if (activeTab === "live") return collections.filter((c) => c.status === "live" || c.status === "active" || c.status === "minted");
       return collections.filter((c) => c.status === activeTab);
     },
     [collectionsQuery.data]

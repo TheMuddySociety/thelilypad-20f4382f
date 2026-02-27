@@ -10,6 +10,8 @@ import { type Collection, getCollectionPrice, isCollectionNew } from "@/hooks/us
 
 const statusColors = {
   live: "bg-green-500/20 text-green-400 border-green-500/30",
+  minted: "bg-green-500/20 text-green-400 border-green-500/30",
+  active: "bg-green-500/20 text-green-400 border-green-500/30",
   upcoming: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
   ended: "bg-muted text-muted-foreground border-border",
 };
@@ -64,7 +66,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
       <div className="aspect-square relative overflow-hidden bg-muted">
         {collection.image_url ? (
           <img
-            src={collection.image_url}
+            src={collection.image_url || "/placeholder.svg"}
             alt={collection.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"

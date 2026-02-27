@@ -55,7 +55,7 @@ export const CollectionHero: React.FC<CollectionHeroProps> = ({
                 )}
                 {(collection.banner_url || collection.image_url) && (
                     <img
-                        src={collection.banner_url || collection.image_url || ''}
+                        src={collection.banner_url || collection.image_url || '/placeholder.svg'}
                         alt={collection.name}
                         className="w-full h-full object-cover opacity-40"
                         style={{ aspectRatio: '16/5' }}
@@ -170,7 +170,7 @@ export const CollectionHero: React.FC<CollectionHeroProps> = ({
                             <Badge
                                 variant="outline"
                                 className={
-                                    collection.status === "live"
+                                    collection.status === "live" || collection.status === "active" || collection.status === "minted"
                                         ? "bg-green-500/20 text-green-400 border-green-500/30"
                                         : collection.status === "upcoming"
                                             ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"

@@ -182,10 +182,11 @@ export default function XRPLEasyGenerator() {
             setDeployedResult(result);
 
             // Update collection record with final results
+            const firstFileExt = files[0]?.name.split('.').pop() || 'png';
             await supabase.from("collections").update({
                 contract_address: result.address,
                 status: "active",
-                image_url: storageInfo.itemImageUri(0)
+                image_url: storageInfo.itemImageUri(0, firstFileExt)
             }).eq('id', collectionId);
 
             setUploadProgress(100);
@@ -234,6 +235,25 @@ export default function XRPLEasyGenerator() {
                 minted: files.length,
                 status: "minted"
             }).eq('id', finalCollectionId);
+
+            // Index individual NFTs so they show up in the gallery
+            const { data: { session } } = await supabase.auth.getSession();
+            const nftRecords = files.map((file, i) => {
+                const ext = file.name.split('.').pop() || 'png';
+                return {
+                    collection_id: finalCollectionId,
+                    token_id: i,
+                    name: `${name} #${i + 1}`,
+                    description: description,
+                    image_url: storageInfo.itemImageUri(i, ext),
+                    owner_address: deployedResult.address,
+                    owner_id: session?.user?.id || '',
+                    tx_hash: 'batch-mint',
+                    is_revealed: true,
+                    minted_at: new Date().toISOString()
+                };
+            });
+            await supabase.from("minted_nfts").insert(nftRecords);
 
             toast.success("Successfully Minted!", { id: 'easy-mint' });
             setStoredChain('xrpl');
