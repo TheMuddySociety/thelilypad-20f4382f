@@ -15,6 +15,7 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Collection } from "./types";
+import { ipfsToHttp } from "@/lib/ipfs";
 
 interface CollectionHeroProps {
     collection: Collection;
@@ -55,7 +56,7 @@ export const CollectionHero: React.FC<CollectionHeroProps> = ({
                 )}
                 {(collection.banner_url || collection.image_url) && (
                     <img
-                        src={collection.banner_url || collection.image_url || '/placeholder.svg'}
+                        src={ipfsToHttp(collection.banner_url || collection.image_url || '/placeholder.svg')}
                         alt={collection.name}
                         className="w-full h-full object-cover opacity-40"
                         style={{ aspectRatio: '16/5' }}
@@ -156,7 +157,7 @@ export const CollectionHero: React.FC<CollectionHeroProps> = ({
                     <div className="w-32 h-32 rounded-xl bg-muted border-4 border-background shadow-lg overflow-hidden flex items-center justify-center">
                         {collection.image_url ? (
                             <img
-                                src={collection.image_url}
+                                src={ipfsToHttp(collection.image_url)}
                                 alt={collection.name}
                                 className="w-full h-full object-cover"
                             />

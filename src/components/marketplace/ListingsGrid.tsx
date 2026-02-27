@@ -7,6 +7,7 @@ import { Tag, ShoppingCart, Shield, Image as ImageIcon } from "lucide-react";
 import { MarketplaceCardSkeleton } from "@/components/LoadingSkeletons";
 import { EmptyState } from "@/components/common";
 import { type NFTListing } from "@/hooks/useMarketplaceData";
+import { ipfsToHttp } from "@/lib/ipfs";
 
 interface ListingsGridProps {
   listings: NFTListing[];
@@ -66,7 +67,7 @@ export const ListingsGrid: React.FC<ListingsGridProps> = ({
             <div className="aspect-square relative overflow-hidden bg-muted">
               {listing.nft.image_url ? (
                 <img
-                  src={listing.nft.image_url}
+                  src={ipfsToHttp(listing.nft.image_url || "")}
                   alt={listing.nft.name || `Token #${listing.nft.token_id}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"

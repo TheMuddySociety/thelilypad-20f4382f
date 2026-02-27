@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAudioPlayer } from '@/providers/AudioPlayerProvider';
+import { ipfsToHttp } from '@/lib/ipfs';
 
 interface MusicTrack {
   id: string;
@@ -97,7 +98,7 @@ export const MusicNFTCard: React.FC<MusicNFTCardProps> = ({
         <div className="relative aspect-square">
           {collection.image_url ? (
             <img
-              src={collection.image_url}
+              src={ipfsToHttp(collection.image_url)}
               alt={collection.name}
               className="w-full h-full object-cover"
             />

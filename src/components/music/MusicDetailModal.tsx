@@ -13,6 +13,7 @@ import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAudioPlayer } from '@/providers/AudioPlayerProvider';
 import { useNavigate } from 'react-router-dom';
+import { ipfsToHttp } from '@/lib/ipfs';
 
 interface MusicTrack {
   id: string;
@@ -114,7 +115,7 @@ export const MusicDetailModal: React.FC<MusicDetailModalProps> = ({
             <div className="relative aspect-square rounded-lg overflow-hidden">
               {collection.image_url ? (
                 <img
-                  src={collection.image_url}
+                  src={ipfsToHttp(collection.image_url)}
                   alt={collection.name}
                   className="w-full h-full object-cover"
                 />
@@ -202,8 +203,8 @@ export const MusicDetailModal: React.FC<MusicDetailModalProps> = ({
                     <div
                       key={track.id}
                       className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${currentTrack?.id === track.id
-                          ? 'bg-primary/10 text-primary'
-                          : 'hover:bg-muted'
+                        ? 'bg-primary/10 text-primary'
+                        : 'hover:bg-muted'
                         }`}
                       onClick={() => handlePlayTrack(track, index)}
                     >

@@ -42,7 +42,9 @@ import {
   Clock,
   Palette,
   Info,
-  Sparkles
+  Sparkles,
+  Database,
+  Cloud
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,6 +91,7 @@ interface Collection {
   social_discord: string | null;
   social_website: string | null;
   social_telegram: string | null;
+  ipfs_base_cid?: string | null;
   collection_type?: string;
   layers_metadata?: unknown;
   trait_rules?: unknown;
@@ -143,6 +146,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [totalSupply, setTotalSupply] = useState(0);
   const [royaltyPercent, setRoyaltyPercent] = useState(0);
   const [status, setStatus] = useState("upcoming");
+  const [ipfsBaseCid, setIpfsBaseCid] = useState("");
 
   // Social links
   const [socialTwitter, setSocialTwitter] = useState("");
@@ -182,6 +186,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       setTotalSupply(collection.total_supply);
       setRoyaltyPercent(collection.royalty_percent);
       setStatus(collection.status);
+      setIpfsBaseCid(collection.ipfs_base_cid || "");
 
       // Social links
       setSocialTwitter(collection.social_twitter || "");
@@ -586,6 +591,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           social_discord: socialDiscord.trim() || null,
           social_website: socialWebsite.trim() || null,
           social_telegram: socialTelegram.trim() || null,
+          ipfs_base_cid: ipfsBaseCid.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", collection.id);
@@ -830,8 +836,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                 <div className="grid grid-cols-3 gap-3">
                   <Card
                     className={`cursor-pointer transition-all hover:border-primary/50 ${collectionType === "generative"
-                        ? "border-primary bg-primary/5 ring-1 ring-primary"
-                        : "border-border"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border"
                       } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
                     onClick={() => !isLive && setCollectionType("generative")}
                   >
@@ -843,8 +849,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
                   <Card
                     className={`cursor-pointer transition-all hover:border-primary/50 ${collectionType === "one_of_one"
-                        ? "border-primary bg-primary/5 ring-1 ring-primary"
-                        : "border-border"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border"
                       } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
                     onClick={() => !isLive && setCollectionType("one_of_one")}
                   >
@@ -856,8 +862,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
                   <Card
                     className={`cursor-pointer transition-all hover:border-primary/50 ${collectionType === "editions"
-                        ? "border-primary bg-primary/5 ring-1 ring-primary"
-                        : "border-border"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border"
                       } ${isLive ? "opacity-50 pointer-events-none" : ""}`}
                     onClick={() => !isLive && setCollectionType("editions")}
                   >
@@ -914,8 +920,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                 <Label>Collection Image</Label>
                 <div
                   className={`flex gap-4 items-start p-3 rounded-lg border-2 border-dashed transition-colors ${isDraggingImage
-                      ? 'border-primary bg-primary/5'
-                      : 'border-transparent'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-transparent'
                     }`}
                   onDragEnter={(e) => handleImageDrag(e, true)}
                   onDragOver={(e) => handleImageDrag(e, true)}
@@ -991,8 +997,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                 </p>
                 <div
                   className={`space-y-3 p-3 rounded-lg border-2 border-dashed transition-colors ${isDraggingBanner
-                      ? 'border-primary bg-primary/5'
-                      : 'border-transparent'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-transparent'
                     }`}
                   onDragEnter={(e) => handleBannerDrag(e, true)}
                   onDragOver={(e) => handleBannerDrag(e, true)}
@@ -1065,8 +1071,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                 </p>
                 <div
                   className={`space-y-3 p-3 rounded-lg border-2 border-dashed transition-colors ${isDraggingUnrevealed
-                      ? 'border-primary bg-primary/5'
-                      : 'border-transparent'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-transparent'
                     }`}
                   onDragEnter={(e) => handleUnrevealedDrag(e, true)}
                   onDragOver={(e) => handleUnrevealedDrag(e, true)}
@@ -1133,8 +1139,38 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                 </div>
               </div>
 
+              {/* Advanced Storage Section */}
+              <Separator className="my-6" />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    <Database className="w-4 h-4 text-primary" />
+                    Advanced Storage
+                  </h4>
+                  <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">
+                    XRPL / IPFS Native
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ipfs-cid" className="text-xs text-muted-foreground">
+                    IPFS Base CID (Override)
+                  </Label>
+                  <Input
+                    id="ipfs-cid"
+                    value={ipfsBaseCid}
+                    onChange={(e) => setIpfsBaseCid(e.target.value)}
+                    placeholder="Qm... or bafy..."
+                    className="font-mono text-xs"
+                  />
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    If provided, metadata resolution will use <strong>ipfs://{ipfsBaseCid || 'CID'}/[id].json</strong> instead of Supabase.
+                    This is for collections manually pinned to IPFS (e.g. via Pinata).
+                  </p>
+                </div>
+              </div>
+
               {/* Social Links */}
-              <Separator className="my-4" />
+              <Separator className="my-6" />
               <div className="space-y-4">
                 <h4 className="font-medium text-sm flex items-center gap-2">
                   <Globe className="w-4 h-4" />

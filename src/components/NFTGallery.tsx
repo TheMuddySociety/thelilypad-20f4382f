@@ -13,6 +13,7 @@ import { MakeOfferModal } from "@/components/MakeOfferModal";
 import { NFTOffersList } from "@/components/NFTOffersList";
 import { ExternalLink, Image as ImageIcon, RefreshCw, User, Search, Grid3X3, List, SlidersHorizontal, Tag, MessageSquare, EyeOff } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { ipfsToHttp } from "@/lib/ipfs";
 
 interface NFT {
   id: string;
@@ -430,7 +431,7 @@ export function NFTGallery({
                         {!nft.is_revealed && unrevealedImage ? (
                           <>
                             <img
-                              src={unrevealedImage}
+                              src={ipfsToHttp(unrevealedImage)}
                               alt="Unrevealed NFT"
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
@@ -443,13 +444,13 @@ export function NFTGallery({
                           </>
                         ) : nft.image_url ? (
                           <img
-                            src={nft.image_url}
+                            src={ipfsToHttp(nft.image_url)}
                             alt={nft.name || `#${nft.token_id}`}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                         ) : collectionImage ? (
                           <img
-                            src={collectionImage}
+                            src={ipfsToHttp(collectionImage)}
                             alt={nft.name || `#${nft.token_id}`}
                             className="w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-300"
                           />
@@ -492,7 +493,7 @@ export function NFTGallery({
                         <div className="w-12 h-12 rounded overflow-hidden bg-muted flex-shrink-0">
                           {nft.image_url ? (
                             <img
-                              src={nft.image_url}
+                              src={ipfsToHttp(nft.image_url)}
                               alt={nft.name || `#${nft.token_id}`}
                               className="w-full h-full object-cover"
                             />
@@ -542,13 +543,13 @@ export function NFTGallery({
                 <div className="aspect-square rounded-lg overflow-hidden bg-muted">
                   {selectedNft.image_url ? (
                     <img
-                      src={selectedNft.image_url}
+                      src={ipfsToHttp(selectedNft.image_url)}
                       alt={selectedNft.name || `#${selectedNft.token_id}`}
                       className="w-full h-full object-cover"
                     />
                   ) : collectionImage ? (
                     <img
-                      src={collectionImage}
+                      src={ipfsToHttp(collectionImage)}
                       alt={selectedNft.name || `#${selectedNft.token_id}`}
                       className="w-full h-full object-cover opacity-50"
                     />
