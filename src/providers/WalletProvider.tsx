@@ -87,16 +87,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Access chain context to validate wallet compatibility
   const { chain } = useChain();
 
-  const [state, setState] = useState<WalletState>(() => ({
-    address: null,
-    isConnected: false,
-    isConnecting: false,
-    isTransactionPending: false,
-    balance: null,
-    network: (localStorage.getItem("solanaNetwork") as NetworkType) || "devnet",
-    walletType: "phantom",
-    chainType: "solana",
-  }));
+  const [state, setState] = useState<WalletState>(() => {
+    const wasConnected = localStorage.getItem("walletConnected") === "true";
+    return {
+      address: null,
+      isConnected: false,
+      isConnecting: wasConnected, // Initialize as true if we expect a reconnect
+      isTransactionPending: false,
+      balance: null,
+      network: (localStorage.getItem("solanaNetwork") as NetworkType) || "devnet",
+      walletType: (localStorage.getItem("walletType") as WalletType) || "phantom",
+      chainType: (localStorage.getItem("chainType") as ChainType) || "solana",
+    };
+  });
 
   const [isPhantomAvailable, setIsPhantomAvailable] = useState(false);
   const [discoveredWallets, setDiscoveredWallets] = useState<InjectedWalletInfo[]>([]);
