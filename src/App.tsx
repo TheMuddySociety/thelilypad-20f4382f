@@ -17,6 +17,7 @@ import { MobileBottomNav } from "./components/MobileBottomNav";
 import FrogLoader from "./components/FrogLoader";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { PWAUpdateNotification } from "./components/PWAUpdateNotification";
+import { AdminToolbar } from "./components/admin/AdminToolbar";
 import { setupGlobalErrorHandlers } from "./lib/errorLogging";
 
 // Lazy load ALL pages to reduce initial bundle and improve FID
@@ -190,6 +191,7 @@ const App = () => (
                   </Suspense>
                   <MobileBottomNav />
                   <MiniPlayer />
+                  <AdminToolbar />
                   <PWAUpdateNotification />
                 </BrowserRouter>
               </TooltipProvider>

@@ -16,7 +16,7 @@ export const AdminGate = ({ children, requireSuperAdmin = false }: AdminGateProp
     const { state, isAdmin, profile } = useAuth();
 
     // Wait for auth to stabilize
-    if (state === "CONNECTING_WALLET" || state === "LOADING_PROFILE") {
+    if (state === "CONNECTING_WALLET" || state === "LOADING_PROFILE" || state === "WALLET_CONNECTED") {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <FrogLoader size="lg" />
@@ -24,8 +24,9 @@ export const AdminGate = ({ children, requireSuperAdmin = false }: AdminGateProp
         );
     }
 
-    // Not authenticated - redirect to auth
-    if (state !== "AUTHENTICATED") {
+    // Not authenticated AND not admin - redirect to auth
+    // Admins are allowed through even if in NEEDS_PROFILE state
+    if (state === "DISCONNECTED") {
         return <Navigate to="/auth" replace />;
     }
 
