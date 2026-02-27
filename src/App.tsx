@@ -75,7 +75,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const DonorProfile = lazy(() => import("./pages/DonorProfile"));
 
 // Admin pages
-const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 
 // Profile pages
 const ProfileSuspended = lazy(() => import("./pages/ProfileSuspended"));
