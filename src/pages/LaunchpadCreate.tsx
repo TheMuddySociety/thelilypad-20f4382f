@@ -420,12 +420,57 @@ export default function LaunchpadCreate() {
                     baseUri
                 });
 
-                // Use the first token's Supabase-hosted image as the collection thumbnail
+                // Prepare items for minting using Supabase metadata URIs
+                const itemsToMint = Array.from({ length: totalSupplyCount }).map((_, idx) => ({
+                    name: `${name} #${idx + 1}`,
+                    uri: storageInfo.itemMetadataUri(idx)
+                }));
+
+                toast.loading(`Minting ${itemsToMint.length} items on XRPL...`, { id: 'deploy-status' });
+                const mintSuccess = await xrplLaunch.mintXRPLItems(
+                    xrplRes.address,
+                    xrplRes.taxon,
+                    itemsToMint,
+                    Math.round(royaltyPercent * 1000) // 1000 = 1%
+                );
+
+                if (!mintSuccess) throw new Error("XRPL Minting failed. Check your wallet balance.");
+
+                // Index the minted NFTs so they show up in the collection gallery
+                toast.loading("Indexing collection...", { id: 'deploy-status' });
+                const nftRecords = itemsToMint.map((item, i) => {
+                    const asset = assetsToUpload[i];
+                    let fileExt = 'png';
+                    if (asset && 'file' in asset) {
+                        fileExt = (asset as any).file.name?.split('.').pop() || 'png';
+                    }
+
+                    return {
+                        collection_id: collectionId,
+                        token_id: i,
+                        name: item.name,
+                        description: description,
+                        image_url: storageInfo.itemImageUri(i, fileExt),
+                        owner_address: xrplRes.address,
+                        owner_id: user.id,
+                        tx_hash: 'batch-mint',
+                        is_revealed: true,
+                        minted_at: new Date().toISOString()
+                    };
+                });
+
+                // Batch insert into minted_nfts
+                const { error: indexError } = await supabase.from("minted_nfts").insert(nftRecords);
+                if (indexError) console.warn("[deploy] Indexing error:", indexError);
+
+                // Update the collection status
                 const thumbImageUrl = coverImage || storageInfo.itemImageUri(0);
                 await supabase.from('collections').update({
                     contract_address: xrplRes.address,
+                    xrpl_taxon: xrplRes.taxon,
                     image_url: thumbImageUrl,
                     status: 'active',
+                    minted: totalSupplyCount
                 }).eq('id', collectionId);
             }
 

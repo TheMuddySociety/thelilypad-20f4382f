@@ -109,6 +109,7 @@ export const AdminToolbar: React.FC = () => {
             const { data, error } = await supabase
                 .from('collections')
                 .select('id, name, status, created_at, minted, total_supply')
+                .is('deleted_at', null)
                 .order('created_at', { ascending: false })
                 .limit(5);
             if (error) throw error;
@@ -151,14 +152,26 @@ export const AdminToolbar: React.FC = () => {
     }, [queryClient]);
 
     const handleDeleteCollection = useCallback(async (id: string) => {
-        if (!confirm('Delete this collection? This cannot be undone.')) return;
-        const { error } = await supabase.from('collections').delete().eq('id', id);
+        if (!confirm('Delete this collection? This will hide it from the marketplace and launchpad.')) return;
+
+        // Use soft delete (setting deleted_at) to align with app architecture
+        const { error } = await supabase
+            .from('collections')
+            .update({
+                deleted_at: new Date().toISOString(),
+                status: 'deleted'
+            })
+            .eq('id', id);
+
         if (error) {
-            toast.error('Failed to delete collection');
+            console.error('Delete error:', error);
+            toast.error('Failed to delete collection: ' + error.message);
         } else {
-            toast.success('Collection deleted');
+            toast.success('Collection moved to trash');
             queryClient.invalidateQueries({ queryKey: ['admin-toolbar-collections'] });
             queryClient.invalidateQueries({ queryKey: ['admin-toolbar-stats'] });
+            // Invalidate marketplace queries too
+            queryClient.invalidateQueries({ queryKey: ['marketplace-collections'] });
         }
     }, [queryClient]);
 
@@ -274,8 +287,8 @@ export const AdminToolbar: React.FC = () => {
                                             key={section}
                                             onClick={() => setActiveSection(section)}
                                             className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider transition-colors ${activeSection === section
-                                                    ? 'text-primary border-b-2 border-primary bg-primary/5'
-                                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                                                ? 'text-primary border-b-2 border-primary bg-primary/5'
+                                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
                                                 }`}
                                         >
                                             {section === 'quick-actions' ? 'Actions' : section}
@@ -297,8 +310,8 @@ export const AdminToolbar: React.FC = () => {
                                                             setIsOpen(false);
                                                         }}
                                                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left group ${item.accent
-                                                                ? 'bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20'
-                                                                : 'hover:bg-muted/60'
+                                                            ? 'bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20'
+                                                            : 'hover:bg-muted/60'
                                                             }`}
                                                     >
                                                         <item.icon className={`w-4 h-4 ${item.accent ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />

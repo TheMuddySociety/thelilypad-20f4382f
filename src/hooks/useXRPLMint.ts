@@ -39,14 +39,15 @@ export const useXRPLMint = () => {
         if (!collectionId) return;
 
         try {
-            // Note: Using any for supabase as the types might not include nft_mints yet
-            const { error: insertError } = await (supabase as any).from('nft_mints').insert({
+            const { error: insertError } = await supabase.from('minted_nfts').insert({
                 collection_id: collectionId,
-                phase_id: phaseId,
-                minter_address: walletAddress,
-                mint_address: tokenId,
-                transaction_signature: hash,
-                price_xrp: price,
+                token_id: parseInt(tokenId.replace(/[^0-9]/g, '')) || 0,
+                name: "XRPL NFT #" + tokenId.substring(0, 8),
+                owner_address: walletAddress,
+                owner_id: (await supabase.auth.getUser()).data.user?.id || '',
+                tx_hash: hash,
+                is_revealed: true,
+                minted_at: new Date().toISOString()
             });
 
             if (insertError) console.warn("[XRPL Mint] Tracking error:", insertError);

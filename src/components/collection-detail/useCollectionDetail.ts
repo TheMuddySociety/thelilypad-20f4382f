@@ -238,7 +238,7 @@ export function useCollectionDetail() {
                         collectionId: collection.id,
                         phaseId: activePhase.id,
                         price: Number(activePhase.price) || 0,
-                        transferFee: (collection.royalty_percent || 0) * 500, // XLS-20 uses 0-50000
+                        transferFee: (collection.royalty_percent || 0) * 1000, // XLS-20 uses 0-50000 (1000 = 1%)
                     });
                     lastResult = result;
 
