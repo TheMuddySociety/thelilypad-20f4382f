@@ -268,6 +268,19 @@ export const Navbar: React.FC = () => {
                 <span className="hidden md:inline">{chainType === 'xrpl' ? 'XRPL' : chainType === 'monad' ? 'Monad' : 'Solana'}</span>
               </div>
             )}
+
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hidden md:flex items-center gap-2 text-primary hover:text-primary hover:bg-primary/10 border border-primary/20"
+                onClick={() => navigate('/admin')}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span className="font-bold text-xs uppercase tracking-tight">Admin</span>
+              </Button>
+            )}
+
             <NotificationBell />
             <ConnectWallet />
           </div>

@@ -7,9 +7,21 @@ export const useIsAdmin = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Hardcoded admin addresses for emergency/developer access
+  const HARDCODED_ADMINS = [
+    'Cra8LAvpQAk3hx4By5STHp4xrq7HSAnZLk4Jwzv1wUAH'
+  ];
+
   useEffect(() => {
     const checkAdminStatus = async () => {
-      // Check Supabase user_roles table for admin role
+      // 1. First check hardcoded addresses
+      if (address && HARDCODED_ADMINS.includes(address)) {
+        setIsAdmin(true);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Then check Supabase user_roles table for admin role
       try {
         const { data: { user } } = await supabase.auth.getUser();
 
