@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
+import { useChain } from "@/providers/ChainProvider";
 import { useSolanaMint } from "@/hooks/useSolanaMint";
 import { useXRPLMint } from "@/hooks/useXRPLMint";
 import { initializeUmi } from "@/config/solana";
@@ -18,6 +19,7 @@ export function useCollectionDetail() {
     const { collectionId } = useParams();
     const navigate = useNavigate();
     const { network, isConnected, connect, balance, address } = useWallet();
+    const { setChain } = useChain();
     const solanaMint = useSolanaMint();
     const xrplMint = useXRPLMint();
 
@@ -145,7 +147,7 @@ export function useCollectionDetail() {
         }
     };
 
-    const handleConnectWallet = () => connect();
+    const handleConnectWallet = () => connect(undefined, collectionChain as any);
 
     const generateRandomAttributes = (quantity: number, currentMinted: number) => {
         return Array.from({ length: quantity }).map((_, i) => ({
@@ -285,6 +287,13 @@ export function useCollectionDetail() {
     useEffect(() => {
         loadAllowlist();
     }, [loadAllowlist]);
+
+    // Sync global chain state when collection is loaded
+    useEffect(() => {
+        if (collectionChain) {
+            setChain(collectionChain as SupportedChain);
+        }
+    }, [collectionChain, setChain]);
 
     // Supply Polling
     useEffect(() => {

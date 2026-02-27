@@ -94,7 +94,7 @@ export default function Auth() {
   const handlePhantomConnect = async () => {
     setIsConnectingWallet(true);
     try {
-      await connect();
+      await connect("phantom", "solana");
     } catch (error) {
       console.error("Phantom connect error:", error);
     } finally {

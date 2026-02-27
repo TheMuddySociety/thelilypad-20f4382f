@@ -389,21 +389,39 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Main connect function
   const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
-    // Determine target chain: prioritize argument, then current global chain, default to solana
-    const targetChain = _chainType || (chain.id as ChainType) || "solana";
+    // Determine target wallet & chain
+    let targetWallet = _walletType;
+    let targetChain = _chainType;
 
-    // Determine target wallet: prioritize argument, then match to chain
-    const targetWallet = _walletType || (targetChain === 'xrpl' ? 'xrpl' : 'phantom');
+    // Logic for inference if parameters are missing
+    if (!targetWallet && !targetChain) {
+      // Complete default: use global state
+      targetChain = (chain.id as ChainType) || "solana";
+      targetWallet = (targetChain === 'xrpl' ? 'xrpl' : 'phantom');
+    } else if (targetWallet && !targetChain) {
+      // Wallet provided, infer chain
+      if (targetWallet === 'xrpl') {
+        targetChain = 'xrpl';
+      } else if (targetWallet === 'phantom') {
+        // Phantom can be Solana or Monad; prefer current global chain if it's one of them
+        targetChain = (chain.id === 'monad' ? 'monad' : 'solana');
+      } else {
+        targetChain = 'solana';
+      }
+    } else if (!targetWallet && targetChain) {
+      // Chain provided, infer wallet
+      targetWallet = targetChain === 'xrpl' ? 'xrpl' : 'phantom';
+    }
 
     console.log(`Connecting to ${targetChain} using ${targetWallet} wallet`);
 
-    // If explicitly (or defaulted) requesting XRPL, use XRPL wallet
-    if (targetChain === 'xrpl') {
+    // Routing by wallet type first to avoid forcing XRPL when Phantom is requested
+    if (targetWallet === 'xrpl') {
       await connectXRPL();
       return;
     }
 
-    // If explicitly (or defaulted) requesting Monad, use Monad/EVM Phantom connect
+    // If we're here, it's a Phantom/Solana/Monad connect
     if (targetChain === 'monad') {
       await connectMonad();
       return;

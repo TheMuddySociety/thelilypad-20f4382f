@@ -57,40 +57,34 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
       try {
         const options: WalletOption[] = [];
 
+        // Always show Phantom (Solana/Monad/EVM)
+        await waitForPhantomExtension(2000);
+        const isPhantomInstalled = !!(window as any).phantom?.solana?.isPhantom || !!(window as any).phantom?.ethereum;
+
+        const phantomOption: WalletOption = {
+          id: "phantom",
+          name: "Phantom",
+          icon: "👻",
+          isInstalled: isPhantomInstalled,
+          installUrl: "https://phantom.app/",
+          description: chain.id === 'monad' ? "Connect Monad via Phantom EVM" : "Solana, EVM & more",
+        };
+
+        // Always show XRPL Browser Wallet
+        const xrplOption: WalletOption = {
+          id: "xrpl",
+          name: "XRPL Browser Wallet",
+          icon: "✕",
+          isInstalled: true,
+          installUrl: "",
+          description: "Non-custodial browser extension",
+        };
+
+        // Prioritize based on current chain
         if (chain.id === 'xrpl') {
-          options.push({
-            id: "xrpl",
-            name: "XRPL Browser Wallet",
-            icon: "✕",
-            isInstalled: true,
-            installUrl: "",
-            description: "Non-custodial browser extension",
-          });
+          options.push(xrplOption, phantomOption);
         } else {
-          // Solana or Monad
-          await waitForPhantomExtension(2000);
-
-          // Get Phantom SDK for discovery
-          const sdk = getPhantomSDK();
-          if (sdk) {
-            try {
-              const wallets = await (sdk as any).getInjectedWallets?.() || [];
-              setDiscoveredWallets(wallets);
-            } catch (e) {
-              console.log("Could not get injected wallets:", e);
-            }
-          }
-
-          const isPhantomInstalled = !!(window as any).phantom?.solana?.isPhantom || !!(window as any).phantom?.ethereum;
-
-          options.push({
-            id: "phantom",
-            name: "Phantom",
-            icon: "👻",
-            isInstalled: isPhantomInstalled,
-            installUrl: "https://phantom.app/",
-            description: chain.id === 'monad' ? "Connect Monad via Phantom EVM" : "Solana, EVM & more",
-          });
+          options.push(phantomOption, xrplOption);
         }
 
         setWalletOptions(options);
@@ -105,6 +99,13 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
             isInstalled: false,
             installUrl: "https://phantom.app/",
           },
+          {
+            id: "xrpl",
+            name: "XRPL Browser Wallet",
+            icon: "✕",
+            isInstalled: true,
+            installUrl: "",
+          }
         ]);
       }
 
