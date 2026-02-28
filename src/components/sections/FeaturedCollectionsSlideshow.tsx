@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { ipfsToHttp } from "@/lib/ipfs";
 
 interface FeaturedCollection {
   id: string;
@@ -55,7 +56,7 @@ export const FeaturedCollectionsSlideshow: React.FC<FeaturedCollectionsSlideshow
   const fetchFeaturedCollections = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      
+
       const { data, error } = await supabase
         .from("featured_collections")
         .select(`
@@ -147,7 +148,7 @@ export const FeaturedCollectionsSlideshow: React.FC<FeaturedCollectionsSlideshow
     >
       {/* Gradient Background */}
       <div className={`absolute inset-0 bg-gradient-to-br ${gradientFrom} ${gradientTo} opacity-30`} />
-      
+
       <div className="relative p-6 md:p-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -160,7 +161,7 @@ export const FeaturedCollectionsSlideshow: React.FC<FeaturedCollectionsSlideshow
               <p className="text-sm text-muted-foreground">{subtitle}</p>
             </div>
           </div>
-          
+
           {/* Navigation Controls */}
           {collections.length > 1 && (
             <div className="flex items-center gap-2">
@@ -204,9 +205,10 @@ export const FeaturedCollectionsSlideshow: React.FC<FeaturedCollectionsSlideshow
                     <div className="relative w-full md:w-80 h-48 md:h-64 overflow-hidden">
                       {currentCollection.collection.image_url ? (
                         <img
-                          src={currentCollection.collection.image_url}
+                          src={ipfsToHttp(currentCollection.collection.image_url)}
                           alt={currentCollection.collection.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
                         />
                       ) : (
                         <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -270,11 +272,10 @@ export const FeaturedCollectionsSlideshow: React.FC<FeaturedCollectionsSlideshow
               <button
                 key={index}
                 onClick={() => setCurrentIndex(index)}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  index === currentIndex
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentIndex
                     ? "bg-primary w-6"
                     : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
-                }`}
+                  }`}
               />
             ))}
           </div>

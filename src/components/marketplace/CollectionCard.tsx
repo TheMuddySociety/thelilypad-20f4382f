@@ -71,6 +71,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
             alt={collection.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
+            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">

@@ -486,8 +486,9 @@ export default function LaunchpadCreate() {
                     console.log(`[deploy] Indexed ${nftRecords.length} NFTs for collection ${collectionId}`);
                 }
 
-                // Update the collection status
-                const thumbImageUrl = coverImage || storageInfo.itemImageUri(0);
+                // Prefer the Supabase cloud URL; fall back to coverImage only if it's NOT a data URI
+                const cloudThumb = storageInfo.itemImageUri(0);
+                const thumbImageUrl = cloudThumb || (coverImage && !coverImage.startsWith('data:') ? coverImage : cloudThumb);
                 await supabase.from('collections').update({
                     contract_address: xrplRes.address,
                     xrpl_taxon: xrplRes.taxon,

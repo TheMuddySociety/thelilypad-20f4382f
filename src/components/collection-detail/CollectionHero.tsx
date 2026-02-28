@@ -60,6 +60,7 @@ export const CollectionHero: React.FC<CollectionHeroProps> = ({
                         alt={collection.name}
                         className="w-full h-full object-cover opacity-40"
                         style={{ aspectRatio: '16/5' }}
+                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
                     />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
@@ -160,6 +161,7 @@ export const CollectionHero: React.FC<CollectionHeroProps> = ({
                                 src={ipfsToHttp(collection.image_url)}
                                 alt={collection.name}
                                 className="w-full h-full object-cover"
+                                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
                             />
                         ) : (
                             <Rocket className="w-12 h-12 text-muted-foreground" />

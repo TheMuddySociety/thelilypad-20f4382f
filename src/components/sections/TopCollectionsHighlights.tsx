@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
+import { ipfsToHttp } from "@/lib/ipfs";
 
 interface CollectionStat {
   id: string;
@@ -22,34 +23,34 @@ interface TopCollections {
 }
 
 const categories = [
-  { 
-    key: "byVolume" as const, 
-    title: "Top Volume", 
-    icon: TrendingUp, 
+  {
+    key: "byVolume" as const,
+    title: "Top Volume",
+    icon: TrendingUp,
     format: (v: number) => `${v.toFixed(2)} SOL`,
     gradient: "from-emerald-500/20 to-teal-500/20",
     iconColor: "text-emerald-400"
   },
-  { 
-    key: "byTrades" as const, 
-    title: "Most Traded", 
-    icon: ArrowRightLeft, 
+  {
+    key: "byTrades" as const,
+    title: "Most Traded",
+    icon: ArrowRightLeft,
     format: (v: number) => `${v} trades`,
     gradient: "from-blue-500/20 to-indigo-500/20",
     iconColor: "text-blue-400"
   },
-  { 
-    key: "bySells" as const, 
-    title: "Top Sellers", 
-    icon: ShoppingCart, 
+  {
+    key: "bySells" as const,
+    title: "Top Sellers",
+    icon: ShoppingCart,
     format: (v: number) => `${v} sales`,
     gradient: "from-purple-500/20 to-pink-500/20",
     iconColor: "text-purple-400"
   },
-  { 
-    key: "byBuys" as const, 
-    title: "Most Bought", 
-    icon: Wallet, 
+  {
+    key: "byBuys" as const,
+    title: "Most Bought",
+    icon: Wallet,
     format: (v: number) => `${v} buys`,
     gradient: "from-orange-500/20 to-amber-500/20",
     iconColor: "text-orange-400"
@@ -207,10 +208,10 @@ export const TopCollectionsHighlights: React.FC = () => {
     <section className="relative py-16 sm:py-24 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-muted/30 via-background to-muted/20" />
-      
+
       <div className="relative z-10 container mx-auto px-4 sm:px-6">
         {/* Header */}
-        <motion.div 
+        <motion.div
           className="text-center mb-12"
           initial={{ opacity: 0, y: -20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -225,13 +226,13 @@ export const TopCollectionsHighlights: React.FC = () => {
         </motion.div>
 
         {/* Categories Grid */}
-        <motion.div 
+        <motion.div
           className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-          >
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+        >
           {categories.map((category) => {
             const Icon = category.icon;
             const collections = topCollections[category.key];
@@ -241,7 +242,7 @@ export const TopCollectionsHighlights: React.FC = () => {
                 <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm h-full">
                   {/* Gradient overlay */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${category.gradient} opacity-50`} />
-                  
+
                   <CardContent className="relative p-6">
                     {/* Category Header */}
                     <div className="flex items-center gap-3 mb-6">
@@ -281,14 +282,15 @@ export const TopCollectionsHighlights: React.FC = () => {
                               <div className="w-6 h-6 rounded-full bg-background/80 flex items-center justify-center text-xs font-bold text-muted-foreground">
                                 {index + 1}
                               </div>
-                              
+
                               {/* Collection Image */}
                               <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                                 {collection.image_url ? (
                                   <img
-                                    src={collection.image_url}
+                                    src={ipfsToHttp(collection.image_url)}
                                     alt={collection.name}
                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
                                   />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs font-bold">
@@ -319,7 +321,7 @@ export const TopCollectionsHighlights: React.FC = () => {
                 </Card>
               </motion.div>
             );
-        })}
+          })}
         </motion.div>
       </div>
     </section>

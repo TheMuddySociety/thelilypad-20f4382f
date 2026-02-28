@@ -40,7 +40,7 @@ export const IPFS_FALLBACK_GATEWAYS = [
  *   ipfsToHttp("https://example.com/image.png")
  *   // => "https://example.com/image.png"  (passthrough)
  */
-export function ipfsToHttp(uri: string, gateway = IPFS_GATEWAY): string {
+export function ipfsToHttp(uri: string | null | undefined, gateway = IPFS_GATEWAY): string {
     if (!uri) return "";
 
     // Already an HTTP URL — pass through

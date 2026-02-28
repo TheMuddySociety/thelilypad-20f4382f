@@ -4,6 +4,8 @@ import { Radio, Sparkles, Loader2, Image as ImageIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { ipfsToHttp } from "@/lib/ipfs";
+import { getCurrencySymbol } from "@/lib/chainUtils";
 
 interface Collection {
   id: string;
@@ -14,6 +16,7 @@ interface Collection {
   minted: number;
   total_supply: number;
   phases: unknown;
+  chain: string;
 }
 
 export const MarketplacePreview: React.FC = () => {
@@ -26,7 +29,7 @@ export const MarketplacePreview: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('collections')
-        .select('id, name, creator_address, image_url, status, minted, total_supply, phases')
+        .select('id, name, creator_address, image_url, status, minted, total_supply, phases, chain')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(6);
@@ -63,7 +66,8 @@ export const MarketplacePreview: React.FC = () => {
     const phases = collection.phases as any[];
     if (!phases || phases.length === 0) return "TBA";
     const publicPhase = phases.find(p => p.id === "public") || phases[0];
-    return publicPhase?.price ? `${publicPhase.price} SOL` : "Free";
+    if (!publicPhase?.price || parseFloat(publicPhase.price) === 0) return "Free";
+    return `${publicPhase.price} ${getCurrencySymbol(collection.chain)}`;
   };
 
   const formatAddress = (address: string) => {
@@ -74,7 +78,7 @@ export const MarketplacePreview: React.FC = () => {
     <section className="py-24 relative">
       {/* Background accent */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-secondary/5 to-transparent" />
-      
+
       <div className="container mx-auto px-6 relative">
         {/* Section header */}
         <div className="text-center mb-12">
@@ -85,7 +89,7 @@ export const MarketplacePreview: React.FC = () => {
             Discover, collect, and trade premium NFT collections on Solana.
           </p>
         </div>
-        
+
         {/* Collections grid */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -96,22 +100,23 @@ export const MarketplacePreview: React.FC = () => {
             {collections.map((collection, index) => (
               <div
                 key={collection.id}
-                onClick={() => navigate(`/collection/${collection.id}`)}
+                onClick={() => navigate(`/launchpad/${collection.id}`)}
                 className="group glass-card overflow-hidden hover:border-primary/50 transition-all duration-500 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/10 cursor-pointer animate-fade-in"
                 style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'backwards' }}
               >
                 {/* Image area */}
                 <div className="aspect-square bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center relative overflow-hidden">
                   {collection.image_url ? (
-                    <img 
-                      src={collection.image_url} 
+                    <img
+                      src={ipfsToHttp(collection.image_url)}
                       alt={collection.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
                     />
                   ) : (
                     <ImageIcon className="w-16 h-16 text-muted-foreground" />
                   )}
-                  
+
                   {/* Live badge */}
                   {collection.status === 'live' && (
                     <div className="absolute top-4 left-4 flex items-center gap-2 bg-destructive/90 text-destructive-foreground px-3 py-1 rounded-full text-xs font-semibold">
@@ -119,11 +124,11 @@ export const MarketplacePreview: React.FC = () => {
                       LIVE
                     </div>
                   )}
-                  
+
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
-                
+
                 {/* Info */}
                 <div className="p-5">
                   <div className="flex justify-between items-start mb-3">
@@ -136,7 +141,7 @@ export const MarketplacePreview: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-between text-sm">
                     <div>
                       <span className="text-muted-foreground">Price</span>
@@ -155,8 +160,8 @@ export const MarketplacePreview: React.FC = () => {
           <div className="text-center py-12">
             <ImageIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">No collections yet. Be the first to create one!</p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="mt-4"
               onClick={() => navigate('/launchpad')}
             >
@@ -165,13 +170,13 @@ export const MarketplacePreview: React.FC = () => {
             </Button>
           </div>
         )}
-        
+
         {/* CTA */}
         {collections && collections.length > 0 && (
           <div className="text-center mt-12">
-            <Button 
-              variant="outline" 
-              size="lg" 
+            <Button
+              variant="outline"
+              size="lg"
               className="group"
               onClick={() => navigate('/marketplace')}
             >

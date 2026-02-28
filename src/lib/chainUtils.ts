@@ -9,7 +9,9 @@ export type ChainValue = 'solana' | 'solana-devnet' | string;
  * Get the currency symbol for a given chain
  */
 export const getCurrencySymbol = (chain: ChainValue | string): string => {
-  // Always return SOL as we are now Solana-only
+  const normalized = (chain || '').toLowerCase();
+  if (normalized.includes('xrpl') || normalized.includes('xrp')) return 'XRP';
+  if (normalized.includes('monad')) return 'MON';
   return 'SOL';
 };
 
@@ -17,7 +19,9 @@ export const getCurrencySymbol = (chain: ChainValue | string): string => {
  * Get the currency icon for a given chain
  */
 export const getCurrencyIcon = (chain: ChainValue | string): string => {
-  // Always return Solana icon
+  const normalized = (chain || '').toLowerCase();
+  if (normalized.includes('xrpl') || normalized.includes('xrp')) return '✕';
+  if (normalized.includes('monad')) return '◈';
   return '◎';
 };
 
