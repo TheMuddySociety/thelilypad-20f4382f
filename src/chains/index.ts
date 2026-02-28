@@ -43,6 +43,11 @@ export { deployMonadCollection, mintMonadNFT } from './monad/contracts';
 // Re-export metadata utilities
 export { uploadFile, uploadFiles, uploadMetadata, uploadJsonBatch, resolveMetadataUri, resolveImageUri } from './solana/metadata';
 
+// Re-export chain validation utilities
+export { validateSolanaRoyalty, validateSolanaAddress } from './solana/validate';
+export { validateXRPLRoyalty, validateXRPLAddress } from './xrpl/validate';
+export { validateMonadRoyalty, validateEvmAddress } from './monad/validate';
+
 /**
  * Get chain client based on supported chain
  */

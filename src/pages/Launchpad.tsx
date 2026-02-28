@@ -56,7 +56,7 @@ interface ChainEntry {
 const CHAIN_ENTRIES: ChainEntry[] = [
   { id: "solana", label: "Solana", description: "Metaplex Core & Candy Machine", badge: "Live", badgeVariant: "default" },
   { id: "xrpl", label: "XRPL", description: "XLS-20 NFT Standard", badge: "Live", badgeVariant: "default" },
-  { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Live", badgeVariant: "default" },
+  { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Soon", badgeVariant: "secondary" },
 ];
 
 // ── Collection type tiles ─────────────────────────────────────────────────────
@@ -134,6 +134,28 @@ const FILTER_TABS = [
   { value: "drafts", label: "Drafts", icon: FileEdit },
 ];
 
+// ── Draft finder (reads from the new lilypad_draft_* keys) ────────────────────
+const DRAFT_PREFIX = 'lilypad_draft_';
+const DRAFT_TYPES = ['generative', '1of1', 'xrpl-589', 'music', 'advanced', 'basic'];
+
+/** Find the most recent draft for a given chain across all type keys */
+function findLatestDraft(chain: string): { key: string; type: string; data: any } | null {
+  let best: { key: string; type: string; data: any; ts: number } | null = null;
+  for (const type of DRAFT_TYPES) {
+    const key = `${DRAFT_PREFIX}${chain}_${type}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+    try {
+      const data = JSON.parse(raw);
+      const ts = new Date(data.savedAt || 0).getTime();
+      if (!best || ts > best.ts) {
+        best = { key, type, data, ts };
+      }
+    } catch { /* ignore corrupt */ }
+  }
+  return best ? { key: best.key, type: best.type, data: best.data } : null;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function Launchpad() {
   const navigate = useNavigate();
@@ -148,10 +170,12 @@ export default function Launchpad() {
   const [showHybridForm, setShowHybridForm] = useState(false);
 
   const {
-    collections, isLoading, draft, loadDraft, deleteDraft,
+    collections, isLoading,
     currentUserId, deleteCollection, isDeleting, restoreCollection,
     getFilteredCollections, refetch,
   } = useLaunchpadData(selectedChain);
+
+  const [localDraft, setLocalDraft] = useState<{ key: string; type: string; data: any } | null>(null);
 
   const { stats, isLoading: statsLoading } = useLaunchpadStats();
   const { isInProgram } = useBuybackProgram();
@@ -172,23 +196,43 @@ export default function Launchpad() {
   };
 
   const continueDraft = () => {
-    // Navigate to create page with last stored draft type
-    const draft = localStorage.getItem("collection-draft");
-    if (draft) {
-      try {
-        const { standard } = JSON.parse(draft);
-        navigate(`/launchpad/create/${selectedChain}/${standard || 'generative'}`);
-      } catch (e) {
-        navigate(`/launchpad/create/${selectedChain}/generative`);
-      }
+    if (localDraft) {
+      navigate(`/launchpad/create/${selectedChain}/${localDraft.type || 'generative'}`);
     } else {
       navigate(`/launchpad/create/${selectedChain}/generative`);
     }
   };
 
   useEffect(() => {
-    loadDraft();
-  }, [loadDraft]);
+    // One-time migration: old "collection-draft" → new keyed format
+    const oldRaw = localStorage.getItem('collection-draft');
+    if (oldRaw) {
+      try {
+        const old = JSON.parse(oldRaw);
+        const newKey = `${DRAFT_PREFIX}${selectedChain}_generative`;
+        if (!localStorage.getItem(newKey)) {
+          const migrated = {
+            name: old.name || '',
+            symbol: old.symbol || '',
+            description: old.description || '',
+            royaltyPercent: parseFloat(old.royalty) || 5,
+            targetSupply: parseInt(old.totalSupply) || 100,
+            mode: (old.layers?.length > 0 ? 'advanced' : 'basic'),
+            currentStep: old.currentStep || 0,
+            treasuryWallet: '',
+            phases: old.phases || [],
+            savedAt: old.savedAt || new Date().toISOString(),
+          };
+          localStorage.setItem(newKey, JSON.stringify(migrated));
+        }
+        localStorage.removeItem('collection-draft');
+      } catch {
+        localStorage.removeItem('collection-draft');
+      }
+    }
+    // Load latest draft for current chain
+    setLocalDraft(findLatestDraft(selectedChain));
+  }, [selectedChain]);
 
   const filteredCollections = getFilteredCollections(activeTab);
 
@@ -198,7 +242,11 @@ export default function Launchpad() {
   const chainTiles = COLLECTION_TYPES.filter((t) => t.chains.includes(selectedChain));
 
   const handleTileClick = (tile: CollectionTypeTile) => {
-    // Monad handling is done in the deployment phase, not here
+    // Block Monad until contracts are implemented
+    if (selectedChain === 'monad') {
+      toast.info('Monad NFT minting is coming soon! Contracts are being finalized.', { duration: 5000 });
+      return;
+    }
     if (tile.id === "hybrid-404") {
       setShowHybridForm(true);
       return;
@@ -390,18 +438,20 @@ export default function Launchpad() {
                 </AnimatePresence>
 
                 {/* ── Draft resume banner ────────────────────────────────────── */}
-                {draft && (
+                {localDraft && (
                   <Card className="border-primary/30 bg-primary/5">
                     <CardContent className="p-4 flex items-center gap-4">
-                      {draft.imageUrl
-                        ? <img src={ipfsToHttp(draft.imageUrl)} alt="Draft" className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                        : <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center shrink-0"><ImageIcon className="w-5 h-5 text-primary" /></div>
-                      }
+                      <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+                        <ImageIcon className="w-5 h-5 text-primary" />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm">{draft.name || "Untitled Draft"}</p>
-                        <p className="text-xs text-muted-foreground">Saved {draft.savedAt && !isNaN(new Date(draft.savedAt).getTime()) ? formatDistanceToNow(new Date(draft.savedAt), { addSuffix: true }) : "recently"} · Step {draft.currentStep + 1} of 5</p>
+                        <p className="font-semibold text-sm">{localDraft.data.name || "Untitled Draft"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Saved {localDraft.data.savedAt ? formatDistanceToNow(new Date(localDraft.data.savedAt), { addSuffix: true }) : "recently"}
+                          · Step {(localDraft.data.currentStep ?? 0) + 1}
+                        </p>
                         <div className="w-full bg-muted rounded-full h-1 mt-2">
-                          <div className="bg-primary h-1 rounded-full" style={{ width: `${getProgress(draft.currentStep)}%` }} />
+                          <div className="bg-primary h-1 rounded-full" style={{ width: `${getProgress(localDraft.data.currentStep ?? 0)}%` }} />
                         </div>
                       </div>
                       <div className="flex gap-2 shrink-0">
@@ -409,7 +459,11 @@ export default function Launchpad() {
                           <FileEdit className="w-3.5 h-3.5" />
                           Resume
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={deleteDraft} className="text-destructive hover:text-destructive hover:bg-destructive/10 px-2">
+                        <Button size="sm" variant="ghost" onClick={() => {
+                          if (localDraft) localStorage.removeItem(localDraft.key);
+                          setLocalDraft(null);
+                          toast.success("Draft deleted");
+                        }} className="text-destructive hover:text-destructive hover:bg-destructive/10 px-2">
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
@@ -444,7 +498,7 @@ export default function Launchpad() {
                       >
                         <Icon className="w-3.5 h-3.5" />
                         {label}
-                        {value === "drafts" && draft && (
+                        {value === "drafts" && localDraft && (
                           <Badge variant="secondary" className="h-4 px-1 text-[9px]">1</Badge>
                         )}
                       </button>
@@ -452,7 +506,7 @@ export default function Launchpad() {
                   </div>
 
                   {/* Drafts tab */}
-                  {activeTab === "drafts" && !draft && (
+                  {activeTab === "drafts" && !localDraft && (
                     <div className="text-center py-16 border border-dashed rounded-xl">
                       <FileEdit className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                       <p className="font-medium mb-1">No drafts saved</p>

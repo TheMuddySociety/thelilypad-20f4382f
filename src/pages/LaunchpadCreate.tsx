@@ -126,7 +126,8 @@ export default function LaunchpadCreate() {
     const chainSymbol = currentChain.symbol;
 
     // Check if full deployment is supported for this chain
-    const isChainFullySupported = selectedChain === 'solana' || selectedChain === 'xrpl' || selectedChain === 'monad';
+    // Chains with working on-chain deploy implementations (Monad contracts are still stubs)
+    const isChainDeployReady = selectedChain === 'solana' || selectedChain === 'xrpl';
 
     // Resolve collection flow type from tile selection
     const flowType = resolveFlowType(typeParam);
@@ -136,6 +137,7 @@ export default function LaunchpadCreate() {
     const [mode, setMode] = useState<"basic" | "advanced">("basic");
     const [currentStep, setCurrentStep] = useState(0);
     const [direction, setDirection] = useState(0);
+    const [isDeploying, setIsDeploying] = useState(false);
 
     // Get steps based on mode and flow type
     const STEPS = is1of1 ? ONEOF1_STEPS : mode === "basic" ? BASIC_STEPS : ADVANCED_STEPS;
@@ -245,13 +247,21 @@ export default function LaunchpadCreate() {
     };
 
     const handleDeploy = async () => {
+        if (isDeploying) return; // Prevent double-clicks
         if (!name || !symbol) return toast.error("Please fill in basic info.");
         if (!address) return toast.error("Please connect your wallet first.");
+        // Monad contracts not yet implemented — block deploy
+        if (selectedChain === 'monad') {
+            toast.error("Monad deployment is coming soon. Your draft has been saved.");
+            return;
+        }
         if (selectedChain === 'solana' && !coverFile) return toast.error("Please upload a cover image.");
         if (folderAssets.length === 0 && !is1of1 && mode === "basic") return toast.error("Please upload assets.");
         if (generatedAssets.length === 0 && !is1of1 && mode === "advanced") return toast.error("Please generate assets.");
         if (artworks.length === 0 && is1of1) return toast.error("Please upload artworks.");
 
+        setIsDeploying(true);
+        let collectionId: string | undefined;
         try {
             toast.loading(`Initializing ${currentChain.name} deployment...`, { id: 'deploy-status' });
 
@@ -324,7 +334,7 @@ export default function LaunchpadCreate() {
                 throw new Error(`Failed to initialize collection record: ${placeholderError.message}`);
             }
 
-            const collectionId = placeholderCollection.id;
+            collectionId = placeholderCollection.id;
             const storageInfo = getCollectionStorageInfo(collectionId);
             const baseUri = getChainRootUri(selectedChain, collectionId);
 
@@ -407,9 +417,7 @@ export default function LaunchpadCreate() {
             } else if (selectedChain === 'xrpl') {
                 // ── Supabase Cloud Storage Path (Primary Hosting for ALL creators) ──
                 // IPFS is admin-only and handled outside the launchpad deploy flow.
-                const totalSupplyCount = is1of1
-                    ? artworks.reduce((sum, a) => sum + (editionCounts[a.id] || 1), 0)
-                    : (mode === 'advanced' ? (generatedAssets.length || targetSupply) : (folderAssets.length || targetSupply));
+                // totalSupplyCount already declared above — use directly (no shadowing)
 
                 toast.loading('Deploying XRPL Collection...', { id: 'deploy-status' });
                 const xrplRes = await xrplLaunch.deployXRPLCollection({
@@ -431,7 +439,7 @@ export default function LaunchpadCreate() {
                     xrplRes.address,
                     xrplRes.taxon,
                     itemsToMint,
-                    Math.round(royaltyPercent * 1000) // 1000 = 1%
+                    Math.min(Math.round(royaltyPercent * 1000), 50000) // XRPL max: 50000 (50%)
                 );
 
                 if (!mintSuccess) throw new Error("XRPL Minting failed. Check your wallet balance.");
@@ -461,7 +469,22 @@ export default function LaunchpadCreate() {
 
                 // Batch insert into minted_nfts
                 const { error: indexError } = await supabase.from("minted_nfts").insert(nftRecords);
-                if (indexError) console.warn("[deploy] Indexing error:", indexError);
+                if (indexError) {
+                    console.error("[deploy] Indexing failed:", {
+                        collectionId,
+                        recordCount: nftRecords.length,
+                        code: indexError.code,
+                        message: indexError.message,
+                        details: indexError.details,
+                    });
+                    toast.warning(
+                        "Collection deployed on-chain, but gallery indexing failed. " +
+                        "Your NFTs are minted but may not appear immediately. Try refreshing.",
+                        { id: 'index-warning', duration: 10000 }
+                    );
+                } else {
+                    console.log(`[deploy] Indexed ${nftRecords.length} NFTs for collection ${collectionId}`);
+                }
 
                 // Update the collection status
                 const thumbImageUrl = coverImage || storageInfo.itemImageUri(0);
@@ -479,8 +502,25 @@ export default function LaunchpadCreate() {
             navigate('/launchpad');
 
         } catch (e: any) {
-            console.error(e);
-            toast.error(e.message || "Deployment failed", { id: 'deploy-status' });
+            console.error('[deploy] Error:', { message: e.message, stack: e.stack });
+
+            // Mark the DB record as failed so user can see + retry
+            if (collectionId) {
+                try {
+                    await supabase.from("collections")
+                        .update({ status: 'deploy_failed' })
+                        .eq('id', collectionId);
+                } catch (dbErr) {
+                    console.error('[deploy] Failed to mark deploy_failed:', dbErr);
+                }
+            }
+
+            toast.error(e.message || "Deployment failed. Your progress was saved — try again.", {
+                id: 'deploy-status',
+                duration: 8000,
+            });
+        } finally {
+            setIsDeploying(false);
         }
     };
 
@@ -618,7 +658,24 @@ export default function LaunchpadCreate() {
                                     size="sm"
                                     onClick={() => {
                                         clearDraft();
-                                        window.location.reload();
+                                        // Reset all wizard state without hard reload
+                                        setName('');
+                                        setSymbol('');
+                                        setDescription('');
+                                        setRoyaltyPercent(5);
+                                        setCoverImage(null);
+                                        setCoverFile(null);
+                                        setTargetSupply(100);
+                                        setFolderAssets([]);
+                                        setValidationErrors([]);
+                                        setLayers([]);
+                                        setGeneratedAssets([]);
+                                        setArtworks([]);
+                                        setEditionCounts({});
+                                        setCurrentStep(0);
+                                        setPhases(defaultPhases);
+                                        setTreasuryWallet('');
+                                        toast.success('Draft cleared');
                                     }}
                                     className="text-xs text-muted-foreground hover:text-destructive"
                                 >
@@ -673,7 +730,25 @@ export default function LaunchpadCreate() {
                                         <div className="space-y-3"><Label>Collection Name</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-12" placeholder="e.g. Galactic Apes" /></div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-3"><Label>Symbol</Label><Input value={symbol} onChange={e => setSymbol(e.target.value)} className="font-mono uppercase" placeholder="APE" maxLength={10} /></div>
-                                            <div className="space-y-3"><Label>Royalty %</Label><Input type="number" value={royaltyPercent} onChange={e => setRoyaltyPercent(Number(e.target.value))} /></div>
+                                            <div className="space-y-3">
+                                                <Label>Royalty %</Label>
+                                                <Input
+                                                    type="number"
+                                                    value={royaltyPercent}
+                                                    onChange={e => {
+                                                        const val = Math.max(0, Number(e.target.value));
+                                                        const max = selectedChain === 'xrpl' ? 50 : 100;
+                                                        setRoyaltyPercent(Math.min(val, max));
+                                                    }}
+                                                    min={0}
+                                                    max={selectedChain === 'xrpl' ? 50 : 100}
+                                                />
+                                                {selectedChain === 'xrpl' && royaltyPercent >= 50 && (
+                                                    <p className="text-xs text-amber-500 mt-1">
+                                                        ⚠️ XRPL enforces a maximum royalty of 50% (TransferFee: 50000 basis points).
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="space-y-3"><Label>Description</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} className="min-h-[120px]" placeholder="Tell your story..." /></div>
                                     </div>
@@ -742,7 +817,26 @@ export default function LaunchpadCreate() {
                                     </div>
                                 )}
                                 {((!is1of1 && mode === "basic" && currentStep === 3) || (!is1of1 && mode === "advanced" && currentStep === 5) || (is1of1 && currentStep === 3)) && (
-                                    <GuardConfigurator phase={phases[0]} onChange={(updates) => setPhases(prev => [{ ...prev[0], ...updates }, ...prev.slice(1)])} chainSymbol={chainSymbol} />
+                                    <div className="space-y-6">
+                                        <GuardConfigurator phase={phases[0]} onChange={(updates) => setPhases(prev => [{ ...prev[0], ...updates }, ...prev.slice(1)])} chainSymbol={chainSymbol} />
+                                        <Separator />
+                                        <div className="space-y-3">
+                                            <Label>Treasury Wallet <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                                            <Input
+                                                value={treasuryWallet}
+                                                onChange={e => setTreasuryWallet(e.target.value.trim())}
+                                                placeholder={
+                                                    selectedChain === 'xrpl' ? 'rXXXX... (XRPL classic address)' :
+                                                        selectedChain === 'monad' ? '0x... (EVM address)' :
+                                                            'Solana wallet address (base58)'
+                                                }
+                                                className="font-mono text-sm"
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Mint proceeds go here. Defaults to your connected wallet if left blank.
+                                            </p>
+                                        </div>
+                                    </div>
                                 )}
                                 {currentStep === maxStep && (
                                     <div className="space-y-6 text-center py-6">
@@ -753,7 +847,21 @@ export default function LaunchpadCreate() {
                                             <div className="flex justify-between"><span className="text-muted-foreground">Supply</span><span className="font-mono">{is1of1 ? artworks.length : (folderAssets.length || targetSupply)} Items</span></div>
                                             <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span className="font-mono">{phases[0].price} {chainSymbol}</span></div>
                                         </div>
-                                        <Button onClick={handleDeploy} className="w-full h-16 text-xl font-bold shadow-2xl" style={{ background: `linear-gradient(to right, ${theme.primaryColor}, ${theme.secondaryColor})` }}>Launch Collection</Button>
+                                        <Button
+                                            onClick={handleDeploy}
+                                            disabled={isDeploying}
+                                            className="w-full h-16 text-xl font-bold shadow-2xl"
+                                            style={{ background: isDeploying ? undefined : `linear-gradient(to right, ${theme.primaryColor}, ${theme.secondaryColor})` }}
+                                        >
+                                            {isDeploying ? (
+                                                <span className="flex items-center gap-3">
+                                                    <Loader2 className="w-6 h-6 animate-spin" />
+                                                    Deploying on {currentChain.name}...
+                                                </span>
+                                            ) : (
+                                                'Launch Collection'
+                                            )}
+                                        </Button>
                                     </div>
                                 )}
                             </motion.div>

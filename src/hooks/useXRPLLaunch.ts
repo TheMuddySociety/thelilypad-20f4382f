@@ -69,6 +69,11 @@ export function useXRPLLaunch() {
         items: { name: string; uri: string }[],
         transferFee: number = 0,
     ): Promise<boolean> => {
+        // XRPL enforces TransferFee 0-50000 (0%–50%)
+        if (transferFee < 0 || transferFee > 50000) {
+            toast.error(`Invalid royalty: ${(transferFee / 1000).toFixed(1)}%. XRPL max is 50%.`);
+            return false;
+        }
         setIsMinting(true);
         let client: Awaited<ReturnType<typeof createXRPLClient>> | null = null;
         try {

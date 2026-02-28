@@ -168,15 +168,11 @@ async function fetchCollectionsPage(pageParam: number, chain: ChainFilter): Prom
     throw collectionsError;
   }
 
-  // Sort to prioritize live status
-  const sortedCollections = (collectionsData || []).sort((a, b) => {
-    if (a.status === "live" && b.status !== "live") return -1;
-    if (a.status !== "live" && b.status === "live") return 1;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+  // Note: sorting is handled at DB level via .order("created_at", { ascending: false })
+  // The previous JS sort only sorted within each page, which was incorrect for paginated data.
 
   return {
-    collections: sortedCollections,
+    collections: collectionsData || [],
     nextPage: collectionsData && collectionsData.length === ITEMS_PER_PAGE ? pageParam + 1 : undefined,
   };
 }

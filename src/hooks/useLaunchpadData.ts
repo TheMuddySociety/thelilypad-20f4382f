@@ -184,7 +184,7 @@ export function useLaunchpadData(selectedChain: SupportedChain = "solana") {
     (activeTab: string) => {
       const collections = collectionsQuery.data || [];
       if (activeTab === "all") return collections;
-      if (activeTab === "drafts") return collections.filter((c) => c.status === "upcoming" || c.status === "draft");
+      if (activeTab === "drafts") return collections.filter((c) => c.status === "upcoming" || c.status === "draft" || c.status === "deploy_failed");
       if (activeTab === "live") return collections.filter((c) => c.status === "live" || c.status === "active" || c.status === "minted");
       return collections.filter((c) => c.status === activeTab);
     },
@@ -241,7 +241,11 @@ export function hasArtwork(collection: Collection): boolean {
 // Helper to check if collection has valid phases
 export function hasValidPhases(collection: Collection): boolean {
   const phases = Array.isArray(collection.phases) ? (collection.phases as any[]) : [];
-  return phases.length > 0 && phases.some((p) => p.supply > 0);
+  return phases.length > 0 && phases.some((p) =>
+    typeof p.price === 'number' &&
+    typeof p.maxPerWallet === 'number' &&
+    p.maxPerWallet > 0
+  );
 }
 
 // Helper to get collection progress
