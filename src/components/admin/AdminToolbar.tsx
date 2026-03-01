@@ -72,8 +72,7 @@ export const AdminToolbar: React.FC = () => {
     const [isMinimized, setIsMinimized] = useState(false);
     const [activeSection, setActiveSection] = useState<'overview' | 'collections' | 'moderation' | 'quick-actions'>('overview');
 
-    // Don't render on admin page itself or if not admin
-    if (!isAdmin || location.pathname === '/admin') return null;
+    const shouldShow = isAdmin && location.pathname !== '/admin';
 
     // --- Data Fetching ---
     const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
@@ -98,7 +97,7 @@ export const AdminToolbar: React.FC = () => {
                 recentErrors: errorsRes.count || 0,
             };
         },
-        enabled: isOpen,
+        enabled: shouldShow && isOpen,
         staleTime: 30000,
         refetchInterval: isOpen ? 60000 : false,
     });
@@ -115,7 +114,7 @@ export const AdminToolbar: React.FC = () => {
             if (error) throw error;
             return data || [];
         },
-        enabled: isOpen && activeSection === 'collections',
+        enabled: shouldShow && isOpen && activeSection === 'collections',
         staleTime: 30000,
     });
 
@@ -131,7 +130,7 @@ export const AdminToolbar: React.FC = () => {
             if (error) throw error;
             return data || [];
         },
-        enabled: isOpen && activeSection === 'moderation',
+        enabled: shouldShow && isOpen && activeSection === 'moderation',
         staleTime: 30000,
     });
 
@@ -210,6 +209,8 @@ export const AdminToolbar: React.FC = () => {
         { label: 'Streams', href: '/admin', icon: Video, tab: 'streams' },
         { label: 'Settings', href: '/admin', icon: Settings, tab: 'feature-locks' },
     ];
+
+    if (!shouldShow) return null;
 
     return (
         <>
