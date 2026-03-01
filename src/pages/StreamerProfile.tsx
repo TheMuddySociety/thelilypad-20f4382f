@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ipfsToHttp } from "@/lib/ipfs";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,7 +17,7 @@ import { ClipShareMenu } from "@/components/ClipShareMenu";
 import { ClipAnalytics } from "@/components/ClipAnalytics";
 import { PublicBadgeShowcase } from "@/components/PublicBadgeShowcase";
 import { useSEO } from "@/hooks/useSEO";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import {
   User, ArrowLeft, Calendar, Clock, CheckCircle,
   Twitter, Youtube, MessageCircle, Instagram, Music2,
@@ -118,7 +119,6 @@ const StreamerProfile = () => {
   const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [bannerLoaded, setBannerLoaded] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
   const bannerRef = useRef<HTMLDivElement>(null);
   const isOwnProfile = currentUserId === streamerId;
   const { toast } = useToast();
@@ -234,21 +234,13 @@ const StreamerProfile = () => {
     checkCurrentUser();
   }, [streamerId]);
 
-  // Parallax scroll effect
-  useEffect(() => {
-    const handleScroll = () => {
-      if (bannerRef.current) {
-        const rect = bannerRef.current.getBoundingClientRect();
-        // Only update when banner is visible
-        if (rect.bottom > 0) {
-          setScrollY(window.scrollY);
-        }
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  // Parallax scroll effect — uses framer-motion for GPU-accelerated transforms
+  const { scrollYProgress } = useScroll({
+    target: bannerRef,
+    offset: ['start start', 'end start'],
+  });
+  const bannerScale = useTransform(scrollYProgress, [0, 1], [1.05, 1.15]);
+  const bannerY = useTransform(scrollYProgress, [0, 1], ['0%', '20%']);
 
   const handleClipCreated = () => {
     // Refetch clips
@@ -379,22 +371,22 @@ const StreamerProfile = () => {
             transition={{ delay: 0.1 }}
           >
             <Card className="border-0 bg-gradient-to-br from-primary/10 via-card to-card overflow-hidden relative">
-              {/* Banner Image with Parallax */}
+              {/* Banner Image with Parallax (framer-motion GPU-accelerated) */}
               {profile?.banner_url ? (
                 <div ref={bannerRef} className="relative h-48 md:h-64 w-full overflow-hidden">
                   {!bannerLoaded && (
                     <Skeleton className="absolute inset-0 w-full h-full" />
                   )}
-                  <img
-                    src={profile.banner_url}
+                  <motion.img
+                    src={ipfsToHttp(profile.banner_url)}
                     alt="Profile banner"
                     className={`w-full h-[120%] object-cover transition-opacity duration-300 ${bannerLoaded ? 'opacity-100' : 'opacity-0'}`}
                     style={{
-                      transform: `translateY(${scrollY * 0.3}px)`,
-                      filter: `blur(${Math.min(scrollY * 0.02, 8)}px)`,
-                      willChange: 'transform, filter'
+                      scale: bannerScale,
+                      y: bannerY,
                     }}
                     onLoad={() => setBannerLoaded(true)}
+                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-card via-card/50 to-transparent" />
                 </div>
@@ -414,7 +406,7 @@ const StreamerProfile = () => {
                       <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/50 rounded-full blur-xl opacity-30 scale-110" />
                       <Avatar className="h-36 w-36 border-4 border-background shadow-2xl relative">
                         {profile?.avatar_url ? (
-                          <AvatarImage src={profile.avatar_url} alt={profile.display_name || 'Streamer'} className="object-cover" />
+                          <AvatarImage src={ipfsToHttp(profile.avatar_url)} alt={profile.display_name || 'Streamer'} className="object-cover" />
                         ) : (
                           <AvatarFallback className="bg-gradient-to-br from-primary/30 to-primary/10 text-primary text-4xl font-bold">
                             <User className="h-16 w-16" />
@@ -664,9 +656,10 @@ const StreamerProfile = () => {
                                 <div className="relative aspect-[16/9] overflow-hidden bg-muted/50">
                                   {collection.image_url ? (
                                     <img
-                                      src={collection.image_url}
+                                      src={ipfsToHttp(collection.image_url)}
                                       alt={collection.name}
                                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
                                     />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500/20 to-primary/10">
@@ -824,9 +817,10 @@ const StreamerProfile = () => {
                         <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/50 border border-border/50">
                           {stream.thumbnail_url ? (
                             <img
-                              src={stream.thumbnail_url}
+                              src={ipfsToHttp(stream.thumbnail_url)}
                               alt={stream.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted/50 to-muted">
@@ -922,9 +916,10 @@ const StreamerProfile = () => {
                             <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/50 border border-border/50">
                               {clip.thumbnail_url ? (
                                 <img
-                                  src={clip.thumbnail_url}
+                                  src={ipfsToHttp(clip.thumbnail_url)}
                                   alt={clip.title}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-muted">
