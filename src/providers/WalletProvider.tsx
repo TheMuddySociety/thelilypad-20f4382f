@@ -448,29 +448,25 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    // If no injected provider, or it failed, try Phantom SDK (OAuth/embedded)
-    if (isPhantomAvailable) {
-      try {
-        await connectWithSDK();
-        return;
-      } catch (err: any) {
-        console.warn("SDK connect failed:", err?.message || err);
+    // Try Phantom SDK (works with or without extension - supports embedded/OAuth)
+    try {
+      await connectWithSDK();
+      return;
+    } catch (err: any) {
+      console.warn("SDK connect failed:", err?.message || err);
 
-        // Reset SDK instance and allow retry next time
-        sdkRef.current = null;
-        resetPhantomSDK();
+      // Reset SDK instance and allow retry next time
+      sdkRef.current = null;
+      resetPhantomSDK();
 
-        if (err?.code === 4001 || err?.message?.toLowerCase().includes("rejected")) {
-          toast.error("Connection rejected by user");
-          return;
-        }
-
-        toast.error(err?.message || "Failed to connect wallet. Please try again.");
+      if (err?.code === 4001 || err?.message?.toLowerCase().includes("rejected")) {
+        toast.error("Connection rejected by user");
         return;
       }
-    }
 
-    toast.error("Phantom wallet not found. Please install Phantom extension.");
+      toast.error(err?.message || "Failed to connect wallet. Please install Phantom or try again.");
+      return;
+    }
   }, [chain.id, isPhantomAvailable, connectWithSDK, connectSolanaLegacy, connectXRPL, connectMonad]);
 
   // Connect with OAuth
