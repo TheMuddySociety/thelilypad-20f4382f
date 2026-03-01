@@ -23,8 +23,10 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "prompt",
-      injectRegister: false,
-      includeAssets: ["favicon.ico", "robots.txt", "sitemap.xml"],
+      // 'auto' lets vite-plugin-pwa inject the registration snippet into index.html
+      // so the browser always finds /sw.js from the right place
+      injectRegister: "auto",
+      includeAssets: ["favicon.ico", "robots.txt", "sitemap.xml", "auth-branding.webp"],
       manifest: {
         name: "The Lily Pad",
         short_name: "LilyPad",
@@ -41,9 +43,23 @@ export default defineConfig(({ mode }) => ({
           },
         ],
       },
+      // Enable service worker in dev so /sw.js is served with the correct MIME type
+      devOptions: {
+        enabled: true,
+        type: "module",
+        navigateFallback: "index.html",
+      },
       workbox: {
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-        globPatterns: ["**/*.{ico,svg,woff,woff2}"],
+        // Precache HTML entry point + all compiled assets
+        globPatterns: ["**/*.{html,js,css,ico,svg,woff,woff2,webp,png,jpg}"],
+        // SPA fallback: serve index.html for all navigation requests
+        navigateFallback: "index.html",
+        navigateFallbackDenylist: [
+          // Don't intercept API calls or Supabase requests
+          /^\/api\//,
+          /\.supabase\.co/,
+        ],
         skipWaiting: false,
         clientsClaim: false,
         runtimeCaching: [
