@@ -983,7 +983,7 @@ export function GenerationPreview({
               {layers.length > 0 && layers.some((l) => l.traits.length > 0) ? (
                 <pre className="text-xs bg-muted/50 p-3 rounded-lg overflow-x-auto max-h-48">
                   {JSON.stringify(
-                    nftToMetadata(generateNFTBatch(1).nfts[0] || { id: 1, traits: [] }),
+                    nftToXrplMetadata(generateNFTBatch(1).nfts[0] || { id: 1, traits: [] }, collectionName, collectionDescription),
                     null,
                     2
                   )}

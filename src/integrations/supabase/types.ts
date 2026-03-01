@@ -714,6 +714,66 @@ export type Database = {
           },
         ]
       }
+      creator_beta_applications: {
+        Row: {
+          admin_notes: string | null
+          content_type: string
+          created_at: string | null
+          display_name: string
+          email: string
+          id: string
+          interview_notes: string | null
+          interview_room_id: string | null
+          interview_scheduled_at: string | null
+          motivation: string | null
+          portfolio_urls: string[]
+          reviewed_at: string | null
+          reviewed_by: string | null
+          social_links: Json | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          content_type: string
+          created_at?: string | null
+          display_name: string
+          email: string
+          id?: string
+          interview_notes?: string | null
+          interview_room_id?: string | null
+          interview_scheduled_at?: string | null
+          motivation?: string | null
+          portfolio_urls?: string[]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          social_links?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          content_type?: string
+          created_at?: string | null
+          display_name?: string
+          email?: string
+          id?: string
+          interview_notes?: string | null
+          interview_room_id?: string | null
+          interview_scheduled_at?: string | null
+          motivation?: string | null
+          portfolio_urls?: string[]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          social_links?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       earnings: {
         Row: {
           amount: number
@@ -2971,6 +3031,10 @@ export type Database = {
         Returns: boolean
       }
       is_user_banned: { Args: { _user_id: string }; Returns: boolean }
+      promote_to_creator: {
+        Args: { p_admin_id: string; p_application_id: string }
+        Returns: undefined
+      }
       wallet_owns_profile: {
         Args: { profile_uuid: string; wallet_addr: string }
         Returns: boolean

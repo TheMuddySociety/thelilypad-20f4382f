@@ -97,6 +97,9 @@ export default function ProfileTypeSelection() {
         description: 'Choose your role and get started on The Lily Pad'
     });
 
+    const selectedOption = roleOptions.find(opt => opt.id === selectedRole);
+    const isCreatorRole = selectedOption?.roles.isCreator ?? false;
+
     const handleSubmit = async () => {
         if (!selectedRole) {
             toast.error('Please select a profile type');
@@ -114,6 +117,12 @@ export default function ProfileTypeSelection() {
             toast.success('Profile created successfully!', {
                 description: 'Welcome to The Lily Pad'
             });
+
+            // If the selected role includes Creator, redirect to Creator Beta application
+            if (option.roles.isCreator) {
+                navigate('/creator/apply', { replace: true });
+                return;
+            }
 
             // Navigation is handled by the authState useEffect above.
             // AuthProvider will detect profile_setup_completed=true and
@@ -238,7 +247,7 @@ export default function ProfileTypeSelection() {
                         disabled={!selectedRole || isSubmitting}
                         className="gap-2 px-12"
                     >
-                        {isSubmitting ? 'Creating Profile...' : 'Continue'}
+                        {isSubmitting ? 'Creating Profile...' : isCreatorRole ? 'Continue to Creator Application' : 'Continue'}
                     </Button>
                 </motion.div>
 
