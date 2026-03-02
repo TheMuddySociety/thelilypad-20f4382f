@@ -27,8 +27,9 @@ export const CollectionPhasesCard: React.FC<CollectionPhasesCardProps> = ({
             <CardContent className="space-y-4">
                 {phases.length > 0 ? (
                     phases.map((phase) => {
-                        const phaseMinted = phase.minted || 0;
-                        const phaseProgress = phase.supply > 0 ? (phaseMinted / phase.supply) * 100 : 0;
+                        const phaseMinted = phase.minted ?? 0;
+                        const phaseSupply = phase.supply ?? 0;
+                        const phaseProgress = phaseSupply > 0 ? (phaseMinted / phaseSupply) * 100 : 0;
                         const PhaseIcon = phase.requiresAllowlist
                             ? phase.id === "team"
                                 ? Shield
@@ -51,7 +52,7 @@ export const CollectionPhasesCard: React.FC<CollectionPhasesCardProps> = ({
                                             <PhaseIcon className="w-5 h-5" />
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="font-semibold text-lg">{phase.name}</span>
+                                            <span className="font-semibold text-lg">{phase.name || phase.id || "Phase"}</span>
                                             {isActive && (
                                                 <span className="text-xs text-primary font-medium">Currently Selected</span>
                                             )}
@@ -67,10 +68,10 @@ export const CollectionPhasesCard: React.FC<CollectionPhasesCardProps> = ({
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between text-sm">
                                         <span className="text-muted-foreground">
-                                            Max {phase.maxPerWallet} per wallet
+                                            Max {phase.maxPerWallet ?? 1} per wallet
                                         </span>
                                         <span className="font-medium">
-                                            {phaseMinted.toLocaleString()} / {phase.supply.toLocaleString()}
+                                            {phaseMinted.toLocaleString()} / {phaseSupply.toLocaleString()}
                                         </span>
                                     </div>
                                     <Progress value={phaseProgress} className="h-2.5" />
