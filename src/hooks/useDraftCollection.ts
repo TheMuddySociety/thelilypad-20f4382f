@@ -8,7 +8,7 @@ export interface DraftCollectionData {
     description: string;
     royaltyPercent: number;
     targetSupply: number;
-    mode: 'basic' | 'advanced';
+    mode: 'basic' | 'advanced' | '1of1' | 'music';
     currentStep: number;
     treasuryWallet: string;
     phases: any[];
