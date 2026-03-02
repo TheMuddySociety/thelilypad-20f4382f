@@ -247,7 +247,7 @@ export const CollectionMintCard: React.FC<CollectionMintCardProps> = ({
                                             <Info className="h-3 w-3 cursor-help text-muted-foreground/50 hover:text-primary transition-colors" />
                                         </TooltipTrigger>
                                         <TooltipContent className="bg-background border-border text-xs p-3 max-w-[200px]">
-                                            Estimate of Solana transaction fees + compute costs for core NFT minting.
+                                            Estimate of the required network transaction fees to process this mint.
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>

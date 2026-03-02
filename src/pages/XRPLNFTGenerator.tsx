@@ -239,6 +239,7 @@ export default function XRPLNFTGenerator() {
                     status: "draft",
                     creator_id: user.id,
                     creator_address: address,
+                    phases: { taxon } as any, // Store XRPL-specific config in phases JSON
                 })
                 .select("id")
                 .single();
@@ -305,6 +306,7 @@ export default function XRPLNFTGenerator() {
                 transferFee: transferFeeOnChain,
                 flags: computedFlags,
                 authorizedMinter: authorizedMinter || undefined,
+                taxon, // PASS THE USER CONFIGURED TAXON
             });
 
             setUploadProgress(75);

@@ -58,9 +58,9 @@ export async function deployXRPLCollection(
         throw new Error('XRPL client and wallet are required to deploy a collection.');
     }
 
-    // Taxon groups NFTs from the same collection. Using a timestamp-seeded value
-    // makes it unique per deploy while being deterministic within a session.
-    const taxon = Math.floor(Date.now() % 1_000_000);
+    // Taxon groups NFTs from the same collection. Using a user-provided value or
+    // a timestamp-seeded fallback.
+    const taxon = params.taxon !== undefined ? params.taxon : Math.floor(Date.now() % 1_000_000);
 
     if (params.baseUri) {
         // Sets Account Domain field on ledger — marketplaces use this to discover metadata

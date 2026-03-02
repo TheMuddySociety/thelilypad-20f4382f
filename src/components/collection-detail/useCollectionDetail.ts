@@ -45,15 +45,24 @@ export function useCollectionDetail() {
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
     // ── Derived State ──────────────────────────────────────────────────────────
-    const collectionChainStr = collection?.chain || collection?.blockchain || 'solana';
-    const collectionChain = getBaseChain(collectionChainStr);
-    const chainConfig = CHAINS[collectionChain];
+    // FIX: More robust chain detection to prevent XRPL collections from defaulting to Solana
+    const dbChainRaw = collection?.chain || collection?.blockchain || '';
+    let collectionChain = getBaseChain(dbChainRaw);
+
+    // Safety check: if contract address exists and looks like XRPL, force it
+    if (collectionChain === 'solana' && collection?.contract_address?.startsWith('r')) {
+        collectionChain = 'xrpl';
+    }
+
+    const chainConfig = CHAINS[collectionChain] || CHAINS.solana;
     const isSolana = collectionChain === 'solana';
     const isXRPL = collectionChain === 'xrpl';
     const isMonad = collectionChain === 'monad';
-    const currency = chainConfig?.symbol || 'SOL';
-    const collectionNetwork = chainConfig?.name || 'Solana';
-    const isCollectionTestnet = isChainTestnet(collectionChainStr);
+
+    // FIX: Correct currency for XRPL
+    const currency = isXRPL ? 'XRP' : (chainConfig?.symbol || 'SOL');
+    const collectionNetwork = chainConfig?.name || (isXRPL ? 'XRP Ledger' : 'Solana');
+    const isCollectionTestnet = isChainTestnet(dbChainRaw) || (isXRPL && !!collection?.contract_address); // Assume testnet for dev if not sure
     const collectionExplorerUrl = chainConfig?.networks[isCollectionTestnet ? 'testnet' : 'mainnet']?.explorer || '';
     const isCreator = currentUserId && collection?.creator_id === currentUserId;
     const totalSupply = collection?.total_supply || 0;
@@ -251,7 +260,7 @@ export function useCollectionDetail() {
 
                     const result = await xrplMint.mintNFT(metadataUri, {
                         collectionId: collection.id,
-                        phaseId: activePhase?.id || 'public',
+                        taxon: (collection as any).taxon || (collection as any).phases?.taxon || 0,
                         price: Number(activePhase?.price) || 0,
                         // royalty_percent is stored as a plain number (e.g. 5 = 5%)
                         // XLS-20 TransferFee uses 0-50000 (5000 = 5%)

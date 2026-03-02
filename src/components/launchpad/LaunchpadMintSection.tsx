@@ -4,6 +4,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { ChevronDown } from 'lucide-react';
 import { MintButton } from '@/components/launchpad/MintButton';
 import { toast } from 'sonner';
+import { getBaseChain } from '@/components/collection-detail/utils';
 
 /**
  * Simplified mint section for a collection using a candy machine.
@@ -70,6 +71,7 @@ export function LaunchpadMintSection({
                 candyMachineAddress={candyMachineAddress}
                 collectionAddress={collection.contract_address}
                 price={price}
+                chain={getBaseChain(collection.chain || collection.blockchain)}
             />
         </div>
     );

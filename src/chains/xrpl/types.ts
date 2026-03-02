@@ -25,6 +25,8 @@ export interface XRPLCollectionParams {
      * populated in every NFTokenMint transaction.
      */
     authorizedMinter?: string;
+    /** Token taxon used to group NFTs into a collection. */
+    taxon?: number;
 }
 
 export interface XRPLDeployResult {
