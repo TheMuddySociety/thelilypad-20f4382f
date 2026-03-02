@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Loader2, Info } from "lucide-react";
 import { useWallet } from "@/providers/WalletProvider";
 import { useSolanaCoreTransfer } from "@/hooks/useSolanaCoreTransfer";
+import { useMonadTransfer } from "@/hooks/useMonadTransfer";
+import { toast } from "sonner";
 
 interface Listing {
   id: string;
@@ -19,6 +21,7 @@ interface Listing {
   seller_address: string;
   price: number;
   currency: string;
+  chain?: string;
   nft: {
     id: string;
     token_id: number;
@@ -26,7 +29,7 @@ interface Listing {
     image_url: string | null;
     collection_id: string | null;
     owner_address: string;
-    contract_address?: string; // Solana Core Asset Address
+    contract_address?: string; // Solana Core Asset Address or EVM Contract
     collection?: {
       name: string;
       contract_address: string | null;
@@ -43,34 +46,46 @@ interface BuyNFTModalProps {
 
 export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTModalProps) {
   const { address } = useWallet();
-  const { transferAsset, isLoading, error } = useSolanaCoreTransfer();
+  const solanaTransfer = useSolanaCoreTransfer();
+  const monadTransfer = useMonadTransfer();
   const [isSuccess, setIsSuccess] = useState(false);
+
+  // Determine chain and currency
+  const chainId = listing?.chain || 'solana';
+  const currencySymbol = chainId === 'monad' ? 'MON' : chainId === 'xrpl' ? 'XRP' : 'SOL';
+  const chainName = chainId === 'monad' ? 'Monad' : chainId === 'xrpl' ? 'XRPL' : 'Solana';
+
+  const isLoading = solanaTransfer.isLoading || monadTransfer.isLoading;
+  const error = solanaTransfer.error || monadTransfer.error;
 
   const handleBuy = async () => {
     if (!listing || !address) return;
 
-    // Check if user is buying their own NFT (Testing/Cancel flow)
     const isOwner = listing.seller_address === address;
 
     try {
       if (isOwner) {
-        // If owner, this is effectively a delist or self-transfer test
-        // For now, we just close it or verify ownership
-        onSuccess(); // Close modal
+        onSuccess();
         return;
       }
 
-      // Attempt Core Transfer
-      // Note: This requires the Seller to sign. In a P2P marketplace without an escrow/program,
-      // this transaction will fail unless the user HAS the seller's private key (unlikely) 
-      // or the asset is delegated.
-      // We implement this to strictly follow "Metaplex Core Compliance" for asset transfers.
-
-      const result = await transferAsset(
-        listing.nft.contract_address || listing.nft.collection?.contract_address || "", // Fallback check
-        address, // Buyer is new owner
-        { collectionAddress: listing.nft.collection?.contract_address || undefined }
-      );
+      let result;
+      if (chainId === 'monad') {
+        result = await monadTransfer.transferAsset(
+          listing.nft.contract_address || listing.nft.collection?.contract_address || "",
+          address,
+          listing.nft.token_id
+        );
+      } else if (chainId === 'solana') {
+        result = await solanaTransfer.transferAsset(
+          listing.nft.contract_address || listing.nft.collection?.contract_address || "",
+          address,
+          { collectionAddress: listing.nft.collection?.contract_address || undefined }
+        );
+      } else {
+        toast.error(`${chainName} purchases not yet supported in this modal.`);
+        return;
+      }
 
       if (result?.success) {
         setIsSuccess(true);
@@ -80,7 +95,6 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
       }
 
     } catch (err) {
-      // Error handled in hook (toasts)
       console.error("Buy failed:", err);
     }
   };
@@ -96,7 +110,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
             Buy NFT
           </DialogTitle>
           <DialogDescription>
-            Purchase this digital asset on Solana.
+            Purchase this digital asset on {chainName}.
           </DialogDescription>
         </DialogHeader>
 
@@ -114,9 +128,9 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
               <p className="font-medium">{listing.nft.name || `Token #${listing.nft.token_id}`}</p>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">
-                  Core Asset
+                  {chainId === 'solana' ? 'Core Asset' : 'ERC-721'}
                 </Badge>
-                <p className="text-sm font-semibold">{listing.price} SOL</p>
+                <p className="text-sm font-semibold">{listing.price} {currencySymbol}</p>
               </div>
             </div>
           </div>
@@ -150,7 +164,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
           <p className="text-xs text-center text-muted-foreground">
             {listing.seller_address === address
               ? "You own this listing."
-              : "Note: Seller signature required for P2P transfer."}
+              : chainId === 'monad' ? "Confirms via Phantom Monad wallet." : "Note: Seller signature required for P2P transfer."}
           </p>
         </div>
       </DialogContent>

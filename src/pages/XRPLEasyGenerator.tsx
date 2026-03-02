@@ -70,6 +70,7 @@ export default function XRPLEasyGenerator() {
     const [collectionId, setCollectionId] = useState("");
     const [isDownloadingZip, setIsDownloadingZip] = useState(false);
     const [transferFee, setTransferFee] = useState(5);
+    const [metadataMap, setMetadataMap] = useState<Record<string, any>>({});
 
     // Handlers
     const MAX_FILE_SIZE_MB = 10;
@@ -86,13 +87,33 @@ export default function XRPLEasyGenerator() {
 
                 // Look for images folder or flat images
                 const imagePromises: Promise<void>[] = [];
+                const localMetadataMap: Record<string, any> = {};
 
                 zip.forEach((relativePath, file) => {
-                    if (!file.dir && (relativePath.endsWith('.png') || relativePath.endsWith('.jpg') || relativePath.endsWith('.jpeg'))) {
+                    if (file.dir) return;
+
+                    const fileName = relativePath.split('/').pop() || relativePath;
+                    const baseName = fileName.split('.').slice(0, -1).join('.');
+
+                    // Image handling
+                    if (relativePath.endsWith('.png') || relativePath.endsWith('.jpg') || relativePath.endsWith('.jpeg')) {
                         const promise = file.async("blob").then((blob) => {
-                            const newFile = new File([blob], relativePath.split('/').pop() || relativePath, { type: "image/png" });
+                            const newFile = new File([blob], fileName, { type: "image/png" });
                             if (newFile.size <= MAX_FILE_SIZE_MB * 1024 * 1024) {
                                 extractedFiles.push(newFile);
+                            }
+                        });
+                        imagePromises.push(promise);
+                    }
+
+                    // Metadata handling (JSON)
+                    if (relativePath.endsWith('.json')) {
+                        const promise = file.async("string").then((text) => {
+                            try {
+                                const json = JSON.parse(text);
+                                localMetadataMap[baseName] = json;
+                            } catch (e) {
+                                console.warn(`Failed to parse metadata: ${fileName}`);
                             }
                         });
                         imagePromises.push(promise);
@@ -110,7 +131,8 @@ export default function XRPLEasyGenerator() {
 
                 if (extractedFiles.length > 0) {
                     setFiles(extractedFiles);
-                    toast.success(`Extracted ${extractedFiles.length} images from ZIP`, { id: "extract-zip" });
+                    setMetadataMap(localMetadataMap);
+                    toast.success(`Extracted ${extractedFiles.length} images ${Object.keys(localMetadataMap).length > 0 ? "and metadata " : ""}from ZIP`, { id: "extract-zip" });
                 } else {
                     toast.error("No valid images found in ZIP", { id: "extract-zip" });
                 }
@@ -199,14 +221,18 @@ export default function XRPLEasyGenerator() {
                         .from(NFT_BUCKETS.IMAGES)
                         .getPublicUrl(`collections/${collectionId}/${tokenId}.${fileExt}`);
 
+                    // Try to match metadata from the map
+                    const baseName = file.name.split('.').slice(0, -1).join('.');
+                    const importedMetadata = metadataMap[baseName] || metadataMap[tokenId.toString()] || metadataMap[(tokenId + 1).toString()];
+
                     const metadata = {
                         schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
                         nftType: "art.v0",
-                        name: `${name} #${tokenId + 1}`,
-                        description,
+                        name: importedMetadata?.name || `${name} #${tokenId + 1}`,
+                        description: importedMetadata?.description || description,
                         image: ipfsImageUri, // Primary: IPFS
                         external_url: imagePublicUrl, // Secondary: Supabase Public URL for speed
-                        attributes: []
+                        attributes: importedMetadata?.attributes || importedMetadata?.traits || []
                     };
 
                     const metadataJson = JSON.stringify(metadata, null, 2);

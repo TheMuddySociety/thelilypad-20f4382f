@@ -46,6 +46,7 @@ export interface NFTListing {
   seller_address: string;
   price: number;
   currency: string;
+  chain: string;
   created_at: string;
   expires_at: string | null;
   nft: {
@@ -115,7 +116,7 @@ async function fetchBaseMarketplaceData(): Promise<MarketplaceBaseData> {
         image_url,
         collection_id,
         owner_address,
-        collection:collections(name, contract_address)
+        collection:collections(name, contract_address, chain)
       )
     `)
     .eq("status", "active")
@@ -127,15 +128,22 @@ async function fetchBaseMarketplaceData(): Promise<MarketplaceBaseData> {
 
   // Transform listings data
   const transformedListings = (listingsData || [])
-    .map((listing) => ({
-      ...listing,
-      nft: listing.nft
-        ? {
-          ...listing.nft,
-          collection: listing.nft.collection as { name: string; contract_address: string | null } | undefined,
-        }
-        : null,
-    }))
+    .map((listing) => {
+      const nft = listing.nft;
+      const collection = nft?.collection as any;
+      const chain = collection?.chain || 'solana';
+
+      return {
+        ...listing,
+        chain,
+        nft: nft
+          ? {
+            ...nft,
+            collection: collection,
+          }
+          : null,
+      };
+    })
     .filter((listing) => listing.nft !== null) as NFTListing[];
 
   return {
