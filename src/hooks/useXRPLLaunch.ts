@@ -66,6 +66,8 @@ export function useXRPLLaunch() {
      * Uses parallel Ticket-based minting for collections > 5 items.
      *
      * @param transferFee  0-50000 (0.000% – 50.000%), default 0
+     * @param flags        NFTokenFlag bitfield, default 8 (tfTransferable)
+     * @param issuer       Authorized minter — sets the Issuer field when minting on behalf of another account
      * @returns Array of { nfTokenId, txHash } for each minted NFT
      */
     const mintItems = useCallback(async (
@@ -73,6 +75,8 @@ export function useXRPLLaunch() {
         taxon: number,
         items: { name: string; uri: string }[],
         transferFee: number = 0,
+        flags: number = 8,         // default: tfTransferable
+        issuer?: string,
     ): Promise<XRPLMintResult[]> => {
         // XRPL enforces TransferFee 0-50000 (0%–50%)
         if (transferFee < 0 || transferFee > 50000) {
@@ -94,7 +98,7 @@ export function useXRPLLaunch() {
             const wallet = Wallet.fromSeed(storedWallet.seed);
 
             const results = await mintXRPLItemsChain(
-                issuerAddress, taxon, items, client, wallet, transferFee
+                issuerAddress, taxon, items, client, wallet, transferFee, flags, issuer
             );
 
             toast.success(`XRPL NFTs minted!`, { id: 'xrpl-mint' });

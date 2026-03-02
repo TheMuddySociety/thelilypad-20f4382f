@@ -165,11 +165,12 @@ export async function batchMintNFTokens(
     items: { uri: string }[],
     taxon: number,
     transferFee = 0,
-    flags = NFTokenFlag.Burnable | NFTokenFlag.Transferable,
+    flags = NFTokenFlag.Transferable,
+    issuer?: string,
 ): Promise<XRPLMintResult[]> {
     const results: XRPLMintResult[] = [];
     for (const item of items) {
-        const res = await mintNFToken(client, wallet, { uri: item.uri, taxon, transferFee, flags });
+        const res = await mintNFToken(client, wallet, { uri: item.uri, taxon, transferFee, flags, issuer });
         results.push(res);
     }
     return results;
@@ -194,14 +195,15 @@ export async function batchMintNFTokensParallel(
     items: { uri: string }[],
     taxon: number,
     transferFee = 0,
-    flags = NFTokenFlag.Burnable | NFTokenFlag.Transferable,
+    flags = NFTokenFlag.Transferable,
+    issuer?: string,
     concurrency = 20,
 ): Promise<XRPLMintResult[]> {
     if (items.length === 0) return [];
 
     // For small batches, sequential is fine and avoids Ticket overhead
     if (items.length <= 5) {
-        return batchMintNFTokens(client, wallet, items, taxon, transferFee, flags);
+        return batchMintNFTokens(client, wallet, items, taxon, transferFee, flags, issuer);
     }
 
     // 1. Create the required Tickets in one transaction
@@ -243,6 +245,7 @@ export async function batchMintNFTokensParallel(
                     taxon,
                     transferFee,
                     flags,
+                    issuer,
                     ticketSequence: windowTickets[idx],
                 })
             )

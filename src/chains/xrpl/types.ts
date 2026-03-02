@@ -15,6 +15,16 @@ export interface XRPLCollectionParams {
     royaltyPercent?: number;
     /** Transfer fee 0-50000 (0.000% – 50.000%) */
     transferFee?: number;
+    /**
+     * Bitfield of NFTokenFlag values to apply to every minted token.
+     * Default: tfTransferable (8).
+     */
+    flags?: number;
+    /**
+     * Optional authorized minter — when set, the Issuer field is
+     * populated in every NFTokenMint transaction.
+     */
+    authorizedMinter?: string;
 }
 
 export interface XRPLDeployResult {
@@ -34,10 +44,12 @@ export interface XRPLMintItem {
 export enum NFTokenFlag {
     /** Issuer can burn the token regardless of owner */
     Burnable = 1,
-    /** Only the issuer can transfer (soulbound-style) */
+    /** Only XRP can be used to buy/sell — recommended when transfer fee is set */
     OnlyXRP = 2,
     /** NFT can be transferred to third parties */
     Transferable = 8,
+    /** URI field can be updated via NFTokenModify after mint */
+    Mutable = 16,
 }
 
 // ── Mint Params ───────────────────────────────────────────

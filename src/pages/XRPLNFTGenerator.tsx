@@ -28,17 +28,25 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
     ArrowLeft, ArrowRight, Zap, Info, Flame, Coins, Repeat,
     PenLine, ShieldCheck, Hash, Percent, Link, User, CheckCircle2,
-    AlertTriangle,
+    AlertTriangle, Upload, ImageIcon, Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useWallet } from "@/providers/WalletProvider";
+import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
+import { supabase } from "@/integrations/supabase/client";
+import { storageClient, NFT_BUCKETS } from "@/integrations/supabase/storageClient";
+import { getCollectionStorageInfo } from "@/lib/payloadMapper";
+import { getDbChainValue, setStoredChain } from "@/config/chains";
+
 
 // ── Step definitions ────────────────────────────────────────────────────────
 
@@ -48,6 +56,7 @@ const STEPS = [
     { id: "royalty", label: "Royalties", icon: Percent },
     { id: "metadata", label: "Metadata", icon: Link },
     { id: "review", label: "Review", icon: CheckCircle2 },
+    { id: "upload", label: "Upload & Mint", icon: Upload },
 ] as const;
 
 type StepId = typeof STEPS[number]["id"];
@@ -157,6 +166,7 @@ export default function XRPLNFTGenerator() {
         ].filter(Boolean) as string[],
         metadata: [],
         review: [],
+        upload: [],
     };
 
     const currentErrors = stepErrors[step];
@@ -179,11 +189,196 @@ export default function XRPLNFTGenerator() {
         if (currentIdx > 0) setStep(STEP_IDS[currentIdx - 1] as StepId);
     };
 
-    const handleLaunch = () => {
-        // TODO: wire to useXRPLLaunch — this scaffold collects all
-        // NFTokenMint parameters and will pass them to the deploy flow
-        toast.info("Generator ready — connect your XRPL wallet to mint", { duration: 4000 });
-        navigate("/launchpad");
+    const { address, isConnected, network } = useWallet();
+    const { deployXRPLCollection, mintXRPLItems, isDeploying, isMinting } = useXRPLLaunch();
+
+    // ── Step 6: Upload state ──────────────────────────────────────
+    const [files, setFiles] = useState<File[]>([]);
+    const [isLaunching, setIsLaunching] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+
+    const MAX_FILE_SIZE_MB = 10;
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files) return;
+        const selected = Array.from(e.target.files);
+        const oversized = selected.filter(f => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
+        if (oversized.length > 0) {
+            toast.error(`${oversized.length} file(s) exceed ${MAX_FILE_SIZE_MB}MB and were removed.`);
+        }
+        setFiles(selected.filter(f => f.size <= MAX_FILE_SIZE_MB * 1024 * 1024));
+    };
+
+    const handleLaunch = async () => {
+        if (!isConnected || !address) {
+            toast.error("Connect your XRPL wallet first.");
+            return;
+        }
+        if (files.length === 0) {
+            toast.error("Upload at least one image file.");
+            return;
+        }
+
+        setIsLaunching(true);
+        setUploadProgress(5);
+        let collectionId = "";
+
+        try {
+            // 1. Reserve a collection ID in Supabase
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Authentication required.");
+
+            toast.loading("Reserving collection ID…", { id: "xrpl-gen" });
+            const { data: col, error: colErr } = await supabase
+                .from("collections")
+                .insert({
+                    name: collectionName,
+                    symbol: collectionSymbol,
+                    description,
+                    chain: getDbChainValue("xrpl", network as "mainnet" | "testnet"),
+                    total_supply: files.length,
+                    status: "draft",
+                    creator_id: user.id,
+                    creator_address: address,
+                })
+                .select("id")
+                .single();
+            if (colErr) throw colErr;
+            collectionId = col.id;
+
+            const storageInfo = getCollectionStorageInfo(collectionId);
+            setUploadProgress(15);
+
+            // 2. Upload images + metadata JSON in batches of 5
+            toast.loading(`Uploading ${files.length} images…`, { id: "xrpl-gen" });
+            const batchSize = 5;
+            for (let i = 0; i < files.length; i += batchSize) {
+                const batch = files.slice(i, i + batchSize);
+                await Promise.all(batch.map(async (file, idx) => {
+                    const tokenIdx = i + idx;
+                    const ext = file.name.split(".").pop() || "png";
+
+                    await storageClient.storage
+                        .from(NFT_BUCKETS.IMAGES)
+                        .upload(`collections/${collectionId}/${tokenIdx}.${ext}`, file, { upsert: true });
+
+                    const { data: { publicUrl: imageUrl } } = storageClient.storage
+                        .from(NFT_BUCKETS.IMAGES)
+                        .getPublicUrl(`collections/${collectionId}/${tokenIdx}.${ext}`);
+
+                    const metadata = {
+                        schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
+                        nftType: "art.v0",
+                        name: `${collectionName} #${tokenIdx + 1}`,
+                        description,
+                        image: imageUrl,
+                        attributes: [],
+                        // XLS-20 extended fields
+                        collection: { name: collectionName, family: collectionSymbol },
+                        xrpl: {
+                            taxon,
+                            transferFee: transferFeeOnChain,
+                            flags: computedFlags,
+                        },
+                    };
+
+                    await storageClient.storage
+                        .from(NFT_BUCKETS.METADATA)
+                        .upload(
+                            `collections/${collectionId}/${tokenIdx}.json`,
+                            JSON.stringify(metadata),
+                            { upsert: true, contentType: "application/json" }
+                        );
+                }));
+                setUploadProgress(15 + Math.round(((i + batchSize) / files.length) * 40));
+            }
+
+            // 3. Deploy — sets Account Domain with baseUri
+            setUploadProgress(60);
+            toast.loading("Setting up XRPL collection on-chain…", { id: "xrpl-gen" });
+
+            const result = await deployXRPLCollection({
+                name: collectionName,
+                symbol: collectionSymbol,
+                description,
+                totalSupply: files.length,
+                baseUri: storageInfo.rootUri,
+                transferFee: transferFeeOnChain,
+                flags: computedFlags,
+                authorizedMinter: authorizedMinter || undefined,
+            });
+
+            setUploadProgress(75);
+
+            // Update DB with contract address
+            const firstExt = files[0]?.name.split(".").pop() || "png";
+            await supabase.from("collections").update({
+                contract_address: result.address,
+                status: "active",
+                image_url: storageInfo.itemImageUri(0, firstExt),
+            }).eq("id", collectionId);
+
+            // 4. Mint all NFTs with user-configured flags + transferFee
+            setUploadProgress(80);
+            toast.loading(`Minting ${files.length} NFTs on XRPL…`, { id: "xrpl-gen" });
+
+            const items = files.map((_, i) => ({
+                name: `${collectionName} #${i + 1}`,
+                uri: storageInfo.itemMetadataUri(i),
+            }));
+
+            const mintResults = await mintXRPLItems(
+                result.address,
+                result.taxon,
+                items,
+                transferFeeOnChain,
+                computedFlags,
+                authorizedMinter || undefined,
+            );
+
+            if (!mintResults || mintResults.length === 0) {
+                throw new Error("Mint returned no results — check wallet connection and XRP balance.");
+            }
+
+            // 5. Index minted NFTs with real on-chain IDs
+            await supabase.from("collections").update({
+                minted: mintResults.length,
+                status: "minted",
+            }).eq("id", collectionId);
+
+            const { data: { session } } = await supabase.auth.getSession();
+            const nftRecords = mintResults.map((res, i) => {
+                const ext = files[i]?.name.split(".").pop() || "png";
+                return {
+                    collection_id: collectionId,
+                    token_id: i,
+                    nft_token_id: res.nfTokenId,
+                    name: `${collectionName} #${i + 1}`,
+                    description,
+                    image_url: storageInfo.itemImageUri(i, ext),
+                    owner_address: result.address,
+                    owner_id: session?.user?.id || "",
+                    tx_hash: res.txHash,
+                    is_revealed: true,
+                    minted_at: new Date().toISOString(),
+                };
+            });
+            await supabase.from("minted_nfts").insert(nftRecords);
+
+            setUploadProgress(100);
+            toast.success(`Minted ${mintResults.length} NFTs!`, { id: "xrpl-gen" });
+            setStoredChain("xrpl");
+            navigate("/launchpad");
+        } catch (err: any) {
+            console.error("[XRPLGen] launch error:", err);
+            toast.error(err.message || "Launch failed", { id: "xrpl-gen" });
+            // Clean up orphaned draft
+            if (collectionId) {
+                await supabase.from("collections").delete()
+                    .eq("id", collectionId).eq("status", "draft");
+            }
+        } finally {
+            setIsLaunching(false);
+        }
     };
 
     return (
@@ -606,6 +801,100 @@ export default function XRPLNFTGenerator() {
                             </div>
                         )}
 
+                        {/* ── Step 6: Upload & Mint ────────────────────── */}
+                        {step === "upload" && (
+                            <div className="space-y-4">
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                            <Upload className="w-4 h-4 text-primary" /> Upload Assets
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Upload {parseInt(totalSupply).toLocaleString()} image files — one per NFT, in mint order.
+                                            Each image is uploaded to Supabase and its metadata JSON is auto-generated.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <label
+                                            htmlFor="xrpl-gen-files"
+                                            className={cn(
+                                                "flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-xl p-8 cursor-pointer transition-colors",
+                                                files.length > 0
+                                                    ? "border-primary/50 bg-primary/5"
+                                                    : "border-border hover:border-primary/40 hover:bg-muted/40"
+                                            )}
+                                        >
+                                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                                                <ImageIcon className="w-6 h-6 text-primary" />
+                                            </div>
+                                            {files.length > 0 ? (
+                                                <div className="text-center">
+                                                    <p className="text-sm font-semibold">{files.length} file{files.length !== 1 ? "s" : ""} selected</p>
+                                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                                        {files.map(f => f.name).slice(0, 3).join(", ")}{files.length > 3 ? ` +${files.length - 3} more` : ""}
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center">
+                                                    <p className="text-sm font-medium">Click to select images</p>
+                                                    <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, GIF, WEBP · Max 10MB each</p>
+                                                </div>
+                                            )}
+                                            <input
+                                                id="xrpl-gen-files"
+                                                type="file"
+                                                multiple
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={handleFileChange}
+                                            />
+                                        </label>
+
+                                        {files.length > 0 && (
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="text-muted-foreground">{files.length} / {totalSupply} expected</span>
+                                                {files.length !== parseInt(totalSupply) && (
+                                                    <span className="text-amber-500 flex items-center gap-1">
+                                                        <AlertTriangle className="w-3.5 h-3.5" />
+                                                        Expected {totalSupply} files for full supply
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {isLaunching && (
+                                            <div className="space-y-1.5">
+                                                <div className="flex justify-between text-xs text-muted-foreground">
+                                                    <span>{
+                                                        uploadProgress < 15 ? "Reserving collection ID…" :
+                                                            uploadProgress < 60 ? "Uploading images & metadata…" :
+                                                                uploadProgress < 75 ? "Setting up XRPL collection…" :
+                                                                    uploadProgress < 80 ? "Updating database…" :
+                                                                        uploadProgress < 100 ? "Minting NFTs on-chain…" :
+                                                                            "Done!"
+                                                    }</span>
+                                                    <span>{uploadProgress}%</span>
+                                                </div>
+                                                <Progress value={uploadProgress} className="h-1.5" />
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                <Button
+                                    onClick={handleLaunch}
+                                    disabled={isLaunching || files.length === 0}
+                                    className="w-full gap-2 bg-green-600 hover:bg-green-700 h-11"
+                                >
+                                    {isLaunching ? (
+                                        <><Loader2 className="w-4 h-4 animate-spin" /> Launching…</>
+                                    ) : (
+                                        <><Zap className="w-4 h-4" /> Mint {files.length > 0 ? files.length : parseInt(totalSupply).toLocaleString()} NFTs on XRPL</>
+                                    )}
+                                </Button>
+                            </div>
+                        )}
+
                     </motion.div>
                 </AnimatePresence>
 
@@ -621,17 +910,17 @@ export default function XRPLNFTGenerator() {
                         Back
                     </Button>
 
-                    {step !== "review" ? (
+                    {step !== "review" && step !== "upload" ? (
                         <Button onClick={goNext} disabled={!canAdvance} className="gap-2">
                             Next
                             <ArrowRight className="w-4 h-4" />
                         </Button>
-                    ) : (
-                        <Button onClick={handleLaunch} className="gap-2 bg-green-600 hover:bg-green-700">
-                            <Zap className="w-4 h-4" />
-                            Proceed to Asset Upload
+                    ) : step === "review" ? (
+                        <Button onClick={goNext} className="gap-2">
+                            <Upload className="w-4 h-4" />
+                            Upload Assets
                         </Button>
-                    )}
+                    ) : null}
                 </div>
 
                 {/* Error hints */}

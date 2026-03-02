@@ -75,6 +75,11 @@ export async function deployXRPLCollection(
  *
  * FIX: XRPL-009 — now uses batchMintNFTokensParallel (Ticket-based) for large batches.
  * Returns the array of XRPLMintResult so callers can store real NFTokenIDs in the DB.
+ *
+ * @param flags    NFTokenFlag bitfield — defaults to tfTransferable (8). The generator
+ *                 wizard computes this from user selections.
+ * @param issuer   Optional authorized minter address. When set, this is emitted
+ *                 as the NFTokenMint Issuer field.
  */
 export async function mintXRPLItems(
     issuerAddress: string,
@@ -83,6 +88,8 @@ export async function mintXRPLItems(
     client: Client,
     wallet: Wallet,
     transferFee = 0,
+    flags = NFTokenFlag.Transferable,  // default: tfTransferable only
+    issuer?: string,
 ): Promise<XRPLMintResult[]> {
     if (!client || !wallet) {
         throw new Error('XRPL client and wallet are required to mint NFTs.');
@@ -94,10 +101,11 @@ export async function mintXRPLItems(
         items.map((i) => ({ uri: i.uri })),
         taxon,
         transferFee,
-        NFTokenFlag.Burnable | NFTokenFlag.Transferable,
+        flags,
+        issuer,
     );
 
-    console.log(`[XRPL] Minted ${results.length} NFTs`);
+    console.log(`[XRPL] Minted ${results.length} NFTs (flags=0x${flags.toString(16)}, issuer=${issuer ?? 'none'})`);
     return results;
 }
 
