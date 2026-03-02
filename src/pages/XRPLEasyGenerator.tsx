@@ -631,61 +631,6 @@ export default function XRPLEasyGenerator() {
                     )}
                 </AnimatePresence>
 
-                {/* XRPL NFT Education Section */}
-                <div className="mt-12 space-y-6">
-                    <Separator className="bg-primary/10" />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                        <div className="space-y-4">
-                            <h3 className="text-xl font-bold flex items-center gap-2">
-                                <ShieldCheck className="w-5 h-5 text-primary" />
-                                Why XRP Ledger?
-                            </h3>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                                Creating NFTs on the XRP Ledger (XRPL) using non-custodial wallets (like Xumm) with decentralized storage ensures
-                                true ownership and persistence. XRPL offers low-cost, fast, and secure transactions with native crown-jewel features
-                                like XLS-20 built into the core protocol.
-                            </p>
-                            <ul className="space-y-2">
-                                <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                    <span><strong>Decentralized Ownership:</strong> You hold your own private keys.</span>
-                                </li>
-                                <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                    <span><strong>Persistent Storage:</strong> Metadata and images are pinned on IPFS.</span>
-                                </li>
-                                <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                    <span><strong>Immutable Linking:</strong> The IPFS CID is linked forever in the ledger transaction.</span>
-                                </li>
-                            </ul>
-                        </div>
-
-                        <div className="bg-card/30 border border-border rounded-xl p-6 space-y-4">
-                            <h3 className="text-lg font-bold flex items-center gap-2">
-                                <Cloud className="w-5 h-5 text-primary" />
-                                IPFS & Cloudflare
-                            </h3>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                We utilize a hybrid storage approach. While we provide convenient cloud hosting via Supabase for previewing and indexing,
-                                your assets are also ready for IPFS pinning.
-                            </p>
-                            <div className="p-3 bg-muted/50 rounded-lg space-y-2">
-                                <p className="text-[10px] font-mono break-all opacity-80">
-                                    ipfs://{"<YOUR_COLLECTION_CID>"}/metadata.json
-                                </p>
-                                <Separator className="opacity-10" />
-                                <p className="text-[10px] text-primary font-medium">
-                                    Resolved via: cloudflare-ipfs.com
-                                </p>
-                            </div>
-                            <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => window.open('https://xrpl.org/nfts.html', '_blank')}>
-                                View Official XRPL NFT Docs
-                                <ChevronRight className="ml-1 w-3 h-3" />
-                            </Button>
-                        </div>
-                    </div>
-                </div>
             </main>
         </div>
     );
