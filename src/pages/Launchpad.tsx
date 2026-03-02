@@ -34,7 +34,7 @@ import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { SupportedChain, CHAINS, getStoredChain, setStoredChain } from "@/config/chains";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { ipfsToHttp } from "@/lib/ipfs";
+import { useIpfs } from "@/providers/IpfsProvider";
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 const statusColors = {
@@ -166,6 +166,7 @@ function findLatestDraft(chain: string): { key: string; type: string; data: any 
 export default function Launchpad() {
   const navigate = useNavigate();
   const { network, isConnected, address } = useWallet();
+  const { resolveToGateway } = useIpfs();
 
   const [selectedChain, setSelectedChain] = useState<SupportedChain>(getStoredChain);
   const currentChain = CHAINS[selectedChain];
@@ -569,7 +570,7 @@ export default function Launchpad() {
                                 >
                                   <div className="aspect-square relative overflow-hidden bg-muted">
                                     {collection.image_url
-                                      ? <img src={ipfsToHttp(collection.image_url)} alt={collection.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                      ? <img src={resolveToGateway(collection.image_url)} alt={collection.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                                       : <div className="w-full h-full flex items-center justify-center"><Rocket className="w-10 h-10 text-muted-foreground" /></div>
                                     }
                                     {/* Badges overlay */}
@@ -695,7 +696,7 @@ export default function Launchpad() {
             return (
               <div className="flex gap-4 p-4 bg-muted/50 rounded-lg border">
                 <div className="w-14 h-14 rounded-lg overflow-hidden bg-muted shrink-0">
-                  {c.image_url ? <img src={ipfsToHttp(c.image_url)} alt={c.name} className="w-full h-full object-cover" /> : <div className="flex items-center justify-center h-full"><ImageIcon className="w-5 h-5 text-muted-foreground" /></div>}
+                  {c.image_url ? <img src={resolveToGateway(c.image_url)} alt={c.name} className="w-full h-full object-cover" /> : <div className="flex items-center justify-center h-full"><ImageIcon className="w-5 h-5 text-muted-foreground" /></div>}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold truncate">{c.name}</p>

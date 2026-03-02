@@ -15,7 +15,7 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Collection } from "./types";
-import { ipfsToHttp } from "@/lib/ipfs";
+import { useIpfs } from "@/providers/IpfsProvider";
 
 interface CollectionHeroProps {
     collection: Collection;
@@ -47,6 +47,7 @@ export const CollectionHero: React.FC<CollectionHeroProps> = ({
     handleCopyAddress,
     copied,
 }) => {
+    const { resolveToGateway } = useIpfs();
     return (
         <>
             {/* Banner */}
@@ -56,7 +57,7 @@ export const CollectionHero: React.FC<CollectionHeroProps> = ({
                 )}
                 {(collection.banner_url || collection.image_url) && (
                     <img
-                        src={ipfsToHttp(collection.banner_url || collection.image_url || '/placeholder.svg')}
+                        src={resolveToGateway(collection.banner_url || collection.image_url || '/placeholder.svg')}
                         alt={collection.name}
                         className="w-full h-full object-cover opacity-40"
                         style={{ aspectRatio: '16/5' }}
@@ -158,7 +159,7 @@ export const CollectionHero: React.FC<CollectionHeroProps> = ({
                     <div className="w-32 h-32 rounded-xl bg-muted border-4 border-background shadow-lg overflow-hidden flex items-center justify-center">
                         {collection.image_url ? (
                             <img
-                                src={ipfsToHttp(collection.image_url)}
+                                src={resolveToGateway(collection.image_url)}
                                 alt={collection.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
