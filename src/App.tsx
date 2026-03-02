@@ -109,6 +109,7 @@ const LimitedEditionMint = lazy(() => import("./pages/LimitedEditionMint"));
 const ReadyTrade = lazy(() => import("./pages/ReadyTrade"));
 const CreateCollectionPage = lazy(() => import("./pages/LaunchpadCreate"));
 const XRPLEasyGenerator = lazy(() => import("./pages/XRPLEasyGenerator"));
+const XRPLNFTGenerator = lazy(() => import("./pages/XRPLNFTGenerator"));
 const CreatorApply = lazy(() => import("./pages/CreatorApply"));
 const InterviewRoom = lazy(() => import("./pages/InterviewRoom"));
 
@@ -187,6 +188,7 @@ const App = () => (
                       <Route path="/ready-trade" element={<ProtectedRoute><ReadyTrade /></ProtectedRoute>} />
                       <Route path="/launchpad/create/:chain/:type" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreateCollectionPage /></Suspense></ProtectedRoute>} />
                       <Route path="/launchpad/easy-xrp" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><XRPLEasyGenerator /></Suspense></ProtectedRoute>} />
+                      <Route path="/launchpad/xrpl-generator" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><XRPLNFTGenerator /></Suspense></ProtectedRoute>} />
                       <Route path="/creator/apply" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreatorApply /></Suspense></ProtectedRoute>} />
                       <Route path="/interview/:applicationId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InterviewRoom /></Suspense></ProtectedRoute>} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
