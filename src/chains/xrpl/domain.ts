@@ -1,15 +1,22 @@
 /**
  * XRPL Domain - Account Domain field strategy for deterministic metadata
  *
- * Also provides the high-level deploy/mint wrappers used by the Launchpad hook.
+ * Provides the high-level deploy/mint wrappers used by the Launchpad hook.
+ *
+ * FIX: XRPL-006 — removed fake mock address fallback; now throws if client/wallet missing.
+ * FIX: XRPL-009 — mintXRPLItems now uses parallel Ticket-based minting and returns real results.
  */
 
-import { Client, Wallet, convertStringToHex } from 'xrpl';
-import { XRPLCollectionParams, XRPLDeployResult, XRPLMintItem, NFTokenFlag } from './types';
-import { getXRPLEndpoint, type XRPLNetwork } from './client';
-import { mintNFToken, batchMintNFTokens, setAccountDomain as setDomain } from './nft';
+import { Client, Wallet } from 'xrpl';
+import { XRPLCollectionParams, XRPLDeployResult, XRPLMintItem, XRPLMintResult, NFTokenFlag } from './types';
+import {
+    mintNFToken,
+    batchMintNFTokens,
+    batchMintNFTokensParallel,
+    setAccountDomain as setDomain,
+} from './nft';
 
-// ── URI hex helpers ───────────────────────────────────────
+// ── URI hex helpers ───────────────────────────────────────────────────────────
 
 /**
  * Convert a URI string to hex encoding for XRPL URI field.
@@ -27,69 +34,71 @@ export function toHexUri(uri: string): string {
         .toUpperCase();
 }
 
-/**
- * Decode a hex-encoded URI back to a string.
- */
+/** Decode a hex-encoded URI back to a string. */
 export function fromHexUri(hex: string): string {
     const bytes = new Uint8Array(hex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
     return new TextDecoder().decode(bytes);
 }
 
-// ── High-level Launchpad operations ───────────────────────
+// ── High-level Launchpad operations ──────────────────────────────────────────
 
 /**
  * Deploy an XRPL collection by setting the Account Domain field
  * and returning the issuer address + taxon for subsequent mints.
+ *
+ * FIX: XRPL-006 — Throws instead of returning a fake mock address when
+ * client or wallet is missing. The caller (useXRPLLaunch) always provides both.
  */
 export async function deployXRPLCollection(
     params: XRPLCollectionParams,
-    client?: Client,
-    wallet?: Wallet,
+    client: Client,
+    wallet: Wallet,
 ): Promise<XRPLDeployResult> {
-    const taxon = Math.floor(Math.random() * 1000000);
-
-    // If we have a live client + wallet, submit the AccountSet tx
-    if (client && wallet) {
-        if (params.baseUri) {
-            await setDomain(client, wallet, { domain: params.baseUri });
-        }
-        return { address: wallet.address, taxon };
+    if (!client || !wallet) {
+        throw new Error('XRPL client and wallet are required to deploy a collection.');
     }
 
-    // Fallback: placeholder for wallet-less preview / testing
-    console.log('[XRPL] Deploying collection:', params.name);
-    console.log('[XRPL] Base URI:', params.baseUri);
-    const mockIssuerAddress = 'rLilyPad' + Math.random().toString(36).substring(7);
-    return { address: mockIssuerAddress, taxon };
+    // Taxon groups NFTs from the same collection. Using a timestamp-seeded value
+    // makes it unique per deploy while being deterministic within a session.
+    const taxon = Math.floor(Date.now() % 1_000_000);
+
+    if (params.baseUri) {
+        // Sets Account Domain field on ledger — marketplaces use this to discover metadata
+        await setDomain(client, wallet, { domain: params.baseUri });
+    }
+
+    return { address: wallet.address, taxon };
 }
 
 /**
  * Mint XRPL NFTs for a collection.
+ *
+ * FIX: XRPL-009 — now uses batchMintNFTokensParallel (Ticket-based) for large batches.
+ * Returns the array of XRPLMintResult so callers can store real NFTokenIDs in the DB.
  */
 export async function mintXRPLItems(
     issuerAddress: string,
     taxon: number,
     items: XRPLMintItem[],
-    client?: Client,
-    wallet?: Wallet,
+    client: Client,
+    wallet: Wallet,
     transferFee = 0,
-): Promise<boolean> {
-    if (client && wallet) {
-        const results = await batchMintNFTokens(
-            client,
-            wallet,
-            items.map((i) => ({ uri: i.uri })),
-            taxon,
-            transferFee,
-            NFTokenFlag.Burnable | NFTokenFlag.Transferable,
-        );
-        console.log(`[XRPL] Minted ${results.length} NFTs`);
-        return true;
+): Promise<XRPLMintResult[]> {
+    if (!client || !wallet) {
+        throw new Error('XRPL client and wallet are required to mint NFTs.');
     }
 
-    // Fallback placeholder
-    console.log(`[XRPL] Minting ${items.length} NFTs for taxon ${taxon}`);
-    return true;
+    const results = await batchMintNFTokensParallel(
+        client,
+        wallet,
+        items.map((i) => ({ uri: i.uri })),
+        taxon,
+        transferFee,
+        NFTokenFlag.Burnable | NFTokenFlag.Transferable,
+    );
+
+    console.log(`[XRPL] Minted ${results.length} NFTs`);
+    return results;
 }
 
 /**

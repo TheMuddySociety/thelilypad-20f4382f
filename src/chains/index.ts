@@ -32,7 +32,7 @@ export { createSplToken, mintSplTokens } from './solana/splToken';
 export type { SplTokenConfig, SplTokenResult } from './solana/splToken';
 export type { LaunchpadPhase } from './solana/programs';
 export { deployXRPLCollection, mintXRPLItems, resolveAccountDomain, toHexUri, fromHexUri } from './xrpl/domain';
-export { mintNFToken, batchMintNFTokens, createSellOffer, createBuyOffer, acceptOffer, brokerSale, cancelOffers, burnNFToken, setAuthorizedMinter, setAccountDomain, getAccountNFTs, getNFTSellOffers, getNFTBuyOffers } from './xrpl/nft';
+export { mintNFToken, batchMintNFTokens, batchMintNFTokensParallel, safeExtractNFTokenId, createSellOffer, createBuyOffer, acceptOffer, brokerSale, cancelOffers, burnNFToken, setAuthorizedMinter, setAccountDomain, getAccountNFTs, getNFTSellOffers, getNFTBuyOffers } from './xrpl/nft';
 export { listNFTForSale, buyNFTNow, makeOffer, acceptBuyOffer, brokerNFTSale, cancelListing, getListings, getOffers } from './xrpl/marketplace';
 export { createXRPLClient, disconnectXRPLClient } from './xrpl/client';
 export { NFTokenFlag } from './xrpl/types';

@@ -66,6 +66,12 @@ export interface XRPLMintParams {
      * set this to the issuer's address.
      */
     issuer?: string;
+    /**
+     * For parallel minting with XRPL Tickets.
+     * When set, Sequence is forced to 0 and this Ticket is consumed.
+     * @see batchMintNFTokensParallel in nft.ts
+     */
+    ticketSequence?: number;
 }
 
 export interface XRPLMintResult {

@@ -209,7 +209,7 @@ export default function XRPLEasyGenerator() {
     const launchNfts = async () => {
         if (!deployedResult || !collectionCid) return;
 
-        // Look up the collection to get its storageInfo for Supabase URIs
+        // Resolve the collection ID from  DB (in case state was cleared)
         const { data: collData } = await supabase
             .from("collections")
             .select('id')
@@ -221,34 +221,46 @@ export default function XRPLEasyGenerator() {
         try {
             toast.loading(`Minting ${files.length} NFTs...`, { id: 'easy-mint' });
 
-            // Always use Supabase-hosted metadata URIs for minting
+            // Build items — each URI points to its Supabase-hosted metadata JSON
             const items = files.map((_, i) => ({
                 name: `${name} #${i + 1}`,
                 uri: storageInfo.itemMetadataUri(i)
             }));
 
-            await mintXRPLItems(deployedResult.address, deployedResult.taxon, items, Math.round(transferFee * 1000));
+            // mintXRPLItems now returns XRPLMintResult[] with real NFTokenIDs + tx hashes
+            const mintResults = await mintXRPLItems(
+                deployedResult.address,
+                deployedResult.taxon,
+                items,
+                Math.round(transferFee * 1000)
+            );
+
+            if (!mintResults || mintResults.length === 0) {
+                throw new Error('Mint returned no results — check wallet connection and XRP balance.');
+            }
 
             // Update the minted count and status in the database
             const finalCollectionId = collectionId || cid;
             await supabase.from("collections").update({
-                minted: files.length,
+                minted: mintResults.length,
                 status: "minted"
             }).eq('id', finalCollectionId);
 
-            // Index individual NFTs so they show up in the gallery
+            // Index individual NFTs with real on-chain IDs so they show up in the gallery
             const { data: { session } } = await supabase.auth.getSession();
-            const nftRecords = files.map((file, i) => {
-                const ext = file.name.split('.').pop() || 'png';
+            const nftRecords = mintResults.map((res, i) => {
+                const file = files[i];
+                const ext = file?.name.split('.').pop() || 'png';
                 return {
                     collection_id: finalCollectionId,
-                    token_id: i,
+                    token_id: i,                              // sequential index for gallery ordering
+                    nft_token_id: res.nfTokenId,             // real 64-char XRPL NFTokenID
                     name: `${name} #${i + 1}`,
                     description: description,
                     image_url: storageInfo.itemImageUri(i, ext),
                     owner_address: deployedResult.address,
                     owner_id: session?.user?.id || '',
-                    tx_hash: 'batch-mint',
+                    tx_hash: res.txHash,                     // real per-token tx hash
                     is_revealed: true,
                     minted_at: new Date().toISOString()
                 };

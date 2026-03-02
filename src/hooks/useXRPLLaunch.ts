@@ -6,6 +6,7 @@ import {
     mintXRPLItems as mintXRPLItemsChain,
     XRPLCollectionParams,
     XRPLDeployResult,
+    XRPLMintResult,
     createXRPLClient,
     disconnectXRPLClient,
 } from '@/chains';
@@ -16,14 +17,15 @@ import { loadXRPLWallet, getXRPLNetwork } from '@/lib/xrpl-wallet';
  *
  * Loads the stored XRPL wallet + creates a live xrpl.js Client,
  * then delegates to the centralized chains/xrpl/* modules.
+ *
+ * FIX: mintXRPLItems now returns XRPLMintResult[] (real NFTokenIDs) instead of boolean.
  */
-
 export function useXRPLLaunch() {
     const [isDeploying, setIsDeploying] = useState(false);
     const [isMinting, setIsMinting] = useState(false);
 
     /**
-     * Deploy XRPL collection with Account Domain strategy.
+     * Deploy XRPL collection: sets Account Domain on ledger.
      * Connects to the ledger using the stored wallet.
      */
     const deployXRPLCollection = useCallback(async (
@@ -60,19 +62,22 @@ export function useXRPLLaunch() {
     }, []);
 
     /**
-     * Mint XRPL NFTs using the stored wallet.
+     * Batch-mint XRPL NFTs using the stored wallet.
+     * Uses parallel Ticket-based minting for collections > 5 items.
+     *
      * @param transferFee  0-50000 (0.000% – 50.000%), default 0
+     * @returns Array of { nfTokenId, txHash } for each minted NFT
      */
     const mintItems = useCallback(async (
         issuerAddress: string,
         taxon: number,
         items: { name: string; uri: string }[],
         transferFee: number = 0,
-    ): Promise<boolean> => {
+    ): Promise<XRPLMintResult[]> => {
         // XRPL enforces TransferFee 0-50000 (0%–50%)
         if (transferFee < 0 || transferFee > 50000) {
             toast.error(`Invalid royalty: ${(transferFee / 1000).toFixed(1)}%. XRPL max is 50%.`);
-            return false;
+            return [];
         }
         setIsMinting(true);
         let client: Awaited<ReturnType<typeof createXRPLClient>> | null = null;
@@ -88,16 +93,16 @@ export function useXRPLLaunch() {
             client = await createXRPLClient(network);
             const wallet = Wallet.fromSeed(storedWallet.seed);
 
-            const result = await mintXRPLItemsChain(
+            const results = await mintXRPLItemsChain(
                 issuerAddress, taxon, items, client, wallet, transferFee
             );
 
             toast.success(`XRPL NFTs minted!`, { id: 'xrpl-mint' });
-            return result;
+            return results;
         } catch (err: any) {
             console.error('XRPL minting error:', err);
             toast.error(err.message || 'Failed to mint XRPL NFTs', { id: 'xrpl-mint' });
-            return false;
+            return [];
         } finally {
             if (client) {
                 try { await disconnectXRPLClient(client); } catch { /* ignore */ }
