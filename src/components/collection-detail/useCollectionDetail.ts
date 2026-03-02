@@ -190,8 +190,15 @@ export function useCollectionDetail() {
             return;
         }
 
-        if (!collection?.contract_address || !activePhase) {
-            toast.error("Collection not ready for minting");
+        if (!collection?.contract_address) {
+            toast.error("Collection not deployed yet — no contract address found");
+            return;
+        }
+
+        // XRPL collections created via the generator/easy-gen flow don't use phases.
+        // Only require activePhase for Solana (Candy Machine) mints.
+        if (!isXRPL && !activePhase) {
+            toast.error("No active mint phase configured for this collection");
             return;
         }
 
@@ -199,16 +206,16 @@ export function useCollectionDetail() {
         try {
             if (isSolana) {
                 const mintArgs: any = {};
-                if (activePhase.requiresAllowlist) {
+                if (activePhase!.requiresAllowlist) {
                     const { proof } = getMerkleProof(allowlistEntries as any, address!);
                     mintArgs.allowList = { proof };
                 }
 
                 const txHash = await performSolanaMint(
-                    activePhase.candyMachineAddress || collection.contract_address,
+                    activePhase!.candyMachineAddress || collection.contract_address,
                     collection.solana_standard || 'core',
                     amount,
-                    activePhase.id,
+                    activePhase!.id,
                     mintArgs
                 );
 
@@ -222,23 +229,33 @@ export function useCollectionDetail() {
             } else if (isXRPL) {
                 toast.loading(`Minting your NFT on XRPL...`, { id: 'xrpl-mint' });
 
-                // Construct metadata URI for XRPL (XLS-20)
-                // If the collection has an ipfs_base_cid, we use it. 
-                // Otherwise fall back to the image_url or a placeholder
-                const baseCid = collection.ipfs_base_cid;
                 let lastResult = null;
+                const currentMinted = collection.minted || 0;
 
                 for (let i = 0; i < amount; i++) {
-                    const itemIndex = (collection.minted || 0) + i + 1;
-                    const metadataUri = baseCid
-                        ? `ipfs://${baseCid}/${itemIndex}.json`
-                        : (collection.image_url || "");
+                    // itemIndex is 0-based to match how the generator stores metadata
+                    const itemIndex = currentMinted + i;
+
+                    // Prefer IPFS CID (admin pinned), then fall back to Supabase-hosted metadata
+                    let metadataUri: string;
+                    if (collection.ipfs_base_cid) {
+                        metadataUri = `ipfs://${collection.ipfs_base_cid}/${itemIndex}.json`;
+                    } else {
+                        // Supabase metadata URL — same path used when minting via the generators
+                        const { getCollectionStorageInfo } = await import("@/lib/payloadMapper");
+                        const storageInfo = getCollectionStorageInfo(collection.id);
+                        metadataUri = storageInfo.itemMetadataUri(itemIndex);
+                    }
+
+                    console.log(`[CollectionDetail] XRPL mint #${itemIndex}: uri=${metadataUri}`);
 
                     const result = await xrplMint.mintNFT(metadataUri, {
                         collectionId: collection.id,
-                        phaseId: activePhase.id,
-                        price: Number(activePhase.price) || 0,
-                        transferFee: (collection.royalty_percent || 0) * 1000, // XLS-20 uses 0-50000 (1000 = 1%)
+                        phaseId: activePhase?.id || 'public',
+                        price: Number(activePhase?.price) || 0,
+                        // royalty_percent is stored as a plain number (e.g. 5 = 5%)
+                        // XLS-20 TransferFee uses 0-50000 (5000 = 5%)
+                        transferFee: Math.round((collection.royalty_percent || 0) * 1000),
                     });
                     lastResult = result;
 
@@ -253,6 +270,7 @@ export function useCollectionDetail() {
                     setRevealedNfts(generateRandomAttributes(amount, collection.minted));
                     setShowRevealModal(true);
                     fetchCollection();
+                    toast.success("Minted!", { id: 'xrpl-mint' });
                 }
             } else {
                 toast.info(`${collectionNetwork} minting logic coming soon`);
