@@ -16,7 +16,7 @@ import {
   Plus, Rocket, Clock, CheckCircle, Sparkles, Loader2, FileEdit, Trash2,
   Image as ImageIcon, LayoutGrid, Check, Pencil, Lock, AlertCircle, ArrowRight,
   Layers, Zap, Globe, ChevronRight, Palette, Music, BarChart3, ShoppingCart,
-  Star, TrendingUp, Repeat,
+  TrendingUp, Repeat,
 } from "lucide-react";
 import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
@@ -67,7 +67,6 @@ interface CollectionTypeTile {
   icon: React.ComponentType<{ className?: string }>;
   tag?: string;
   highlight?: boolean;
-  xrplDefault?: boolean;
   chains: SupportedChain[];
 }
 
@@ -98,14 +97,13 @@ const COLLECTION_TYPES: CollectionTypeTile[] = [
     chains: ["solana", "monad"],
   },
   {
-    id: "xrpl-589",
-    title: "XRPL Collection · 589 Supply",
-    description: "XLS-20 ready collection built for XRPL. Bulk upload assets and metadata to IPFS with deterministic resolution.",
-    icon: Star,
+    id: "xrpl-generator",
+    title: "XRPL NFT Generator",
+    description: "Purpose-built XLS-20 generator. Design your collection with the full XRPL NFT standard — taxons, flags, transfer fees, and on-chain metadata.",
+    icon: Zap,
     highlight: true,
-    xrplDefault: true,
     chains: ["xrpl"],
-    tag: "XRPL Native",
+    tag: "New",
   },
   {
     id: "1of1",
@@ -253,6 +251,10 @@ export default function Launchpad() {
     }
     if (tile.id === "easy-xrp") {
       navigate(`/launchpad/easy-xrp`);
+      return;
+    }
+    if (tile.id === "xrpl-generator") {
+      navigate(`/launchpad/xrpl-generator`);
       return;
     }
     // Navigate to the new creation page

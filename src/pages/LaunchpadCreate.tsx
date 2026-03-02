@@ -599,7 +599,7 @@ export default function LaunchpadCreate() {
                 name || "Collection",
                 description || "",
                 selectedChain,
-                selectedChain === 'xrpl' ? 4000 : 1024,
+                selectedChain === 'xrpl' ? 1024 : 1024,
                 (status, progress) => {
                     setDownloadStatus(status);
                     setDownloadProgress(progress);
@@ -766,7 +766,7 @@ export default function LaunchpadCreate() {
                                             <p className="text-xs text-muted-foreground">How many unique NFTs to generate from your layers.</p>
                                             {selectedChain === 'xrpl' && (
                                                 <p className="text-xs text-amber-500 mt-2">
-                                                    ⚠️ XRPL uses high-resolution (4000px) composites by default.
+                                                    ⚠️ XRPL uses 1024px composites. Export higher resolutions via the Generation Preview if needed.
                                                     Generating and zipping many items may require significant browser memory.
                                                 </p>
                                             )}

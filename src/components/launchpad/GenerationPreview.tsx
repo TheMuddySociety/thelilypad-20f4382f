@@ -27,7 +27,6 @@ const RESOLUTION_PRESETS = [
   { label: "512 Ã— 512 (Preview)", value: 512 },
   { label: "1024 Ã— 1024 (Standard)", value: 1024 },
   { label: "2048 Ã— 2048 (High Quality)", value: 2048 },
-  { label: "4000 Ã— 4000 (Ultra HD / XRPL)", value: 4000 },
 ];
 
 interface GenerationPreviewProps {
@@ -57,7 +56,7 @@ export function GenerationPreview({
   const { isAdmin } = useAuth();
   const [previewCount, setPreviewCount] = useState("5");
   const [exportCount, setExportCount] = useState(xrplMode ? "589" : (totalSupply || "100"));
-  const [outputResolution, setOutputResolution] = useState<number>(xrplMode ? 4000 : 512);
+  const [outputResolution, setOutputResolution] = useState<number>(xrplMode ? 1024 : 512);
   const [rarityReport, setRarityReport] = useState<RarityReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
@@ -660,7 +659,7 @@ export function GenerationPreview({
                 <Zap className="w-5 h-5 text-blue-400 shrink-0" />
                 <div>
                   <p className="text-sm font-semibold text-blue-400">XRPL Mode Active</p>
-                  <p className="text-xs text-muted-foreground">Pre-set to 589 supply Â· 4000 Ã— 4000 px Â· XLS-20 metadata</p>
+                  <p className="text-xs text-muted-foreground">Pre-set for XLS-20 · Supabase-hosted metadata</p>
                 </div>
               </CardContent>
             </Card>
