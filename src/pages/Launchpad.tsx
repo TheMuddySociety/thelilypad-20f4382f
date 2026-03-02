@@ -249,11 +249,6 @@ export default function Launchpad() {
   const chainTiles = COLLECTION_TYPES.filter((t) => t.chains.includes(selectedChain));
 
   const handleTileClick = (tile: CollectionTypeTile) => {
-    // Block Monad until contracts are implemented
-    if (selectedChain === 'monad') {
-      toast.info('Monad NFT minting is coming soon! Contracts are being finalized.', { duration: 5000 });
-      return;
-    }
     if (tile.id === "hybrid-404") {
       setShowHybridForm(true);
       return;

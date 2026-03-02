@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useSolanaMint } from '@/hooks/useSolanaMint';
+import { useMonadLaunch } from '@/hooks/useMonadLaunch';
 import { SupportedChain, CHAINS } from '@/config/chains';
 
 interface MintButtonProps {
@@ -14,7 +15,7 @@ interface MintButtonProps {
 
 /**
  * Multi-chain mint button that triggers minting for a deployed collection.
- * Supports Solana (full), XRP (limited), and Monad (coming soon).
+ * Supports Solana (full), XRP (limited), and Monad (full beta).
  */
 export function MintButton({
     collectionId,
@@ -24,6 +25,7 @@ export function MintButton({
     chain = 'solana'
 }: MintButtonProps) {
     const { isLoading: isSolanaLoading, mintFromCandyMachine } = useSolanaMint();
+    const { isCreating: isMonadLoading, mintNFT: mintMonadNFT } = useMonadLaunch();
 
     // Get chain config for display
     const chainConfig = CHAINS[chain] || CHAINS.solana;
@@ -33,7 +35,7 @@ export function MintButton({
     // XRP is handled via handleMint on the detail page directly for now, 
     // but the button should still show the correct info if rendered here.
     const isMintingSupported = chain === 'solana' || chain === 'monad' || chain === 'xrpl';
-    const isLoading = isSolanaLoading;
+    const isLoading = isSolanaLoading || isMonadLoading;
 
     const handleMint = async () => {
         if (chain === 'xrpl') {
@@ -46,22 +48,26 @@ export function MintButton({
         }
 
         try {
-            const result = await mintFromCandyMachine(
-                candyMachineAddress,
-                collectionAddress,
-                {
-                    // Minimal phase args – using public phase by default
-                    phaseId: 'public',
-                    price,
-                    // No allow-list proof needed for public phase
-                }
-            );
-            // The hook already tracks the transaction; we just surface UI feedback.
+            if (chain === 'solana') {
+                await mintFromCandyMachine(
+                    candyMachineAddress,
+                    collectionAddress,
+                    {
+                        phaseId: 'public',
+                        price,
+                    }
+                );
+            } else if (chain === 'monad') {
+                await mintMonadNFT(
+                    collectionAddress,
+                    1,
+                    price.toString()
+                );
+            }
             toast.success('Mint succeeded! 🎉');
-        } catch (e) {
+        } catch (e: any) {
             console.error('Mint error', e);
-            // The hook sets `error` and shows a toast, but we keep a fallback.
-            toast.error('Mint failed. See console for details.');
+            toast.error(e.message || 'Mint failed. See console for details.');
         }
     };
 
