@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# PWA dev output (generated, not committed)
+dev-dist
+
+# Agent memory files — explicitly tracked (do NOT add these to gitignore)
+# PROJECT_MEMORY.md
+# .agents/
