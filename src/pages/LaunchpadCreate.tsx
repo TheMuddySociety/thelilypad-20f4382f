@@ -435,18 +435,18 @@ export default function LaunchpadCreate() {
                 }));
 
                 toast.loading(`Minting ${itemsToMint.length} items on XRPL...`, { id: 'deploy-status' });
-                const mintSuccess = await xrplLaunch.mintXRPLItems(
+                const mintResults = await xrplLaunch.mintXRPLItems(
                     xrplRes.address,
                     xrplRes.taxon,
                     itemsToMint,
                     Math.min(Math.round(royaltyPercent * 1000), 50000) // XRPL max: 50000 (50%)
                 );
 
-                if (!mintSuccess) throw new Error("XRPL Minting failed. Check your wallet balance.");
+                if (!mintResults || mintResults.length === 0) throw new Error("XRPL Minting failed. Check your wallet balance and XRP reserves.");
 
                 // Index the minted NFTs so they show up in the collection gallery
                 toast.loading("Indexing collection...", { id: 'deploy-status' });
-                const nftRecords = itemsToMint.map((item, i) => {
+                const nftRecords = mintResults.map((res, i) => {
                     const asset = assetsToUpload[i];
                     let fileExt = 'png';
                     if (asset && 'file' in asset) {
@@ -456,12 +456,13 @@ export default function LaunchpadCreate() {
                     return {
                         collection_id: collectionId,
                         token_id: i,
-                        name: item.name,
+                        nft_token_id: res.nfTokenId,   // real 64-char XRPL NFTokenID
+                        name: itemsToMint[i].name,
                         description: description,
                         image_url: storageInfo.itemImageUri(i, fileExt),
                         owner_address: xrplRes.address,
                         owner_id: user.id,
-                        tx_hash: 'batch-mint',
+                        tx_hash: res.txHash,           // real per-token tx hash
                         is_revealed: true,
                         minted_at: new Date().toISOString()
                     };
