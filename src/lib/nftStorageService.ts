@@ -13,11 +13,15 @@
  *   • nft-images    — composited PNG/WEBP images
  *   • nft-metadata  — ERC-721 / XLS-20 JSON files
  *   • collection-images — cover images
+ * 
+ * IPFS Pinning (via NFT.Storage):
+ *   • Uses the "Preserve" API for verifiable collection-wide persistence.
  */
 
 import JSZip from 'jszip';
 import { storageClient, NFT_BUCKETS, uploadToNftStorage, getStoragePublicUrl, isNftStorageConfigured } from '@/integrations/supabase/storageClient';
 import { dataUrlToBlob } from '@/lib/utils';
+import { createCollectionOnIPFS, addTokensToCollection, NFTStorageCollection } from '@/integrations/nftstorage/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -308,4 +312,28 @@ HOW TO LAUNCH ON AN EXTERNAL LAUNCHPAD
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Generated: ${new Date().toUTCString()}
 `.trim();
+}
+
+/**
+ * Professional IPFS Pinning:
+ * Create a named collection on NFT.Storage and add all item CIDs to it.
+ * This ensures the entire drop is indexed for long-term persistence (Filecoin deals).
+ * 
+ * @param collectionName Name of the collection (e.g. "Fat Cats #0")
+ * @param items         Array of generated items with their metadata CIDs
+ * @param contractAddress Optional blockchain address linked to this collection
+ */
+export async function pinCollectionToIPFS(
+    collectionName: string,
+    items: { tokenID: string; cid: string }[],
+    contractAddress?: string
+): Promise<NFTStorageCollection> {
+    // 1. Create the collection container
+    const collection = await createCollectionOnIPFS(collectionName, contractAddress);
+
+    // 2. Add tokens to the collection in batches (Preserve API supports CSV bulk upload)
+    // The tokens array here contains the CIDs mapped to their IDs
+    await addTokensToCollection(collection.collectionID, items);
+
+    return collection;
 }
