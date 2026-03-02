@@ -69,16 +69,59 @@ export default function XRPLEasyGenerator() {
 
     // Handlers
     const MAX_FILE_SIZE_MB = 10;
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const selected = Array.from(e.target.files);
-            const oversized = selected.filter(f => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
-            if (oversized.length > 0) {
-                toast.error(`${oversized.length} file(s) exceed ${MAX_FILE_SIZE_MB}MB limit and were removed.`);
-                setFiles(selected.filter(f => f.size <= MAX_FILE_SIZE_MB * 1024 * 1024));
-            } else {
-                setFiles(selected);
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files) return;
+        const selected = Array.from(e.target.files);
+
+        // Handle ZIP uploads
+        if (selected.length === 1 && selected[0].name.endsWith('.zip')) {
+            toast.loading("Extracting ZIP collection...", { id: "extract-zip" });
+            try {
+                const zip = await JSZip.loadAsync(selected[0]);
+                const extractedFiles: File[] = [];
+
+                // Look for images folder or flat images
+                const imagePromises: Promise<void>[] = [];
+
+                zip.forEach((relativePath, file) => {
+                    if (!file.dir && (relativePath.endsWith('.png') || relativePath.endsWith('.jpg') || relativePath.endsWith('.jpeg'))) {
+                        const promise = file.async("blob").then((blob) => {
+                            const newFile = new File([blob], relativePath.split('/').pop() || relativePath, { type: "image/png" });
+                            if (newFile.size <= MAX_FILE_SIZE_MB * 1024 * 1024) {
+                                extractedFiles.push(newFile);
+                            }
+                        });
+                        imagePromises.push(promise);
+                    }
+                });
+
+                await Promise.all(imagePromises);
+
+                // Sort by filename number if possible
+                extractedFiles.sort((a, b) => {
+                    const numA = parseInt(a.name.match(/\d+/)?.[0] || "0");
+                    const numB = parseInt(b.name.match(/\d+/)?.[0] || "0");
+                    return numA - numB;
+                });
+
+                if (extractedFiles.length > 0) {
+                    setFiles(extractedFiles);
+                    toast.success(`Extracted ${extractedFiles.length} images from ZIP`, { id: "extract-zip" });
+                } else {
+                    toast.error("No valid images found in ZIP", { id: "extract-zip" });
+                }
+            } catch (err) {
+                toast.error("Failed to extract ZIP", { id: "extract-zip" });
             }
+            return;
+        }
+
+        const oversized = selected.filter(f => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
+        if (oversized.length > 0) {
+            toast.error(`${oversized.length} file(s) exceed ${MAX_FILE_SIZE_MB}MB limit and were removed.`);
+            setFiles(selected.filter(f => f.size <= MAX_FILE_SIZE_MB * 1024 * 1024));
+        } else {
+            setFiles(selected);
         }
     };
 

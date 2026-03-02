@@ -106,6 +106,14 @@ const COLLECTION_TYPES: CollectionTypeTile[] = [
     tag: "New",
   },
   {
+    id: "art-generator",
+    title: "Art Generator (ZIP)",
+    description: "Generate images + metadata locally and download as a ZIP. Perfect for offline prep or external minting.",
+    icon: Palette,
+    chains: ["xrpl"],
+    tag: "No-Code",
+  },
+  {
     id: "1of1",
     title: "1/1 & Limited Editions",
     description: "Hand-crafted one-of-a-kind pieces or small numbered editions. Perfect for collectors and gallery drops.",
@@ -255,6 +263,10 @@ export default function Launchpad() {
     }
     if (tile.id === "xrpl-generator") {
       navigate(`/launchpad/xrpl-generator`);
+      return;
+    }
+    if (tile.id === "art-generator") {
+      navigate(`/launchpad/art-generator`);
       return;
     }
     // Navigate to the new creation page
