@@ -7,29 +7,27 @@ interface PWAUpdateState {
   dismissUpdate: () => void;
 }
 
+/**
+ * Listens for service-worker lifecycle events injected by vite-plugin-pwa
+ * (injectRegister: "auto").  Does NOT call navigator.serviceWorker.register()
+ * itself — the plugin already handles that via its auto-injected script.
+ */
 export const usePWAUpdate = (): PWAUpdateState => {
   const [needRefresh, setNeedRefresh] = useState(false);
   const [offlineReady, setOfflineReady] = useState(false);
-  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      registerServiceWorker();
-    }
-  }, []);
+    if (!('serviceWorker' in navigator)) return;
 
-  const registerServiceWorker = async () => {
-    try {
-      const reg = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/',
-      });
-      setRegistration(reg);
+    const handleRegistration = (reg: ServiceWorkerRegistration) => {
+      // Check for an already-waiting worker
+      if (reg.waiting) {
+        setWaitingWorker(reg.waiting);
+        setNeedRefresh(true);
+      }
 
-      // Check for updates periodically (every 5 minutes)
-      setInterval(() => {
-        reg.update();
-      }, 5 * 60 * 1000);
-
+      // Listen for future updates
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         if (!newWorker) return;
@@ -37,36 +35,34 @@ export const usePWAUpdate = (): PWAUpdateState => {
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
-              // New content available
+              setWaitingWorker(newWorker);
               setNeedRefresh(true);
             } else {
-              // Content cached for offline use
               setOfflineReady(true);
             }
           }
         });
       });
 
-      // Handle controller change (when skipWaiting is called)
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
-      });
+      // Periodic update check (every 5 min)
+      const interval = setInterval(() => reg.update(), 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    };
 
-      // Check if there's already a waiting worker
-      if (reg.waiting) {
-        setNeedRefresh(true);
-      }
-    } catch (error) {
-      console.error('Service worker registration failed:', error);
-    }
-  };
+    // Grab the registration that vite-plugin-pwa already created
+    navigator.serviceWorker.ready.then(handleRegistration);
+
+    // Reload when the new SW takes control
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
+  }, []);
 
   const updateServiceWorker = useCallback(async () => {
-    if (registration?.waiting) {
-      // Tell the waiting service worker to take control
-      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    if (waitingWorker) {
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
     }
-  }, [registration]);
+  }, [waitingWorker]);
 
   const dismissUpdate = useCallback(() => {
     setNeedRefresh(false);

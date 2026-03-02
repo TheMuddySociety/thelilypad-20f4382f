@@ -202,7 +202,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setState(prev => ({ ...prev, isConnecting: false }));
       throw error;
     }
-  }, [getSDK, fetchSolanaBalance, state.network]);
+  }, [getSDK, fetchSolanaBalance, ensureSupabaseSession, state.network]);
 
 
   // Connect Solana (Legacy method - Phantom injected provider)
@@ -260,7 +260,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setState(prev => ({ ...prev, isConnecting: false }));
       throw error;
     }
-  }, [fetchSolanaBalance]);
+  }, [fetchSolanaBalance, ensureSupabaseSession]);
 
   // Connect XRPL wallet (non-custodial browser wallet)
   const connectXRPL = useCallback(async (action: 'generate' | 'import' = 'generate', seed?: string) => {
@@ -314,7 +314,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toast.error(error?.message || "Failed to connect XRPL wallet");
       throw error;
     }
-  }, []);
+  }, [ensureSupabaseSession]);
 
   // Connect Monad wallet via Phantom (EVM address)
   const connectMonad = useCallback(async () => {
@@ -388,7 +388,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toast.error(msg);
       throw error;
     }
-  }, [getSDK]);
+  }, [getSDK, ensureSupabaseSession]);
 
   // Main connect function
   const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
@@ -467,7 +467,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toast.error(err?.message || "Failed to connect wallet. Please install Phantom or try again.");
       return;
     }
-  }, [chain.id, isPhantomAvailable, connectWithSDK, connectSolanaLegacy, connectXRPL, connectMonad]);
+  }, [chain.id, connectWithSDK, connectSolanaLegacy, connectXRPL, connectMonad]);
 
   // Connect with OAuth
   const connectWithOAuth = useCallback(async (provider: OAuthProvider) => {
@@ -499,8 +499,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isConnected: false,
       isConnecting: false,
       balance: null,
-      walletType: null,   // Bug 4 fix: reset stale chain/wallet type
-      chainType: null,
+      walletType: null,
+      chainType: "solana" as ChainType, // Reset to default instead of null to match type
       authProvider: undefined,
     }));
 
