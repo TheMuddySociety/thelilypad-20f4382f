@@ -1,13 +1,14 @@
 import { SupportedChain } from "@/config/chains";
 
 /**
- * PayloadMapper - Deterministic Metadata Resolution
+ * PayloadMapper - Professional Metadata Resolution
  *
  * Generates root URIs and item paths for the dedicated NFT Storage
  * Supabase project (jlkupdukwgsadvzxafed).
  *
- * All creators use Supabase Cloud as primary hosting.
- * IPFS (via Cloudflare gateway) is admin-only and is NOT part of the launchpad flow.
+ * All creators use the Hybrid Launchpad strategy:
+ * 1. Supabase Cloud: Primary hosting for speed and immediate previewing.
+ * 2. NFT.Storage (IPFS): Permanent on-chain reference and Filecoin persistence.
  */
 
 // Points to the NFT Storage Supabase project (not the main app project)

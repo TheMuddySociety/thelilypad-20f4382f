@@ -40,6 +40,8 @@ import { useWallet } from "@/providers/WalletProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { useSolanaLaunch, LaunchpadPhase } from "@/hooks/useSolanaLaunch";
 import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
+import { pinCollectionToIPFS } from "@/lib/nftStorageService";
+import { useIpfs } from "@/providers/IpfsProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { storageClient, NFT_BUCKETS } from "@/integrations/supabase/storageClient";
 import { motion, AnimatePresence } from "framer-motion";
@@ -206,21 +208,192 @@ export default function LaunchpadCreate() {
         }
     };
 
+    const { resolveToGateway } = useIpfs();
+
     const handleDeploy = async () => {
         if (isDeploying) return;
-        if (!name || !symbol) return toast.error("Fill in name and symbol.");
-        if (!address) return toast.error("Connect wallet.");
+        if (!name || !symbol) return toast.error("Please enter a name and symbol.");
+        if (!address) return toast.error("Connect your wallet to launch.");
 
         setIsDeploying(true);
+        let collectionId = "";
+
         try {
-            toast.loading(`Launching on ${currentChain.name}...`, { id: 'deploy' });
-            // ... (deploy logic remains same as previously established)
-            // For brevity in this fix, I'll keep the core structure and assume the user wants me to fix the UI mess.
-            // Deployment logic is standard.
-            toast.success("Success!", { id: 'deploy' });
+            // ── Step 0: Identify assets to process ──────────────────────────
+            let assetsToUpload: { name: string; file: File; metadata: any }[] = [];
+
+            if (is1of1) {
+                assetsToUpload = artworks.map((art, i) => ({
+                    name: art.name,
+                    file: art.file!,
+                    metadata: {
+                        name: art.name,
+                        description: art.description || description,
+                        attributes: art.attributes || []
+                    }
+                }));
+            } else if (flowType === 'music') {
+                assetsToUpload = tracks.map((track, i) => ({
+                    name: track.metadata.name || `${name} Track #${i + 1}`,
+                    file: track.coverFile!,
+                    metadata: track.metadata
+                }));
+            } else if (mode === 'advanced') {
+                assetsToUpload = generatedAssets.map((asset, i) => ({
+                    name: asset.name,
+                    file: dataUrlToBlob(asset.preview) as File,
+                    metadata: asset.metadata
+                }));
+            } else {
+                assetsToUpload = folderAssets.map((asset, i) => ({
+                    name: asset.name,
+                    file: asset.file,
+                    metadata: {
+                        name: asset.name,
+                        description: description,
+                        attributes: []
+                    }
+                }));
+            }
+
+            if (assetsToUpload.length === 0) return toast.error("No assets ready for launch.");
+
+            // ── Step 1: Initialize Database Entry ──────────────────────────
+            toast.loading("Establishing provenance...", { id: 'deploy' });
+            const { data: { user } } = await supabase.auth.getUser();
+
+            const { data: collection, error: collErr } = await supabase
+                .from("collections")
+                .insert({
+                    name,
+                    symbol,
+                    description,
+                    chain: getDbChainValue(selectedChain, network as 'mainnet' | 'testnet'),
+                    status: "draft",
+                    total_supply: assetsToUpload.length,
+                    creator_id: user?.id,
+                    creator_address: address
+                })
+                .select('id')
+                .single();
+
+            if (collErr) throw collErr;
+            collectionId = collection.id;
+            const storageInfo = getCollectionStorageInfo(collectionId);
+
+            // ── Step 2: Parallel Uploads (Supabase + IPFS) ─────────────────
+            toast.loading(`Securing ${assetsToUpload.length} items to Cloud & IPFS...`, { id: 'deploy' });
+            const itemLinks: { tokenID: string; cid: string }[] = [];
+            const batchSize = 5;
+
+            for (let i = 0; i < assetsToUpload.length; i += batchSize) {
+                const batch = assetsToUpload.slice(i, i + batchSize);
+                await Promise.all(batch.map(async (asset, idx) => {
+                    const tokenId = i + idx;
+                    const fileExt = asset.file.name ? asset.file.name.split('.').pop() : 'png';
+
+                    // Task A: Image to Supabase
+                    const s3ImagePromise = storageClient.storage
+                        .from(NFT_BUCKETS.IMAGES)
+                        .upload(`collections/${collectionId}/${tokenId}.${fileExt}`, asset.file, { upsert: true });
+
+                    // Task B: Image to IPFS
+                    const ipfsImagePromise = uploadToIPFS(asset.file, `${tokenId}.${fileExt}`);
+
+                    const [s3Image, ipfsImageUri] = await Promise.all([s3ImagePromise, ipfsImagePromise]);
+
+                    const { data: { publicUrl: s3Url } } = storageClient.storage
+                        .from(NFT_BUCKETS.IMAGES)
+                        .getPublicUrl(`collections/${collectionId}/${tokenId}.${fileExt}`);
+
+                    const metadata = {
+                        ...asset.metadata,
+                        image: ipfsImageUri,
+                        external_url: s3Url
+                    };
+
+                    const metadataJson = JSON.stringify(metadata, null, 2);
+                    const metadataBlob = new Blob([metadataJson], { type: 'application/json' });
+
+                    // Task C: Metadata to Supabase
+                    const s3MetaPromise = storageClient.storage
+                        .from(NFT_BUCKETS.METADATA)
+                        .upload(`collections/${collectionId}/${tokenId}.json`, metadataJson, { upsert: true, contentType: 'application/json' });
+
+                    // Task D: Metadata to IPFS
+                    const ipfsMetaPromise = uploadToIPFS(metadataBlob, `${tokenId}.json`);
+
+                    const [, ipfsMetaUri] = await Promise.all([s3MetaPromise, ipfsMetaPromise]);
+
+                    itemLinks.push({
+                        tokenID: tokenId.toString(),
+                        cid: ipfsMetaUri.replace('ipfs://', '')
+                    });
+                }));
+            }
+
+            // ── Step 3: Professional Collection Pinning ────────────────────
+            toast.loading("Broadcasting to IPFS/Filecoin...", { id: 'deploy' });
+            const ipfsResult = await pinCollectionToIPFS(name, itemLinks);
+
+            // ── Step 4: Chain-Specific Deployment ───────────────────────────
+            toast.loading(`Deploying on ${currentChain.name}...`, { id: 'deploy' });
+            let deployedAddress = "";
+
+            if (selectedChain === 'solana') {
+                const result = await solanaLaunch.deploySolanaCollection({
+                    name,
+                    symbol,
+                    uri: storageInfo.rootUri,
+                    sellerFeeBasisPoints: Math.round(royaltyPercent * 100),
+                    creators: [{ address, share: 100 }]
+                });
+                deployedAddress = result.address;
+
+                // Create Candy Machine for Solana
+                if (mode !== '1of1') {
+                    await solanaLaunch.createLaunchpadCandyMachine(
+                        deployedAddress,
+                        assetsToUpload.length,
+                        phases,
+                        { name, symbol, uri: storageInfo.rootUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
+                        treasuryWallet,
+                        storageInfo.rootUri
+                    );
+                }
+            } else if (selectedChain === 'xrpl') {
+                const result = await xrplLaunch.deployXRPLCollection({
+                    name,
+                    symbol,
+                    description,
+                    totalSupply: assetsToUpload.length,
+                    baseUri: storageInfo.rootUri
+                });
+                deployedAddress = result.address;
+            } else if (selectedChain === 'monad') {
+                // Monad still in "Soon" state from hook, but handle it gracefully
+                toast.info("Monad deployment protocol initialized. Contracts pending release.", { id: 'deploy' });
+                throw new Error("Monad Mainnet deployment is not yet active.");
+            }
+
+            // ── Step 5: Finalize DB ─────────────────────────────────────────
+            await supabase.from("collections").update({
+                contract_address: deployedAddress,
+                status: "active",
+                collection_cid: ipfsResult.collectionID,
+                image_url: storageInfo.itemImageUri(0)
+            }).eq('id', collectionId);
+
+            toast.success("Successfully Launched!", { id: 'deploy' });
+            clearDraft();
             navigate('/launchpad');
+
         } catch (e: any) {
-            toast.error(e.message, { id: 'deploy' });
+            console.error("Launch Error:", e);
+            toast.error(e.message || "Launch failed", { id: 'deploy' });
+            if (collectionId) {
+                await supabase.from("collections").delete().eq('id', collectionId).eq('status', 'draft');
+            }
         } finally {
             setIsDeploying(false);
         }
@@ -243,7 +416,7 @@ export default function LaunchpadCreate() {
     const handleGenerate = async () => {
         setIsGenerating(true);
         try {
-            const assets = await generateAssets(layers, { collectionName: name, collectionSymbol: symbol, description, totalSupply: targetSupply }, (current, total) => setGenerationProgress({ current, total }));
+            const assets = await generateAssets(layers, { collectionName: name, collectionSymbol: symbol, description, totalSupply: targetSupply, allowDuplicates: false }, (current, total) => setGenerationProgress({ current, total }));
             setGeneratedAssets(assets);
             toast.success("Generated!");
         } catch (err: any) {
@@ -256,7 +429,23 @@ export default function LaunchpadCreate() {
     const handleDownloadZip = async () => {
         setIsDownloadingZip(true);
         try {
-            const zipBlob = await bundleAssetsAsZip(generatedAssets.map((a, i) => ({ id: i + 1, traits: a.traits.map(t => ({ layerName: t.layer, traitName: t.trait, imageUrl: a.preview })) })), name, description, selectedChain);
+            const zipBlob = await bundleAssetsAsZip(
+                generatedAssets.map((a, i) => ({
+                    id: i + 1,
+                    traits: a.traits.map(t => ({
+                        layerId: t.layer,
+                        layerName: t.layer,
+                        traitId: t.trait,
+                        traitName: t.trait,
+                        imageUrl: a.preview
+                    }))
+                })),
+                name,
+                description,
+                selectedChain,
+                1024, // Resolution
+                (status, progress) => { console.log(status); setDownloadProgress(progress); }
+            );
             const url = URL.createObjectURL(zipBlob);
             const a = document.createElement("a");
             a.href = url;
@@ -415,12 +604,12 @@ export default function LaunchpadCreate() {
                     <div className="max-w-xl mx-auto w-full space-y-12">
                         <LaunchpadPreview
                             name={name || "Collection"}
-                            symbol={symbol || "SYM"}
                             description={description}
-                            image={coverImage}
-                            price={phases[0].price}
-                            chainSymbol={chainSymbol}
-                            theme={theme}
+                            coverImage={coverImage}
+                            itemsAvailable={is1of1 ? artworks.length : (mode === 'basic' ? folderAssets.length : targetSupply)}
+                            phases={phases}
+                            activePhaseIndex={0}
+                            selectedChain={selectedChain}
                         />
                         {(folderAssets.length > 0 || generatedAssets.length > 0 || artworks.length > 0 || tracks.length > 0) && (
                             <div className="grid grid-cols-4 gap-2">
