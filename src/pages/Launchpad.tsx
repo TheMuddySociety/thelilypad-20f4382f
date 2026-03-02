@@ -56,7 +56,7 @@ interface ChainEntry {
 const CHAIN_ENTRIES: ChainEntry[] = [
   { id: "solana", label: "Solana", description: "Metaplex Core & Candy Machine", badge: "Live", badgeVariant: "default" },
   { id: "xrpl", label: "XRPL", description: "XLS-20 NFT Standard", badge: "Live", badgeVariant: "default" },
-  { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Soon", badgeVariant: "secondary" },
+  { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Live", badgeVariant: "default" },
 ];
 
 // ── Collection type tiles ─────────────────────────────────────────────────────

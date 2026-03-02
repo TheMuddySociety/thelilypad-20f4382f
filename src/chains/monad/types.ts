@@ -16,7 +16,7 @@ export interface MonadCollectionParams {
 
 export interface MonadDeployResult {
     success: boolean;
-    contractAddress?: string;
+    address?: string;
     transactionHash?: string;
     error?: string;
 }

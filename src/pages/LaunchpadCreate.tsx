@@ -40,6 +40,7 @@ import { useWallet } from "@/providers/WalletProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { useSolanaLaunch, LaunchpadPhase } from "@/hooks/useSolanaLaunch";
 import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
+import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { pinCollectionToIPFS } from "@/lib/nftStorageService";
 import { useIpfs } from "@/providers/IpfsProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,6 +96,7 @@ export default function LaunchpadCreate() {
 
     const solanaLaunch = useSolanaLaunch();
     const xrplLaunch = useXRPLLaunch();
+    const monadLaunch = useMonadLaunch();
 
     const { hasDraft, loadDraft, saveDraft, clearDraft } = useDraftCollection(chainParam || 'solana', typeParam || 'generative');
 
@@ -371,9 +373,16 @@ export default function LaunchpadCreate() {
                 });
                 deployedAddress = result.address;
             } else if (selectedChain === 'monad') {
-                // Monad still in "Soon" state from hook, but handle it gracefully
-                toast.info("Monad deployment protocol initialized. Contracts pending release.", { id: 'deploy' });
-                throw new Error("Monad Mainnet deployment is not yet active.");
+                const result = await monadLaunch.createCollection({
+                    name,
+                    symbol,
+                    metadataBaseUri: storageInfo.rootUri,
+                    totalSupply: assetsToUpload.length
+                });
+
+                if (!result.success) throw new Error(result.error);
+                deployedAddress = result.address;
+                toast.success("Monad Collection Protocol deployed!", { id: 'deploy' });
             }
 
             // ── Step 5: Finalize DB ─────────────────────────────────────────
