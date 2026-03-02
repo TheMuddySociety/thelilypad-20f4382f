@@ -41,15 +41,14 @@ import { setStoredChain, getDbChainValue } from "@/config/chains";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 import { getCollectionStorageInfo } from "@/lib/payloadMapper";
 import { triggerCollectionDownload } from "@/lib/nftStorageService";
-import { pinCollectionToIPFS } from "@/lib/nftStorageService";
-import { useIpfs } from "@/providers/IpfsProvider";
-import { uploadToIPFS } from "@/integrations/nftstorage/client";
+import { uploadToArweave, uploadMetadataToArweave } from "@/integrations/irys/client";
+import { resolveIPFS } from "@/integrations/nftstorage/client";
+import { XRPLDeployResult } from "@/chains";
 
 export default function XRPLEasyGenerator() {
     const navigate = useNavigate();
     const { address, isConnected, network } = useWallet();
     const { isAdmin } = useAuth();
-    const { resolveToGateway } = useIpfs();
     const { deployXRPLCollection, mintXRPLItems, isDeploying, isMinting } = useXRPLLaunch();
 
     useSEO({
@@ -65,9 +64,9 @@ export default function XRPLEasyGenerator() {
     const [files, setFiles] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
-    const [collectionCid, setCollectionCid] = useState("");
-    const [deployedResult, setDeployedResult] = useState<{ address: string; taxon: number } | null>(null);
     const [collectionId, setCollectionId] = useState("");
+    const [deployedResult, setDeployedResult] = useState<XRPLDeployResult | null>(null);
+    const [itemLinks, setItemLinks] = useState<{ tokenID: string; arweaveUri: string }[]>([]);
     const [isDownloadingZip, setIsDownloadingZip] = useState(false);
     const [transferFee, setTransferFee] = useState(5);
     const [metadataMap, setMetadataMap] = useState<Record<string, any>>({});
@@ -192,10 +191,10 @@ export default function XRPLEasyGenerator() {
 
             setUploadProgress(15);
 
-            // 2. Upload individual assets to Supabase & NFT.Storage (Parallel)
-            toast.loading(`Uploading collection to Cloud & IPFS...`, { id: 'easy-mint' });
+            // 2. Upload individual assets to Supabase & Arweave (Parallel)
+            toast.loading(`Uploading collection to Cloud & Arweave...`, { id: 'easy-mint' });
 
-            const itemLinks: { tokenID: string; cid: string }[] = [];
+            const localItemLinks: { tokenID: string; arweaveUri: string }[] = [];
             const batchSize = 10; // Slightly larger batch for parallel workers
 
             for (let i = 0; i < files.length; i += batchSize) {
@@ -209,15 +208,12 @@ export default function XRPLEasyGenerator() {
                         .from(NFT_BUCKETS.IMAGES)
                         .upload(`collections/${collectionId}/${tokenId}.${fileExt}`, file, { upsert: true });
 
-                    // ─── Task B: Upload image to IPFS ─────────────────────────────────────
-                    const ipfsImageCidPromise = uploadToIPFS(file, `${tokenId}.${fileExt}`);
+                    // ─── Task B: Asset to Arweave (Permanence)
+                    const arweaveImagePromise = uploadToArweave(file, { address, chainType: 'xrpl', network });
 
-                    const [s3Result, ipfsImageUri] = await Promise.all([
-                        s3ImagePromise,
-                        ipfsImageCidPromise
-                    ]);
+                    const [s3Image, arweaveImageUri] = await Promise.all([s3ImagePromise, arweaveImagePromise]);
 
-                    const { data: { publicUrl: imagePublicUrl } } = storageClient.storage
+                    const { data: { publicUrl: s3Url } } = storageClient.storage
                         .from(NFT_BUCKETS.IMAGES)
                         .getPublicUrl(`collections/${collectionId}/${tokenId}.${fileExt}`);
 
@@ -230,8 +226,8 @@ export default function XRPLEasyGenerator() {
                         nftType: "art.v0",
                         name: importedMetadata?.name || `${name} #${tokenId + 1}`,
                         description: importedMetadata?.description || description,
-                        image: ipfsImageUri, // Primary: IPFS
-                        external_url: imagePublicUrl, // Secondary: Supabase Public URL for speed
+                        image: arweaveImageUri, // Primary: Arweave
+                        external_url: s3Url, // Secondary: Supabase Public URL for speed
                         attributes: importedMetadata?.attributes || importedMetadata?.traits || []
                     };
 
@@ -246,30 +242,26 @@ export default function XRPLEasyGenerator() {
                             contentType: 'application/json'
                         });
 
-                    // ─── Task D: Upload metadata to IPFS ───────────────────────────────────
-                    const ipfsMetaCidPromise = uploadToIPFS(metadataBlob, `${tokenId}.json`);
+                    // ─── Task D: Metadata to Arweave
+                    const arweaveMetaPromise = uploadMetadataToArweave(metadata, { address, chainType: 'xrpl', network });
 
-                    const [, ipfsMetaUri] = await Promise.all([
-                        s3MetaPromise,
-                        ipfsMetaCidPromise
-                    ]);
+                    const [, arweaveMetaUri] = await Promise.all([s3MetaPromise, arweaveMetaPromise]);
 
-                    // Gather CID for the final collection pinning
-                    itemLinks.push({
+                    // Gather Arweave URI for the final collection pinning
+                    localItemLinks.push({
                         tokenID: tokenId.toString(),
-                        cid: ipfsMetaUri.replace('ipfs://', '')
+                        arweaveUri: arweaveMetaUri
                     });
                 }));
                 setUploadProgress(15 + Math.round(((i + batchSize) / files.length) * 40));
             }
 
-            // 3. Register the collection on NFT.Storage (Professional Pinning)
+            // 3. No collection pinning needed for Arweave, individual assets are permanent.
             setUploadProgress(60);
-            toast.loading("Securing collection on IPFS/Filecoin...", { id: 'easy-mint' });
+            toast.loading("Arweave permanence secured...", { id: 'easy-mint' });
 
-            const ipfsCollection = await pinCollectionToIPFS(name, itemLinks);
-            setCollectionCid(ipfsCollection.collectionID);
             setCollectionId(collectionId);
+            setItemLinks(localItemLinks);
 
             // 4. Deploy Collection — always Supabase metadata root as baseUri
             setUploadProgress(80);
@@ -288,11 +280,14 @@ export default function XRPLEasyGenerator() {
             setDeployedResult(result);
 
             // Update collection record with final results
+            // Update DB with collection info and Arweave root reference
+            const primaryArweaveUri = localItemLinks[0]?.arweaveUri || "";
             const firstFileExt = files[0]?.name.split('.').pop() || 'png';
-            await supabase.from("collections").update({
+            const { error: finalUpdateErr } = await supabase.from("collections").update({
                 contract_address: result.address,
                 status: "active",
-                image_url: storageInfo.itemImageUri(0, firstFileExt)
+                image_url: storageInfo.itemImageUri(0, firstFileExt),
+                arweave_root_uri: primaryArweaveUri // Store the first item's Arweave URI as a reference
             }).eq('id', collectionId);
 
             setUploadProgress(100);
@@ -313,7 +308,7 @@ export default function XRPLEasyGenerator() {
     };
 
     const launchNfts = async () => {
-        if (!deployedResult || !collectionCid) return;
+        if (!deployedResult || !collectionId) return; // collectionId is now the primary identifier
 
         // Resolve the collection ID from  DB (in case state was cleared)
         const { data: collData } = await supabase
@@ -327,17 +322,17 @@ export default function XRPLEasyGenerator() {
         try {
             toast.loading(`Minting ${files.length} NFTs...`, { id: 'easy-mint' });
 
-            // Build items — each URI points to its Supabase-hosted metadata JSON
-            const items = files.map((_, i) => ({
+            // Build items — each URI points to its Arweave-hosted metadata JSON
+            const mintItems = itemLinks.map((item, i) => ({
                 name: `${name} #${i + 1}`,
-                uri: storageInfo.itemMetadataUri(i)
+                uri: item.arweaveUri
             }));
 
             // mintXRPLItems now returns XRPLMintResult[] with real NFTokenIDs + tx hashes
             const mintResults = await mintXRPLItems(
                 deployedResult.address,
                 deployedResult.taxon,
-                items,
+                mintItems,
                 Math.round(transferFee * 1000)
             );
 
@@ -498,11 +493,18 @@ export default function XRPLEasyGenerator() {
                                     <Separator />
 
                                     <div className="bg-primary/5 rounded-lg p-4 flex gap-3 border border-primary/10">
-                                        <Info className="w-5 h-5 text-primary shrink-0" />
-                                        <p className="text-xs text-muted-foreground leading-relaxed">
-                                            On XRP Ledger, "Creating a Collection" sets your Account Domain to your Supabase Cloud metadata URI.
-                                            This allows marketplaces to find your NFTs automatically. Transfer fee is applied per-NFT during minting.
-                                        </p>
+                                        <Zap className="w-5 h-5 text-primary shrink-0" />
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-semibold text-primary">Arweave Permanence Enabled</p>
+                                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                                Your assets are stored forever on Arweave thanks to Irys, providing true permanence.
+                                                Metadata and images are secured for 200+ years.
+                                            </p>
+                                            <div className="flex gap-4 pt-1 font-mono text-[10px] opacity-70">
+                                                <span>Hub: arweave.net</span>
+                                                <span>Irys: gateway.irys.xyz</span>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <Button

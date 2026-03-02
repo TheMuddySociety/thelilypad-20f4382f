@@ -58,7 +58,7 @@ import { cn, dataUrlToBlob } from "@/lib/utils";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 import { getDbChainValue } from "@/config/chains";
 import { getLaunchpadConfig, CollectionMode } from "@/config/launchpad";
-import { uploadToIPFS, storeMetadataToIPFS } from "@/integrations/nftstorage/client";
+import { uploadToArweave, uploadMetadataToArweave } from "@/integrations/irys/client";
 import { LaunchpadTools } from "@/components/launchpad/LaunchpadTools";
 import { XRPLConfigurator } from "@/components/launchpad/chains/XRPLConfigurator";
 import { Check, Info } from "lucide-react";
@@ -285,7 +285,7 @@ export default function LaunchpadCreate() {
 
             // ── Step 2: Parallel Uploads (Supabase + IPFS) ─────────────────
             toast.loading(`Securing ${assetsToUpload.length} items to Cloud & IPFS...`, { id: 'deploy' });
-            const itemLinks: { tokenID: string; cid: string }[] = [];
+            const itemLinks: { tokenID: string; arweaveUri: string }[] = [];
             const batchSize = 5;
 
             for (let i = 0; i < assetsToUpload.length; i += batchSize) {
@@ -299,10 +299,10 @@ export default function LaunchpadCreate() {
                         .from(NFT_BUCKETS.IMAGES)
                         .upload(`collections/${collectionId}/${tokenId}.${fileExt}`, asset.file, { upsert: true });
 
-                    // Task B: Image to IPFS
-                    const ipfsImagePromise = uploadToIPFS(asset.file, `${tokenId}.${fileExt}`);
+                    // Task B: Asset to Arweave (Permanence)
+                    const arweaveImagePromise = uploadToArweave(asset.file, { address, chainType: selectedChain, network });
 
-                    const [s3Image, ipfsImageUri] = await Promise.all([s3ImagePromise, ipfsImagePromise]);
+                    const [s3Image, arweaveImageUri] = await Promise.all([s3ImagePromise, arweaveImagePromise]);
 
                     const { data: { publicUrl: s3Url } } = storageClient.storage
                         .from(NFT_BUCKETS.IMAGES)
@@ -310,7 +310,7 @@ export default function LaunchpadCreate() {
 
                     const metadata = {
                         ...asset.metadata,
-                        image: ipfsImageUri,
+                        image: arweaveImageUri,
                         external_url: s3Url
                     };
 
@@ -322,21 +322,23 @@ export default function LaunchpadCreate() {
                         .from(NFT_BUCKETS.METADATA)
                         .upload(`collections/${collectionId}/${tokenId}.json`, metadataJson, { upsert: true, contentType: 'application/json' });
 
-                    // Task D: Metadata to IPFS
-                    const ipfsMetaPromise = uploadToIPFS(metadataBlob, `${tokenId}.json`);
+                    // Task D: Metadata to Arweave
+                    const arweaveMetaPromise = uploadMetadataToArweave(metadata, { address, chainType: selectedChain, network });
 
-                    const [, ipfsMetaUri] = await Promise.all([s3MetaPromise, ipfsMetaPromise]);
+                    const [, arweaveMetaUri] = await Promise.all([s3MetaPromise, arweaveMetaPromise]);
 
                     itemLinks.push({
                         tokenID: tokenId.toString(),
-                        cid: ipfsMetaUri.replace('ipfs://', '')
+                        arweaveUri: arweaveMetaUri
                     });
                 }));
             }
 
-            // ── Step 3: Professional Collection Pinning ────────────────────
-            toast.loading("Broadcasting to IPFS/Filecoin...", { id: 'deploy' });
-            const ipfsResult = await pinCollectionToIPFS(name, itemLinks);
+            // ── Step 3: Persistence Finalized ───────────────────────────────
+            toast.loading("Persistence secured on Arweave...", { id: 'deploy' });
+            // Since Arweave uploads are individual, we don't need a folder CID here,
+            // but we'll use the first metadata URI as a reference if needed.
+            const primaryArweaveUri = itemLinks[0]?.arweaveUri || "";
 
             // ── Step 4: Chain-Specific Deployment ───────────────────────────
             toast.loading(`Deploying on ${currentChain.name}...`, { id: 'deploy' });
@@ -346,7 +348,7 @@ export default function LaunchpadCreate() {
                 const result = await solanaLaunch.deploySolanaCollection({
                     name,
                     symbol,
-                    uri: storageInfo.rootUri,
+                    uri: primaryArweaveUri,
                     sellerFeeBasisPoints: Math.round(royaltyPercent * 100),
                     creators: [{ address, share: 100 }]
                 });
@@ -354,42 +356,53 @@ export default function LaunchpadCreate() {
 
                 // Create Candy Machine for Solana
                 if (mode !== '1of1') {
+                    const candyMachineItems = itemLinks.map((item, i) => ({
+                        name: `${name} #${i + 1}`,
+                        uri: item.arweaveUri
+                    }));
+
                     await solanaLaunch.createLaunchpadCandyMachine(
                         deployedAddress,
                         assetsToUpload.length,
                         phases,
-                        { name, symbol, uri: storageInfo.rootUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
+                        { name, symbol, uri: primaryArweaveUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
                         treasuryWallet,
-                        storageInfo.rootUri
+                        primaryArweaveUri
                     );
+
+                    // Insert individual items with Arweave URIs
+                    await solanaLaunch.uploadJsonMetadataBatch(candyMachineItems);
                 }
             } else if (selectedChain === 'xrpl') {
                 const result = await xrplLaunch.deployXRPLCollection({
                     name,
                     symbol,
                     description,
-                    totalSupply: assetsToUpload.length,
-                    baseUri: storageInfo.rootUri
+                    baseUri: primaryArweaveUri,
+                    taxon: xrplTaxon,
+                    totalSupply: assetsToUpload.length
                 });
                 deployedAddress = result.address;
+
+                const mintItems = itemLinks.map((item, i) => ({
+                    name: `${name} #${i + 1}`,
+                    uri: item.arweaveUri
+                }));
+                await xrplLaunch.mintXRPLItems(result.address, result.taxon, mintItems, xrplTransferFee);
             } else if (selectedChain === 'monad') {
                 const result = await monadLaunch.createCollection({
                     name,
                     symbol,
-                    metadataBaseUri: storageInfo.rootUri,
+                    metadataBaseUri: primaryArweaveUri, // Base Arweave Manifest or single metadata
                     totalSupply: assetsToUpload.length
                 });
-
-                if (!result.success) throw new Error(result.error);
                 deployedAddress = result.address;
-                toast.success("Monad Collection Protocol deployed!", { id: 'deploy' });
             }
 
             // ── Step 5: Finalize DB ─────────────────────────────────────────
             await supabase.from("collections").update({
                 contract_address: deployedAddress,
                 status: "active",
-                collection_cid: ipfsResult.collectionID,
                 image_url: storageInfo.itemImageUri(0)
             }).eq('id', collectionId);
 

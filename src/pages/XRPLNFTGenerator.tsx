@@ -46,6 +46,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { storageClient, NFT_BUCKETS } from "@/integrations/supabase/storageClient";
 import { getCollectionStorageInfo } from "@/lib/payloadMapper";
 import { getDbChainValue, setStoredChain } from "@/config/chains";
+import { uploadToArweave, uploadMetadataToArweave } from "@/integrations/irys/client";
 
 
 // ── Step definitions ────────────────────────────────────────────────────────
@@ -249,8 +250,9 @@ export default function XRPLNFTGenerator() {
             const storageInfo = getCollectionStorageInfo(collectionId);
             setUploadProgress(15);
 
-            // 2. Upload images + metadata JSON in batches of 5
-            toast.loading(`Uploading ${files.length} images…`, { id: "xrpl-gen" });
+            // 2. Upload images + metadata JSON to Arweave (Permanence)
+            toast.loading(`Securing ${files.length} items to Arweave...`, { id: "xrpl-gen" });
+            const itemLinks: { tokenID: string; arweaveUri: string }[] = [];
             const batchSize = 5;
             for (let i = 0; i < files.length; i += batchSize) {
                 const batch = files.slice(i, i + batchSize);
@@ -258,11 +260,17 @@ export default function XRPLNFTGenerator() {
                     const tokenIdx = i + idx;
                     const ext = file.name.split(".").pop() || "png";
 
-                    await storageClient.storage
+                    // Task A: Supabase Upload (Cloud Hosting)
+                    const s3ImagePromise = storageClient.storage
                         .from(NFT_BUCKETS.IMAGES)
                         .upload(`collections/${collectionId}/${tokenIdx}.${ext}`, file, { upsert: true });
 
-                    const { data: { publicUrl: imageUrl } } = storageClient.storage
+                    // Task B: Arweave Upload (Permanence)
+                    const arweaveImagePromise = uploadToArweave(file, { address, chainType: 'xrpl', network });
+
+                    const [s3Result, arweaveImageUri] = await Promise.all([s3ImagePromise, arweaveImagePromise]);
+
+                    const { data: { publicUrl: s3Url } } = storageClient.storage
                         .from(NFT_BUCKETS.IMAGES)
                         .getPublicUrl(`collections/${collectionId}/${tokenIdx}.${ext}`);
 
@@ -271,9 +279,9 @@ export default function XRPLNFTGenerator() {
                         nftType: "art.v0",
                         name: `${collectionName} #${tokenIdx + 1}`,
                         description,
-                        image: imageUrl,
+                        image: arweaveImageUri,
+                        external_url: s3Url,
                         attributes: [],
-                        // XLS-20 extended fields
                         collection: { name: collectionName, family: collectionSymbol },
                         xrpl: {
                             taxon,
@@ -282,13 +290,26 @@ export default function XRPLNFTGenerator() {
                         },
                     };
 
-                    await storageClient.storage
+                    const metadataJson = JSON.stringify(metadata);
+
+                    // Task C: Supabase Metadata (Cloud Hosting)
+                    const s3MetaPromise = storageClient.storage
                         .from(NFT_BUCKETS.METADATA)
                         .upload(
                             `collections/${collectionId}/${tokenIdx}.json`,
-                            JSON.stringify(metadata),
+                            metadataJson,
                             { upsert: true, contentType: "application/json" }
                         );
+
+                    // Task D: Arweave Metadata (Permanence)
+                    const arweaveMetaPromise = uploadMetadataToArweave(metadata, { address, chainType: 'xrpl', network });
+
+                    const [, arweaveMetaUri] = await Promise.all([s3MetaPromise, arweaveMetaPromise]);
+
+                    itemLinks.push({
+                        tokenID: tokenIdx.toString(),
+                        arweaveUri: arweaveMetaUri
+                    });
                 }));
                 setUploadProgress(15 + Math.round(((i + batchSize) / files.length) * 40));
             }
@@ -297,12 +318,13 @@ export default function XRPLNFTGenerator() {
             setUploadProgress(60);
             toast.loading("Setting up XRPL collection on-chain…", { id: "xrpl-gen" });
 
+            const primaryArweaveUri = itemLinks[0]?.arweaveUri || "";
             const result = await deployXRPLCollection({
                 name: collectionName,
                 symbol: collectionSymbol,
                 description,
                 totalSupply: files.length,
-                baseUri: storageInfo.rootUri,
+                baseUri: primaryArweaveUri,
                 transferFee: transferFeeOnChain,
                 flags: computedFlags,
                 authorizedMinter: authorizedMinter || undefined,
@@ -323,9 +345,9 @@ export default function XRPLNFTGenerator() {
             setUploadProgress(80);
             toast.loading(`Minting ${files.length} NFTs on XRPL…`, { id: "xrpl-gen" });
 
-            const items = files.map((_, i) => ({
+            const items = itemLinks.map((item, i) => ({
                 name: `${collectionName} #${i + 1}`,
-                uri: storageInfo.itemMetadataUri(i),
+                uri: item.arweaveUri,
             }));
 
             const mintResults = await mintXRPLItems(
@@ -681,6 +703,28 @@ export default function XRPLNFTGenerator() {
                                                 value={metadataBaseUri}
                                                 onChange={(e) => setMetadataBaseUri(e.target.value)}
                                             />
+                                            <div className="bg-primary/5 rounded-lg p-6 flex gap-4 border border-primary/20">
+                                                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                                    <Zap className="w-6 h-6 text-primary" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <h3 className="font-semibold text-lg text-primary">Arweave/Irys Permanence</h3>
+                                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                                        Your XRPL NFTs will be secured forever using Irys. Unlike IPFS pinning, Arweave storage is perpetual—your art stays online as long as the permaweb exists (200+ years).
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-4 pt-2 font-mono text-[11px] opacity-70">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                                            <span>Hub: arweave.net</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                                            <span>Gateway: gateway.irys.xyz</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             <p className="text-xs text-muted-foreground">
                                                 Each token's URI will be <code className="bg-muted px-1 rounded">{"{baseUri}"}{"{index}"}.json</code>.
                                                 Leave blank to set the URI per-token during mint.
