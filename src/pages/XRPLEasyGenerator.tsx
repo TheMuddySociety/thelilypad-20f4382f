@@ -41,11 +41,15 @@ import { setStoredChain, getDbChainValue } from "@/config/chains";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 import { getCollectionStorageInfo } from "@/lib/payloadMapper";
 import { triggerCollectionDownload } from "@/lib/nftStorageService";
+import { pinCollectionToIPFS } from "@/lib/nftStorageService";
+import { useIpfs } from "@/providers/IpfsProvider";
+import { uploadToIPFS } from "@/integrations/nftstorage/client";
 
 export default function XRPLEasyGenerator() {
     const navigate = useNavigate();
     const { address, isConnected, network } = useWallet();
     const { isAdmin } = useAuth();
+    const { resolveToGateway } = useIpfs();
     const { deployXRPLCollection, mintXRPLItems, isDeploying, isMinting } = useXRPLLaunch();
 
     useSEO({
@@ -166,19 +170,30 @@ export default function XRPLEasyGenerator() {
 
             setUploadProgress(15);
 
-            // 2. Upload individual assets to Supabase Storage
-            toast.loading(`Uploading ${files.length} images to Supabase...`, { id: 'easy-mint' });
-            const batchSize = 5;
+            // 2. Upload individual assets to Supabase & NFT.Storage (Parallel)
+            toast.loading(`Uploading collection to Cloud & IPFS...`, { id: 'easy-mint' });
+
+            const itemLinks: { tokenID: string; cid: string }[] = [];
+            const batchSize = 10; // Slightly larger batch for parallel workers
+
             for (let i = 0; i < files.length; i += batchSize) {
                 const batch = files.slice(i, i + batchSize);
                 await Promise.all(batch.map(async (file, index) => {
                     const tokenId = i + index;
                     const fileExt = file.name.split('.').pop() || 'png';
 
-                    // Upload image to dedicated NFT Storage Supabase
-                    await storageClient.storage
+                    // ─── Task A: Upload image to Supabase ─────────────────────────────────
+                    const s3ImagePromise = storageClient.storage
                         .from(NFT_BUCKETS.IMAGES)
                         .upload(`collections/${collectionId}/${tokenId}.${fileExt}`, file, { upsert: true });
+
+                    // ─── Task B: Upload image to IPFS ─────────────────────────────────────
+                    const ipfsImageCidPromise = uploadToIPFS(file, `${tokenId}.${fileExt}`);
+
+                    const [s3Result, ipfsImageUri] = await Promise.all([
+                        s3ImagePromise,
+                        ipfsImageCidPromise
+                    ]);
 
                     const { data: { publicUrl: imagePublicUrl } } = storageClient.storage
                         .from(NFT_BUCKETS.IMAGES)
@@ -189,24 +204,46 @@ export default function XRPLEasyGenerator() {
                         nftType: "art.v0",
                         name: `${name} #${tokenId + 1}`,
                         description,
-                        image: imagePublicUrl,
+                        image: ipfsImageUri, // Primary: IPFS
+                        external_url: imagePublicUrl, // Secondary: Supabase Public URL for speed
                         attributes: []
                     };
 
-                    // Upload metadata JSON to dedicated NFT Metadata bucket
-                    await storageClient.storage
+                    const metadataJson = JSON.stringify(metadata, null, 2);
+                    const metadataBlob = new Blob([metadataJson], { type: 'application/json' });
+
+                    // ─── Task C: Upload metadata to Supabase ───────────────────────────────
+                    const s3MetaPromise = storageClient.storage
                         .from(NFT_BUCKETS.METADATA)
-                        .upload(`collections/${collectionId}/${tokenId}.json`, JSON.stringify(metadata), {
+                        .upload(`collections/${collectionId}/${tokenId}.json`, metadataJson, {
                             upsert: true,
                             contentType: 'application/json'
                         });
+
+                    // ─── Task D: Upload metadata to IPFS ───────────────────────────────────
+                    const ipfsMetaCidPromise = uploadToIPFS(metadataBlob, `${tokenId}.json`);
+
+                    const [, ipfsMetaUri] = await Promise.all([
+                        s3MetaPromise,
+                        ipfsMetaCidPromise
+                    ]);
+
+                    // Gather CID for the final collection pinning
+                    itemLinks.push({
+                        tokenID: tokenId.toString(),
+                        cid: ipfsMetaUri.replace('ipfs://', '')
+                    });
                 }));
                 setUploadProgress(15 + Math.round(((i + batchSize) / files.length) * 40));
             }
 
-            // 3. Supabase is the only host — no IPFS needed for creators
+            // 3. Register the collection on NFT.Storage (Professional Pinning)
+            setUploadProgress(60);
+            toast.loading("Securing collection on IPFS/Filecoin...", { id: 'easy-mint' });
+
+            const ipfsCollection = await pinCollectionToIPFS(name, itemLinks);
+            setCollectionCid(ipfsCollection.collectionID);
             setCollectionId(collectionId);
-            setCollectionCid("supabase");
 
             // 4. Deploy Collection — always Supabase metadata root as baseUri
             setUploadProgress(80);
