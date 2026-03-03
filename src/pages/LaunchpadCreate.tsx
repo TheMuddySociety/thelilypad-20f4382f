@@ -98,7 +98,7 @@ export default function LaunchpadCreate() {
     const xrplLaunch = useXRPLLaunch();
     const monadLaunch = useMonadLaunch();
 
-    const { hasDraft, loadDraft, saveDraft, clearDraft } = useDraftCollection(chainParam || 'solana', typeParam || 'generative');
+    const { hasDraft, loadDraft, saveDraft, saveDraftCover, saveDraftAssets, clearDraft } = useDraftCollection(chainParam || 'solana', typeParam || 'generative');
 
     const currentChain = CHAINS[selectedChain];
     const chainSymbol = currentChain.symbol;
@@ -178,16 +178,28 @@ export default function LaunchpadCreate() {
             if (draft.phases?.length) setPhases(draft.phases);
             if (draft.currentStep > 0) setCurrentStep(draft.currentStep);
             if (draft.mode) setMode(draft.mode);
-            toast.info('Draft restored');
+            if (draft.coverImageUrl) setCoverImage(draft.coverImageUrl);
+            if (draft.xrplTaxon != null) setXrplTaxon(draft.xrplTaxon);
+            if (draft.xrplTransferFee != null) setXrplTransferFee(draft.xrplTransferFee);
+            if (draft.editionCounts) setEditionCounts(draft.editionCounts);
+            toast.info('Draft restored — re-upload your asset files to continue');
         }
     }, [loadDraft]);
 
+    // Auto-save draft on field changes
     useEffect(() => {
         if (!name && !symbol) return;
         saveDraft({
-            name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet, phases: phases as any[],
+            name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet,
+            phases: phases as any[],
+            coverImageUrl: coverImage || undefined,
+            xrplTaxon,
+            xrplTransferFee,
+            editionCounts: Object.keys(editionCounts).length > 0 ? editionCounts : undefined,
+            folderAssetNames: folderAssets.length > 0 ? folderAssets.map(a => a.name) : undefined,
+            artworkMeta: artworks.length > 0 ? artworks.map(a => ({ name: a.name, description: a.description, attributes: a.attributes })) : undefined,
         });
-    }, [name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet, phases, saveDraft]);
+    }, [name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet, phases, coverImage, xrplTaxon, xrplTransferFee, editionCounts, folderAssets, artworks, saveDraft]);
 
     const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -196,6 +208,10 @@ export default function LaunchpadCreate() {
             const reader = new FileReader();
             reader.onloadend = () => setCoverImage(reader.result as string);
             reader.readAsDataURL(file);
+            // Persist cover to storage bucket for draft restoration
+            saveDraftCover(file).then(url => {
+                if (url) setCoverImage(url);
+            });
         }
     };
 
