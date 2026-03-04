@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { getPhantomSDK } from "@/config/phantom";
 import FrogLoader from "@/components/FrogLoader";
 import { CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -100,9 +99,7 @@ const AuthCallback: React.FC = () => {
           return;
         }
 
-        // Handle Phantom OAuth callback as fallback
-        const sdk = getPhantomSDK();
-        await sdk.autoConnect();
+        // No SDK fallback needed — redirect home
         navigate("/", { replace: true });
       } catch (error) {
         console.error("Auth callback error:", error);

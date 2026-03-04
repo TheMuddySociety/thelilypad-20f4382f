@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { NetworkType, getSolanaRpcUrl } from "@/config/solana";
-import { getPhantomSDK, waitForPhantomExtension, AddressType, resetPhantomSDK } from "@/config/phantom";
-import type { BrowserSDK, ConnectResult, InjectedWalletInfo, AuthProviderType } from "@phantom/browser-sdk";
+import { waitForPhantomExtension } from "@/config/phantom";
 import { toast } from "sonner";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { useChain } from "./ChainProvider";
@@ -48,7 +47,7 @@ interface WalletContextType extends WalletState {
   getSolanaProvider: () => any;
   setTransactionPending: (pending: boolean) => void;
   isPhantomAvailable: boolean;
-  discoveredWallets: InjectedWalletInfo[];
+  discoveredWallets: any[];
   connection: Connection;
   signXRPLTransaction: (tx: any) => Promise<{ tx_blob: string; hash: string }>;
   fundXRPLTestnetWallet: (address: string, network: XRPLNetworkType) => Promise<boolean>;
@@ -66,7 +65,6 @@ export const useWallet = () => {
 
 // Get Solana provider
 const getSolanaProvider = () => {
-  // Check for window.solana (generic) or window.phantom.solana (specific)
   if (typeof window !== "undefined") {
     if ("phantom" in window && (window as any).phantom?.solana) {
       return (window as any).phantom.solana;
@@ -84,7 +82,6 @@ const formatSolanaBalance = (lamports: number): string => {
 };
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Access chain context to validate wallet compatibility
   const { chain } = useChain();
 
   const [state, setState] = useState<WalletState>(() => {
@@ -92,7 +89,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return {
       address: null,
       isConnected: false,
-      isConnecting: wasConnected, // Initialize as true if we expect a reconnect
+      isConnecting: wasConnected,
       isTransactionPending: false,
       balance: null,
       network: (localStorage.getItem("solanaNetwork") as NetworkType) || "devnet",
@@ -102,20 +99,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   const [isPhantomAvailable, setIsPhantomAvailable] = useState(false);
-  const [discoveredWallets, setDiscoveredWallets] = useState<InjectedWalletInfo[]>([]);
-  const sdkRef = useRef<BrowserSDK | null>(null);
+  const [discoveredWallets, setDiscoveredWallets] = useState<any[]>([]);
 
   // Create Connection object
   const connection = useMemo(() => {
     return new Connection(getSolanaRpcUrl(state.network), 'confirmed');
   }, [state.network]);
-
-  const getSDK = useCallback(() => {
-    if (!sdkRef.current) {
-      sdkRef.current = getPhantomSDK();
-    }
-    return sdkRef.current;
-  }, []);
 
   // Fetch Solana balance
   const fetchSolanaBalance = useCallback(async (address: string) => {
@@ -133,7 +122,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
-      // If no session, or session is for a different wallet, sign in again
       if (!session || session.user?.user_metadata?.wallet_address !== walletAddress) {
         const { error } = await supabase.auth.signInAnonymously({
           options: {
@@ -155,72 +143,20 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
-  // Connect with SDK (Phantom)
-  const connectWithSDK = useCallback(async (provider?: AuthProviderType) => {
-    const sdk = getSDK();
-    setState(prev => ({ ...prev, isConnecting: true, walletType: "phantom", chainType: "solana" }));
-
-    try {
-      const result: ConnectResult = await sdk.connect({ provider: provider || "injected" });
-
-      let address: string | null = null;
-      // Look for Solana address
-      for (const addr of result.addresses) {
-        if (addr.addressType === AddressType.solana) {
-          address = addr.address;
-          break;
-        }
-      }
-
-      if (!address) throw new Error(`No Solana address found in wallet`);
-
-      const balance = await fetchSolanaBalance(address);
-
-      // Link Supabase auth session
-      await ensureSupabaseSession(address, 'phantom');
-
-      setState(prev => ({
-        ...prev,
-        address,
-        isConnected: true,
-        isConnecting: false,
-        balance,
-        walletType: "phantom",
-        chainType: "solana",
-        authProvider: result.authProvider || (provider as string) || "injected",
-      }));
-
-      localStorage.setItem("walletConnected", "true");
-      localStorage.setItem("walletType", "phantom");
-      localStorage.setItem("chainType", "solana");
-      setStoredChain('solana'); // Sync ChainProvider
-
-      const networkLabel = state.network === "mainnet" ? "Mainnet" : "Testnet";
-      toast.success(`Wallet connected on ${networkLabel}`);
-    } catch (error: any) {
-      console.error("SDK connect error:", error);
-      setState(prev => ({ ...prev, isConnecting: false }));
-      throw error;
-    }
-  }, [getSDK, fetchSolanaBalance, ensureSupabaseSession, state.network]);
-
-
-  // Connect Solana (Legacy method - Phantom injected provider)
+  // Connect Solana via injected provider (Phantom extension)
   const connectSolanaLegacy = useCallback(async () => {
     const provider = getSolanaProvider();
     if (!provider) {
-      throw new Error("Solana wallet not found");
+      throw new Error("Solana wallet not found. Please install Phantom.");
     }
 
     setState(prev => ({ ...prev, isConnecting: true, walletType: "solana", chainType: "solana" }));
 
     try {
-      // Phantom/Solana provider connect
       const response = await provider.connect();
       const address = response.publicKey.toString();
       const balance = await fetchSolanaBalance(address);
 
-      // Link Supabase auth session
       await ensureSupabaseSession(address, 'solana');
 
       setState(prev => ({
@@ -236,7 +172,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       localStorage.setItem("walletConnected", "true");
       localStorage.setItem("walletType", "phantom");
-      setStoredChain('solana'); // Sync ChainProvider
+      setStoredChain('solana');
 
       toast.success("Wallet connected on Solana");
     } catch (error: any) {
@@ -245,7 +181,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const message = (error?.message || "").toString();
       const code = error?.code;
 
-      // Common Phantom errors
       const isUserRejected = code === 4001 || message.toLowerCase().includes("rejected");
       const isInternalRpcError = code === -32603 || message.toLowerCase().includes("internal json-rpc");
 
@@ -269,7 +204,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       let walletData: StoredXRPLWallet;
 
-      // Check for existing stored wallet first
       const stored = await loadXRPLWallet();
       if (stored && action === 'generate') {
         walletData = stored;
@@ -289,7 +223,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // New accounts may not be funded yet
       }
 
-      // Link Supabase auth session
       await ensureSupabaseSession(walletData.address, 'xrpl');
 
       setState(prev => ({
@@ -305,7 +238,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       localStorage.setItem("walletConnected", "true");
       localStorage.setItem("walletType", "xrpl");
-      setStoredChain('xrpl'); // Sync ChainProvider
+      setStoredChain('xrpl');
 
       toast.success(`XRPL wallet connected on ${network}`);
     } catch (error: any) {
@@ -318,18 +251,15 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Connect Monad wallet via Phantom (EVM address)
   const connectMonad = useCallback(async () => {
-    const sdk = getSDK();
     setState(prev => ({ ...prev, isConnecting: true, walletType: "phantom", chainType: "monad" }));
 
     try {
-      // Prefer injected Phantom EVM provider
       const phantomEvm = (window as any).phantom?.ethereum;
       if (phantomEvm) {
         const accounts: string[] = await phantomEvm.request({ method: 'eth_requestAccounts' });
         const address = accounts[0];
         if (!address) throw new Error('No EVM address returned from Phantom');
 
-        // Link Supabase auth session
         await ensureSupabaseSession(address, 'phantom-evm');
 
         setState(prev => ({
@@ -337,7 +267,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           address,
           isConnected: true,
           isConnecting: false,
-          balance: '0',  // Monad balance fetching can be added later
+          balance: '0',
           walletType: "phantom",
           chainType: "monad",
           authProvider: "injected",
@@ -345,42 +275,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         localStorage.setItem("walletConnected", "true");
         localStorage.setItem("walletType", "phantom");
-        localStorage.setItem("chainType", "monad"); // Bug 3 fix
-        setStoredChain('monad'); // Sync ChainProvider
+        localStorage.setItem("chainType", "monad");
+        setStoredChain('monad');
         toast.success("Phantom (Monad) wallet connected");
         return;
       }
 
-      // Fallback: Phantom SDK — extract ethereum address
-      const result: ConnectResult = await sdk.connect({ provider: "injected" });
-      let address: string | null = null;
-      for (const addr of result.addresses) {
-        if (addr.addressType === AddressType.ethereum) {
-          address = addr.address;
-          break;
-        }
-      }
-      if (!address) throw new Error('No EVM address found in Phantom. Make sure Phantom is set to an EVM network.');
-
-      // Link Supabase auth session
-      await ensureSupabaseSession(address, 'phantom-evm');
-
-      setState(prev => ({
-        ...prev,
-        address,
-        isConnected: true,
-        isConnecting: false,
-        balance: '0',
-        walletType: "phantom",
-        chainType: "monad",
-        authProvider: result.authProvider || "injected",
-      }));
-
-      localStorage.setItem("walletConnected", "true");
-      localStorage.setItem("walletType", "phantom");
-      localStorage.setItem("chainType", "monad"); // Bug 3 fix
-      setStoredChain('monad'); // Sync ChainProvider
-      toast.success("Phantom (Monad) wallet connected");
+      throw new Error('Phantom EVM provider not found. Please install Phantom and enable EVM support.');
     } catch (error: any) {
       console.error("Monad connect error:", error);
       setState(prev => ({ ...prev, isConnecting: false }));
@@ -388,109 +289,70 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toast.error(msg);
       throw error;
     }
-  }, [getSDK, ensureSupabaseSession]);
+  }, [ensureSupabaseSession]);
 
   // Main connect function
   const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
-    // Determine target wallet & chain
     let targetWallet = _walletType;
     let targetChain = _chainType;
 
-    // Logic for inference if parameters are missing
     if (!targetWallet && !targetChain) {
-      // Complete default: use global state
       targetChain = (chain.id as ChainType) || "solana";
       targetWallet = (targetChain === 'xrpl' ? 'xrpl' : 'phantom');
     } else if (targetWallet && !targetChain) {
-      // Wallet provided, infer chain
       if (targetWallet === 'xrpl') {
         targetChain = 'xrpl';
       } else if (targetWallet === 'phantom') {
-        // Phantom can be Solana or Monad; prefer current global chain if it's one of them
         targetChain = (chain.id === 'monad' ? 'monad' : 'solana');
       } else {
         targetChain = 'solana';
       }
     } else if (!targetWallet && targetChain) {
-      // Chain provided, infer wallet
       targetWallet = targetChain === 'xrpl' ? 'xrpl' : 'phantom';
     }
 
     console.log(`Connecting to ${targetChain} using ${targetWallet} wallet`);
 
-    // Routing by wallet type first to avoid forcing XRPL when Phantom is requested
     if (targetWallet === 'xrpl') {
       await connectXRPL();
       return;
     }
 
-    // If we're here, it's a Phantom/Solana/Monad connect
     if (targetChain === 'monad') {
       await connectMonad();
       return;
     }
 
-    // Default: Solana connection
-    // Prefer injected Solana provider first (most reliable for Phantom extension)
+    // Default: Solana connection via injected provider
     const injected = getSolanaProvider();
     if (injected) {
       try {
         await connectSolanaLegacy();
         return;
       } catch (err: any) {
-        // If user rejected, don't fallback to other methods
         if (err?.code === 4001 || err?.message?.toLowerCase().includes("rejected")) return;
-
-        // Cleanup in case Phantom/provider is in a weird state
         try {
           await injected.disconnect?.();
         } catch { /* noop */ }
       }
     }
 
-    // Try Phantom SDK (works with or without extension - supports embedded/OAuth)
-    try {
-      await connectWithSDK();
-      return;
-    } catch (err: any) {
-      console.warn("SDK connect failed:", err?.message || err);
+    toast.error("Phantom wallet not found. Please install it from phantom.app");
+  }, [chain.id, connectSolanaLegacy, connectXRPL, connectMonad]);
 
-      // Reset SDK instance and allow retry next time
-      sdkRef.current = null;
-      resetPhantomSDK();
-
-      if (err?.code === 4001 || err?.message?.toLowerCase().includes("rejected")) {
-        toast.error("Connection rejected by user");
-        return;
-      }
-
-      toast.error(err?.message || "Failed to connect wallet. Please install Phantom or try again.");
-      return;
-    }
-  }, [chain.id, connectWithSDK, connectSolanaLegacy, connectXRPL, connectMonad]);
-
-  // Connect with OAuth
-  const connectWithOAuth = useCallback(async (provider: OAuthProvider) => {
-    await connectWithSDK(provider as AuthProviderType);
-  }, [connectWithSDK]);
+  // Connect with OAuth - now just redirects to Phantom install since SDK is removed
+  const connectWithOAuth = useCallback(async (_provider: OAuthProvider) => {
+    toast.info("OAuth login requires the Phantom extension. Please install it from phantom.app");
+  }, []);
 
   // Disconnect
   const disconnect = useCallback(async () => {
-    // Handle XRPL disconnect
     if (state.walletType === 'xrpl') {
       // Don't clear the stored wallet - just disconnect session
-      // User can reconnect with same wallet
     } else {
-      const sdk = getSDK();
-      try {
-        if (sdk.isConnected?.()) await sdk.disconnect();
-      } catch { }
-
       try {
         await getSolanaProvider()?.disconnect();
       } catch { }
-
-      resetPhantomSDK();
     }
 
     setState(prev => ({
@@ -500,30 +362,23 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isConnecting: false,
       balance: null,
       walletType: null,
-      chainType: "solana" as ChainType, // Reset to default instead of null to match type
+      chainType: "solana" as ChainType,
       authProvider: undefined,
     }));
 
     localStorage.removeItem("walletConnected");
     localStorage.removeItem("walletType");
-    localStorage.removeItem("chainType"); // Bug 4 fix
+    localStorage.removeItem("chainType");
     localStorage.removeItem("authProvider");
 
     toast.success("Wallet disconnected");
-  }, [getSDK, state.walletType]);
+  }, [state.walletType]);
 
-  // Switch Solana network (mainnet or devnet)
+  // Switch Solana network
   const switchNetwork = useCallback(async (network: NetworkType) => {
     setState(prev => ({ ...prev, network }));
     localStorage.setItem("solanaNetwork", network);
     toast.success(`Switched to ${network}`);
-
-    // Refresh balance
-    if (state.address) {
-      // We can't await here easily without effect, but connection will update due to state.network dep
-      // and balance fetch might need to be triggered manually or via effect.
-      // For now rely on simple state update.
-    }
   }, [state.address]);
 
   // Helper to get raw provider
@@ -531,22 +386,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return getSolanaProvider();
   }, []);
 
-  // Initialize SDK and detect wallets
+  // Initialize and detect wallets
   useEffect(() => {
     const init = async () => {
       const available = await waitForPhantomExtension(3000);
       setIsPhantomAvailable(available);
-
-      if (available) {
-        try {
-          const sdk = getSDK();
-          await sdk.discoverWallets?.();
-          setDiscoveredWallets(sdk.getDiscoveredWallets?.() || []);
-        } catch { }
-      }
     };
     init();
-  }, [getSDK]);
+  }, []);
 
   // Auto-connect
   useEffect(() => {
@@ -559,8 +406,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const storedWalletType = localStorage.getItem("walletType");
         const storedChainType = localStorage.getItem("chainType");
 
-        // Wait for extension to be ready before auto-connecting
-        const available = await waitForPhantomExtension(2000);
+        await waitForPhantomExtension(2000);
 
         // 1. Monad Re-connection
         if (storedChainType === 'monad') {
@@ -572,7 +418,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               return;
             }
           }
-          // Fallback to SDK for Monad reconnect attempt
           await connectMonad();
           return;
         }
@@ -587,42 +432,35 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // 3. Solana Re-connection (Phantom)
         if (storedWalletType === "phantom" || storedWalletType === "solana") {
-          // Check for injected Solana provider first (Silent Connect)
           const provider = getSolanaProvider();
-          if (provider?.publicKey) {
+          if (provider) {
             try {
               await provider.connect({ onlyIfTrusted: true });
               await connectSolanaLegacy();
               return;
             } catch (e) {
-              console.log("Injected silent connect failed, trying SDK...");
+              console.log("Silent connect failed:", e);
             }
           }
-
-          // Fallback to SDK (will attempt silent reconnect if possible)
-          await connectWithSDK();
-          return;
         }
       } catch (e) {
         console.warn("Auto-connect failed:", e);
-        // Don't clear walletConnected yet, might be transient
       } finally {
         setState(prev => ({ ...prev, isConnecting: false }));
       }
     };
 
     autoConnect();
-  }, [connectWithSDK, connectSolanaLegacy, connectXRPL, connectMonad]);
+  }, [connectSolanaLegacy, connectXRPL, connectMonad]);
 
   // Chain-Wallet Compatibility Validation
   useEffect(() => {
     if (!state.isConnected || !state.address) return;
 
-    // Check if current wallet type matches selected chain
     const isCompatible =
       (chain.id === 'solana' && (state.walletType === 'phantom' || state.walletType === 'solana')) ||
-      (chain.id === 'xrpl' && (state.walletType === 'xrpl' || state.walletType === 'phantom')) || // xrpl browser wallet or phantom
-      (chain.id === 'monad' && state.walletType === 'phantom'); // Will update when EVM wallets added
+      (chain.id === 'xrpl' && (state.walletType === 'xrpl' || state.walletType === 'phantom')) ||
+      (chain.id === 'monad' && state.walletType === 'phantom');
 
     if (!isCompatible) {
       toast.warning(`Wallet may not be compatible with ${chain.name}`, {
@@ -644,7 +482,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const wallet = importXRPLWallet(stored.seed);
     const xrplWallet = (window as any).xrpl?.Wallet ? (window as any).xrpl.Wallet.fromSeed(stored.seed) : null;
 
-    // Fallback to internal library if window.xrpl is not available
     const signer = xrplWallet || (import.meta.env.MODE === 'test' ? null : (await import('xrpl')).Wallet.fromSeed(stored.seed));
 
     if (!signer) throw new Error("XRPL library not loaded");

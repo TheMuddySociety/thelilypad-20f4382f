@@ -10,15 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Wallet, ExternalLink, Clock, Sparkles, Zap, Hexagon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { getPhantomSDK, waitForPhantomExtension } from "@/config/phantom";
+import { waitForPhantomExtension } from "@/config/phantom";
 import { useChain } from "@/providers/ChainProvider";
 import { cn } from "@/lib/utils";
-import type { InjectedWalletInfo } from "@phantom/browser-sdk";
 
 export type WalletType = "phantom" | "solana" | "xrpl";
 export type ChainType = "solana" | "xrpl" | "monad";
 
-// OAuth-based embedded wallets (optional; ConnectWallet may pass this handler)
 export type OAuthProvider = "google" | "apple";
 
 interface WalletOption {
@@ -47,7 +45,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
 }) => {
   const { chain } = useChain();
   const [walletOptions, setWalletOptions] = useState<WalletOption[]>([]);
-  const [discoveredWallets, setDiscoveredWallets] = useState<InjectedWalletInfo[]>([]);
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
@@ -57,7 +54,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
       try {
         const options: WalletOption[] = [];
 
-        // Always show Phantom (Solana/Monad/EVM)
         await waitForPhantomExtension(2000);
         const isPhantomInstalled = !!(window as any).phantom?.solana?.isPhantom || !!(window as any).phantom?.ethereum;
 
@@ -70,7 +66,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
           description: chain.id === 'monad' ? "Connect Monad via Phantom EVM" : "Solana, EVM & more",
         };
 
-        // Always show XRPL Browser Wallet
         const xrplOption: WalletOption = {
           id: "xrpl",
           name: "XRPL Browser Wallet",
@@ -80,7 +75,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
           description: "Non-custodial browser extension",
         };
 
-        // Prioritize based on current chain
         if (chain.id === 'xrpl') {
           options.push(xrplOption, phantomOption);
         } else {
@@ -90,7 +84,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
         setWalletOptions(options);
       } catch (e) {
         console.error("Error initializing wallets:", e);
-        // Fallback
         setWalletOptions([
           {
             id: "phantom",
@@ -157,7 +150,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Chain Network Badge */}
           <div className="flex items-center justify-center">
             <Badge variant="outline" className={cn("px-3 py-1", getChainBadgeStyles())}>
               {getChainIcon()}
@@ -167,7 +159,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
 
           <Separator className="opacity-50" />
 
-          {/* Wallet Options */}
           <div className="space-y-3">
             {isInitializing ? (
               <div className="flex flex-col items-center justify-center py-8 gap-3">
@@ -209,14 +200,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
               </>
             )}
           </div>
-
-          {/* Discovered wallets from SDK */}
-          {!isInitializing && discoveredWallets.length > 1 && (
-            <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-              <Sparkles className="w-3 h-3" />
-              {discoveredWallets.length} wallets detected
-            </div>
-          )}
 
           {chain.id === 'monad' && (
             <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 flex gap-3">
