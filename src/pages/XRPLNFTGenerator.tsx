@@ -43,8 +43,7 @@ import { toast } from "sonner";
 import { useWallet } from "@/providers/WalletProvider";
 import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
 import { supabase } from "@/integrations/supabase/client";
-import { storageClient, NFT_BUCKETS } from "@/integrations/supabase/storageClient";
-import { getCollectionStorageInfo } from "@/lib/payloadMapper";
+// storageClient removed — Arweave-only flow
 import { getDbChainValue, setStoredChain } from "@/config/chains";
 import { uploadToArweave, uploadMetadataToArweave } from "@/integrations/irys/client";
 
@@ -247,32 +246,19 @@ export default function XRPLNFTGenerator() {
             if (colErr) throw colErr;
             collectionId = col.id;
 
-            const storageInfo = getCollectionStorageInfo(collectionId);
             setUploadProgress(15);
 
             // 2. Upload images + metadata JSON to Arweave (Permanence)
             toast.loading(`Securing ${files.length} items to Arweave...`, { id: "xrpl-gen" });
-            const itemLinks: { tokenID: string; arweaveUri: string }[] = [];
+            const itemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string }[] = [];
             const batchSize = 5;
             for (let i = 0; i < files.length; i += batchSize) {
                 const batch = files.slice(i, i + batchSize);
                 await Promise.all(batch.map(async (file, idx) => {
                     const tokenIdx = i + idx;
-                    const ext = file.name.split(".").pop() || "png";
 
-                    // Task A: Supabase Upload (Cloud Hosting)
-                    const s3ImagePromise = storageClient.storage
-                        .from(NFT_BUCKETS.IMAGES)
-                        .upload(`collections/${collectionId}/${tokenIdx}.${ext}`, file, { upsert: true });
-
-                    // Task B: Arweave Upload (Permanence)
-                    const arweaveImagePromise = uploadToArweave(file, { address, chainType: 'xrpl', network });
-
-                    const [s3Result, arweaveImageUri] = await Promise.all([s3ImagePromise, arweaveImagePromise]);
-
-                    const { data: { publicUrl: s3Url } } = storageClient.storage
-                        .from(NFT_BUCKETS.IMAGES)
-                        .getPublicUrl(`collections/${collectionId}/${tokenIdx}.${ext}`);
+                    // Upload image to Arweave
+                    const arweaveImageUri = await uploadToArweave(file, { address, chainType: 'xrpl', network });
 
                     const metadata = {
                         schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
@@ -280,7 +266,6 @@ export default function XRPLNFTGenerator() {
                         name: `${collectionName} #${tokenIdx + 1}`,
                         description,
                         image: arweaveImageUri,
-                        external_url: s3Url,
                         attributes: [],
                         collection: { name: collectionName, family: collectionSymbol },
                         xrpl: {
@@ -290,29 +275,18 @@ export default function XRPLNFTGenerator() {
                         },
                     };
 
-                    const metadataJson = JSON.stringify(metadata);
-
-                    // Task C: Supabase Metadata (Cloud Hosting)
-                    const s3MetaPromise = storageClient.storage
-                        .from(NFT_BUCKETS.METADATA)
-                        .upload(
-                            `collections/${collectionId}/${tokenIdx}.json`,
-                            metadataJson,
-                            { upsert: true, contentType: "application/json" }
-                        );
-
-                    // Task D: Arweave Metadata (Permanence)
-                    const arweaveMetaPromise = uploadMetadataToArweave(metadata, { address, chainType: 'xrpl', network });
-
-                    const [, arweaveMetaUri] = await Promise.all([s3MetaPromise, arweaveMetaPromise]);
+                    // Upload metadata to Arweave
+                    const arweaveMetaUri = await uploadMetadataToArweave(metadata, { address, chainType: 'xrpl', network });
 
                     itemLinks.push({
                         tokenID: tokenIdx.toString(),
-                        arweaveUri: arweaveMetaUri
+                        arweaveUri: arweaveMetaUri,
+                        arweaveImageUri
                     });
                 }));
                 setUploadProgress(15 + Math.round(((i + batchSize) / files.length) * 40));
             }
+
 
             // 3. Deploy — sets Account Domain with baseUri
             setUploadProgress(60);
@@ -334,11 +308,11 @@ export default function XRPLNFTGenerator() {
             setUploadProgress(75);
 
             // Update DB with contract address
-            const firstExt = files[0]?.name.split(".").pop() || "png";
+            const firstArweaveImage = itemLinks[0]?.arweaveImageUri || '';
             await supabase.from("collections").update({
                 contract_address: result.address,
                 status: "active",
-                image_url: storageInfo.itemImageUri(0, firstExt),
+                image_url: firstArweaveImage,
             }).eq("id", collectionId);
 
             // 4. Mint all NFTs with user-configured flags + transferFee
@@ -378,7 +352,7 @@ export default function XRPLNFTGenerator() {
                     nft_token_id: res.nfTokenId,
                     name: `${collectionName} #${i + 1}`,
                     description,
-                    image_url: storageInfo.itemImageUri(i, ext),
+                    image_url: itemLinks[i]?.arweaveImageUri || '',
                     owner_address: result.address,
                     owner_id: session?.user?.id || "",
                     tx_hash: res.txHash,

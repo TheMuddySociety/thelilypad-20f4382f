@@ -245,15 +245,15 @@ export function useCollectionDetail() {
                     // itemIndex is 0-based to match how the generator stores metadata
                     const itemIndex = currentMinted + i;
 
-                    // Prefer IPFS CID (admin pinned), then fall back to Supabase-hosted metadata
+                    // Prefer IPFS CID (admin pinned), then Arweave URI from minted_nfts
                     let metadataUri: string;
                     if (collection.ipfs_base_cid) {
                         metadataUri = `ipfs://${collection.ipfs_base_cid}/${itemIndex}.json`;
                     } else {
-                        // Supabase metadata URL — same path used when minting via the generators
-                        const { getCollectionStorageInfo } = await import("@/lib/payloadMapper");
-                        const storageInfo = getCollectionStorageInfo(collection.id);
-                        metadataUri = storageInfo.itemMetadataUri(itemIndex);
+                        // Arweave URIs are stored per-NFT; for new mints, the URI comes from the mint flow
+                        // Fallback: empty string will be replaced by the mint function's own URI
+                        metadataUri = '';
+                        console.warn(`[CollectionDetail] No IPFS CID for collection ${collection.id}, metadata URI will be resolved at mint time`);
                     }
 
                     console.log(`[CollectionDetail] XRPL mint #${itemIndex}: uri=${metadataUri}`);

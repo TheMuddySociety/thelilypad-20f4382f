@@ -45,7 +45,7 @@ import {
   Gem
 } from "lucide-react";
 import { toast } from "sonner";
-import { storageClient, NFT_BUCKETS } from "@/integrations/supabase/storageClient";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface TraitAttribute {
   trait_type: string;
@@ -202,8 +202,8 @@ export function ArtworkUploader({
           const fileExt = file.name.split('.').pop();
           const fileName = `${creatorId}/artwork/${id}.${fileExt}`;
 
-          const { error: uploadError } = await storageClient.storage
-            .from(NFT_BUCKETS.COVERS)
+          const { error: uploadError } = await supabase.storage
+            .from('collection-images')
             .upload(fileName, file, {
               cacheControl: '3600',
               upsert: false
@@ -215,8 +215,8 @@ export function ArtworkUploader({
             continue;
           }
 
-          const { data: { publicUrl } } = storageClient.storage
-            .from(NFT_BUCKETS.COVERS)
+          const { data: { publicUrl } } = supabase.storage
+            .from('collection-images')
             .getPublicUrl(fileName);
 
           newArtworks.push({
@@ -261,12 +261,12 @@ export function ArtworkUploader({
 
   const removeArtwork = async (id: string) => {
     const artwork = artworks.find(a => a.id === id);
-    if (artwork?.imageUrl && artwork.imageUrl.includes(NFT_BUCKETS.COVERS)) {
+    if (artwork?.imageUrl && artwork.imageUrl.includes('collection-images')) {
       try {
-        const urlParts = artwork.imageUrl.split(`/${NFT_BUCKETS.COVERS}/`);
+        const urlParts = artwork.imageUrl.split('/collection-images/');
         if (urlParts[1]) {
-          await storageClient.storage
-            .from(NFT_BUCKETS.COVERS)
+          await supabase.storage
+            .from('collection-images')
             .remove([decodeURIComponent(urlParts[1])]);
         }
       } catch (err) {
@@ -305,12 +305,12 @@ export function ArtworkUploader({
     const selectedArtworks = artworks.filter(a => selectedIds.has(a.id));
 
     for (const artwork of selectedArtworks) {
-      if (artwork.imageUrl && artwork.imageUrl.includes(NFT_BUCKETS.COVERS)) {
+      if (artwork.imageUrl && artwork.imageUrl.includes('collection-images')) {
         try {
-          const urlParts = artwork.imageUrl.split(`/${NFT_BUCKETS.COVERS}/`);
+          const urlParts = artwork.imageUrl.split('/collection-images/');
           if (urlParts[1]) {
-            await storageClient.storage
-              .from(NFT_BUCKETS.COVERS)
+            await supabase.storage
+              .from('collection-images')
               .remove([decodeURIComponent(urlParts[1])]);
           }
         } catch (err) {

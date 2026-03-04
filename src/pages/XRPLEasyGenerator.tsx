@@ -33,13 +33,13 @@ import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
 import JSZip from "jszip";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { storageClient, NFT_BUCKETS } from "@/integrations/supabase/storageClient";
+// storageClient removed — Arweave-only flow
 import { useSEO } from "@/hooks/useSEO";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { setStoredChain, getDbChainValue } from "@/config/chains";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
-import { getCollectionStorageInfo } from "@/lib/payloadMapper";
+// getCollectionStorageInfo removed — Arweave-only flow
 import { triggerCollectionDownload } from "@/lib/nftStorageService";
 import { uploadToArweave, uploadMetadataToArweave } from "@/integrations/irys/client";
 import { resolveIPFS } from "@/integrations/nftstorage/client";
@@ -66,7 +66,7 @@ export default function XRPLEasyGenerator() {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [collectionId, setCollectionId] = useState("");
     const [deployedResult, setDeployedResult] = useState<XRPLDeployResult | null>(null);
-    const [itemLinks, setItemLinks] = useState<{ tokenID: string; arweaveUri: string }[]>([]);
+    const [itemLinks, setItemLinks] = useState<{ tokenID: string; arweaveUri: string; arweaveImageUri: string }[]>([]);
     const [isDownloadingZip, setIsDownloadingZip] = useState(false);
     const [transferFee, setTransferFee] = useState(5);
     const [metadataMap, setMetadataMap] = useState<Record<string, any>>({});
@@ -187,35 +187,22 @@ export default function XRPLEasyGenerator() {
 
             if (placeholderError) throw placeholderError;
             const collectionId = placeholderCollection.id;
-            const storageInfo = getCollectionStorageInfo(collectionId);
 
             setUploadProgress(15);
 
-            // 2. Upload individual assets to Supabase & Arweave (Parallel)
-            toast.loading(`Uploading collection to Cloud & Arweave...`, { id: 'easy-mint' });
+            // 2. Upload individual assets to Arweave (Permanent)
+            toast.loading(`Uploading collection to Arweave...`, { id: 'easy-mint' });
 
-            const localItemLinks: { tokenID: string; arweaveUri: string }[] = [];
-            const batchSize = 10; // Slightly larger batch for parallel workers
+            const localItemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string }[] = [];
+            const batchSize = 10;
 
             for (let i = 0; i < files.length; i += batchSize) {
                 const batch = files.slice(i, i + batchSize);
                 await Promise.all(batch.map(async (file, index) => {
                     const tokenId = i + index;
-                    const fileExt = file.name.split('.').pop() || 'png';
 
-                    // ─── Task A: Upload image to Supabase ─────────────────────────────────
-                    const s3ImagePromise = storageClient.storage
-                        .from(NFT_BUCKETS.IMAGES)
-                        .upload(`collections/${collectionId}/${tokenId}.${fileExt}`, file, { upsert: true });
-
-                    // ─── Task B: Asset to Arweave (Permanence)
-                    const arweaveImagePromise = uploadToArweave(file, { address, chainType: 'xrpl', network });
-
-                    const [s3Image, arweaveImageUri] = await Promise.all([s3ImagePromise, arweaveImagePromise]);
-
-                    const { data: { publicUrl: s3Url } } = storageClient.storage
-                        .from(NFT_BUCKETS.IMAGES)
-                        .getPublicUrl(`collections/${collectionId}/${tokenId}.${fileExt}`);
+                    // Upload image to Arweave
+                    const arweaveImageUri = await uploadToArweave(file, { address, chainType: 'xrpl', network });
 
                     // Try to match metadata from the map
                     const baseName = file.name.split('.').slice(0, -1).join('.');
@@ -226,31 +213,17 @@ export default function XRPLEasyGenerator() {
                         nftType: "art.v0",
                         name: importedMetadata?.name || `${name} #${tokenId + 1}`,
                         description: importedMetadata?.description || description,
-                        image: arweaveImageUri, // Primary: Arweave
-                        external_url: s3Url, // Secondary: Supabase Public URL for speed
+                        image: arweaveImageUri,
                         attributes: importedMetadata?.attributes || importedMetadata?.traits || []
                     };
 
-                    const metadataJson = JSON.stringify(metadata, null, 2);
-                    const metadataBlob = new Blob([metadataJson], { type: 'application/json' });
+                    // Upload metadata to Arweave
+                    const arweaveMetaUri = await uploadMetadataToArweave(metadata, { address, chainType: 'xrpl', network });
 
-                    // ─── Task C: Upload metadata to Supabase ───────────────────────────────
-                    const s3MetaPromise = storageClient.storage
-                        .from(NFT_BUCKETS.METADATA)
-                        .upload(`collections/${collectionId}/${tokenId}.json`, metadataJson, {
-                            upsert: true,
-                            contentType: 'application/json'
-                        });
-
-                    // ─── Task D: Metadata to Arweave
-                    const arweaveMetaPromise = uploadMetadataToArweave(metadata, { address, chainType: 'xrpl', network });
-
-                    const [, arweaveMetaUri] = await Promise.all([s3MetaPromise, arweaveMetaPromise]);
-
-                    // Gather Arweave URI for the final collection pinning
                     localItemLinks.push({
                         tokenID: tokenId.toString(),
-                        arweaveUri: arweaveMetaUri
+                        arweaveUri: arweaveMetaUri,
+                        arweaveImageUri
                     });
                 }));
                 setUploadProgress(15 + Math.round(((i + batchSize) / files.length) * 40));
@@ -263,11 +236,11 @@ export default function XRPLEasyGenerator() {
             setCollectionId(collectionId);
             setItemLinks(localItemLinks);
 
-            // 4. Deploy Collection — always Supabase metadata root as baseUri
+            // 4. Deploy Collection — use first Arweave URI as baseUri
             setUploadProgress(80);
             toast.loading("Setting up XRPL Collection...", { id: 'easy-mint' });
 
-            const baseUri = storageInfo.rootUri;
+            const baseUri = localItemLinks[0]?.arweaveUri || "";
 
             const result = await deployXRPLCollection({
                 name,
@@ -280,14 +253,12 @@ export default function XRPLEasyGenerator() {
             setDeployedResult(result);
 
             // Update collection record with final results
-            // Update DB with collection info and Arweave root reference
             const primaryArweaveUri = localItemLinks[0]?.arweaveUri || "";
-            const firstFileExt = files[0]?.name.split('.').pop() || 'png';
+            const firstArweaveImage = localItemLinks[0]?.arweaveImageUri || "";
             const { error: finalUpdateErr } = await supabase.from("collections").update({
                 contract_address: result.address,
                 status: "active",
-                image_url: storageInfo.itemImageUri(0, firstFileExt),
-                arweave_root_uri: primaryArweaveUri // Store the first item's Arweave URI as a reference
+                image_url: firstArweaveImage,
             }).eq('id', collectionId);
 
             setUploadProgress(100);
@@ -317,7 +288,7 @@ export default function XRPLEasyGenerator() {
             .eq('contract_address', deployedResult.address)
             .single();
         const cid = collData?.id || collectionId;
-        const storageInfo = getCollectionStorageInfo(cid);
+        // storageInfo no longer needed — Arweave URIs stored in itemLinks
 
         try {
             toast.loading(`Minting ${files.length} NFTs...`, { id: 'easy-mint' });
@@ -358,7 +329,7 @@ export default function XRPLEasyGenerator() {
                     nft_token_id: res.nfTokenId,             // real 64-char XRPL NFTokenID
                     name: `${name} #${i + 1}`,
                     description: description,
-                    image_url: storageInfo.itemImageUri(i, ext),
+                    image_url: itemLinks[i]?.arweaveImageUri || '',
                     owner_address: deployedResult.address,
                     owner_id: session?.user?.id || '',
                     tx_hash: res.txHash,                     // real per-token tx hash
@@ -391,7 +362,11 @@ export default function XRPLEasyGenerator() {
                 (current, total, status) => {
                     setUploadProgress(Math.round((current / total) * 100));
                     toast.loading(status, { id: 'zip-download' });
-                }
+                },
+                itemLinks.map(item => ({
+                    imageUri: item.arweaveImageUri,
+                    metadataUri: item.arweaveUri
+                }))
             );
             toast.success("Collection ZIP downloaded!", { id: 'zip-download' });
         } catch (err: any) {
