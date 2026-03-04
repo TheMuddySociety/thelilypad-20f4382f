@@ -44,13 +44,13 @@ import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { pinCollectionToIPFS } from "@/lib/nftStorageService";
 import { useIpfs } from "@/providers/IpfsProvider";
 import { supabase } from "@/integrations/supabase/client";
-import { storageClient, NFT_BUCKETS } from "@/integrations/supabase/storageClient";
+// storageClient removed — Arweave-only flow
 import { motion, AnimatePresence } from "framer-motion";
 import { validateAssets, AssetFile } from "@/utils/assetValidator";
 import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { SupportedChain, CHAINS } from "@/config/chains";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
-import { getCollectionStorageInfo, getChainRootUri } from "@/lib/payloadMapper";
+// payloadMapper no longer needed — Arweave-only flow
 import { useChain } from "@/providers/ChainProvider";
 import { useChainTheme } from "@/hooks/useChainTheme";
 import { useDraftCollection } from "@/hooks/useDraftCollection";
@@ -297,55 +297,32 @@ export default function LaunchpadCreate() {
 
             if (collErr) throw collErr;
             collectionId = collection.id;
-            const storageInfo = getCollectionStorageInfo(collectionId);
 
-            // ── Step 2: Parallel Uploads (Supabase + IPFS) ─────────────────
-            toast.loading(`Securing ${assetsToUpload.length} items to Cloud & IPFS...`, { id: 'deploy' });
-            const itemLinks: { tokenID: string; arweaveUri: string }[] = [];
+            // ── Step 2: Upload to Arweave (Permanent Storage) ─────────────
+            toast.loading(`Securing ${assetsToUpload.length} items to Arweave...`, { id: 'deploy' });
+            const itemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string }[] = [];
             const batchSize = 5;
 
             for (let i = 0; i < assetsToUpload.length; i += batchSize) {
                 const batch = assetsToUpload.slice(i, i + batchSize);
                 await Promise.all(batch.map(async (asset, idx) => {
                     const tokenId = i + idx;
-                    const fileExt = asset.file.name ? asset.file.name.split('.').pop() : 'png';
 
-                    // Task A: Image to Supabase
-                    const s3ImagePromise = storageClient.storage
-                        .from(NFT_BUCKETS.IMAGES)
-                        .upload(`collections/${collectionId}/${tokenId}.${fileExt}`, asset.file, { upsert: true });
-
-                    // Task B: Asset to Arweave (Permanence)
-                    const arweaveImagePromise = uploadToArweave(asset.file, { address, chainType: selectedChain, network });
-
-                    const [s3Image, arweaveImageUri] = await Promise.all([s3ImagePromise, arweaveImagePromise]);
-
-                    const { data: { publicUrl: s3Url } } = storageClient.storage
-                        .from(NFT_BUCKETS.IMAGES)
-                        .getPublicUrl(`collections/${collectionId}/${tokenId}.${fileExt}`);
+                    // Upload image to Arweave
+                    const arweaveImageUri = await uploadToArweave(asset.file, { address, chainType: selectedChain, network });
 
                     const metadata = {
                         ...asset.metadata,
                         image: arweaveImageUri,
-                        external_url: s3Url
                     };
 
-                    const metadataJson = JSON.stringify(metadata, null, 2);
-                    const metadataBlob = new Blob([metadataJson], { type: 'application/json' });
-
-                    // Task C: Metadata to Supabase
-                    const s3MetaPromise = storageClient.storage
-                        .from(NFT_BUCKETS.METADATA)
-                        .upload(`collections/${collectionId}/${tokenId}.json`, metadataJson, { upsert: true, contentType: 'application/json' });
-
-                    // Task D: Metadata to Arweave
-                    const arweaveMetaPromise = uploadMetadataToArweave(metadata, { address, chainType: selectedChain, network });
-
-                    const [, arweaveMetaUri] = await Promise.all([s3MetaPromise, arweaveMetaPromise]);
+                    // Upload metadata to Arweave
+                    const arweaveMetaUri = await uploadMetadataToArweave(metadata, { address, chainType: selectedChain, network });
 
                     itemLinks.push({
                         tokenID: tokenId.toString(),
-                        arweaveUri: arweaveMetaUri
+                        arweaveUri: arweaveMetaUri,
+                        arweaveImageUri
                     });
                 }));
             }
@@ -419,7 +396,7 @@ export default function LaunchpadCreate() {
             await supabase.from("collections").update({
                 contract_address: deployedAddress,
                 status: "active",
-                image_url: storageInfo.itemImageUri(0)
+                image_url: itemLinks[0]?.arweaveImageUri || ''
             }).eq('id', collectionId);
 
             toast.success("Successfully Launched!", { id: 'deploy' });

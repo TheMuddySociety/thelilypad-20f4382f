@@ -1,5 +1,4 @@
 import { Umi } from '@metaplex-foundation/umi';
-import { getCollectionStorageInfo } from '@/lib/payloadMapper';
 
 /**
  * Solana Metadata - Arweave/Irys uploads and deterministic resolution
@@ -40,7 +39,6 @@ export async function uploadFiles(umi: Umi, files: File[]): Promise<string[]> {
         };
     }));
 
-    // Upload in batches of 10 to avoid payload limits
     const batchSize = 10;
     const uris: string[] = [];
 
@@ -77,7 +75,6 @@ export async function uploadJsonBatch(umi: Umi, metadataArray: any[]): Promise<s
         };
     });
 
-    // Upload in batches
     const batchSize = 10;
     const uris: string[] = [];
 
@@ -91,17 +88,18 @@ export async function uploadJsonBatch(umi: Umi, metadataArray: any[]): Promise<s
 }
 
 /**
- * Resolve deterministic metadata URI using Supabase storage
+ * Resolve metadata URI — requires an Arweave CID
+ * Returns empty string if no CID is provided (assets must be uploaded first)
  */
-export function resolveMetadataUri(collectionId: string, tokenId: number | string): string {
-    const storageInfo = getCollectionStorageInfo(collectionId);
-    return storageInfo.itemMetadataUri(tokenId);
+export function resolveMetadataUri(collectionId: string, tokenId: number | string, arweaveCid?: string): string {
+    if (!arweaveCid) return '';
+    return `https://arweave.net/${arweaveCid}/${tokenId}.json`;
 }
 
 /**
- * Resolve deterministic image URI using Supabase storage
+ * Resolve image URI — requires an Arweave CID
  */
-export function resolveImageUri(collectionId: string, tokenId: number | string, extension = 'png'): string {
-    const storageInfo = getCollectionStorageInfo(collectionId);
-    return storageInfo.itemImageUri(tokenId, extension);
+export function resolveImageUri(collectionId: string, tokenId: number | string, extension = 'png', arweaveCid?: string): string {
+    if (!arweaveCid) return '';
+    return `https://arweave.net/${arweaveCid}/${tokenId}.${extension}`;
 }
