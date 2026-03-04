@@ -45,12 +45,36 @@ export const XRPL_LAUNCHPAD_CONFIG: ChainLaunchpadConfig = {
         ]
     },
     features: {
-        allowlist: false, // XRPL generally doesn't have native CM-like guards for XLS-20 (mostly marketplace based)
-        phases: false, // Similar to allowlist, usually handled off-chain or by marketplace
+        allowlist: false, // XRPL generally doesn't have native CM-like guards for XLS-20
+        phases: false, // Usually handled off-chain or by marketplace
         revenueSharing: false, // XRPL Transfer Fee is limited to the single Issuer address
         customMetadata: true,
         ipfsDefault: true, // XRPL defaults to IPFS/NFT.Storage
-        dynamicMetadata: false, // XRPL NFTs are immutable after minting (mostly)
+        dynamicMetadata: false, // XRPL NFTs are immutable after minting
+        reveal: {
+            supported: false, // XRPL NFTs are immutable; no on-chain reveal mechanism
+            supportsScheduledReveal: false,
+            supportsInstantReveal: false,
+        },
+        multiCommunityWL: true, // Off-chain WL can target multiple communities
+        persistentWL: true, // XRPL WL is off-chain so can stay open after phase ends
+    },
+    defaultWLPhases: [
+        {
+            id: "holders",
+            name: "NFT Holders",
+            communitySources: [],
+            startTime: null,
+            endTime: null,
+            keepOpenAfterEnd: true, // XRPL WL can persist
+            maxPerWallet: 5,
+            price: "0",
+        },
+    ],
+    defaultTeamRoles: ["Artist", "Issuer", "Community Manager"],
+    treasury: {
+        treasuryAddress: "", // Creator's XRPL issuer address
+        splits: [], // XRPL doesn't support on-chain splits; single issuer receives all
     },
     tools: [
         { name: "Parallel Batch Minter", description: "Mint hundreds of NFTs simultaneously using the Ticket system.", icon: Zap, component: "ParallelMinter" },
@@ -59,8 +83,8 @@ export const XRPL_LAUNCHPAD_CONFIG: ChainLaunchpadConfig = {
         { name: "Account Domain Link", description: "Professionally link your XRPL address to your verified project domain.", icon: Link, component: "AccountDomainLink" },
     ],
     validation: {
-        maxRoyalty: 50, // XRPL max is 50% (TransferFee 50000)
-        symbolMaxLength: 20, // XRPL allows more characters in some fields, but keep 20 for standard
-        requireCoverImage: false, // XRPL doesn't have a formal collection cover standard on-chain (unlike SOL)
+        maxRoyalty: 50,
+        symbolMaxLength: 20,
+        requireCoverImage: false,
     }
 };
