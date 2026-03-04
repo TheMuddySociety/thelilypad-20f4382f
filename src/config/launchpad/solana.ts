@@ -48,6 +48,43 @@ export const SOLANA_LAUNCHPAD_CONFIG: ChainLaunchpadConfig = {
         revenueSharing: true,
         customMetadata: true,
         ipfsDefault: false, // Solana defaults to Irys/Arweave
+        reveal: {
+            supported: true,
+            supportsScheduledReveal: true,
+            supportsInstantReveal: true,
+        },
+        multiCommunityWL: true, // Can WL multiple NFT/token holder communities
+        persistentWL: false, // Candy Guard phases are strict time-bound
+    },
+    defaultWLPhases: [
+        {
+            id: "og",
+            name: "OG Allowlist",
+            communitySources: [],
+            startTime: null,
+            endTime: null,
+            keepOpenAfterEnd: false,
+            maxPerWallet: 2,
+            price: "0",
+        },
+        {
+            id: "wl",
+            name: "Whitelist",
+            communitySources: [],
+            startTime: null,
+            endTime: null,
+            keepOpenAfterEnd: false,
+            maxPerWallet: 3,
+            price: "0",
+        },
+    ],
+    defaultTeamRoles: ["Artist", "Developer", "Community Manager", "Founder"],
+    treasury: {
+        treasuryAddress: "",
+        splits: [
+            { label: "Creator", address: "", bps: 8500 },
+            { label: "Platform", address: "2cS7yyypbtxQ4qBdZRYtXDEDTQJZK34h4RPmXxz4sKHk", bps: 1500 },
+        ],
     },
     tools: [
         { name: "Candy Machine V3", description: "Set up phases, mint guards, and launch dates.", icon: Shield, component: "CandyMachineManager" },

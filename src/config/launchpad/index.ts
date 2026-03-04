@@ -71,6 +71,33 @@ export const MONAD_LAUNCHPAD_CONFIG: ChainLaunchpadConfig = {
         revenueSharing: true,
         customMetadata: true,
         ipfsDefault: true,
+        reveal: {
+            supported: true,
+            supportsScheduledReveal: true,
+            supportsInstantReveal: true,
+        },
+        multiCommunityWL: true, // EVM-style WL supports multiple community snapshots
+        persistentWL: true, // Monad WL can remain open after phase window
+    },
+    defaultWLPhases: [
+        {
+            id: "holders",
+            name: "Community Holders",
+            communitySources: [],
+            startTime: null,
+            endTime: null,
+            keepOpenAfterEnd: true,
+            maxPerWallet: 3,
+            price: "0",
+        },
+    ],
+    defaultTeamRoles: ["Artist", "Smart Contract Dev", "Community Manager", "Founder"],
+    treasury: {
+        treasuryAddress: "",
+        splits: [
+            { label: "Creator", address: "", bps: 8500 },
+            { label: "Platform", address: "", bps: 1500 },
+        ],
     },
     tools: [],
     validation: {
