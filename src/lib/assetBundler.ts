@@ -41,7 +41,8 @@ export const loadImage = (src: string): Promise<HTMLImageElement> => {
 };
 
 /**
- * Composite a single NFT image onto a canvas and return as data URL
+ * Composite a single NFT image onto a canvas and return as data URL.
+ * For small preview counts only — use compositeNFTImageToBlob for bulk exports.
  */
 export const compositeNFTImage = async (
     nft: GeneratedNFT,
@@ -75,6 +76,65 @@ export const compositeNFTImage = async (
     }
 
     return canvas.toDataURL("image/png");
+};
+
+/**
+ * Composite a single NFT onto an EXISTING canvas and return as Blob.
+ * This avoids creating/destroying canvas elements and avoids the ~33% overhead
+ * of base64 data URLs. The canvas is reused across all NFTs in a batch.
+ */
+export const compositeNFTImageToBlob = async (
+    nft: GeneratedNFT,
+    canvas: HTMLCanvasElement,
+    ctx: CanvasRenderingContext2D,
+): Promise<Blob | null> => {
+    const hasImages = nft.traits.some((t) => t.imageUrl);
+    if (!hasImages) return null;
+
+    const size = canvas.width;
+    ctx.clearRect(0, 0, size, size);
+
+    for (const trait of nft.traits) {
+        if (trait.imageUrl) {
+            try {
+                const img = await loadImage(trait.imageUrl);
+                ctx.save();
+                ctx.globalCompositeOperation = trait.blendMode || "source-over";
+                ctx.globalAlpha = (trait.opacity ?? 100) / 100;
+                ctx.drawImage(img, 0, 0, size, size);
+                ctx.restore();
+            } catch (error) {
+                console.warn(`Failed to load image for trait: ${trait.traitName}`, error);
+            }
+        }
+    }
+
+    return new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((blob) => resolve(blob), "image/png");
+    });
+};
+
+/**
+ * Create a reusable canvas + context pair for bulk compositing.
+ */
+export const createReusableCanvas = (size: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } => {
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Could not get canvas context");
+    return { canvas, ctx };
+};
+
+/**
+ * Estimate memory usage for a batch export in MB.
+ * Each PNG blob is roughly (resolution^2 * 4 bytes RGBA) * compression factor (~0.3-0.6).
+ * We use 0.5 as a conservative estimate.
+ */
+export const estimateExportMemoryMB = (count: number, resolution: number): number => {
+    const rawPixelBytes = resolution * resolution * 4;
+    const estimatedPngBytes = rawPixelBytes * 0.5;
+    return (count * estimatedPngBytes) / (1024 * 1024);
 };
 
 /**
@@ -113,7 +173,7 @@ export const nftToXrplMetadata = (
         name: `${collectionName} #${nft.id}`,
         description: collectionDescription || `${collectionName} NFT #${nft.id}`,
         image: `ipfs://${imageCid}/${nft.id}.png`,
-        animation_url: `ipfs://${imageCid}/${nft.id}.png`, // High-res version
+        animation_url: `ipfs://${imageCid}/${nft.id}.png`,
         external_url: externalUrl || "https://thelilypad.io",
         image_mimetype: "image/png",
         attributes: nft.traits.map((t) => ({
@@ -135,8 +195,7 @@ export const nftToXrplMetadata = (
 /**
  * Bundle assets into a ZIP file with professional folder structure.
  *
- * Memory guard: 4K resolution images at ~6MB each can easily OOM
- * the browser. We cap at 2000 NFTs at 4K and 5000 at 1K.
+ * Memory-safe: reuses a single canvas and writes Blobs (not base64 strings).
  */
 export const bundleAssetsAsZip = async (
     nfts: GeneratedNFT[],
@@ -148,38 +207,38 @@ export const bundleAssetsAsZip = async (
     imageCid: string = "YOUR_IMAGE_CID"
 ): Promise<Blob> => {
     // ── Memory guard ──────────────────────────────────────────────────────
-    const isHighRes = resolution >= 2048;
-    const hardLimit = isHighRes ? 2000 : 5000;
-    const warnThreshold = isHighRes ? 500 : 2000;
-
-    if (nfts.length > hardLimit) {
-        const msg = `Cannot export ${nfts.length} NFTs at ${resolution}px — maximum is ${hardLimit} to prevent browser crashes. Reduce resolution or split into batches.`;
+    const estimatedMB = estimateExportMemoryMB(nfts.length, resolution);
+    if (estimatedMB > 2000) {
+        const msg = `Estimated memory usage (~${Math.round(estimatedMB)} MB) is too high. Reduce count or resolution.`;
         toast.error(msg, { duration: 8000 });
         throw new Error(msg);
     }
-
-    if (nfts.length > warnThreshold) {
+    if (estimatedMB > 500) {
         toast.warning(
-            `Exporting ${nfts.length} NFTs at ${resolution}px — this may use significant memory. Consider closing other tabs.`,
+            `Large export (~${Math.round(estimatedMB)} MB). Close other tabs for best performance.`,
             { duration: 6000 }
         );
     }
+
     const zip = new JSZip();
     const imagesFolder = zip.folder("images");
     const metadataFolder = zip.folder("metadata");
-    const interactiveFolder = zip.folder("interactive"); // Placeholder for future use
+    const interactiveFolder = zip.folder("interactive");
 
     if (!imagesFolder || !metadataFolder || !interactiveFolder)
         throw new Error("Failed to create ZIP folders");
 
+    // Reuse a single canvas for all compositing
+    const { canvas, ctx } = createReusableCanvas(resolution);
+
     for (let i = 0; i < nfts.length; i++) {
         onProgress(`Compositing ${i + 1} / ${nfts.length}…`, Math.round(((i + 1) / nfts.length) * 80));
 
-        const imageDataUrl = await compositeNFTImage(nfts[i], resolution);
+        const blob = await compositeNFTImageToBlob(nfts[i], canvas, ctx);
 
-        if (imageDataUrl) {
-            const base64Data = imageDataUrl.split(",")[1];
-            imagesFolder.file(`${nfts[i].id}.png`, base64Data, { base64: true });
+        if (blob) {
+            // Store blob directly — no base64 overhead
+            imagesFolder.file(`${nfts[i].id}.png`, blob);
         }
 
         const metadata = chain.toLowerCase() === "xrpl"
