@@ -206,19 +206,47 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
                   </Button>
                 </div>
 
-                {/* Traits Preview */}
+                {/* Traits Preview with Rarity */}
                 {!layer.collapsed && (
-                  <div className="px-2 pb-2 flex gap-1.5 overflow-x-auto">
-                    {layer.traits.slice(0, 6).map((trait) => (
-                      <div key={trait.id} className="flex-shrink-0 w-10 h-10 rounded border border-border bg-card" title={trait.name}>
-                        <img src={trait.preview} alt={trait.name} className="w-full h-full object-contain" />
-                      </div>
-                    ))}
-                    {layer.traits.length > 6 && (
-                      <div className="flex-shrink-0 w-10 h-10 rounded border-dashed border border-border flex items-center justify-center">
-                        <span className="text-[10px] text-muted-foreground">+{layer.traits.length - 6}</span>
-                      </div>
-                    )}
+                  <div className="px-2 pb-2 space-y-1.5">
+                    <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                      {layer.traits.slice(0, 8).map((trait) => {
+                        const total = layer.traits.reduce((sum, t) => sum + t.rarity, 0);
+                        const pct = total > 0 ? Math.round((trait.rarity / total) * 100) : 0;
+                        return (
+                          <div key={trait.id} className="flex-shrink-0 flex flex-col items-center gap-0.5" title={`${trait.name}: ${pct}%`}>
+                            <div className="w-10 h-10 rounded border border-border bg-card overflow-hidden">
+                              <img src={trait.preview} alt={trait.name} className="w-full h-full object-contain" />
+                            </div>
+                            <span className={`text-[8px] font-mono font-bold ${pct <= 5 ? 'text-amber-500' : pct <= 15 ? 'text-purple-500' : pct <= 30 ? 'text-blue-500' : 'text-muted-foreground'}`}>
+                              {pct}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {layer.traits.length > 8 && (
+                        <div className="flex-shrink-0 flex flex-col items-center gap-0.5 justify-center">
+                          <div className="w-10 h-10 rounded border-dashed border border-border flex items-center justify-center">
+                            <span className="text-[10px] text-muted-foreground">+{layer.traits.length - 8}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* Mini distribution bar */}
+                    <div className="h-1 rounded-full overflow-hidden flex bg-muted/40">
+                      {layer.traits.map((trait, idx) => {
+                        const total = layer.traits.reduce((sum, t) => sum + t.rarity, 0);
+                        const pct = total > 0 ? (trait.rarity / total) * 100 : 0;
+                        return (
+                          <div
+                            key={trait.id}
+                            className={`h-full ${idx > 0 ? 'border-l border-background/60' : ''} ${pct <= 5 ? 'bg-amber-500' : pct <= 15 ? 'bg-purple-500' : pct <= 30 ? 'bg-blue-500' : 'bg-muted-foreground/60'}`}
+                            style={{ width: `${pct}%` }}
+                            title={`${trait.name}: ${Math.round(pct)}%`}
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </motion.div>
