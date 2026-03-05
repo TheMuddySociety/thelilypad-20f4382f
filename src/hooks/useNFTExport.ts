@@ -1,8 +1,16 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import JSZip from "jszip";
-import { compositeNFTImage, nftToXrplMetadata, nftToSolanaMetadata, type GeneratedNFT, type NFTMetadata } from "@/lib/assetBundler";
-import { dataUrlToBlob } from "@/lib/utils";
+import {
+    compositeNFTImage,
+    compositeNFTImageToBlob,
+    createReusableCanvas,
+    estimateExportMemoryMB,
+    nftToXrplMetadata,
+    nftToSolanaMetadata,
+    type GeneratedNFT,
+    type NFTMetadata,
+} from "@/lib/assetBundler";
 import type { Layer } from "@/components/launchpad/LayerManager";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -27,14 +35,11 @@ interface ExportOptions {
 
 type GenerateNFTBatch = (count: number) => { nfts: GeneratedNFT[]; duplicatesAvoided: number };
 
+// ── Memory-safe batch size ──────────────────────────────────────────────────
+const BATCH_SIZE = 10;
+
 // ── Hook ────────────────────────────────────────────────────────────────────
 
-/**
- * useNFTExport — All export / download logic extracted from GenerationPreview.
- *
- * Manages export state, image compositing pipelines, ZIP generation,
- * metadata formats (Solana / XRPL), and individual-file downloads.
- */
 export function useNFTExport(
     opts: ExportOptions,
     generateNFTBatch: GenerateNFTBatch,
@@ -54,7 +59,6 @@ export function useNFTExport(
 
     const hasImages = () => layers.some((l) => l.traits.some((t) => t.imageUrl));
 
-    /** Convert a GeneratedNFT to ERC-721 metadata format. */
     const nftToMetadata = (nft: GeneratedNFT, baseImageUri: string = ""): NFTMetadata => ({
         name: `${collectionName} #${nft.id}`,
         description: collectionDescription || `${collectionName} NFT #${nft.id}`,
@@ -65,7 +69,6 @@ export function useNFTExport(
         })),
     });
 
-    /** Trigger a browser download from a Blob. */
     const downloadBlob = (blob: Blob, filename: string) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -79,6 +82,28 @@ export function useNFTExport(
 
     const safeName = () =>
         (collectionName || "collection").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
+    /**
+     * Pre-flight memory check. Returns true if safe to proceed.
+     */
+    const memoryCheck = (count: number, resolution: number): boolean => {
+        const estimatedMB = estimateExportMemoryMB(count, resolution);
+        if (estimatedMB > 2000) {
+            toast.error(
+                `This export would use ~${Math.round(estimatedMB)} MB of memory and will likely crash your browser. ` +
+                `Try reducing the count (currently ${count}) or resolution (currently ${resolution}px).`,
+                { duration: 10000 }
+            );
+            return false;
+        }
+        if (estimatedMB > 500) {
+            toast.warning(
+                `Large export (~${Math.round(estimatedMB)} MB). Close other tabs for best performance.`,
+                { duration: 6000 }
+            );
+        }
+        return true;
+    };
 
     // ── Export: Images + Metadata (JSON bundle) ────────────────────────────────
 
@@ -131,9 +156,11 @@ export function useNFTExport(
             setExportProgress(100);
             setExportStatus("Complete!");
             toast.success(`Exported ${results.length} NFTs with images and metadata`);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Export failed:", error);
-            toast.error("Export failed. Please try again.");
+            toast.error(error?.message?.includes("memory") || error?.message?.includes("alloc")
+                ? "Export ran out of memory. Try reducing the count or resolution."
+                : "Export failed. Please try again.");
         } finally {
             setTimeout(() => {
                 setIsExporting(false);
@@ -174,7 +201,7 @@ export function useNFTExport(
             }
 
             toast.success(`Downloaded ${count} NFT images`);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Download failed:", error);
             toast.error("Download failed. Please try again.");
         } finally {
@@ -229,14 +256,15 @@ export function useNFTExport(
         toast.success(`Exported ${count} individual metadata entries`);
     }, [collectionName, collectionDescription, generateNFTBatch]);
 
-    // ── Export: ZIP (images + metadata) ────────────────────────────────────────
+    // ── Export: ZIP (images + metadata) — MEMORY-SAFE ─────────────────────────
 
     const exportAsZip = useCallback(async (exportCount: string) => {
-        const count = Math.min(parseInt(exportCount) || 100, 500);
+        const count = Math.min(parseInt(exportCount) || 100, 5000);
         if (!hasImages()) {
             toast.error("No images found. Add images to your traits first.");
             return;
         }
+        if (!memoryCheck(count, outputResolution)) return;
 
         setIsExporting(true);
         setExportProgress(0);
@@ -249,30 +277,31 @@ export function useNFTExport(
             if (!imagesFolder || !metadataFolder) throw new Error("Failed to create ZIP folders");
 
             const { nfts } = generateNFTBatch(count);
+            const { canvas, ctx } = createReusableCanvas(outputResolution);
 
             for (let i = 0; i < nfts.length; i++) {
                 setExportStatus(`Generating NFT ${i + 1} of ${count}...`);
                 setExportProgress(((i + 1) / count) * 80);
 
-                const imageDataUrl = await compositeNFTImage(nfts[i], outputResolution);
-                if (imageDataUrl) {
-                    const base64Data = imageDataUrl.split(",")[1];
-                    imagesFolder.file(`${nfts[i].id}.png`, base64Data, { base64: true });
-
-                    const metadata = {
-                        name: `${collectionName} #${nfts[i].id}`,
-                        description: collectionDescription || `${collectionName} NFT #${nfts[i].id}`,
-                        image: `ipfs://YOUR_CID/${nfts[i].id}.png`,
-                        attributes: nfts[i].traits.map((trait) => ({
-                            trait_type: trait.layerName,
-                            value: trait.traitName,
-                        })),
-                    };
-
-                    metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(metadata, null, 2));
+                const blob = await compositeNFTImageToBlob(nfts[i], canvas, ctx);
+                if (blob) {
+                    imagesFolder.file(`${nfts[i].id}.png`, blob);
                 }
 
-                if (i % 10 === 0) await new Promise((r) => setTimeout(r, 10));
+                const metadata = {
+                    name: `${collectionName} #${nfts[i].id}`,
+                    description: collectionDescription || `${collectionName} NFT #${nfts[i].id}`,
+                    image: `ipfs://YOUR_CID/${nfts[i].id}.png`,
+                    attributes: nfts[i].traits.map((trait) => ({
+                        trait_type: trait.layerName,
+                        value: trait.traitName,
+                    })),
+                };
+
+                metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(metadata, null, 2));
+
+                // Yield every batch to keep UI responsive
+                if (i % BATCH_SIZE === 0) await new Promise((r) => setTimeout(r, 10));
             }
 
             zip.file("_collection.json", JSON.stringify({
@@ -296,9 +325,12 @@ export function useNFTExport(
             setExportProgress(100);
             setExportStatus("Complete!");
             toast.success(`Exported ${count} NFTs as ZIP file`);
-        } catch (error) {
+        } catch (error: any) {
             console.error("ZIP export failed:", error);
-            toast.error("ZIP export failed. Please try again.");
+            const isOOM = error?.message?.includes("memory") || error?.message?.includes("alloc") || error?.name === "RangeError";
+            toast.error(isOOM
+                ? `Export ran out of memory at ${outputResolution}px. Try a lower resolution or fewer NFTs.`
+                : "ZIP export failed. Please try again.");
         } finally {
             setTimeout(() => {
                 setIsExporting(false);
@@ -308,7 +340,7 @@ export function useNFTExport(
         }
     }, [collectionName, collectionDescription, outputResolution, layers, generateNFTBatch]);
 
-    // ── Export: XRPL-optimised ZIP ─────────────────────────────────────────────
+    // ── Export: XRPL-optimised ZIP — MEMORY-SAFE ──────────────────────────────
 
     const exportXRPLZip = useCallback(async (exportCount: string) => {
         const count = parseInt(exportCount) || 589;
@@ -317,6 +349,7 @@ export function useNFTExport(
             toast.error("No images found. Add images to your traits first.");
             return;
         }
+        if (!memoryCheck(count, resolution)) return;
 
         setIsXrplZipExporting(true);
         setExportProgress(0);
@@ -330,20 +363,24 @@ export function useNFTExport(
 
             const { nfts } = generateNFTBatch(count);
 
+            // Reuse a single canvas for all compositing — key OOM fix
+            const { canvas, ctx } = createReusableCanvas(resolution);
+
             for (let i = 0; i < nfts.length; i++) {
                 setExportStatus(`Compositing ${i + 1} / ${count} at ${resolution}×${resolution}px…`);
                 setExportProgress(Math.round(((i + 1) / count) * 80));
 
-                const imageDataUrl = await compositeNFTImage(nfts[i], resolution);
-                if (imageDataUrl) {
-                    const base64Data = imageDataUrl.split(",")[1];
-                    imagesFolder.file(`${nfts[i].id}.png`, base64Data, { base64: true });
+                const blob = await compositeNFTImageToBlob(nfts[i], canvas, ctx);
+                if (blob) {
+                    // Store Blob directly — no base64 string overhead
+                    imagesFolder.file(`${nfts[i].id}.png`, blob);
                 }
 
                 const xrplMetadata = nftToXrplMetadata(nfts[i], collectionName, collectionDescription);
                 metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(xrplMetadata, null, 2));
 
-                if (i % 5 === 0) await new Promise((r) => setTimeout(r, 0));
+                // Yield every batch to keep UI responsive and allow GC
+                if (i % BATCH_SIZE === 0) await new Promise((r) => setTimeout(r, 0));
             }
 
             zip.file("_collection.json", JSON.stringify({
@@ -372,9 +409,12 @@ export function useNFTExport(
             setExportProgress(100);
             setExportStatus("Done!");
             toast.success(`XRPL collection exported! ${count} NFTs at ${resolution}×${resolution}px`);
-        } catch (err) {
+        } catch (err: any) {
             console.error("XRPL ZIP export failed:", err);
-            toast.error("XRPL ZIP export failed. Please try again.");
+            const isOOM = err?.message?.includes("memory") || err?.message?.includes("alloc") || err?.name === "RangeError";
+            toast.error(isOOM
+                ? `Export ran out of memory processing ${count} NFTs at ${resolution}px. Try reducing the count or lowering resolution.`
+                : "XRPL ZIP export failed. Please try again.");
         } finally {
             setTimeout(() => {
                 setIsXrplZipExporting(false);
@@ -384,7 +424,7 @@ export function useNFTExport(
         }
     }, [collectionName, collectionDescription, outputResolution, layers, generateNFTBatch]);
 
-    // ── Download: Generated assets ZIP (local only) ────────────────────────────
+    // ── Download: Generated assets ZIP (local only) — MEMORY-SAFE ─────────────
 
     const downloadGeneratedAssets = useCallback(async (exportCount: string) => {
         const count = Math.min(parseInt(exportCount) || 100, 10000);
@@ -393,6 +433,7 @@ export function useNFTExport(
             toast.error("No images found. Add images to your traits first.");
             return;
         }
+        if (!memoryCheck(count, resolution)) return;
 
         setIsDownloadingAssets(true);
         setDownloadProgress(0);
@@ -404,24 +445,26 @@ export function useNFTExport(
             const imagesFolder = zip.folder("images")!;
             const metadataFolder = zip.folder("metadata")!;
 
-            const batchSize = 10;
-            for (let i = 0; i < nfts.length; i += batchSize) {
-                const batch = nfts.slice(i, i + batchSize);
-                await Promise.all(batch.map(async (nft) => {
-                    setDownloadStatus(`Rendering NFT ${nft.id} of ${count}...`);
-                    setDownloadProgress(((nft.id) / count) * 70);
+            // Reuse a single canvas — prevents OOM from canvas allocation
+            const { canvas, ctx } = createReusableCanvas(resolution);
 
-                    const imageDataUrl = await compositeNFTImage(nft, resolution);
-                    if (imageDataUrl) {
-                        imagesFolder.file(`${nft.id}.png`, dataUrlToBlob(imageDataUrl));
-                    }
+            for (let i = 0; i < nfts.length; i++) {
+                setDownloadStatus(`Rendering NFT ${i + 1} of ${count}...`);
+                setDownloadProgress(((i + 1) / count) * 70);
 
-                    const metadata = xrplMode
-                        ? nftToXrplMetadata(nft, collectionName, collectionDescription)
-                        : nftToSolanaMetadata(nft, collectionName, collectionDescription);
+                const blob = await compositeNFTImageToBlob(nfts[i], canvas, ctx);
+                if (blob) {
+                    imagesFolder.file(`${nfts[i].id}.png`, blob);
+                }
 
-                    metadataFolder.file(`${nft.id}.json`, JSON.stringify(metadata, null, 2));
-                }));
+                const metadata = xrplMode
+                    ? nftToXrplMetadata(nfts[i], collectionName, collectionDescription)
+                    : nftToSolanaMetadata(nfts[i], collectionName, collectionDescription);
+
+                metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(metadata, null, 2));
+
+                // Yield every batch
+                if (i % BATCH_SIZE === 0) await new Promise((r) => setTimeout(r, 0));
             }
 
             setDownloadStatus("Packaging ZIP...");
@@ -480,7 +523,10 @@ Source: The Lily Pad (thelilypad.io)
             });
         } catch (err: any) {
             console.error("Asset download failed:", err);
-            toast.error(`Download failed: ${err.message || "Unknown error"}`);
+            const isOOM = err?.message?.includes("memory") || err?.message?.includes("alloc") || err?.name === "RangeError";
+            toast.error(isOOM
+                ? `Ran out of memory processing ${count} NFTs at ${resolution}px. Try fewer NFTs or lower resolution.`
+                : `Download failed: ${err.message || "Unknown error"}`);
         } finally {
             setTimeout(() => {
                 setIsDownloadingAssets(false);
