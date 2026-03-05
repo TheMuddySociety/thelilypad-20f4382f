@@ -84,22 +84,24 @@ export function useNFTExport(
         (collectionName || "collection").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 
     /**
-     * Pre-flight memory check. Returns true if safe to proceed.
+     * Pre-flight memory advisory. Always returns true (never blocks).
+     *
+     * The streaming canvas approach (single reusable canvas + blob-per-item)
+     * keeps real memory far below the theoretical estimate.  We only warn
+     * users of very large exports so they can close other tabs.
      */
     const memoryCheck = (count: number, resolution: number): boolean => {
         const estimatedMB = estimateExportMemoryMB(count, resolution);
-        if (estimatedMB > 2000) {
-            toast.error(
-                `This export would use ~${Math.round(estimatedMB)} MB of memory and will likely crash your browser. ` +
-                `Try reducing the count (currently ${count}) or resolution (currently ${resolution}px).`,
-                { duration: 10000 }
-            );
-            return false;
-        }
-        if (estimatedMB > 500) {
+        if (estimatedMB > 3500) {
             toast.warning(
+                `Very large export (~${Math.round(estimatedMB)} MB). ` +
+                `Close other tabs and ensure enough disk space for best results.`,
+                { duration: 8000 }
+            );
+        } else if (estimatedMB > 800) {
+            toast.info(
                 `Large export (~${Math.round(estimatedMB)} MB). Close other tabs for best performance.`,
-                { duration: 6000 }
+                { duration: 5000 }
             );
         }
         return true;

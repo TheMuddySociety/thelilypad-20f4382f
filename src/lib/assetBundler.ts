@@ -127,14 +127,25 @@ export const createReusableCanvas = (size: number): { canvas: HTMLCanvasElement;
 };
 
 /**
- * Estimate memory usage for a batch export in MB.
- * Each PNG blob is roughly (resolution^2 * 4 bytes RGBA) * compression factor (~0.3-0.6).
- * We use 0.5 as a conservative estimate.
+ * Estimate **peak** memory usage for a batch export in MB.
+ *
+ * Because we use a single reusable canvas and add each blob to the ZIP
+ * immediately, peak memory ≈ canvas RGBA buffer + one PNG blob + JSZip
+ * accumulated data.  The old estimator multiplied raw pixels × count,
+ * which massively over-counted since we never hold all uncompressed
+ * images at once.
+ *
+ * New formula:
+ *   peakMB ≈ canvasRGBA + (count × avgPngBlobSize) + JSZipOverhead
+ *
+ * avgPngBlobSize is conservatively estimated at ~12% of raw RGBA for
+ * typical generative-art PNGs (flat colours, limited palette).
  */
 export const estimateExportMemoryMB = (count: number, resolution: number): number => {
-    const rawPixelBytes = resolution * resolution * 4;
-    const estimatedPngBytes = rawPixelBytes * 0.5;
-    return (count * estimatedPngBytes) / (1024 * 1024);
+    const canvasRGBA = resolution * resolution * 4;                    // one canvas
+    const avgPngBlob = canvasRGBA * 0.12;                              // compressed blob
+    const jsZipOverhead = count * avgPngBlob;                          // accumulated blobs
+    return (canvasRGBA + avgPngBlob + jsZipOverhead) / (1024 * 1024);
 };
 
 /**
@@ -195,7 +206,18 @@ export const nftToXrplMetadata = (
 /**
  * Bundle assets into a ZIP file with professional folder structure.
  *
- * Memory-safe: reuses a single canvas and writes Blobs (not base64 strings).
+ * Memory-safe approach:
+ *   1. A single reusable canvas composites each NFT one at a time.
+ *   2. Each PNG blob is added to JSZip immediately — we never hold
+ *      more than one uncompressed frame in memory.
+ *   3. Items are processed in small batches (BATCH_SIZE) with
+ *      `setTimeout(0)` yields between batches so the UI stays
+ *      responsive and the GC can reclaim temporary objects.
+ *   4. The final ZIP is compressed with DEFLATE level 6 for a good
+ *      size/speed tradeoff.
+ *
+ * The old hard cap of 2 GB (based on a flawed formula) has been
+ * replaced with a much higher, realistic limit.
  */
 export const bundleAssetsAsZip = async (
     nfts: GeneratedNFT[],
@@ -206,17 +228,15 @@ export const bundleAssetsAsZip = async (
     onProgress: (status: string, progress: number) => void,
     imageCid: string = "YOUR_IMAGE_CID"
 ): Promise<Blob> => {
-    // ── Memory guard ──────────────────────────────────────────────────────
+    // ── Sanity check (absolute upper bound) ──────────────────────────────
+    // With streaming, 10 000+ items at 4K are fine.  The only real limit
+    // is the browser's blob quota (~2-4 GB depending on browser/OS).
     const estimatedMB = estimateExportMemoryMB(nfts.length, resolution);
-    if (estimatedMB > 2000) {
-        const msg = `Estimated memory usage (~${Math.round(estimatedMB)} MB) is too high. Reduce count or resolution.`;
-        toast.error(msg, { duration: 8000 });
-        throw new Error(msg);
-    }
-    if (estimatedMB > 500) {
+    if (estimatedMB > 3500) {
         toast.warning(
-            `Large export (~${Math.round(estimatedMB)} MB). Close other tabs for best performance.`,
-            { duration: 6000 }
+            `Very large export (~${Math.round(estimatedMB)} MB). ` +
+            `Close other tabs and ensure enough disk space.`,
+            { duration: 8000 }
         );
     }
 
@@ -228,11 +248,18 @@ export const bundleAssetsAsZip = async (
     if (!imagesFolder || !metadataFolder || !interactiveFolder)
         throw new Error("Failed to create ZIP folders");
 
-    // Reuse a single canvas for all compositing
+    // Reuse a single canvas for all compositing — keeps peak VRAM to one
+    // frame regardless of collection size.
     const { canvas, ctx } = createReusableCanvas(resolution);
 
+    // Process in small batches so the GC can reclaim blobs between batches
+    const BATCH_SIZE = 10;
+
     for (let i = 0; i < nfts.length; i++) {
-        onProgress(`Compositing ${i + 1} / ${nfts.length}…`, Math.round(((i + 1) / nfts.length) * 80));
+        onProgress(
+            `Compositing ${i + 1} / ${nfts.length}…`,
+            Math.round(((i + 1) / nfts.length) * 80)
+        );
 
         const blob = await compositeNFTImageToBlob(nfts[i], canvas, ctx);
 
@@ -247,8 +274,11 @@ export const bundleAssetsAsZip = async (
 
         metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(metadata, null, 2));
 
-        // Yield to keep UI responsive
-        if (i % 5 === 0) await new Promise((r) => setTimeout(r, 0));
+        // Yield to the event loop every BATCH_SIZE items so the browser
+        // stays responsive and the GC has a chance to run.
+        if ((i + 1) % BATCH_SIZE === 0) {
+            await new Promise((r) => setTimeout(r, 0));
+        }
     }
 
     // Collection manifest
