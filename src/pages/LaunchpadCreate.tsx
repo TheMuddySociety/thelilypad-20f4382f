@@ -301,7 +301,9 @@ export default function LaunchpadCreate() {
             // ── Step 2: Upload to Arweave (Permanent Storage) ─────────────
             toast.loading(`Securing ${assetsToUpload.length} items to Arweave...`, { id: 'deploy' });
             const itemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string }[] = [];
-            const batchSize = 5;
+
+            // Reduced batch size to 3 for better memory stability when processing high-res images
+            const batchSize = 3;
 
             for (let i = 0; i < assetsToUpload.length; i += batchSize) {
                 const batch = assetsToUpload.slice(i, i + batchSize);
@@ -529,6 +531,10 @@ export default function LaunchpadCreate() {
                                                 <Input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleCoverUpload} />
                                                 {coverImage ? <img src={coverImage} className="max-h-48 mx-auto rounded" alt="Cover" /> : <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground" />}
                                             </div>
+                                            <div className="flex flex-wrap justify-center gap-2 mt-1">
+                                                <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20">2000px+ Recommended</Badge>
+                                                <Badge variant="outline" className="text-[10px] bg-muted opacity-60">Max 100MB</Badge>
+                                            </div>
                                         </div>
                                         <div className="space-y-3"><Label>Name</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
                                         <div className="grid grid-cols-2 gap-4">
@@ -555,8 +561,26 @@ export default function LaunchpadCreate() {
                                 {!is1of1 && mode === "advanced" && currentStep === 4 && (
                                     <div className="space-y-6 text-center py-10">
                                         <h3 className="text-xl font-bold">Generation</h3>
-                                        <Input type="number" value={targetSupply} onChange={e => setTargetSupply(Number(e.target.value))} />
-                                        <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
+                                        <div className="space-y-4">
+                                            <div className="space-y-2">
+                                                <Label>Target Supply</Label>
+                                                <Input type="number" value={targetSupply} onChange={e => setTargetSupply(Number(e.target.value))} />
+                                            </div>
+
+                                            <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/10 text-left space-y-2">
+                                                <div className="flex items-center gap-2 text-blue-500 text-sm font-bold">
+                                                    <Info className="w-4 h-4" />
+                                                    Resolution Info
+                                                </div>
+                                                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                                    Generated assets inherit the resolution of your source layers.
+                                                    For premium art, **2000x2000px** is the standard. Supports any aspect ratio. High-res files (4000px+)
+                                                    are supported but will increase upload time.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <Button onClick={handleGenerate} disabled={isGenerating} className="w-full h-12">
                                             {isGenerating ? `Generating ${generationProgress.current}/${generationProgress.total}` : "Generate NFTs"}
                                         </Button>
                                     </div>

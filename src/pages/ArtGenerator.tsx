@@ -44,7 +44,7 @@ export default function ArtGenerator() {
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [targetSupply, setTargetSupply] = useState(100);
-    const [resolution, setResolution] = useState(1024);
+    const [resolution, setResolution] = useState(2000);
 
     // Generation State
     const [layers, setLayers] = useState<Layer[]>([]);
@@ -240,6 +240,11 @@ export default function ArtGenerator() {
                                                         value={resolution}
                                                         onChange={e => setResolution(Number(e.target.value))}
                                                     />
+                                                    <div className="flex flex-wrap gap-1 mt-1">
+                                                        <Badge variant="outline" className="text-[9px] cursor-pointer hover:bg-muted" onClick={() => setResolution(500)}>500 Low</Badge>
+                                                        <Badge variant="outline" className="text-[9px] cursor-pointer bg-primary/10 border-primary/20" onClick={() => setResolution(2000)}>2000 High</Badge>
+                                                        <Badge variant="outline" className="text-[9px] cursor-pointer bg-primary/20 border-primary/30" onClick={() => setResolution(4000)}>4000+ Pro</Badge>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <Button

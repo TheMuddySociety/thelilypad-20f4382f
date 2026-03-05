@@ -72,7 +72,8 @@ export default function XRPLEasyGenerator() {
     const [metadataMap, setMetadataMap] = useState<Record<string, any>>({});
 
     // Handlers
-    const MAX_FILE_SIZE_MB = 10;
+    const MAX_FILE_SIZE_MB = 100;
+    const MIN_RECOMMENDED_RES = 2000;
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files) return;
         const selected = Array.from(e.target.files);
@@ -147,6 +148,19 @@ export default function XRPLEasyGenerator() {
             setFiles(selected.filter(f => f.size <= MAX_FILE_SIZE_MB * 1024 * 1024));
         } else {
             setFiles(selected);
+
+            // Check first file for resolution as a sample/recommendation
+            if (selected.length > 0) {
+                const img = new Image();
+                img.onload = () => {
+                    if (img.width < MIN_RECOMMENDED_RES || img.height < MIN_RECOMMENDED_RES) {
+                        toast.info(`Note: For high-quality art, 2000x2000px+ is recommended. Your sample image is ${img.width}x${img.height}px.`, {
+                            duration: 5000,
+                        });
+                    }
+                };
+                img.src = URL.createObjectURL(selected[0]);
+            }
         }
     };
 
@@ -194,7 +208,9 @@ export default function XRPLEasyGenerator() {
             toast.loading(`Uploading collection to Arweave...`, { id: 'easy-mint' });
 
             const localItemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string }[] = [];
-            const batchSize = 10;
+
+            // Reduced batch size to 3 for memory stability (large files + browser limits)
+            const batchSize = 3;
 
             for (let i = 0; i < files.length; i += batchSize) {
                 const batch = files.slice(i, i + batchSize);
@@ -534,7 +550,12 @@ export default function XRPLEasyGenerator() {
                                                 </div>
                                                 <div>
                                                     <p className="text-lg font-medium">Drop your images here</p>
-                                                    <p className="text-sm text-muted-foreground">PNG, JPG, or GIF up to 10MB each</p>
+                                                    <p className="text-sm text-muted-foreground">PNG, JPG, or GIF up to 100MB each</p>
+                                                    <div className="flex flex-wrap justify-center gap-2 mt-4">
+                                                        <Badge variant="outline" className="text-[10px] bg-muted">500px Low</Badge>
+                                                        <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20">2000px High (Min)</Badge>
+                                                        <Badge variant="outline" className="text-[10px] bg-primary/20 border-primary/30 text-primary">4000px+ Pro</Badge>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ) : (
@@ -561,6 +582,30 @@ export default function XRPLEasyGenerator() {
                                             <Progress value={uploadProgress} className="h-2" />
                                         </div>
                                     )}
+
+                                    <div className="bg-blue-500/5 rounded-lg p-4 flex gap-3 border border-blue-500/10">
+                                        <Info className="w-5 h-5 text-blue-500 shrink-0" />
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-semibold text-blue-500">Resolution Guidelines</p>
+                                            <div className="grid grid-cols-3 gap-2 text-[10px] mt-2">
+                                                <div className="p-1 rounded bg-muted/50 border border-border/50">
+                                                    <p className="font-bold opacity-70 mb-0.5">Mobile/Low</p>
+                                                    <p>500 - 1080px</p>
+                                                </div>
+                                                <div className="p-1 rounded bg-primary/10 border border-primary/20">
+                                                    <p className="font-bold text-primary mb-0.5">High Quality</p>
+                                                    <p>2000x2000px</p>
+                                                </div>
+                                                <div className="p-1 rounded bg-primary/20 border border-primary/30">
+                                                    <p className="font-bold text-primary mb-0.5">Gallery/Pro</p>
+                                                    <p>4000x4000px</p>
+                                                </div>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground leading-tight mt-1">
+                                                * Note: 4000x4000px results in approx 10-50MB files. Supported fully via Irys bundling.
+                                            </p>
+                                        </div>
+                                    </div>
 
                                     <div className="flex gap-4">
                                         <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(1)} disabled={isUploading}>

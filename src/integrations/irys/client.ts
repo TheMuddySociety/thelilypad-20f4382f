@@ -72,7 +72,7 @@ export async function uploadToArweave(
     ];
 
     const data = await file.arrayBuffer();
-    const response = await irys.upload(Buffer.from(data), { tags });
+    const response = await irys.upload(new Uint8Array(data) as any, { tags });
 
     return `https://arweave.net/${response.id}`;
 }

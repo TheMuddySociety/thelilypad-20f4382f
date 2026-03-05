@@ -190,8 +190,8 @@ export function ArtworkUploader({
       const newArtworks: ArtworkItem[] = [];
 
       for (const file of imageFiles) {
-        if (file.size > 10 * 1024 * 1024) {
-          toast.error(`${file.name} is too large (max 10MB)`);
+        if (file.size > 100 * 1024 * 1024) {
+          toast.error(`${file.name} is too large (max 100MB)`);
           continue;
         }
 
@@ -495,8 +495,13 @@ export function ArtworkUploader({
                   Drop {collectionType === "one_of_one" ? "your unique artwork" : "edition artwork"} here
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  PNG, JPG, GIF, WEBP up to 10MB each
+                  PNG, JPG, GIF, WEBP up to 100MB each
                 </p>
+                <div className="flex flex-wrap justify-center gap-2 mt-2">
+                  <Badge variant="outline" className="text-[9px] bg-muted opacity-80 font-normal">500px Low</Badge>
+                  <Badge variant="outline" className="text-[9px] bg-primary/10 border-primary/20 font-medium">2000px High (Min)</Badge>
+                  <Badge variant="outline" className="text-[9px] bg-primary/20 border-primary/30 text-primary font-bold">4000px+ Pro</Badge>
+                </div>
               </div>
               <div className="flex gap-2 mt-2">
                 <Button
