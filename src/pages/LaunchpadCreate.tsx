@@ -58,7 +58,7 @@ import { cn, dataUrlToBlob } from "@/lib/utils";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 import { getDbChainValue } from "@/config/chains";
 import { getLaunchpadConfig, CollectionMode } from "@/config/launchpad";
-import { uploadToArweave, uploadMetadataToArweave } from "@/integrations/irys/client";
+import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem } from "@/integrations/irys/client";
 import { LaunchpadTools } from "@/components/launchpad/LaunchpadTools";
 import { XRPLConfigurator } from "@/components/launchpad/chains/XRPLConfigurator";
 import { Check, Info } from "lucide-react";
@@ -298,36 +298,31 @@ export default function LaunchpadCreate() {
             if (collErr) throw collErr;
             collectionId = collection.id;
 
-            // ── Step 2: Upload to Arweave (Permanent Storage) ─────────────
-            toast.loading(`Securing ${assetsToUpload.length} items to Arweave...`, { id: 'deploy' });
-            const itemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string }[] = [];
+            // ── Step 2: Upload to Arweave (Permanent Storage) — batch optimised ─
+            toast.loading(`Securing ${assetsToUpload.length} items to Arweave…`, { id: 'deploy' });
 
-            // Reduced batch size to 3 for better memory stability when processing high-res images
-            const batchSize = 3;
+            const batchItems: BatchUploadItem[] = assetsToUpload.map((asset, idx) => ({
+                file: asset.file,
+                buildMetadata: (arweaveImageUri: string) => ({
+                    ...asset.metadata,
+                    image: arweaveImageUri,
+                }),
+            }));
 
-            for (let i = 0; i < assetsToUpload.length; i += batchSize) {
-                const batch = assetsToUpload.slice(i, i + batchSize);
-                await Promise.all(batch.map(async (asset, idx) => {
-                    const tokenId = i + idx;
+            const uploadResults = await uploadBatchToArweave(
+                batchItems,
+                { address, chainType: selectedChain, network },
+                (completed, total, status) => {
+                    toast.loading(status, { id: 'deploy' });
+                },
+                3, // concurrency
+            );
 
-                    // Upload image to Arweave
-                    const arweaveImageUri = await uploadToArweave(asset.file, { address, chainType: selectedChain, network });
-
-                    const metadata = {
-                        ...asset.metadata,
-                        image: arweaveImageUri,
-                    };
-
-                    // Upload metadata to Arweave
-                    const arweaveMetaUri = await uploadMetadataToArweave(metadata, { address, chainType: selectedChain, network });
-
-                    itemLinks.push({
-                        tokenID: tokenId.toString(),
-                        arweaveUri: arweaveMetaUri,
-                        arweaveImageUri
-                    });
-                }));
-            }
+            const itemLinks = uploadResults.map((r) => ({
+                tokenID: r.tokenId.toString(),
+                arweaveUri: r.arweaveUri,
+                arweaveImageUri: r.arweaveImageUri,
+            }));
 
             // ── Step 3: Persistence Finalized ───────────────────────────────
             toast.loading("Persistence secured on Arweave...", { id: 'deploy' });

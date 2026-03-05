@@ -45,7 +45,7 @@ import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
 import { supabase } from "@/integrations/supabase/client";
 // storageClient removed — Arweave-only flow
 import { getDbChainValue, setStoredChain } from "@/config/chains";
-import { uploadToArweave, uploadMetadataToArweave } from "@/integrations/irys/client";
+import { uploadBatchToArweave, BatchUploadItem } from "@/integrations/irys/client";
 
 
 // ── Step definitions ────────────────────────────────────────────────────────
@@ -248,44 +248,42 @@ export default function XRPLNFTGenerator() {
 
             setUploadProgress(15);
 
-            // 2. Upload images + metadata JSON to Arweave (Permanence)
-            toast.loading(`Securing ${files.length} items to Arweave...`, { id: "xrpl-gen" });
-            const itemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string }[] = [];
-            const batchSize = 5;
-            for (let i = 0; i < files.length; i += batchSize) {
-                const batch = files.slice(i, i + batchSize);
-                await Promise.all(batch.map(async (file, idx) => {
-                    const tokenIdx = i + idx;
+            // 2. Upload images + metadata JSON to Arweave — batch-optimised
+            toast.loading(`Securing ${files.length} items to Arweave…`, { id: "xrpl-gen" });
 
-                    // Upload image to Arweave
-                    const arweaveImageUri = await uploadToArweave(file, { address, chainType: 'xrpl', network });
+            const batchItems: BatchUploadItem[] = files.map((file, idx) => ({
+                file,
+                buildMetadata: (arweaveImageUri: string) => ({
+                    schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
+                    nftType: "art.v0",
+                    name: `${collectionName} #${idx + 1}`,
+                    description,
+                    image: arweaveImageUri,
+                    attributes: [],
+                    collection: { name: collectionName, family: collectionSymbol },
+                    xrpl: {
+                        taxon,
+                        transferFee: transferFeeOnChain,
+                        flags: computedFlags,
+                    },
+                }),
+            }));
 
-                    const metadata = {
-                        schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
-                        nftType: "art.v0",
-                        name: `${collectionName} #${tokenIdx + 1}`,
-                        description,
-                        image: arweaveImageUri,
-                        attributes: [],
-                        collection: { name: collectionName, family: collectionSymbol },
-                        xrpl: {
-                            taxon,
-                            transferFee: transferFeeOnChain,
-                            flags: computedFlags,
-                        },
-                    };
+            const uploadResults = await uploadBatchToArweave(
+                batchItems,
+                { address, chainType: 'xrpl', network },
+                (completed, total, status) => {
+                    setUploadProgress(15 + Math.round((completed / total) * 40));
+                    toast.loading(status, { id: "xrpl-gen" });
+                },
+                3, // concurrency
+            );
 
-                    // Upload metadata to Arweave
-                    const arweaveMetaUri = await uploadMetadataToArweave(metadata, { address, chainType: 'xrpl', network });
-
-                    itemLinks.push({
-                        tokenID: tokenIdx.toString(),
-                        arweaveUri: arweaveMetaUri,
-                        arweaveImageUri
-                    });
-                }));
-                setUploadProgress(15 + Math.round(((i + batchSize) / files.length) * 40));
-            }
+            const itemLinks = uploadResults.map((r) => ({
+                tokenID: r.tokenId.toString(),
+                arweaveUri: r.arweaveUri,
+                arweaveImageUri: r.arweaveImageUri,
+            }));
 
 
             // 3. Deploy — sets Account Domain with baseUri

@@ -41,7 +41,7 @@ import { setStoredChain, getDbChainValue } from "@/config/chains";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 // getCollectionStorageInfo removed — Arweave-only flow
 import { triggerCollectionDownload } from "@/lib/nftStorageService";
-import { uploadToArweave, uploadMetadataToArweave } from "@/integrations/irys/client";
+import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem } from "@/integrations/irys/client";
 import { resolveIPFS } from "@/integrations/nftstorage/client";
 import { XRPLDeployResult } from "@/chains";
 
@@ -204,46 +204,41 @@ export default function XRPLEasyGenerator() {
 
             setUploadProgress(15);
 
-            // 2. Upload individual assets to Arweave (Permanent)
-            toast.loading(`Uploading collection to Arweave...`, { id: 'easy-mint' });
+            // 2. Upload entire batch to Arweave — pre-funds once, retries on failure
+            toast.loading(`Uploading ${files.length} items to Arweave…`, { id: 'easy-mint' });
 
-            const localItemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string }[] = [];
+            const batchItems: BatchUploadItem[] = files.map((file, idx) => {
+                const baseName = file.name.split('.').slice(0, -1).join('.');
+                const importedMetadata = metadataMap[baseName] || metadataMap[idx.toString()] || metadataMap[(idx + 1).toString()];
 
-            // Reduced batch size to 3 for memory stability (large files + browser limits)
-            const batchSize = 3;
-
-            for (let i = 0; i < files.length; i += batchSize) {
-                const batch = files.slice(i, i + batchSize);
-                await Promise.all(batch.map(async (file, index) => {
-                    const tokenId = i + index;
-
-                    // Upload image to Arweave
-                    const arweaveImageUri = await uploadToArweave(file, { address, chainType: 'xrpl', network });
-
-                    // Try to match metadata from the map
-                    const baseName = file.name.split('.').slice(0, -1).join('.');
-                    const importedMetadata = metadataMap[baseName] || metadataMap[tokenId.toString()] || metadataMap[(tokenId + 1).toString()];
-
-                    const metadata = {
+                return {
+                    file,
+                    buildMetadata: (arweaveImageUri: string) => ({
                         schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
                         nftType: "art.v0",
-                        name: importedMetadata?.name || `${name} #${tokenId + 1}`,
+                        name: importedMetadata?.name || `${name} #${idx + 1}`,
                         description: importedMetadata?.description || description,
                         image: arweaveImageUri,
                         attributes: importedMetadata?.attributes || importedMetadata?.traits || []
-                    };
+                    }),
+                };
+            });
 
-                    // Upload metadata to Arweave
-                    const arweaveMetaUri = await uploadMetadataToArweave(metadata, { address, chainType: 'xrpl', network });
+            const uploadResults = await uploadBatchToArweave(
+                batchItems,
+                { address, chainType: 'xrpl', network },
+                (completed, total, status) => {
+                    setUploadProgress(15 + Math.round((completed / total) * 40));
+                    toast.loading(status, { id: 'easy-mint' });
+                },
+                3, // concurrency
+            );
 
-                    localItemLinks.push({
-                        tokenID: tokenId.toString(),
-                        arweaveUri: arweaveMetaUri,
-                        arweaveImageUri
-                    });
-                }));
-                setUploadProgress(15 + Math.round(((i + batchSize) / files.length) * 40));
-            }
+            const localItemLinks = uploadResults.map((r) => ({
+                tokenID: r.tokenId.toString(),
+                arweaveUri: r.arweaveUri,
+                arweaveImageUri: r.arweaveImageUri,
+            }));
 
             // 3. No collection pinning needed for Arweave, individual assets are permanent.
             setUploadProgress(60);
