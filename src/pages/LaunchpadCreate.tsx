@@ -303,9 +303,11 @@ export default function LaunchpadCreate() {
 
             const batchItems: BatchUploadItem[] = assetsToUpload.map((asset, idx) => ({
                 file: asset.file,
-                buildMetadata: (arweaveImageUri: string) => ({
+                buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => ({
                     ...asset.metadata,
                     image: arweaveImageUri,
+                    ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
+                    ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
                 }),
             }));
 
@@ -322,6 +324,8 @@ export default function LaunchpadCreate() {
                 tokenID: r.tokenId.toString(),
                 arweaveUri: r.arweaveUri,
                 arweaveImageUri: r.arweaveImageUri,
+                arweaveThumbUri: r.arweaveThumbUri,
+                arweavePreviewUri: r.arweavePreviewUri,
             }));
 
             // ── Step 3: Persistence Finalized ───────────────────────────────

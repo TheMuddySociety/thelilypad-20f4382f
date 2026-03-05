@@ -253,12 +253,14 @@ export default function XRPLNFTGenerator() {
 
             const batchItems: BatchUploadItem[] = files.map((file, idx) => ({
                 file,
-                buildMetadata: (arweaveImageUri: string) => ({
+                buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => ({
                     schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
                     nftType: "art.v0",
                     name: `${collectionName} #${idx + 1}`,
                     description,
                     image: arweaveImageUri,
+                    ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
+                    ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
                     attributes: [],
                     collection: { name: collectionName, family: collectionSymbol },
                     xrpl: {
@@ -283,6 +285,8 @@ export default function XRPLNFTGenerator() {
                 tokenID: r.tokenId.toString(),
                 arweaveUri: r.arweaveUri,
                 arweaveImageUri: r.arweaveImageUri,
+                arweaveThumbUri: r.arweaveThumbUri,
+                arweavePreviewUri: r.arweavePreviewUri,
             }));
 
 
@@ -306,7 +310,7 @@ export default function XRPLNFTGenerator() {
             setUploadProgress(75);
 
             // Update DB with contract address
-            const firstArweaveImage = itemLinks[0]?.arweaveImageUri || '';
+            const firstArweaveImage = itemLinks[0]?.arweavePreviewUri || itemLinks[0]?.arweaveImageUri || '';
             await supabase.from("collections").update({
                 contract_address: result.address,
                 status: "active",
@@ -350,7 +354,7 @@ export default function XRPLNFTGenerator() {
                     nft_token_id: res.nfTokenId,
                     name: `${collectionName} #${i + 1}`,
                     description,
-                    image_url: itemLinks[i]?.arweaveImageUri || '',
+                    image_url: itemLinks[i]?.arweaveThumbUri || itemLinks[i]?.arweaveImageUri || '',
                     owner_address: result.address,
                     owner_id: session?.user?.id || "",
                     tx_hash: res.txHash,

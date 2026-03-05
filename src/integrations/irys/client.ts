@@ -169,67 +169,115 @@ export async function uploadMetadataToArweave(metadata: any, wallet: any): Promi
     return uploadToArweave(file, wallet);
 }
 
-// ── Batch upload ─────────────────────────────────────────────────────────
+// ── Batch upload with thumbnail generation ───────────────────────────────
+
+import { generateThumbnails, type ProcessedImage } from "@/lib/thumbnailGenerator";
 
 export interface BatchUploadItem {
     /** The image file to upload */
     file: File | Blob;
-    /** Metadata to upload after the image (receives the imageUri) */
-    buildMetadata: (imageUri: string) => any;
+    /**
+     * Metadata builder — receives all image URIs so you can embed them.
+     * `imageUri` = full-res original, `thumbUri` = 512px, `previewUri` = 1200px.
+     */
+    buildMetadata: (imageUri: string, thumbUri?: string, previewUri?: string) => any;
 }
 
 export interface BatchUploadResult {
     tokenId: number;
-    arweaveUri: string;        // metadata URI
-    arweaveImageUri: string;   // image URI
+    arweaveUri: string;           // metadata URI
+    arweaveImageUri: string;      // full-res image URI
+    arweaveThumbUri: string;      // 512px thumbnail URI
+    arweavePreviewUri: string;    // 1200px preview URI
 }
 
 /**
  * Upload an entire collection to Arweave in optimised batches.
  *
+ * Pipeline per item:
+ *   1. Generate 512px WebP thumbnail + 1200px WebP preview (client-side)
+ *   2. Upload full-res original, thumbnail, & preview to Arweave
+ *   3. Build metadata JSON (with all 3 URIs) and upload it
+ *
  * Features:
- * • Pre-funds the Irys node for the estimated total size upfront, avoiding
- *   500+ individual balance checks.
- * • Processes items in small windows (default 3 concurrent) with progress
- *   callbacks so the UI stays responsive.
+ * • Pre-funds the Irys node for the estimated total size upfront
+ *   (original + thumb + preview + metadata per item).
+ * • Processes items in small windows (default 3 concurrent) with
+ *   progress callbacks so the UI stays responsive.
  * • Retries each individual upload up to 3 times with exponential backoff.
- * • Yields to the event loop between windows so the browser stays alive.
+ * • Yields to the event loop between windows to prevent UI freeze.
+ * • Thumbnail generation uses Web Workers so it doesn't block the main thread.
+ *
+ * @param enableThumbnails  Set to false to skip thumbnail generation
+ *                          (e.g., for non-image collections). Default true.
  */
 export async function uploadBatchToArweave(
     items: BatchUploadItem[],
     wallet: any,
     onProgress?: (completed: number, total: number, status: string) => void,
     concurrency = 3,
+    enableThumbnails = true,
 ): Promise<BatchUploadResult[]> {
     if (items.length === 0) return [];
 
     const irys = await getWebIrys(wallet);
 
-    // ── Pre-fund estimate ────────────────────────────────────────────────
+    // ── Phase 1: Generate thumbnails ─────────────────────────────────────
+    let processedImages: ProcessedImage[] | null = null;
+
+    if (enableThumbnails) {
+        onProgress?.(0, items.length, "Generating thumbnails…");
+
+        processedImages = [];
+        for (let i = 0; i < items.length; i += concurrency) {
+            const windowFiles = items
+                .slice(i, i + concurrency)
+                .map((item) =>
+                    item.file instanceof File
+                        ? item.file
+                        : new File([item.file], `image_${i}.png`, { type: item.file.type })
+                );
+
+            const windowResults = await Promise.all(
+                windowFiles.map((f) => generateThumbnails(f))
+            );
+            processedImages.push(...windowResults);
+
+            const done = Math.min(i + concurrency, items.length);
+            onProgress?.(done, items.length, `Generated thumbnails: ${done} / ${items.length}`);
+
+            // Yield to event loop
+            await new Promise((r) => setTimeout(r, 0));
+        }
+    }
+
+    // ── Phase 2: Pre-fund estimate ───────────────────────────────────────
     onProgress?.(0, items.length, "Estimating storage cost…");
 
-    // Estimate total bytes: each item = image + ~2KB metadata JSON
-    const totalBytes = items.reduce(
-        (sum, item) => sum + (item.file.size || 50_000) + 2_048,
-        0
-    );
+    // Estimate total bytes: original + thumb + preview + ~2KB metadata each
+    const totalBytes = items.reduce((sum, item, idx) => {
+        const origSize = item.file.size || 50_000;
+        const thumbSize = processedImages?.[idx]?.thumb?.size || 0;
+        const previewSize = processedImages?.[idx]?.preview?.size || 0;
+        return sum + origSize + thumbSize + previewSize + 2_048;
+    }, 0);
+
     const price = await irys.getPrice(totalBytes);
     const balance = await irys.getLoadedBalance();
 
     if (balance.lt(price)) {
-        // Fund with 20% buffer for safety
-        const toFund = price.minus(balance).multipliedBy(1.2);
+        // Fund with 25% buffer for safety (thumbnails add overhead)
+        const toFund = price.minus(balance).multipliedBy(1.25);
         onProgress?.(0, items.length, "Funding Arweave node…");
-        console.log(`[Irys] Pre-funding node with ${toFund.toString()} for ~${items.length} items…`);
-        await withRetry(
-            () => irys.fund(toFund),
-            "pre-fund"
+        console.log(
+            `[Irys] Pre-funding node with ${toFund.toString()} for ~${items.length} items (+ thumbnails)…`
         );
+        await withRetry(() => irys.fund(toFund), "pre-fund");
     }
 
-    // ── Upload loop ──────────────────────────────────────────────────────
+    // ── Phase 3: Upload loop ─────────────────────────────────────────────
     const results: BatchUploadResult[] = new Array(items.length);
-    const tags = (type: string) => [
+    const makeTags = (type: string) => [
         { name: "Content-Type", value: type || "application/octet-stream" },
         { name: "App-Name", value: "The Lily Pad" },
     ];
@@ -240,23 +288,48 @@ export async function uploadBatchToArweave(
         const windowResults = await Promise.all(
             window.map(async (item, idx) => {
                 const globalIdx = i + idx;
+                const processed = processedImages?.[globalIdx];
 
-                // 1. Upload image
+                // 1. Upload full-res image
                 const imgData = await item.file.arrayBuffer();
                 const imgUri = await withRetry(async () => {
                     const res = await irys.upload(new Uint8Array(imgData) as any, {
-                        tags: tags(item.file.type),
+                        tags: makeTags(item.file.type),
                     });
                     return `https://arweave.net/${res.id}`;
                 }, `image #${globalIdx + 1}`);
 
-                // 2. Build & upload metadata
-                const metadata = item.buildMetadata(imgUri);
+                // 2. Upload thumbnail (if generated)
+                let thumbUri = imgUri; // fallback to full if no thumb
+                if (processed?.thumb && processed.thumb !== processed.original) {
+                    const thumbData = await processed.thumb.arrayBuffer();
+                    thumbUri = await withRetry(async () => {
+                        const res = await irys.upload(new Uint8Array(thumbData) as any, {
+                            tags: makeTags("image/webp"),
+                        });
+                        return `https://arweave.net/${res.id}`;
+                    }, `thumb #${globalIdx + 1}`);
+                }
+
+                // 3. Upload preview (if generated)
+                let previewUri = imgUri; // fallback to full if no preview
+                if (processed?.preview && processed.preview !== processed.original) {
+                    const prevData = await processed.preview.arrayBuffer();
+                    previewUri = await withRetry(async () => {
+                        const res = await irys.upload(new Uint8Array(prevData) as any, {
+                            tags: makeTags("image/webp"),
+                        });
+                        return `https://arweave.net/${res.id}`;
+                    }, `preview #${globalIdx + 1}`);
+                }
+
+                // 4. Build & upload metadata (with all image URIs)
+                const metadata = item.buildMetadata(imgUri, thumbUri, previewUri);
                 const metaJson = JSON.stringify(metadata, null, 2);
                 const metaData = new TextEncoder().encode(metaJson);
                 const metaUri = await withRetry(async () => {
                     const res = await irys.upload(metaData as any, {
-                        tags: tags("application/json"),
+                        tags: makeTags("application/json"),
                     });
                     return `https://arweave.net/${res.id}`;
                 }, `metadata #${globalIdx + 1}`);
@@ -265,6 +338,8 @@ export async function uploadBatchToArweave(
                     tokenId: globalIdx,
                     arweaveUri: metaUri,
                     arweaveImageUri: imgUri,
+                    arweaveThumbUri: thumbUri,
+                    arweavePreviewUri: previewUri,
                 } satisfies BatchUploadResult;
             })
         );
@@ -286,3 +361,4 @@ export async function uploadBatchToArweave(
 
     return results;
 }
+

@@ -66,7 +66,7 @@ export default function XRPLEasyGenerator() {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [collectionId, setCollectionId] = useState("");
     const [deployedResult, setDeployedResult] = useState<XRPLDeployResult | null>(null);
-    const [itemLinks, setItemLinks] = useState<{ tokenID: string; arweaveUri: string; arweaveImageUri: string }[]>([]);
+    const [itemLinks, setItemLinks] = useState<{ tokenID: string; arweaveUri: string; arweaveImageUri: string; arweaveThumbUri: string; arweavePreviewUri: string }[]>([]);
     const [isDownloadingZip, setIsDownloadingZip] = useState(false);
     const [transferFee, setTransferFee] = useState(5);
     const [metadataMap, setMetadataMap] = useState<Record<string, any>>({});
@@ -213,12 +213,14 @@ export default function XRPLEasyGenerator() {
 
                 return {
                     file,
-                    buildMetadata: (arweaveImageUri: string) => ({
+                    buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => ({
                         schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
                         nftType: "art.v0",
                         name: importedMetadata?.name || `${name} #${idx + 1}`,
                         description: importedMetadata?.description || description,
                         image: arweaveImageUri,
+                        ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
+                        ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
                         attributes: importedMetadata?.attributes || importedMetadata?.traits || []
                     }),
                 };
@@ -238,6 +240,8 @@ export default function XRPLEasyGenerator() {
                 tokenID: r.tokenId.toString(),
                 arweaveUri: r.arweaveUri,
                 arweaveImageUri: r.arweaveImageUri,
+                arweaveThumbUri: r.arweaveThumbUri,
+                arweavePreviewUri: r.arweavePreviewUri,
             }));
 
             // 3. No collection pinning needed for Arweave, individual assets are permanent.
@@ -265,7 +269,7 @@ export default function XRPLEasyGenerator() {
 
             // Update collection record with final results
             const primaryArweaveUri = localItemLinks[0]?.arweaveUri || "";
-            const firstArweaveImage = localItemLinks[0]?.arweaveImageUri || "";
+            const firstArweaveImage = localItemLinks[0]?.arweavePreviewUri || localItemLinks[0]?.arweaveImageUri || "";
             const { error: finalUpdateErr } = await supabase.from("collections").update({
                 contract_address: result.address,
                 status: "active",
@@ -340,7 +344,7 @@ export default function XRPLEasyGenerator() {
                     nft_token_id: res.nfTokenId,             // real 64-char XRPL NFTokenID
                     name: `${name} #${i + 1}`,
                     description: description,
-                    image_url: itemLinks[i]?.arweaveImageUri || '',
+                    image_url: itemLinks[i]?.arweaveThumbUri || itemLinks[i]?.arweaveImageUri || '',
                     owner_address: deployedResult.address,
                     owner_id: session?.user?.id || '',
                     tx_hash: res.txHash,                     // real per-token tx hash
