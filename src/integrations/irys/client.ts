@@ -390,6 +390,78 @@ export async function uploadMetadataToArweave(metadata: any, wallet: any, isMuta
     return uploadToArweave(file, wallet, isMutable, rootTx);
 }
 
+// ── Single NFT Upload (Irys Guide: Uploading NFTs) ──────────────────────
+
+/**
+ * Convenience wrapper implementing the full Irys NFT upload pipeline in a single call.
+ * Follows the official guide: https://docs.irys.xyz/build/d/guides/uploading-nfts
+ *
+ * Pipeline:
+ *   1. Upload the image asset to Arweave → receives a permanent gateway URL
+ *   2. (Optional) Upload an animation file (video/audio/3D) → receives a second gateway URL
+ *   3. Build metadata JSON embedding the asset URLs into { name, description, image, animation_url }
+ *   4. Upload the metadata JSON to Arweave → returns the mint-ready metadata URI
+ *
+ * @param imageFile       The primary image file for the NFT
+ * @param wallet          The wallet instance to initialize Irys
+ * @param metadata        Object containing { name, symbol?, description, attributes?, ... }
+ * @param animationFile   Optional animation file (video, audio, HTML, 3D model) for animation_url
+ * @param isMutable       Whether the uploads should use mutable references
+ * @param rootTx          Root transaction ID for mutable updates
+ * @param feeMultiplier   Optional multiplier to prioritize funding transactions
+ * @returns Object with the final metadataUri plus individual asset URIs
+ */
+export async function uploadNFTToArweave(
+    imageFile: File | Blob,
+    wallet: any,
+    metadata: {
+        name: string;
+        symbol?: string;
+        description: string;
+        attributes?: { trait_type: string; value: string | number }[];
+        [key: string]: any;
+    },
+    animationFile?: File | Blob,
+    isMutable = false,
+    rootTx?: string,
+    feeMultiplier?: number,
+): Promise<{
+    metadataUri: string;
+    imageUri: string;
+    animationUri?: string;
+}> {
+    // Step 1: Upload the primary image asset
+    const imageUri = await uploadToArweave(imageFile, wallet, isMutable, rootTx, feeMultiplier);
+    console.log(`[Irys] NFT image uploaded → ${imageUri}`);
+
+    // Step 2 (optional): Upload animation file if provided
+    let animationUri: string | undefined;
+    if (animationFile) {
+        animationUri = await uploadToArweave(animationFile, wallet, isMutable, rootTx, feeMultiplier);
+        console.log(`[Irys] NFT animation uploaded → ${animationUri}`);
+    }
+
+    // Step 3: Build the final metadata JSON with embedded asset URLs
+    const nftMetadata: any = {
+        name: metadata.name,
+        description: metadata.description,
+        image: imageUri,
+        ...(metadata.symbol && { symbol: metadata.symbol }),
+        ...(animationUri && { animation_url: animationUri }),
+        ...(metadata.attributes && { attributes: metadata.attributes }),
+    };
+
+    // Spread any additional custom fields the caller passed (e.g. external_url, seller_fee_basis_points)
+    const { name: _n, symbol: _s, description: _d, attributes: _a, ...extraFields } = metadata;
+    Object.assign(nftMetadata, extraFields);
+
+    // Step 4: Upload metadata JSON
+    const metadataUri = await uploadMetadataToArweave(nftMetadata, wallet, isMutable, rootTx);
+    console.log(`[Irys] NFT metadata uploaded → ${metadataUri}`);
+
+    return { metadataUri, imageUri, animationUri };
+}
+
 // ── Batch upload with thumbnail generation ───────────────────────────────
 
 import { generateThumbnails, type ProcessedImage } from "@/lib/thumbnailGenerator";
