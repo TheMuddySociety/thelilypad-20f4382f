@@ -35,6 +35,7 @@ import { LayerManager, Layer } from "@/components/launchpad/LayerManager";
 import { TraitRarityEditor } from "@/components/launchpad/TraitRarityEditor";
 import { TraitRulesManager, TraitRule } from "@/components/launchpad/TraitRulesManager";
 import { ArtworkUploader, type ArtworkItem } from "@/components/launchpad/ArtworkUploader";
+import { EditionTierManager, type ArtworkEditionConfig } from "@/components/launchpad/EditionTierManager";
 import { MusicArtworkUploader } from "@/components/launchpad/MusicArtworkUploader";
 import { type MusicTrack } from "@/components/launchpad/MusicMetadataEditor";
 import { useWallet } from "@/providers/WalletProvider";
@@ -143,7 +144,7 @@ export default function LaunchpadCreate() {
 
     // 1/1 Mode: Artwork Data
     const [artworks, setArtworks] = useState<ArtworkItem[]>([]);
-    const [editionCounts, setEditionCounts] = useState<Record<string, number>>({});
+    const [editionConfigs, setEditionConfigs] = useState<ArtworkEditionConfig[]>([]);
     const [rules, setRules] = useState<TraitRule[]>([]);
 
     // Music Mode: Track Data
@@ -187,7 +188,7 @@ export default function LaunchpadCreate() {
             if (draft.coverImageUrl) setCoverImage(draft.coverImageUrl);
             if (draft.xrplTaxon != null) setXrplTaxon(draft.xrplTaxon);
             if (draft.xrplTransferFee != null) setXrplTransferFee(draft.xrplTransferFee);
-            if (draft.editionCounts) setEditionCounts(draft.editionCounts);
+            // editionConfigs are not persisted in draft (re-configure on restore)
             toast.info('Draft restored — re-upload your asset files to continue');
         }
     }, [loadDraft]);
@@ -201,11 +202,10 @@ export default function LaunchpadCreate() {
             coverImageUrl: coverImage || undefined,
             xrplTaxon,
             xrplTransferFee,
-            editionCounts: Object.keys(editionCounts).length > 0 ? editionCounts : undefined,
             folderAssetNames: folderAssets.length > 0 ? folderAssets.map(a => a.name) : undefined,
             artworkMeta: artworks.length > 0 ? artworks.map(a => ({ name: a.name, description: a.description, attributes: a.attributes })) : undefined,
         });
-    }, [name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet, phases, coverImage, xrplTaxon, xrplTransferFee, editionCounts, folderAssets, artworks, saveDraft]);
+    }, [name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet, phases, coverImage, xrplTaxon, xrplTransferFee, folderAssets, artworks, saveDraft]);
 
     const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -579,15 +579,12 @@ export default function LaunchpadCreate() {
                                 )}
                                 {is1of1 && currentStep === 1 && <ArtworkUploader artworks={artworks} onArtworksChange={setArtworks} collectionType="one_of_one" creatorId={address || 'anonymous'} chainSymbol={chainSymbol} />}
                                 {is1of1 && currentStep === 2 && (
-                                    <div className="space-y-4">
-                                        <h3 className="font-bold">Editions</h3>
-                                        {artworks.map(art => (
-                                            <div key={art.id} className="flex items-center gap-4 p-3 border rounded bg-card">
-                                                <span className="flex-1">{art.name}</span>
-                                                <Input type="number" value={editionCounts[art.id] || 1} onChange={e => setEditionCounts(prev => ({ ...prev, [art.id!]: Number(e.target.value) }))} className="w-20" />
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <EditionTierManager
+                                        artworks={artworks}
+                                        configs={editionConfigs}
+                                        onConfigsChange={setEditionConfigs}
+                                        chainSymbol={chainSymbol}
+                                    />
                                 )}
                                 {!is1of1 && currentStep === 2 && (mode === "basic" ? <FolderUploader onAssetsLoaded={handleAssetsLoaded} /> : <LayerManager layers={layers} onLayersChange={setLayers} />)}
                                 {!is1of1 && mode === "advanced" && currentStep === 3 && (
