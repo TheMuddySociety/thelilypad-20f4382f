@@ -865,3 +865,44 @@ export async function getIrysAccountWithdrawals(wallet: any, network: "mainnet" 
         throw e;
     }
 }
+
+/**
+ * Queries the Irys general REST API to determine the cost to upload a set number of bytes using a specific token.
+ * Mapping for GET /price/{token}/{size}
+ *
+ * @param token The token used for payment (e.g., "ethereum", "solana", "matic"). If missing, tries to extract from wallet.
+ * @param sizeInBytes The total size of the data to be uploaded, expressed in bytes
+ * @param wallet Optional: If the token is not passed generically, it will extract it from the WebIrys instance connected to this wallet.
+ * @param network The target network ("mainnet" | "devnet")
+ */
+export async function getIrysUploadPrice(
+    sizeInBytes: number,
+    token?: string,
+    wallet?: any,
+    network: "mainnet" | "devnet" = "mainnet"
+) {
+    let resolvedToken = token;
+
+    // If no token string is provided, attempt to derive from the wallet instance
+    if (!resolvedToken && wallet) {
+        const irys = await getWebIrys(wallet);
+        resolvedToken = irys.token;
+    }
+
+    if (!resolvedToken) {
+        throw new Error("You must provide either a 'token' string or a valid 'wallet' instance to query the price API.");
+    }
+
+    const url = network === "mainnet" ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
+
+    try {
+        const response = await fetch(`${url}/price/${resolvedToken}/${sizeInBytes}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+        // Irys typically returns the raw price as an atomic unit numeric string (e.g. Lamports/Wei)
+        return await response.text();
+    } catch (e) {
+        console.error(`[Irys] Failed to fetch upload price via REST:`, e);
+        throw e;
+    }
+}
