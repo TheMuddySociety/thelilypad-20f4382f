@@ -169,6 +169,12 @@ export async function uploadToArweave(
 
 // ── Large-file chunked upload ────────────────────────────────────────────
 
+export interface ChunkedUploadInstance {
+    urlPromise: Promise<string>;
+    pause: () => void;
+    resume: () => void;
+}
+
 /**
  * Uploads a large file to Irys using the dedicated Chunked Uploader.
  * Great for massive video/audio/3D files as it avoids hitting bundle limits.
@@ -191,7 +197,7 @@ export async function uploadFileChunkedToArweave(
     feeMultiplier?: number,
     chunkSize = 25_000_000,
     batchSize = 5
-): Promise<string> {
+): Promise<ChunkedUploadInstance> {
     const irys = await getWebIrys(wallet);
 
     // Check price and balance — fund if needed
@@ -233,7 +239,8 @@ export async function uploadFileChunkedToArweave(
         });
     }
 
-    return withRetry(async () => {
+    // Return an unawaited promise alongside controls so the host app can pause/resume
+    const urlPromise = withRetry(async () => {
         // Note: The Web Irys chunkedUploader expects Buffer/Uint8Array in the browser.
         // It returns an AxiosResponse wrapping the generic UploadResponse data object.
         const res: any = await uploader.uploadData(new Uint8Array(data) as any, { tags });
@@ -247,6 +254,12 @@ export async function uploadFileChunkedToArweave(
             ? `https://gateway.irys.xyz/mutable/${rootTx || txId}`
             : `https://arweave.net/${txId}`;
     }, `chunked upload ${(file as File).name || "blob"}`);
+
+    return {
+        urlPromise,
+        pause: () => uploader.pause(),
+        resume: () => uploader.resume()
+    };
 }
 
 /**
@@ -272,7 +285,7 @@ export async function uploadChunkedTransactionToArweave(
     feeMultiplier?: number,
     chunkSize = 25_000_000,
     batchSize = 5
-): Promise<string> {
+): Promise<ChunkedUploadInstance> {
     const irys = await getWebIrys(wallet);
 
     // Check price and balance — fund if needed
@@ -316,7 +329,8 @@ export async function uploadChunkedTransactionToArweave(
         });
     }
 
-    return withRetry(async () => {
+    // Return an unawaited promise alongside controls so the host app can pause/resume
+    const urlPromise = withRetry(async () => {
         // 2. Upload the fully signed transaction bundle via chunked uploader
         const res: any = await uploader.uploadTransaction(transaction);
         const txId = res?.data?.id || res?.id || transaction.id;
@@ -329,6 +343,12 @@ export async function uploadChunkedTransactionToArweave(
             ? `https://gateway.irys.xyz/mutable/${rootTx || txId}`
             : `https://arweave.net/${txId}`;
     }, `chunked tx upload ${(file as File).name || "blob"}`);
+
+    return {
+        urlPromise,
+        pause: () => uploader.pause(),
+        resume: () => uploader.resume()
+    };
 }
 
 /**
