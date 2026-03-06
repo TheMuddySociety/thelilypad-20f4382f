@@ -755,3 +755,63 @@ export async function getIrysBalance(wallet: any): Promise<string> {
     const atomicBalance = await irys.getLoadedBalance();
     return irys.utils.fromAtomic(atomicBalance).toString();
 }
+
+// ── General REST API ─────────────────────────────────────────────────────
+
+/**
+ * Queries the Irys general REST API for bundler information, including version and network configuration.
+ *
+ * @param network The target network ("mainnet" | "devnet")
+ */
+export async function getIrysNodeInfo(network: "mainnet" | "devnet" = "mainnet") {
+    const url = network === "mainnet" ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
+    try {
+        const response = await fetch(`${url}/info`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+    } catch (e) {
+        console.error(`[Irys] Failed to fetch node info:`, e);
+        throw e;
+    }
+}
+
+/**
+ * Queries the Irys general REST API for public-facing data such as bundler public keys.
+ *
+ * @param network The target network ("mainnet" | "devnet")
+ */
+export async function getIrysNodePublic(network: "mainnet" | "devnet" = "mainnet") {
+    const url = network === "mainnet" ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
+    try {
+        const response = await fetch(`${url}/public`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+    } catch (e) {
+        console.error(`[Irys] Failed to fetch node public data:`, e);
+        throw e;
+    }
+}
+
+/**
+ * Queries the Irys general REST API to check the health and operational status of the node.
+ *
+ * @param network The target network ("mainnet" | "devnet")
+ */
+export async function getIrysNodeStatus(network: "mainnet" | "devnet" = "mainnet") {
+    const url = network === "mainnet" ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
+    try {
+        const response = await fetch(`${url}/status`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+        // Sometimes /status just returns 'OK' plain text instead of JSON on some Arweave/Irys nodes
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            return await response.json();
+        } else {
+            return await response.text();
+        }
+    } catch (e) {
+        console.error(`[Irys] Failed to fetch node status:`, e);
+        throw e;
+    }
+}
