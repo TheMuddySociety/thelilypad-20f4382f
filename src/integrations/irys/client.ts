@@ -20,6 +20,74 @@ export const IRYS_NODE_DEV = "https://devnet.irys.xyz";
 export const IRYS_NODE_MAIN = "https://node1.irys.xyz";
 export const IRYS_GATEWAY = "https://gateway.irys.xyz";
 
+// ── Irys Programmability / Datachain Config ──────────────────────────────
+
+/** Irys Testnet EVM-compatible JSON-RPC endpoint */
+export const IRYS_TESTNET_RPC = "https://testnet-rpc.irys.xyz/v1/execution-rpc";
+/** Irys Testnet RPC base (for IrysClient SDK) */
+export const IRYS_TESTNET_RPC_BASE = "https://testnet-rpc.irys.xyz/v1";
+/** Irys Testnet Chain ID for MetaMask / EVM wallets */
+export const IRYS_CHAIN_ID = 1270;
+/** Irys Testnet ticker symbol */
+export const IRYS_TICKER = "IRYS";
+/** Irys Testnet Explorer */
+export const IRYS_TESTNET_EXPLORER = "https://testnet-explorer.irys.xyz";
+/** Irys Testnet Wallet faucet */
+export const IRYS_TESTNET_WALLET = "https://wallet.irys.xyz";
+
+/**
+ * Returns the MetaMask-compatible chain config for adding the Irys Testnet
+ * to a user's EVM wallet via `wallet_addEthereumChain`.
+ */
+export function getIrysTestnetChainConfig() {
+    return {
+        chainId: `0x${IRYS_CHAIN_ID.toString(16)}`,
+        chainName: "Irys Testnet",
+        nativeCurrency: {
+            name: "IRYS",
+            symbol: "IRYS",
+            decimals: 18,
+        },
+        rpcUrls: [IRYS_TESTNET_RPC],
+        blockExplorerUrls: [IRYS_TESTNET_EXPLORER],
+    };
+}
+
+/**
+ * Creates an ethers.js JsonRpcProvider connected to the Irys Testnet.
+ * The Irys datachain is EVM-compatible, so all standard EVM tooling works.
+ * Useful for querying balances, sending transactions, and interacting with
+ * smart contracts deployed on the Irys L1.
+ *
+ * @returns An ethers JsonRpcProvider pointed at the Irys Testnet RPC
+ */
+export function getIrysTestnetProvider() {
+    return new ethers.JsonRpcProvider(IRYS_TESTNET_RPC, {
+        chainId: IRYS_CHAIN_ID,
+        name: "irys-testnet",
+    });
+}
+
+/**
+ * Prompts the user's MetaMask (or compatible) wallet to add the Irys Testnet chain.
+ * If the chain is already added, this is a no-op.
+ */
+export async function addIrysTestnetToWallet() {
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) throw new Error("No EVM wallet detected (MetaMask required).");
+
+    try {
+        await ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [getIrysTestnetChainConfig()],
+        });
+        console.log("[Irys] Testnet chain added to wallet successfully.");
+    } catch (e) {
+        console.error("[Irys] Failed to add testnet chain to wallet:", e);
+        throw e;
+    }
+}
+
 // ── Gateway Download Helpers (Irys Guide: Downloading Data) ──────────────
 
 /**
@@ -1285,4 +1353,196 @@ export async function getIrysChunk(
         console.error(`[Irys] Failed to get chunk at offset ${offset} for ${txId}:`, e);
         throw e;
     }
+}
+
+// ── GraphQL Query Layer (Irys Guide: Querying With GraphQL) ──────────────
+
+export const IRYS_GRAPHQL_ENDPOINT = "https://uploader.irys.xyz/graphql";
+
+/** Shape of a single transaction node returned by the Irys GraphQL API. */
+export interface IrysGqlTransaction {
+    id: string;
+    address: string;
+    token: string;
+    timestamp: number;
+    tags: { name: string; value: string }[];
+    receipt?: {
+        deadlineHeight: number;
+        signature: string;
+        version: string;
+    };
+}
+
+/** Shape of a single edge (node + cursor) returned by the Irys GraphQL API. */
+export interface IrysGqlEdge {
+    node: IrysGqlTransaction;
+    cursor: string;
+}
+
+/** Full response shape from the Irys GraphQL transactions query. */
+export interface IrysGqlResponse {
+    data: {
+        transactions: {
+            edges: IrysGqlEdge[];
+        };
+    };
+}
+
+/** Options for building an Irys GraphQL query. */
+export interface IrysGqlQueryOptions {
+    /** Filter by specific transaction IDs */
+    ids?: string[];
+    /** Filter by wallet owner addresses */
+    owners?: string[];
+    /** Filter by tag name/value pairs */
+    tags?: { name: string; values: string[] }[];
+    /** Filter by timestamp range (milliseconds) */
+    timestamp?: { from?: number; to?: number };
+    /** Max results per page (max 100) */
+    limit?: number;
+    /** Cursor for pagination — pass the last cursor from a previous query */
+    after?: string;
+    /** Sort order: ASC or DESC by timestamp */
+    order?: "ASC" | "DESC";
+}
+
+/**
+ * Low-level GraphQL query executor for the Irys uploader endpoint.
+ * Builds and sends a `transactions` query from the provided options.
+ * 
+ * @param options Query filters, pagination, and sorting options
+ * @returns The full GraphQL response with edges containing transaction nodes
+ */
+export async function queryIrysGraphQL(options: IrysGqlQueryOptions = {}): Promise<IrysGqlResponse> {
+    // Build the arguments string dynamically
+    const args: string[] = [];
+
+    if (options.ids?.length) {
+        args.push(`ids: ${JSON.stringify(options.ids)}`);
+    }
+    if (options.owners?.length) {
+        args.push(`owners: ${JSON.stringify(options.owners)}`);
+    }
+    if (options.tags?.length) {
+        const tagsStr = options.tags.map(t => `{ name: ${JSON.stringify(t.name)}, values: ${JSON.stringify(t.values)} }`).join(", ");
+        args.push(`tags: [${tagsStr}]`);
+    }
+    if (options.timestamp) {
+        const tsParts: string[] = [];
+        if (options.timestamp.from != null) tsParts.push(`from: ${options.timestamp.from}`);
+        if (options.timestamp.to != null) tsParts.push(`to: ${options.timestamp.to}`);
+        if (tsParts.length) args.push(`timestamp: { ${tsParts.join(", ")} }`);
+    }
+    if (options.limit != null) {
+        args.push(`limit: ${Math.min(options.limit, 100)}`);
+    }
+    if (options.after) {
+        args.push(`after: ${JSON.stringify(options.after)}`);
+    }
+    if (options.order) {
+        args.push(`order: ${options.order}`);
+    }
+
+    const argsStr = args.length > 0 ? `(${args.join(", ")})` : "";
+
+    const query = `
+        query {
+            transactions${argsStr} {
+                edges {
+                    node {
+                        id
+                        address
+                        token
+                        timestamp
+                        tags {
+                            name
+                            value
+                        }
+                        receipt {
+                            deadlineHeight
+                            signature
+                            version
+                        }
+                    }
+                    cursor
+                }
+            }
+        }
+    `;
+
+    try {
+        const response = await fetch(IRYS_GRAPHQL_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query }),
+        });
+
+        if (!response.ok) throw new Error(`GraphQL HTTP error! status: ${response.status}`);
+        return await response.json();
+    } catch (e) {
+        console.error(`[Irys] GraphQL query failed:`, e);
+        throw e;
+    }
+}
+
+/**
+ * Queries all Irys transactions uploaded by a specific wallet address.
+ * Useful for showing a creator's upload history on the Launchpad dashboard.
+ */
+export async function queryIrysByOwner(
+    ownerAddress: string,
+    limit = 20,
+    order: "ASC" | "DESC" = "DESC",
+    after?: string,
+): Promise<IrysGqlEdge[]> {
+    const result = await queryIrysGraphQL({ owners: [ownerAddress], limit, order, after });
+    return result.data.transactions.edges;
+}
+
+/**
+ * Queries Irys transactions by tag filters.
+ * Extremely useful for finding all uploads from "The Lily Pad" or a specific collection.
+ *
+ * @example
+ * // Find all Lily Pad uploads:
+ * queryIrysByTags([{ name: "application-id", values: ["The Lily Pad"] }])
+ *
+ * // Find all PNGs from a specific collection:
+ * queryIrysByTags([
+ *   { name: "Content-Type", values: ["image/png"] },
+ *   { name: "Collection-Name", values: ["My Collection"] },
+ * ])
+ */
+export async function queryIrysByTags(
+    tags: { name: string; values: string[] }[],
+    limit = 20,
+    order: "ASC" | "DESC" = "DESC",
+    after?: string,
+): Promise<IrysGqlEdge[]> {
+    const result = await queryIrysGraphQL({ tags, limit, order, after });
+    return result.data.transactions.edges;
+}
+
+/**
+ * Queries Irys transactions by their specific transaction IDs.
+ * Useful for batch-verifying uploads after a collection launch.
+ */
+export async function queryIrysByIds(ids: string[]): Promise<IrysGqlEdge[]> {
+    const result = await queryIrysGraphQL({ ids });
+    return result.data.transactions.edges;
+}
+
+/**
+ * Queries Irys transactions within a specific timestamp range.
+ * Timestamps must be in milliseconds (Irys is millisecond-accurate).
+ */
+export async function queryIrysByTimestamp(
+    from: number,
+    to: number,
+    limit = 20,
+    order: "ASC" | "DESC" = "DESC",
+    after?: string,
+): Promise<IrysGqlEdge[]> {
+    const result = await queryIrysGraphQL({ timestamp: { from, to }, limit, order, after });
+    return result.data.transactions.edges;
 }
