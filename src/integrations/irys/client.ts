@@ -133,7 +133,8 @@ export async function uploadToArweave(
     file: File | Blob,
     wallet: any,
     isMutable = false,
-    rootTx?: string
+    rootTx?: string,
+    feeMultiplier?: number
 ): Promise<string> {
     const irys = await getWebIrys(wallet);
 
@@ -143,8 +144,8 @@ export async function uploadToArweave(
 
     if (balance.lt(price)) {
         const toFund = price.minus(balance);
-        console.log(`[Irys] Funding node with ${toFund.toString()}…`);
-        await irys.fund(toFund);
+        console.log(`[Irys] Funding node with ${toFund.toString()} (multiplier: ${feeMultiplier || 1})…`);
+        await irys.fund(toFund, feeMultiplier);
     }
 
     const tags = [
@@ -164,6 +165,88 @@ export async function uploadToArweave(
             ? `https://gateway.irys.xyz/mutable/${rootTx || response.id}`
             : `https://arweave.net/${response.id}`;
     }, `upload ${(file as File).name || "blob"}`);
+}
+
+// ── Large-file chunked upload ────────────────────────────────────────────
+
+/**
+ * Uploads a large file to Irys using the dedicated Chunked Uploader.
+ * Great for massive video/audio/3D files as it avoids hitting bundle limits.
+ * Provides fine-grained progress feedback through `uploader.on("chunkUpload")`.
+ * 
+ * @param file The large file to upload
+ * @param wallet The wallet instance to initialize Irys
+ * @param onProgress Callback function for chunk-by-chunk progress percentage (0-100)
+ * @param isMutable Whether the upload is part of a mutable series
+ * @param feeMultiplier Optional network fee multiplier
+ * @param chunkSize Optional size of each chunk to upload at once (defaults to 25MB)
+ * @param batchSize Optional number of chunks to upload at once (defaults to 5)
+ */
+export async function uploadFileChunkedToArweave(
+    file: File | Blob,
+    wallet: any,
+    onProgress?: (progressPct: number, uploadedBytes: number, totalBytes: number) => void,
+    isMutable = false,
+    rootTx?: string,
+    feeMultiplier?: number,
+    chunkSize = 25_000_000,
+    batchSize = 5
+): Promise<string> {
+    const irys = await getWebIrys(wallet);
+
+    // Check price and balance — fund if needed
+    const price = await irys.getPrice(file.size);
+    const balance = await irys.getLoadedBalance();
+
+    if (balance.lt(price)) {
+        const toFund = price.minus(balance);
+        console.log(`[Irys] Funding node for chunked upload with ${toFund.toString()} (multiplier: ${feeMultiplier || 1})…`);
+        await irys.fund(toFund, feeMultiplier);
+    }
+
+    const tags = [
+        { name: "Content-Type", value: file.type || "application/octet-stream" },
+        { name: "application-id", value: "The Lily Pad" },
+    ];
+
+    if (isMutable && rootTx) {
+        tags.push({ name: "Root-TX", value: rootTx });
+    }
+
+    const data = await file.arrayBuffer();
+
+    // Create the chunked uploader object specific to this file as per Irys best practices
+    const uploader = irys.uploader.chunkedUploader;
+
+    // Adjust chunk size and batch size for network conditions.
+    uploader.setChunkSize(chunkSize);
+    uploader.setBatchSize(batchSize);
+
+    if (onProgress) {
+        uploader.on("chunkUpload", (info: any) => {
+            const progress = (info.totalUploaded / file.size) * 100;
+            onProgress(Math.max(0, Math.min(100, progress)), info.totalUploaded, file.size);
+        });
+
+        uploader.on("chunkError", (e: any) => {
+            console.error(`[Irys] Error uploading chunk:`, e);
+        });
+    }
+
+    return withRetry(async () => {
+        // Note: The Web Irys chunkedUploader expects Buffer/Uint8Array in the browser.
+        // It returns an AxiosResponse wrapping the generic UploadResponse data object.
+        const res: any = await uploader.uploadData(new Uint8Array(data) as any, { tags });
+        const txId = res?.data?.id || res?.id;
+
+        if (!txId) {
+            throw new Error("Failed to receive valid transaction ID from Chunked Uploader.");
+        }
+
+        return isMutable
+            ? `https://gateway.irys.xyz/mutable/${rootTx || txId}`
+            : `https://arweave.net/${txId}`;
+    }, `chunked upload ${(file as File).name || "blob"}`);
 }
 
 /**
@@ -226,6 +309,7 @@ export interface BatchUploadResponse {
  * @param customTags        Additional Irys/Arweave tags to attach to each upload
  * @param isMutable         Set to true to generate a mutable manifest URI
  * @param rootTx            The transaction ID of the original manifest (required for updating mutables)
+ * @param feeMultiplier     Optional multiplier (e.g. 1.2) to prioritize funding transactions
  */
 export async function uploadBatchToArweave(
     items: BatchUploadItem[],
@@ -235,7 +319,8 @@ export async function uploadBatchToArweave(
     enableThumbnails = true,
     customTags: { name: string; value: string }[] = [],
     isMutable = false,
-    rootTx?: string
+    rootTx?: string,
+    feeMultiplier?: number
 ): Promise<BatchUploadResponse> {
     if (items.length === 0) return { items: [] };
 
@@ -289,9 +374,9 @@ export async function uploadBatchToArweave(
         const toFund = price.minus(balance).multipliedBy(items.length > 500 ? 1.5 : 1.25);
         onProgress?.(0, items.length, "Funding Arweave node…");
         console.log(
-            `[Irys] Pre-funding node with ${toFund.toString()} for ~${items.length} items (+ thumbnails)…`
+            `[Irys] Pre-funding node with ${toFund.toString()} for ~${items.length} items (+ thumbnails) (multiplier: ${feeMultiplier || 1})…`
         );
-        await withRetry(() => irys.fund(toFund), "pre-fund");
+        await withRetry(() => irys.fund(toFund, feeMultiplier), "pre-fund");
     }
 
     // ── Phase 3: Upload loop ─────────────────────────────────────────────
@@ -501,4 +586,42 @@ export async function verifyIrysReceipt(receipt: any, wallet: any): Promise<bool
         console.error(`[Irys] Error verifying receipt:`, e);
         return false;
     }
+}
+
+// ── Manual Node Funding ──────────────────────────────────────────────────
+
+/**
+ * Manually tops up the connected wallet's Irys node balance using standard crypto units (e.g. 0.05 SOL).
+ * Automatically converts the standard amount to atomic units (lamports/wei) before funding.
+ * 
+ * @param amountStandard The amount of crypto to fund in standard readable units (e.g. 0.1)
+ * @param wallet The wallet instance to initialize Irys
+ * @param feeMultiplier Optional multiplier to prioritize the funding transaction (e.g. 1.2)
+ */
+export async function fundIrysNode(amountStandard: number, wallet: any, feeMultiplier?: number) {
+    const irys = await getWebIrys(wallet);
+    try {
+        const amountAtomic = irys.utils.toAtomic(amountStandard);
+        console.log(`[Irys] Manually funding node with ${amountStandard} ${irys.token} (${amountAtomic.toString()} atomic)…`);
+
+        const fundTx = await irys.fund(amountAtomic, feeMultiplier);
+
+        console.log(`[Irys] Successfully funded ${irys.utils.fromAtomic(fundTx.quantity)} ${irys.token}`);
+        return fundTx;
+    } catch (e) {
+        console.error(`[Irys] Error manually funding node:`, e);
+        throw e;
+    }
+}
+
+/**
+ * Gets the current loaded balance in the Irys node.
+ * 
+ * @param wallet The wallet instance to initialize Irys
+ * @returns The balance in standard units (e.g. SOL) as a string
+ */
+export async function getIrysBalance(wallet: any): Promise<string> {
+    const irys = await getWebIrys(wallet);
+    const atomicBalance = await irys.getLoadedBalance();
+    return irys.utils.fromAtomic(atomicBalance).toString();
 }
