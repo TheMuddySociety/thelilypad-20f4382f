@@ -462,6 +462,80 @@ export async function uploadNFTToArweave(
     return { metadataUri, imageUri, animationUri };
 }
 
+// ── Dynamic NFT Mutation (Irys Guide: Dynamic NFTs) ─────────────────────
+
+/**
+ * Mutates an existing Dynamic NFT by uploading a new version of its metadata
+ * chained to the original Root-TX. The mutable gateway URL will automatically
+ * resolve to this newest version.
+ *
+ * Follows the official guide: https://docs.irys.xyz/build/d/guides/dynamic-nft
+ *
+ * Important: The mutation MUST be signed by the same wallet that created
+ * the original upload, otherwise the chain will be rejected.
+ *
+ * On Irys, metadata uploads < 100 KiB are FREE — so evolving NFTs costs
+ * nothing in storage fees for typical metadata updates!
+ *
+ * @param rootTxId       The transaction ID of the FIRST (original) metadata upload
+ * @param wallet         The wallet instance (must be the same wallet that created the original)
+ * @param newMetadata    The updated metadata object (name, description, image, attributes, etc.)
+ * @param newImageFile   Optional new image file if the NFT's visual is also changing
+ * @param newAnimFile    Optional new animation file
+ * @returns Object with the updated metadataUri (same mutable URL, now points to new data)
+ */
+export async function mutateNFTMetadata(
+    rootTxId: string,
+    wallet: any,
+    newMetadata: {
+        name: string;
+        symbol?: string;
+        description: string;
+        image?: string;
+        attributes?: { trait_type: string; value: string | number }[];
+        [key: string]: any;
+    },
+    newImageFile?: File | Blob,
+    newAnimFile?: File | Blob,
+): Promise<{
+    metadataUri: string;
+    imageUri?: string;
+    animationUri?: string;
+}> {
+    let imageUri = newMetadata.image;
+    let animationUri: string | undefined;
+
+    // If a new image is provided, upload it (immutable — the image itself is permanent)
+    if (newImageFile) {
+        imageUri = await uploadToArweave(newImageFile, wallet, false);
+        console.log(`[Irys] Dynamic NFT new image uploaded → ${imageUri}`);
+    }
+
+    // If a new animation is provided, upload it
+    if (newAnimFile) {
+        animationUri = await uploadToArweave(newAnimFile, wallet, false);
+        console.log(`[Irys] Dynamic NFT new animation uploaded → ${animationUri}`);
+    }
+
+    // Build the mutated metadata — this replaces the previous version in the chain
+    const mutatedMetadata: any = {
+        ...newMetadata,
+        ...(imageUri && { image: imageUri }),
+        ...(animationUri && { animation_url: animationUri }),
+    };
+
+    // Upload the new metadata with Root-TX tag pointing to the original transaction
+    // This is the key mechanism: the mutable gateway URL resolves to the latest in the chain
+    const metadataUri = await uploadMetadataToArweave(mutatedMetadata, wallet, true, rootTxId);
+    console.log(`[Irys] Dynamic NFT metadata mutated → ${metadataUri} (Root-TX: ${rootTxId})`);
+
+    return {
+        metadataUri,
+        imageUri,
+        animationUri,
+    };
+}
+
 // ── Batch upload with thumbnail generation ───────────────────────────────
 
 import { generateThumbnails, type ProcessedImage } from "@/lib/thumbnailGenerator";

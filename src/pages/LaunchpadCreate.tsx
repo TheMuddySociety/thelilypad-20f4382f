@@ -59,9 +59,10 @@ import { cn, dataUrlToBlob } from "@/lib/utils";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 import { getDbChainValue } from "@/config/chains";
 import { getLaunchpadConfig, CollectionMode } from "@/config/launchpad";
-import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem } from "@/integrations/irys/client";
+import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem, mutateNFTMetadata } from "@/integrations/irys/client";
 import { LaunchpadTools } from "@/components/launchpad/LaunchpadTools";
 import { XRPLConfigurator } from "@/components/launchpad/chains/XRPLConfigurator";
+import { Switch } from "@/components/ui/switch";
 import { Check, Info } from "lucide-react";
 
 // Default Phases
@@ -153,6 +154,9 @@ export default function LaunchpadCreate() {
     const [treasuryWallet, setTreasuryWallet] = useState("");
     const [xrplTaxon, setXrplTaxon] = useState(0);
     const [xrplTransferFee, setXrplTransferFee] = useState(Math.round(royaltyPercent * 1000));
+
+    // Dynamic NFT (Evolving): uses Irys mutable references so metadata can be updated post-mint
+    const [isDynamic, setIsDynamic] = useState(false);
 
     useEffect(() => {
         setXrplTransferFee(Math.round(royaltyPercent * 1000));
@@ -321,7 +325,8 @@ export default function LaunchpadCreate() {
                 },
                 3, // concurrency
                 true, // enable thumbnails
-                [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }] // custom tags
+                [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }], // custom tags
+                isDynamic, // isMutable — uses Irys mutable references for Dynamic NFTs
             );
 
             const itemLinks = uploadResults.map((r) => ({
@@ -400,7 +405,8 @@ export default function LaunchpadCreate() {
             await supabase.from("collections").update({
                 contract_address: deployedAddress,
                 status: "active",
-                image_url: itemLinks[0]?.arweaveImageUri || ''
+                image_url: itemLinks[0]?.arweaveImageUri || '',
+                is_dynamic: isDynamic || false,
             }).eq('id', collectionId);
 
             toast.success("Successfully Launched!", { id: 'deploy' });
@@ -544,6 +550,31 @@ export default function LaunchpadCreate() {
                                             <div className="space-y-3"><Label>Royalty %</Label><Input type="number" value={royaltyPercent} onChange={e => setRoyaltyPercent(Number(e.target.value))} /></div>
                                         </div>
                                         <div className="space-y-3"><Label>Description</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} /></div>
+
+                                        {/* Dynamic NFT Toggle */}
+                                        <div className="p-4 rounded-xl border border-purple-500/20 bg-purple-500/5 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <Sparkles className="w-4 h-4 text-purple-400" />
+                                                    <Label className="text-sm font-bold text-purple-300">Dynamic NFT (Evolving)</Label>
+                                                </div>
+                                                <Switch checked={isDynamic} onCheckedChange={setIsDynamic} />
+                                            </div>
+                                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                Enable to create <strong>evolving NFTs</strong> whose metadata can be updated after minting.
+                                                Perfect for gaming assets that level up, loyalty programs, or seasonal art.
+                                                Uses Irys mutable references — metadata updates under 100 KiB are <strong>free</strong>!
+                                            </p>
+                                            {isDynamic && (
+                                                <div className="flex items-start gap-2 p-2 rounded-lg bg-purple-500/10 border border-purple-500/15">
+                                                    <Info className="w-3.5 h-3.5 text-purple-400 mt-0.5 shrink-0" />
+                                                    <p className="text-[10px] text-purple-300/80 leading-relaxed">
+                                                        Your NFT metadata URI will use <code className="bg-purple-500/20 px-1 rounded text-[9px]">gateway.irys.xyz/mutable/</code> —
+                                                        the same URL always resolves to the latest version. Only the original creator wallet can push updates.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 {is1of1 && currentStep === 1 && <ArtworkUploader artworks={artworks} onArtworksChange={setArtworks} collectionType="one_of_one" creatorId={address || 'anonymous'} chainSymbol={chainSymbol} />}
