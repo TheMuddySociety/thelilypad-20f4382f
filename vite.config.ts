@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => ({
         global: true,
         process: true,
       },
+      protocolImports: true,
     }),
     react(),
     mode === "development" && componentTagger(),
@@ -152,6 +153,11 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Polyfill Node.js core modules as required by Irys SDK documentation
+      crypto: "crypto-browserify",
+      stream: "stream-browserify",
+      os: "os-browserify/browser",
+      path: "path-browserify",
     },
   },
   ssr: {
