@@ -3,6 +3,9 @@ import { motion, Reorder } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   FolderPlus,
   GripVertical,
@@ -15,6 +18,7 @@ import {
   Layers,
   Sparkles,
   Upload,
+  Percent,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -209,6 +213,39 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
                 {/* Traits Preview with Rarity */}
                 {!layer.collapsed && (
                   <div className="px-2 pb-2 space-y-1.5">
+                    {/* Layer Appearance Probability */}
+                    <div className="flex items-center gap-3 py-1.5 px-1 rounded-md bg-muted/20">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Percent className="w-3 h-3 text-muted-foreground" />
+                        <Label className="text-[10px] font-medium text-muted-foreground whitespace-nowrap">
+                          Appears
+                        </Label>
+                      </div>
+                      <Slider
+                        value={[layer.isOptional ? (layer.optionalChance ?? 100) : 100]}
+                        onValueChange={([val]) => {
+                          onLayersChange(
+                            layers.map((l) =>
+                              l.id === layer.id
+                                ? {
+                                    ...l,
+                                    isOptional: val < 100,
+                                    optionalChance: val,
+                                  }
+                                : l
+                            )
+                          );
+                        }}
+                        min={1}
+                        max={100}
+                        step={1}
+                        className="flex-1"
+                      />
+                      <span className="text-[10px] font-mono font-bold text-primary w-8 text-right shrink-0">
+                        {layer.isOptional ? (layer.optionalChance ?? 100) : 100}%
+                      </span>
+                    </div>
+
                     <div className="flex gap-1.5 overflow-x-auto pb-0.5">
                       {layer.traits.slice(0, 8).map((trait) => {
                         const total = layer.traits.reduce((sum, t) => sum + t.rarity, 0);
