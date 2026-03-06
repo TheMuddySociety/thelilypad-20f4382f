@@ -91,7 +91,7 @@ export default function ArtGenerator() {
         }
     };
 
-    const handleDownload = async () => {
+    const handleDownload = async (format: "XRPL" | "Solana" | "Standard" = "XRPL") => {
         if (generatedAssets.length === 0) return;
 
         setIsDownloading(true);
@@ -111,13 +111,13 @@ export default function ArtGenerator() {
 
             // Note: assetGenerator's assets already have 'preview' as the composited dataURL.
             // We use JSZip directly or the bundleAssetsAsZip helper.
-            // Since bundleAssetsAsZip expects the generator-style NFTS, we'll use it since it handles XRPL metadata.
+            // Since bundleAssetsAsZip expects the generator-style NFTS, we'll use it since it handles metadata.
 
             const zipBlob = await bundleAssetsAsZip(
                 nfts as any,
                 name,
                 description,
-                "XRPL",
+                format,
                 resolution,
                 (status, progress) => {
                     setDownloadStatus(status);
@@ -125,14 +125,16 @@ export default function ArtGenerator() {
                 }
             );
 
-            const url = URL.createObjectURL(zipBlob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${name.replace(/ /g, "_")}_collection.zip`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            if (zipBlob) {
+                const url = URL.createObjectURL(zipBlob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${name.replace(/ /g, "_")}_${format}_collection.zip`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
 
             toast.success("Collection downloaded successfully!");
         } catch (err: any) {

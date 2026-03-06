@@ -6,6 +6,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     Filter,
     Search,
     Grid3X3,
@@ -35,7 +42,7 @@ interface CollectionPreviewEditorProps {
     layers: Layer[];
     collectionName: string;
     onAssetsChange: (assets: GeneratedAsset[]) => void;
-    onDownload: () => void;
+    onDownload: (format: "XRPL" | "Solana" | "Standard") => void;
     onMint?: () => void;
     onRegenerate?: () => void;
     isDownloading?: boolean;
@@ -119,6 +126,7 @@ export function CollectionPreviewEditor({
         assets[0]?.id ?? null
     );
     const [searchQuery, setSearchQuery] = useState("");
+    const [exportFormat, setExportFormat] = useState<"XRPL" | "Solana" | "Standard">("XRPL");
     const [editingTraitLayer, setEditingTraitLayer] = useState<string | null>(null);
     const [filterCollapsed, setFilterCollapsed] = useState<Record<string, boolean>>({});
 
@@ -288,42 +296,7 @@ export function CollectionPreviewEditor({
                     </div>
                 </div>
 
-                {/* Row 2: Action buttons — isolated so they never fight with the Navbar */}
-                <div className="flex items-center gap-2 flex-wrap">
-                    {onRegenerate && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={onRegenerate}
-                            className="h-8 text-xs gap-1.5"
-                        >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            Regenerate
-                        </Button>
-                    )}
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={onDownload}
-                        disabled={isDownloading}
-                        className="h-8 text-xs gap-1.5"
-                    >
-                        <Download className="w-3.5 h-3.5" />
-                        {isDownloading
-                            ? `${downloadStatus || "Exporting"}… ${downloadProgress || 0}%`
-                            : "Download ZIP"}
-                    </Button>
-                    {onMint && (
-                        <Button
-                            size="sm"
-                            onClick={onMint}
-                            className="h-8 text-xs gap-1.5 bg-gradient-to-r from-primary to-accent"
-                        >
-                            <Rocket className="w-3.5 h-3.5" />
-                            Mint Collection
-                        </Button>
-                    )}
-                </div>
+
             </div>
 
             {/* ── Main Panels ─────────────────────────────────────────────── */}
@@ -423,20 +396,76 @@ export function CollectionPreviewEditor({
 
                 {/* ─── PANEL 2: Collection Grid ───────────────────────────── */}
                 <div className="flex-1 flex flex-col min-w-0">
-                    {/* Search bar */}
-                    <div className="px-3 py-2 border-b border-border/50 flex items-center gap-2">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {/* Search bar & Action Buttons */}
+                    <div className="px-3 py-2 border-b border-border/50 flex items-center justify-between gap-4 flex-wrap">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground hidden sm:flex">
                             <ImageIcon className="w-3.5 h-3.5 text-primary" />
                             <span className="font-bold">Collection preview</span>
                         </div>
-                        <div className="flex-1" />
-                        <div className="relative w-48">
+
+                        <div className="flex-1 min-w-0" />
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 shrink-0">
+                            {onRegenerate && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={onRegenerate}
+                                    className="h-8 text-xs gap-1.5"
+                                >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <span className="hidden md:inline">Regenerate</span>
+                                </Button>
+                            )}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onDownload(exportFormat)}
+                                disabled={isDownloading}
+                                className="h-8 text-xs gap-1.5"
+                            >
+                                <Download className="w-3.5 h-3.5" />
+                                {isDownloading
+                                    ? <span className="hidden md:inline">{`${downloadStatus || "Exporting"}… ${downloadProgress || 0}%`}</span>
+                                    : <span className="hidden md:inline">Download ZIP</span>}
+                            </Button>
+
+                            <Select
+                                value={exportFormat}
+                                onValueChange={(val: any) => setExportFormat(val)}
+                                disabled={isDownloading}
+                            >
+                                <SelectTrigger className="h-8 text-xs w-[120px]">
+                                    <SelectValue placeholder="Format" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="XRPL">XRPL</SelectItem>
+                                    <SelectItem value="Solana">Solana</SelectItem>
+                                    <SelectItem value="Standard">Standard</SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            {onMint && (
+                                <Button
+                                    size="sm"
+                                    onClick={onMint}
+                                    className="h-8 text-xs gap-1.5 bg-gradient-to-r from-primary to-accent"
+                                >
+                                    <Rocket className="w-3.5 h-3.5" />
+                                    <span className="hidden md:inline">Mint Collection</span>
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* Search Box */}
+                        <div className="relative w-full sm:w-48 shrink-0">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
                             <Input
                                 placeholder="Search by name or trait…"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="h-7 text-[11px] pl-7 bg-muted/30 border-border/50"
+                                className="h-8 text-[11px] pl-7 bg-muted/30 border-border/50 transition-colors focus-visible:bg-background"
                             />
                         </div>
                     </div>
