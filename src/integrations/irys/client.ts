@@ -985,3 +985,68 @@ export async function getIrysTransactionData(txId: string, network: "mainnet" | 
         throw e;
     }
 }
+
+// ── Chunks REST API ──────────────────────────────────────────────────────
+
+/**
+ * Manually uploads a specific data chunk to the Irys bundler for a given transaction.
+ * Mapping for POST /chunks/{token}/{txid}/{offset}
+ * 
+ * Note: Consider using the ChunkedUploader API (uploadFileChunkedToArweave) for automatic chunk orchestration.
+ * This is provided for low-level manual chunk management.
+ * 
+ * @param token The token used (e.g., "ethereum", "solana")
+ * @param txId The unique ID of the transaction
+ * @param offset The byte offset representing the position of this chunk
+ * @param data The raw binary chunk data
+ * @param network The target network ("mainnet" | "devnet")
+ */
+export async function postIrysChunk(
+    token: string,
+    txId: string,
+    offset: number | string,
+    data: ArrayBuffer | Blob | Uint8Array,
+    network: "mainnet" | "devnet" = "mainnet"
+) {
+    const url = network === "mainnet" ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
+    try {
+        const response = await fetch(`${url}/chunks/${token}/${txId}/${offset}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/octet-stream",
+            },
+            body: data as BodyInit,
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return true;
+    } catch (e) {
+        console.error(`[Irys] Failed to post chunk at offset ${offset} for ${txId}:`, e);
+        throw e;
+    }
+}
+
+/**
+ * Retrieves a previously uploaded data chunk from the Irys bundler.
+ * Mapping for GET /chunks/{token}/{txid}/{offset}
+ * 
+ * @param token The token used (e.g., "ethereum", "solana")
+ * @param txId The unique ID of the transaction
+ * @param offset The byte offset of the chunk to retrieve
+ * @param network The target network ("mainnet" | "devnet")
+ */
+export async function getIrysChunk(
+    token: string,
+    txId: string,
+    offset: number | string,
+    network: "mainnet" | "devnet" = "mainnet"
+) {
+    const url = network === "mainnet" ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
+    try {
+        const response = await fetch(`${url}/chunks/${token}/${txId}/${offset}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.arrayBuffer();
+    } catch (e) {
+        console.error(`[Irys] Failed to get chunk at offset ${offset} for ${txId}:`, e);
+        throw e;
+    }
+}
