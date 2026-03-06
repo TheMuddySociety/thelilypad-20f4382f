@@ -191,6 +191,11 @@ export interface BatchUploadResult {
     arweavePreviewUri: string;    // 1200px preview URI
 }
 
+export interface BatchUploadResponse {
+    items: BatchUploadResult[];
+    manifestUri?: string;         // The Irys Onchain Folder base URI
+}
+
 /**
  * Upload an entire collection to Arweave in optimised batches.
  *
@@ -217,8 +222,8 @@ export async function uploadBatchToArweave(
     onProgress?: (completed: number, total: number, status: string) => void,
     concurrency = 3,
     enableThumbnails = true,
-): Promise<BatchUploadResult[]> {
-    if (items.length === 0) return [];
+): Promise<BatchUploadResponse> {
+    if (items.length === 0) return { items: [] };
 
     const irys = await getWebIrys(wallet);
 
@@ -367,6 +372,66 @@ export async function uploadBatchToArweave(
     }
 
     // Filter out nulls in case any items failed
-    return results.filter(Boolean);
+    const finalResults = results.filter(Boolean);
+
+    // ── Phase 4: Create Onchain Folder (Manifest) ────────────────────────
+    let manifestUri: string | undefined = undefined;
+
+    if (finalResults.length > 0) {
+        try {
+            onProgress?.(finalResults.length, items.length, "Creating onchain folder manifest…");
+            const map = new Map<string, string>();
+
+            finalResults.forEach((r, i) => {
+                // Add metadata 
+                const metaId = r.arweaveUri.split("/").pop();
+                if (metaId) map.set(`${i}.json`, metaId);
+
+                // Add images
+                const imgId = r.arweaveImageUri.split("/").pop();
+                if (imgId) {
+                    const originalExt = items[i]?.file instanceof File ? items[i].file.name.split('.').pop() || 'png' : 'png';
+                    map.set(`${i}.${originalExt}`, imgId);
+                }
+
+                if (r.arweaveThumbUri && r.arweaveThumbUri !== r.arweaveImageUri) {
+                    const thumbId = r.arweaveThumbUri.split("/").pop();
+                    if (thumbId) map.set(`${i}_thumb.webp`, thumbId);
+                }
+
+                if (r.arweavePreviewUri && r.arweavePreviewUri !== r.arweaveImageUri) {
+                    const previewId = r.arweavePreviewUri.split("/").pop();
+                    if (previewId) map.set(`${i}_preview.webp`, previewId);
+                }
+            });
+
+            // Need to generate folder via Irys uploader
+            // ensure uploader and generateFolder are available
+            const uploaderAny = irys.uploader as any;
+            if (uploaderAny && typeof uploaderAny.generateFolder === 'function') {
+                const manifestObj = await uploaderAny.generateFolder({ items: map });
+
+                const tags = [
+                    { name: "Type", value: "manifest" },
+                    { name: "Content-Type", value: "application/x.irys-manifest+json" },
+                    { name: "App-Name", value: "The Lily Pad" },
+                ];
+
+                const receipt = await withRetry(async () => {
+                    return await irys.upload(JSON.stringify(manifestObj), { tags });
+                }, "manifest upload");
+
+                manifestUri = `https://arweave.net/${receipt.id}`;
+                console.log(`[Irys] Onchain folder created at ${manifestUri}`);
+            } else {
+                console.warn("[Irys] irys.uploader.generateFolder is not available in this SDK version.");
+            }
+        } catch (err) {
+            console.error("[Irys] Failed to create onchain folder manifest:", err);
+            // Non-fatal, just log it. We still have all the individual URIs.
+        }
+    }
+
+    return { items: finalResults, manifestUri };
 }
 

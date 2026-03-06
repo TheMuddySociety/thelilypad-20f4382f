@@ -271,7 +271,7 @@ export default function XRPLNFTGenerator() {
                 }),
             }));
 
-            const uploadResults = await uploadBatchToArweave(
+            const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
                 batchItems,
                 { address, chainType: 'xrpl', network },
                 (completed, total, status) => {
@@ -294,7 +294,7 @@ export default function XRPLNFTGenerator() {
             setUploadProgress(60);
             toast.loading("Setting up XRPL collection on-chain…", { id: "xrpl-gen" });
 
-            const primaryArweaveUri = itemLinks[0]?.arweaveUri || "";
+            const primaryArweaveUri = manifestUri || itemLinks[0]?.arweaveUri || "";
             const result = await deployXRPLCollection({
                 name: collectionName,
                 symbol: collectionSymbol,

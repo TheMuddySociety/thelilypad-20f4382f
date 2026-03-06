@@ -313,7 +313,7 @@ export default function LaunchpadCreate() {
                 }),
             }));
 
-            const uploadResults = await uploadBatchToArweave(
+            const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
                 batchItems,
                 { address, chainType: selectedChain, network },
                 (completed, total, status) => {
@@ -332,9 +332,8 @@ export default function LaunchpadCreate() {
 
             // ── Step 3: Persistence Finalized ───────────────────────────────
             toast.loading("Persistence secured on Arweave...", { id: 'deploy' });
-            // Since Arweave uploads are individual, we don't need a folder CID here,
-            // but we'll use the first metadata URI as a reference if needed.
-            const primaryArweaveUri = itemLinks[0]?.arweaveUri || "";
+            // If the manifest was created, we can use it, otherwise fallback to first metadata
+            const primaryArweaveUri = manifestUri || itemLinks[0]?.arweaveUri || "";
 
             // ── Step 4: Chain-Specific Deployment ───────────────────────────
             toast.loading(`Deploying on ${currentChain.name}...`, { id: 'deploy' });

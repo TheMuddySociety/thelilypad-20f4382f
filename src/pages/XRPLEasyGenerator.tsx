@@ -226,7 +226,7 @@ export default function XRPLEasyGenerator() {
                 };
             });
 
-            const uploadResults = await uploadBatchToArweave(
+            const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
                 batchItems,
                 { address, chainType: 'xrpl', network },
                 (completed, total, status) => {
@@ -255,7 +255,7 @@ export default function XRPLEasyGenerator() {
             setUploadProgress(80);
             toast.loading("Setting up XRPL Collection...", { id: 'easy-mint' });
 
-            const baseUri = localItemLinks[0]?.arweaveUri || "";
+            const baseUri = manifestUri || localItemLinks[0]?.arweaveUri || "";
 
             const result = await deployXRPLCollection({
                 name,
@@ -268,7 +268,7 @@ export default function XRPLEasyGenerator() {
             setDeployedResult(result);
 
             // Update collection record with final results
-            const primaryArweaveUri = localItemLinks[0]?.arweaveUri || "";
+            const primaryArweaveUri = manifestUri || localItemLinks[0]?.arweaveUri || "";
             const firstArweaveImage = localItemLinks[0]?.arweavePreviewUri || localItemLinks[0]?.arweaveImageUri || "";
             const { error: finalUpdateErr } = await supabase.from("collections").update({
                 contract_address: result.address,
