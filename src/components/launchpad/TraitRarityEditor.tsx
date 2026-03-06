@@ -67,6 +67,15 @@ export function TraitRarityEditor({ layers, onLayersChange }: TraitRarityEditorP
         }));
     };
 
+    // Update the whole-layer appearance chance (0-100). Sets isOptional accordingly.
+    const updateLayerChance = (layerId: string, chance: number) => {
+        const clamped = Math.max(0, Math.min(100, Math.round(chance)));
+        onLayersChange(layers.map((l) => {
+            if (l.id !== layerId) return l;
+            return { ...l, isOptional: clamped < 100, optionalChance: clamped };
+        }));
+    };
+
     // Set a specific percentage for a trait and auto-redistribute the rest
     const setTraitPercentage = (layerId: string, traitId: string, targetPercent: number) => {
         const layer = layers.find(l => l.id === layerId);
@@ -196,32 +205,71 @@ export function TraitRarityEditor({ layers, onLayersChange }: TraitRarityEditorP
                             className="rounded-xl border border-border/60 bg-card/50 overflow-hidden"
                         >
                             {/* Layer Header */}
-                            <button
-                                onClick={() => toggleLayer(layer.id)}
-                                className="w-full p-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] h-5 px-1.5">
-                                        {layerIndex + 1}
-                                    </Badge>
-                                    <span className="text-xs font-semibold text-foreground">{layer.name}</span>
-                                    <Badge variant="outline" className="text-[10px] h-5">
-                                        {layer.traits.length} traits
-                                    </Badge>
-                                    {layer.isOptional && (
-                                        <Badge variant="outline" className="text-[10px] h-5 text-amber-500 border-amber-500/30">
-                                            Optional {layer.optionalChance ?? 100}%
+                            <div className="p-3 space-y-2">
+                                {/* Row 1: layer identity + expand toggle */}
+                                <button
+                                    onClick={() => toggleLayer(layer.id)}
+                                    className="w-full flex items-center justify-between hover:opacity-80 transition-opacity"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] h-5 px-1.5">
+                                            {layerIndex + 1}
+                                        </Badge>
+                                        <span className="text-xs font-semibold text-foreground">{layer.name}</span>
+                                        <Badge variant="outline" className="text-[10px] h-5">
+                                            {layer.traits.length} traits
+                                        </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {isExpanded ? (
+                                            <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+                                        ) : (
+                                            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                                        )}
+                                    </div>
+                                </button>
+
+                                {/* Row 2: Layer Appearance % control (always visible) */}
+                                <div
+                                    className="flex items-center gap-2 px-0.5"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">Layer %</span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="text-xs max-w-xs">
+                                                How often this entire layer appears across the collection. 100% = always shown. Below 100% = optional layer.
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <Slider
+                                        value={[layer.optionalChance ?? 100]}
+                                        onValueChange={([val]) => updateLayerChance(layer.id, val)}
+                                        min={0}
+                                        max={100}
+                                        step={1}
+                                        className="flex-1"
+                                    />
+                                    <span className={cn(
+                                        "text-[10px] font-mono font-bold w-8 text-right shrink-0",
+                                        (layer.optionalChance ?? 100) < 100 ? "text-amber-500" : "text-green-500"
+                                    )}>
+                                        {layer.optionalChance ?? 100}%
+                                    </span>
+                                    {(layer.optionalChance ?? 100) >= 100 && (
+                                        <Badge className="text-[9px] h-4 px-1 bg-green-500/15 text-green-600 border-green-500/25 shrink-0">
+                                            Always
+                                        </Badge>
+                                    )}
+                                    {(layer.optionalChance ?? 100) < 100 && (
+                                        <Badge className="text-[9px] h-4 px-1 bg-amber-500/15 text-amber-500 border-amber-500/25 shrink-0">
+                                            Optional
                                         </Badge>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    {isExpanded ? (
-                                        <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
-                                    ) : (
-                                        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                                    )}
-                                </div>
-                            </button>
+                            </div>
 
                             {/* Expanded content */}
                             <AnimatePresence>
@@ -455,7 +503,8 @@ export function TraitRarityEditor({ layers, onLayersChange }: TraitRarityEditorP
                         <span className="text-[10px] font-semibold text-foreground">Quick Tips</span>
                     </div>
                     <ul className="text-[10px] text-muted-foreground space-y-0.5 list-disc list-inside">
-                        <li><strong>Type a %</strong> directly in the input box to set an exact appearance rate</li>
+                        <li><strong>Layer %</strong> controls how often the <em>whole layer</em> appears — slide below 100% to make it optional</li>
+                        <li><strong>Type a %</strong> in a trait's input box to set its exact appearance rate within the layer</li>
                         <li><strong>Lock</strong> a trait to keep its % when using Equalize or Normalize</li>
                         <li><strong>Equalize</strong> sets all unlocked traits to equal weight</li>
                         <li><strong>Normalize</strong> scales weights so the total = 100</li>

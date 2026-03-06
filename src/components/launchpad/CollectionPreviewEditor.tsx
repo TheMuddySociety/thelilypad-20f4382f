@@ -272,8 +272,9 @@ export function CollectionPreviewEditor({
     return (
         <div className="flex flex-col h-full w-full">
             {/* ── Top Bar ─────────────────────────────────────────────────── */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-4 py-2.5 border-b border-border bg-card/80 backdrop-blur-sm shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
+            <div className="px-4 py-2 border-b border-border bg-card/80 backdrop-blur-sm shrink-0">
+                {/* Row 1: Title + count */}
+                <div className="flex items-center justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2 min-w-0">
                         <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
                             <Grid3X3 className="w-4 h-4 text-primary" />
@@ -281,13 +282,14 @@ export function CollectionPreviewEditor({
                         <h2 className="text-sm font-bold tracking-tight truncate">
                             {collectionName || "Collection"} Preview
                         </h2>
+                        <Badge variant="outline" className="text-[10px] h-5 font-mono shrink-0">
+                            {filteredAssets.length} / {assets.length}
+                        </Badge>
                     </div>
-                    <Badge variant="outline" className="text-[10px] h-5 font-mono shrink-0">
-                        {filteredAssets.length} / {assets.length}
-                    </Badge>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap shrink-0">
+                {/* Row 2: Action buttons — isolated so they never fight with the Navbar */}
+                <div className="flex items-center gap-2 flex-wrap">
                     {onRegenerate && (
                         <Button
                             variant="ghost"
@@ -296,7 +298,7 @@ export function CollectionPreviewEditor({
                             className="h-8 text-xs gap-1.5"
                         >
                             <RotateCcw className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Regenerate</span>
+                            Regenerate
                         </Button>
                     )}
                     <Button
@@ -307,11 +309,9 @@ export function CollectionPreviewEditor({
                         className="h-8 text-xs gap-1.5"
                     >
                         <Download className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">
-                            {isDownloading
-                                ? `${downloadStatus || "Exporting"}… ${downloadProgress || 0}%`
-                                : "Download ZIP"}
-                        </span>
+                        {isDownloading
+                            ? `${downloadStatus || "Exporting"}… ${downloadProgress || 0}%`
+                            : "Download ZIP"}
                     </Button>
                     {onMint && (
                         <Button
@@ -320,7 +320,7 @@ export function CollectionPreviewEditor({
                             className="h-8 text-xs gap-1.5 bg-gradient-to-r from-primary to-accent"
                         >
                             <Rocket className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Mint Collection</span>
+                            Mint Collection
                         </Button>
                     )}
                 </div>
