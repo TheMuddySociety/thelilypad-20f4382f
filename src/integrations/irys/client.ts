@@ -756,6 +756,34 @@ export async function getIrysBalance(wallet: any): Promise<string> {
     return irys.utils.fromAtomic(atomicBalance).toString();
 }
 
+/**
+ * Initiates a withdrawal of the user's funded node balance.
+ * 
+ * @param amountStandard The amount of crypto to withdraw in standard units (e.g. 0.1), or "all" to drain completely.
+ * @param wallet The wallet instance to initialize Irys
+ */
+export async function withdrawIrysNodeBalance(amountStandard: number | "all", wallet: any) {
+    const irys = await getWebIrys(wallet);
+    try {
+        let amountToWithdraw: any = "all";
+
+        if (amountStandard !== "all") {
+            amountToWithdraw = irys.utils.toAtomic(amountStandard);
+            console.log(`[Irys] Withdrawing ${amountStandard} ${irys.token} (${amountToWithdraw.toString()} atomic)…`);
+        } else {
+            console.log(`[Irys] Withdrawing ALL available ${irys.token} funds…`);
+        }
+
+        const withdrawTx = await irys.withdrawBalance(amountToWithdraw);
+
+        console.log(`[Irys] Successfully requested withdrawal for ${irys.token}.`);
+        return withdrawTx;
+    } catch (e) {
+        console.error(`[Irys] Error withdrawing node balance:`, e);
+        throw e;
+    }
+}
+
 // ── General REST API ─────────────────────────────────────────────────────
 
 /**
@@ -812,6 +840,28 @@ export async function getIrysNodeStatus(network: "mainnet" | "devnet" = "mainnet
         }
     } catch (e) {
         console.error(`[Irys] Failed to fetch node status:`, e);
+        throw e;
+    }
+}
+
+/**
+ * Queries the Irys general REST API to retrieve a list of historical withdrawals for the connected wallet's token.
+ * Mapping for GET /account/withdrawals/{token}?address={address}
+ *
+ * @param wallet The wallet instance referencing the target address and config 
+ * @param network The target network ("mainnet" | "devnet")
+ */
+export async function getIrysAccountWithdrawals(wallet: any, network: "mainnet" | "devnet" = "mainnet") {
+    // We get the WebIrys instance just to easily identify the active address and token 
+    const irys = await getWebIrys(wallet);
+    const url = network === "mainnet" ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
+
+    try {
+        const response = await fetch(`${url}/account/withdrawals/${irys.token}?address=${irys.address}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+    } catch (e) {
+        console.error(`[Irys] Failed to fetch account withdrawals:`, e);
         throw e;
     }
 }
