@@ -254,20 +254,20 @@ export async function uploadBatchToArweave(
     // ── Phase 2: Pre-fund estimate ───────────────────────────────────────
     onProgress?.(0, items.length, "Estimating storage cost…");
 
-    // Estimate total bytes: original + thumb + preview + ~2KB metadata each
+    // Estimate total bytes: original + thumb + preview + ~4KB metadata each
     const totalBytes = items.reduce((sum, item, idx) => {
-        const origSize = item.file.size || 50_000;
-        const thumbSize = processedImages?.[idx]?.thumb?.size || 0;
-        const previewSize = processedImages?.[idx]?.preview?.size || 0;
-        return sum + origSize + thumbSize + previewSize + 2_048;
+        const origSize = item.file.size || 10_000_000; // 10 MB conservative default for 4000x4000
+        const thumbSize = processedImages?.[idx]?.thumb?.size || 150_000; // ~150 KB WebP
+        const previewSize = processedImages?.[idx]?.preview?.size || 1_500_000; // ~1.5 MB WebP
+        return sum + origSize + thumbSize + previewSize + 4_096;
     }, 0);
 
     const price = await irys.getPrice(totalBytes);
     const balance = await irys.getLoadedBalance();
 
     if (balance.lt(price)) {
-        // Fund with 25% buffer for safety (thumbnails add overhead)
-        const toFund = price.minus(balance).multipliedBy(1.25);
+        // Fund with dynamic buffer (1.5x for large collections, 1.25x for small)
+        const toFund = price.minus(balance).multipliedBy(items.length > 500 ? 1.5 : 1.25);
         onProgress?.(0, items.length, "Funding Arweave node…");
         console.log(
             `[Irys] Pre-funding node with ${toFund.toString()} for ~${items.length} items (+ thumbnails)…`
@@ -288,64 +288,71 @@ export async function uploadBatchToArweave(
         const windowResults = await Promise.all(
             window.map(async (item, idx) => {
                 const globalIdx = i + idx;
-                const processed = processedImages?.[globalIdx];
+                try {
+                    onProgress?.(globalIdx, items.length, `Uploading item ${globalIdx + 1}/${items.length}…`);
+                    const processed = processedImages?.[globalIdx];
 
-                // 1. Upload full-res image
-                const imgData = await item.file.arrayBuffer();
-                const imgUri = await withRetry(async () => {
-                    const res = await irys.upload(new Uint8Array(imgData) as any, {
-                        tags: makeTags(item.file.type),
-                    });
-                    return `https://arweave.net/${res.id}`;
-                }, `image #${globalIdx + 1}`);
-
-                // 2. Upload thumbnail (if generated)
-                let thumbUri = imgUri; // fallback to full if no thumb
-                if (processed?.thumb && processed.thumb !== processed.original) {
-                    const thumbData = await processed.thumb.arrayBuffer();
-                    thumbUri = await withRetry(async () => {
-                        const res = await irys.upload(new Uint8Array(thumbData) as any, {
-                            tags: makeTags("image/webp"),
+                    // 1. Upload full-res image
+                    const imgData = await item.file.arrayBuffer();
+                    const imgUri = await withRetry(async () => {
+                        const res = await irys.upload(new Uint8Array(imgData) as any, {
+                            tags: makeTags(item.file.type),
                         });
                         return `https://arweave.net/${res.id}`;
-                    }, `thumb #${globalIdx + 1}`);
-                }
+                    }, `image #${globalIdx + 1}`);
 
-                // 3. Upload preview (if generated)
-                let previewUri = imgUri; // fallback to full if no preview
-                if (processed?.preview && processed.preview !== processed.original) {
-                    const prevData = await processed.preview.arrayBuffer();
-                    previewUri = await withRetry(async () => {
-                        const res = await irys.upload(new Uint8Array(prevData) as any, {
-                            tags: makeTags("image/webp"),
+                    // 2. Upload thumbnail (if generated)
+                    let thumbUri = imgUri; // fallback to full if no thumb
+                    if (processed?.thumb && processed.thumb !== processed.original) {
+                        const thumbData = await processed.thumb.arrayBuffer();
+                        thumbUri = await withRetry(async () => {
+                            const res = await irys.upload(new Uint8Array(thumbData) as any, {
+                                tags: makeTags("image/webp"),
+                            });
+                            return `https://arweave.net/${res.id}`;
+                        }, `thumb #${globalIdx + 1}`);
+                    }
+
+                    // 3. Upload preview (if generated)
+                    let previewUri = imgUri; // fallback to full if no preview
+                    if (processed?.preview && processed.preview !== processed.original) {
+                        const prevData = await processed.preview.arrayBuffer();
+                        previewUri = await withRetry(async () => {
+                            const res = await irys.upload(new Uint8Array(prevData) as any, {
+                                tags: makeTags("image/webp"),
+                            });
+                            return `https://arweave.net/${res.id}`;
+                        }, `preview #${globalIdx + 1}`);
+                    }
+
+                    // 4. Build & upload metadata (with all image URIs)
+                    const metadata = item.buildMetadata(imgUri, thumbUri, previewUri);
+                    const metaJson = JSON.stringify(metadata, null, 2);
+                    const metaData = new TextEncoder().encode(metaJson);
+                    const metaUri = await withRetry(async () => {
+                        const res = await irys.upload(metaData as any, {
+                            tags: makeTags("application/json"),
                         });
                         return `https://arweave.net/${res.id}`;
-                    }, `preview #${globalIdx + 1}`);
+                    }, `metadata #${globalIdx + 1}`);
+
+                    return {
+                        tokenId: globalIdx,
+                        arweaveUri: metaUri,
+                        arweaveImageUri: imgUri,
+                        arweaveThumbUri: thumbUri,
+                        arweavePreviewUri: previewUri,
+                    } satisfies BatchUploadResult;
+                } catch (err) {
+                    console.error(`[Irys] Item ${globalIdx + 1} failed:`, err);
+                    onProgress?.(globalIdx, items.length, `Item ${globalIdx + 1} failed — skipping`);
+                    return null;
                 }
-
-                // 4. Build & upload metadata (with all image URIs)
-                const metadata = item.buildMetadata(imgUri, thumbUri, previewUri);
-                const metaJson = JSON.stringify(metadata, null, 2);
-                const metaData = new TextEncoder().encode(metaJson);
-                const metaUri = await withRetry(async () => {
-                    const res = await irys.upload(metaData as any, {
-                        tags: makeTags("application/json"),
-                    });
-                    return `https://arweave.net/${res.id}`;
-                }, `metadata #${globalIdx + 1}`);
-
-                return {
-                    tokenId: globalIdx,
-                    arweaveUri: metaUri,
-                    arweaveImageUri: imgUri,
-                    arweaveThumbUri: thumbUri,
-                    arweavePreviewUri: previewUri,
-                } satisfies BatchUploadResult;
             })
         );
 
         for (const r of windowResults) {
-            results[r.tokenId] = r;
+            if (r) results[r.tokenId] = r;
         }
 
         const completed = Math.min(i + concurrency, items.length);
@@ -359,6 +366,7 @@ export async function uploadBatchToArweave(
         await new Promise((r) => setTimeout(r, 0));
     }
 
-    return results;
+    // Filter out nulls in case any items failed
+    return results.filter(Boolean);
 }
 
