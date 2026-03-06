@@ -279,6 +279,8 @@ export default function XRPLNFTGenerator() {
                     toast.loading(status, { id: "xrpl-gen" });
                 },
                 3, // concurrency
+                true, // enable thumbnails
+                [{ name: "Collection-Name", value: collectionName }] // custom tags
             );
 
             const itemLinks = uploadResults.map((r) => ({

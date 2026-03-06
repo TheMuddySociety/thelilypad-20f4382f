@@ -147,7 +147,7 @@ export async function uploadToArweave(
 
     const tags = [
         { name: "Content-Type", value: file.type || "application/octet-stream" },
-        { name: "App-Name", value: "The Lily Pad" },
+        { name: "application-id", value: "The Lily Pad" },
     ];
 
     const data = await file.arrayBuffer();
@@ -214,7 +214,8 @@ export interface BatchUploadResponse {
  * • Thumbnail generation uses Web Workers so it doesn't block the main thread.
  *
  * @param enableThumbnails  Set to false to skip thumbnail generation
- *                          (e.g., for non-image collections). Default true.
+ * @param enableThumbnails  Set to false to skip thumbnail generation
+ * @param customTags        Additional Irys/Arweave tags to attach to each upload
  */
 export async function uploadBatchToArweave(
     items: BatchUploadItem[],
@@ -222,6 +223,7 @@ export async function uploadBatchToArweave(
     onProgress?: (completed: number, total: number, status: string) => void,
     concurrency = 3,
     enableThumbnails = true,
+    customTags: { name: string; value: string }[] = []
 ): Promise<BatchUploadResponse> {
     if (items.length === 0) return { items: [] };
 
@@ -282,10 +284,17 @@ export async function uploadBatchToArweave(
 
     // ── Phase 3: Upload loop ─────────────────────────────────────────────
     const results: BatchUploadResult[] = new Array(items.length);
-    const makeTags = (type: string) => [
-        { name: "Content-Type", value: type || "application/octet-stream" },
-        { name: "App-Name", value: "The Lily Pad" },
-    ];
+    const makeTags = (type: string, isFolder: boolean = false) => {
+        const baseTags = [
+            { name: "Content-Type", value: type || "application/octet-stream" },
+            { name: "application-id", value: "The Lily Pad" },
+            { name: "generator", value: "Lily Pad Launchpad" },
+        ];
+
+        // Don't add custom collection tags to manifest itself since it's an Irys internal type, 
+        // but it's safe to add if needed. We'll add custom tags everywhere.
+        return [...baseTags, ...customTags];
+    };
 
     for (let i = 0; i < items.length; i += concurrency) {
         const window = items.slice(i, i + concurrency);
@@ -414,7 +423,8 @@ export async function uploadBatchToArweave(
                 const tags = [
                     { name: "Type", value: "manifest" },
                     { name: "Content-Type", value: "application/x.irys-manifest+json" },
-                    { name: "App-Name", value: "The Lily Pad" },
+                    { name: "application-id", value: "The Lily Pad" },
+                    ...customTags
                 ];
 
                 const receipt = await withRetry(async () => {

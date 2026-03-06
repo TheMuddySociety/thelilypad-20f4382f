@@ -234,6 +234,8 @@ export default function XRPLEasyGenerator() {
                     toast.loading(status, { id: 'easy-mint' });
                 },
                 3, // concurrency
+                true, // enable thumbnails
+                [{ name: "Collection-Name", value: name }] // custom tags
             );
 
             const localItemLinks = uploadResults.map((r) => ({

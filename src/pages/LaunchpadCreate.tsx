@@ -320,6 +320,8 @@ export default function LaunchpadCreate() {
                     toast.loading(status, { id: 'deploy' });
                 },
                 3, // concurrency
+                true, // enable thumbnails
+                [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }] // custom tags
             );
 
             const itemLinks = uploadResults.map((r) => ({
