@@ -173,6 +173,7 @@ export interface ChunkedUploadInstance {
     urlPromise: Promise<string>;
     pause: () => void;
     resume: () => void;
+    getResumeData: () => string | undefined;
 }
 
 /**
@@ -187,6 +188,7 @@ export interface ChunkedUploadInstance {
  * @param feeMultiplier Optional network fee multiplier
  * @param chunkSize Optional size of each chunk to upload at once (defaults to 25MB)
  * @param batchSize Optional number of chunks to upload at once (defaults to 5)
+ * @param resumeData Optional base64 string provided by a previous failed instance to skip already uploaded chunks
  */
 export async function uploadFileChunkedToArweave(
     file: File | Blob,
@@ -196,7 +198,8 @@ export async function uploadFileChunkedToArweave(
     rootTx?: string,
     feeMultiplier?: number,
     chunkSize = 25_000_000,
-    batchSize = 5
+    batchSize = 5,
+    resumeData?: string
 ): Promise<ChunkedUploadInstance> {
     const irys = await getWebIrys(wallet);
 
@@ -228,6 +231,11 @@ export async function uploadFileChunkedToArweave(
     uploader.setChunkSize(chunkSize);
     uploader.setBatchSize(batchSize);
 
+    // If a previous upload failed or expired, we can resume exactly where it left off
+    if (resumeData) {
+        uploader.setResumeData(resumeData);
+    }
+
     if (onProgress) {
         uploader.on("chunkUpload", (info: any) => {
             const progress = (info.totalUploaded / file.size) * 100;
@@ -258,7 +266,14 @@ export async function uploadFileChunkedToArweave(
     return {
         urlPromise,
         pause: () => uploader.pause(),
-        resume: () => uploader.resume()
+        resume: () => uploader.resume(),
+        getResumeData: () => {
+            // Check if getResumeData is available internally on the chunked uploader
+            if (typeof uploader.getResumeData === 'function') {
+                return uploader.getResumeData();
+            }
+            return undefined;
+        }
     };
 }
 
@@ -275,6 +290,7 @@ export async function uploadFileChunkedToArweave(
  * @param feeMultiplier Optional network fee multiplier
  * @param chunkSize Optional size of each chunk to upload at once (defaults to 25MB)
  * @param batchSize Optional number of chunks to upload at once (defaults to 5)
+ * @param resumeData Optional base64 string provided by a previous failed instance to skip already uploaded chunks
  */
 export async function uploadChunkedTransactionToArweave(
     file: File | Blob,
@@ -284,7 +300,8 @@ export async function uploadChunkedTransactionToArweave(
     rootTx?: string,
     feeMultiplier?: number,
     chunkSize = 25_000_000,
-    batchSize = 5
+    batchSize = 5,
+    resumeData?: string
 ): Promise<ChunkedUploadInstance> {
     const irys = await getWebIrys(wallet);
 
@@ -318,6 +335,11 @@ export async function uploadChunkedTransactionToArweave(
     uploader.setChunkSize(chunkSize);
     uploader.setBatchSize(batchSize);
 
+    // Resume from expired or paused session if provided
+    if (resumeData) {
+        uploader.setResumeData(resumeData);
+    }
+
     if (onProgress) {
         uploader.on("chunkUpload", (info: any) => {
             const progress = (info.totalUploaded / file.size) * 100;
@@ -347,7 +369,13 @@ export async function uploadChunkedTransactionToArweave(
     return {
         urlPromise,
         pause: () => uploader.pause(),
-        resume: () => uploader.resume()
+        resume: () => uploader.resume(),
+        getResumeData: () => {
+            if (typeof uploader.getResumeData === 'function') {
+                return uploader.getResumeData();
+            }
+            return undefined;
+        }
     };
 }
 
