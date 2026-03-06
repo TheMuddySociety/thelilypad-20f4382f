@@ -906,3 +906,82 @@ export async function getIrysUploadPrice(
         throw e;
     }
 }
+
+// ── Transaction REST API ─────────────────────────────────────────────────
+
+/**
+ * Queries the Irys general REST API to retrieve full transaction metadata.
+ * Mapping for GET /tx/{txId}
+ * 
+ * @param txId The unique ID of the transaction on Irys/Arweave
+ * @param network The target network ("mainnet" | "devnet")
+ */
+export async function getIrysTransactionMetadata(txId: string, network: "mainnet" | "devnet" = "mainnet") {
+    const url = network === "mainnet" ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
+    try {
+        const response = await fetch(`${url}/tx/${txId}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+    } catch (e) {
+        console.error(`[Irys] Failed to fetch transaction metadata for ${txId}:`, e);
+        throw e;
+    }
+}
+
+/**
+ * Queries the Irys general REST API to retrieve the current status/confirmations of a transaction.
+ * Mapping for GET /tx/{txId}/status
+ * 
+ * @param txId The unique ID of the transaction on Irys/Arweave
+ * @param network The target network ("mainnet" | "devnet")
+ */
+export async function getIrysTransactionStatus(txId: string, network: "mainnet" | "devnet" = "mainnet") {
+    const url = network === "mainnet" ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
+    try {
+        const response = await fetch(`${url}/tx/${txId}/status`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+    } catch (e) {
+        console.error(`[Irys] Failed to fetch transaction status for ${txId}:`, e);
+        throw e;
+    }
+}
+
+/**
+ * Queries the Irys general REST API to retrieve just the uploaded tags for a transaction.
+ * Mapping for GET /tx/{txId}/tags
+ * 
+ * @param txId The unique ID of the transaction on Irys/Arweave
+ * @param network The target network ("mainnet" | "devnet")
+ */
+export async function getIrysTransactionTags(txId: string, network: "mainnet" | "devnet" = "mainnet") {
+    const url = network === "mainnet" ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
+    try {
+        const response = await fetch(`${url}/tx/${txId}/tags`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+    } catch (e) {
+        console.error(`[Irys] Failed to fetch transaction tags for ${txId}:`, e);
+        throw e;
+    }
+}
+
+/**
+ * Queries the Irys general REST API to retrieve the raw data buffer of a transaction.
+ * Mapping for GET /tx/{txId}/data
+ * Note: Use with caution as this can fetch the entire raw file buffer into memory.
+ * 
+ * @param txId The unique ID of the transaction on Irys/Arweave
+ * @param network The target network ("mainnet" | "devnet")
+ */
+export async function getIrysTransactionData(txId: string, network: "mainnet" | "devnet" = "mainnet") {
+    const url = network === "mainnet" ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
+    try {
+        const response = await fetch(`${url}/tx/${txId}/data`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.arrayBuffer();
+    } catch (e) {
+        console.error(`[Irys] Failed to fetch raw transaction data for ${txId}:`, e);
+        throw e;
+    }
+}
