@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import JSZip from "jszip";
 import {
     compositeNFTImage,
     compositeNFTImageToBlob,
@@ -8,6 +7,7 @@ import {
     estimateExportMemoryMB,
     nftToXrplMetadata,
     nftToSolanaMetadata,
+    createZipStream,
     type GeneratedNFT,
     type NFTMetadata,
 } from "@/lib/assetBundler";
@@ -273,13 +273,16 @@ export function useNFTExport(
         setExportStatus("Generating NFTs...");
 
         try {
-            const zip = new JSZip();
-            const imagesFolder = zip.folder("images");
-            const metadataFolder = zip.folder("metadata");
-            if (!imagesFolder || !metadataFolder) throw new Error("Failed to create ZIP folders");
+            let zipStream;
+            try {
+                zipStream = await createZipStream(`${safeName()}-collection.zip`);
+            } catch (err: any) {
+                return; // user aborted file save
+            }
 
             const { nfts } = generateNFTBatch(count);
             const { canvas, ctx } = createReusableCanvas(outputResolution);
+            const encoder = new TextEncoder();
 
             for (let i = 0; i < nfts.length; i++) {
                 setExportStatus(`Generating NFT ${i + 1} of ${count}...`);
@@ -287,7 +290,8 @@ export function useNFTExport(
 
                 const blob = await compositeNFTImageToBlob(nfts[i], canvas, ctx);
                 if (blob) {
-                    imagesFolder.file(`${nfts[i].id}.png`, blob);
+                    const u8 = new Uint8Array(await blob.arrayBuffer());
+                    zipStream.addFile(`images/${nfts[i].id}.png`, u8);
                 }
 
                 const metadata = {
@@ -300,29 +304,26 @@ export function useNFTExport(
                     })),
                 };
 
-                metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(metadata, null, 2));
+                zipStream.addFile(`metadata/${nfts[i].id}.json`, encoder.encode(JSON.stringify(metadata, null, 2)));
 
                 // Yield every batch to keep UI responsive
                 if (i % BATCH_SIZE === 0) await new Promise((r) => setTimeout(r, 10));
             }
 
-            zip.file("_collection.json", JSON.stringify({
+            zipStream.addFile("_collection.json", encoder.encode(JSON.stringify({
                 name: collectionName,
                 description: collectionDescription,
                 total_supply: count,
                 generated_at: new Date().toISOString(),
-            }, null, 2));
+            }, null, 2)));
 
             setExportStatus("Creating ZIP file...");
             setExportProgress(90);
 
-            const zipBlob = await zip.generateAsync({
-                type: "blob",
-                compression: "DEFLATE",
-                compressionOptions: { level: 6 },
-            });
-
-            downloadBlob(zipBlob, `${safeName()}-collection.zip`);
+            const zipBlob = await zipStream.finish();
+            if (zipBlob) {
+                downloadBlob(zipBlob, `${safeName()}-collection.zip`);
+            }
 
             setExportProgress(100);
             setExportStatus("Complete!");
@@ -358,15 +359,18 @@ export function useNFTExport(
         setExportStatus(`Preparing XRPL collection (${count} NFTs @ ${resolution}×${resolution})…`);
 
         try {
-            const zip = new JSZip();
-            const imagesFolder = zip.folder("images");
-            const metadataFolder = zip.folder("metadata");
-            if (!imagesFolder || !metadataFolder) throw new Error("Failed to create ZIP folders");
+            let zipStream;
+            try {
+                zipStream = await createZipStream(`${safeName()}-xrpl-${resolution}px.zip`);
+            } catch (err: any) {
+                return; // user aborted
+            }
 
             const { nfts } = generateNFTBatch(count);
 
             // Reuse a single canvas for all compositing — key OOM fix
             const { canvas, ctx } = createReusableCanvas(resolution);
+            const encoder = new TextEncoder();
 
             for (let i = 0; i < nfts.length; i++) {
                 setExportStatus(`Compositing ${i + 1} / ${count} at ${resolution}×${resolution}px…`);
@@ -374,18 +378,18 @@ export function useNFTExport(
 
                 const blob = await compositeNFTImageToBlob(nfts[i], canvas, ctx);
                 if (blob) {
-                    // Store Blob directly — no base64 string overhead
-                    imagesFolder.file(`${nfts[i].id}.png`, blob);
+                    const u8 = new Uint8Array(await blob.arrayBuffer());
+                    zipStream.addFile(`images/${nfts[i].id}.png`, u8);
                 }
 
                 const xrplMetadata = nftToXrplMetadata(nfts[i], collectionName, collectionDescription);
-                metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(xrplMetadata, null, 2));
+                zipStream.addFile(`metadata/${nfts[i].id}.json`, encoder.encode(JSON.stringify(xrplMetadata, null, 2)));
 
                 // Yield every batch to keep UI responsive and allow GC
                 if (i % BATCH_SIZE === 0) await new Promise((r) => setTimeout(r, 0));
             }
 
-            zip.file("_collection.json", JSON.stringify({
+            zipStream.addFile("_collection.json", encoder.encode(JSON.stringify({
                 name: collectionName,
                 description: collectionDescription,
                 total_supply: count,
@@ -393,20 +397,15 @@ export function useNFTExport(
                 chain: "XRPL",
                 standard: "XLS-20",
                 generated_at: new Date().toISOString(),
-            }, null, 2));
+            }, null, 2)));
 
             setExportStatus("Compressing ZIP…");
             setExportProgress(90);
 
-            const zipBlob = await zip.generateAsync({
-                type: "blob",
-                compression: "DEFLATE",
-                compressionOptions: { level: 6 },
-            }, (meta) => {
-                setExportProgress(90 + Math.round(meta.percent * 0.1));
-            });
-
-            downloadBlob(zipBlob, `${safeName()}-xrpl-${resolution}px.zip`);
+            const zipBlob = await zipStream.finish();
+            if (zipBlob) {
+                downloadBlob(zipBlob, `${safeName()}-xrpl-${resolution}px.zip`);
+            }
 
             setExportProgress(100);
             setExportStatus("Done!");
@@ -443,12 +442,16 @@ export function useNFTExport(
 
         try {
             const { nfts } = generateNFTBatch(count);
-            const zip = new JSZip();
-            const imagesFolder = zip.folder("images")!;
-            const metadataFolder = zip.folder("metadata")!;
+            let zipStream;
+            try {
+                zipStream = await createZipStream(`${safeName()}-${count}nfts-${resolution}px.zip`);
+            } catch (err: any) {
+                return; // user aborted
+            }
 
             // Reuse a single canvas — prevents OOM from canvas allocation
             const { canvas, ctx } = createReusableCanvas(resolution);
+            const encoder = new TextEncoder();
 
             for (let i = 0; i < nfts.length; i++) {
                 setDownloadStatus(`Rendering NFT ${i + 1} of ${count}...`);
@@ -456,14 +459,15 @@ export function useNFTExport(
 
                 const blob = await compositeNFTImageToBlob(nfts[i], canvas, ctx);
                 if (blob) {
-                    imagesFolder.file(`${nfts[i].id}.png`, blob);
+                    const u8 = new Uint8Array(await blob.arrayBuffer());
+                    zipStream.addFile(`images/${nfts[i].id}.png`, u8);
                 }
 
                 const metadata = xrplMode
                     ? nftToXrplMetadata(nfts[i], collectionName, collectionDescription)
                     : nftToSolanaMetadata(nfts[i], collectionName, collectionDescription);
 
-                metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(metadata, null, 2));
+                zipStream.addFile(`metadata/${nfts[i].id}.json`, encoder.encode(JSON.stringify(metadata, null, 2)));
 
                 // Yield every batch
                 if (i % BATCH_SIZE === 0) await new Promise((r) => setTimeout(r, 0));
@@ -472,51 +476,25 @@ export function useNFTExport(
             setDownloadStatus("Packaging ZIP...");
             setDownloadProgress(85);
 
-            zip.file("_collection.json", JSON.stringify({
+            zipStream.addFile("_collection.json", encoder.encode(JSON.stringify({
                 name: collectionName,
                 total_supply: count,
                 resolution: `${resolution}x${resolution}`,
                 exported_at: new Date().toISOString(),
                 source: "The Lily Pad — https://thelilypad.io",
                 note: "Replace 'YOUR_IMAGE_CID' in metadata files with your actual IPFS CID after uploading the images/ folder. Preview via https://cloudflare-ipfs.com/ipfs/<CID>",
-            }, null, 2));
+            }, null, 2)));
 
-            zip.file("README.txt",
-                `${collectionName || "Collection"} — NFT Collection Assets
-${"━".repeat(44)}
-
-CONTENTS
-  images/      ${count} rendered NFT images at ${resolution}x${resolution}px
-  metadata/    ${count} JSON metadata files
-
-HOW TO LAUNCH ON ANOTHER LAUNCHPAD
-${"━".repeat(36)}
-1. Upload the images/ folder to IPFS (web3.storage, Filebase, or \`ipfs add\`)
-2. Copy the resulting folder CID
-3. In each metadata JSON, replace:
-   "image": "ipfs://YOUR_IMAGE_CID/N.png"
-   with your real CID, e.g. "image": "ipfs://bafybeif.../N.png"
-4. Upload the updated metadata/ folder to IPFS
-5. Use that metadata CID as your baseUri / baseURI
-
-IPFS GATEWAY (preview your files via HTTP)
-   https://cloudflare-ipfs.com/ipfs/<YOUR_CID>
-   https://cloudflare-ipfs.com/ipfs/<YOUR_CID>/0.png
-
-Generated: ${new Date().toUTCString()}
-Source: The Lily Pad (thelilypad.io)
-`);
+            const readme = `${collectionName || "Collection"} — NFT Collection Assets\n${"━".repeat(44)}\n\nCONTENTS\n  images/      ${count} rendered NFT images at ${resolution}x${resolution}px\n  metadata/    ${count} JSON metadata files\n\nHOW TO LAUNCH ON ANOTHER LAUNCHPAD\n${"━".repeat(36)}\n1. Upload the images/ folder to IPFS (web3.storage, Filebase, or \`ipfs add\`)\n2. Copy the resulting folder CID\n3. In each metadata JSON, replace:\n   "image": "ipfs://YOUR_IMAGE_CID/N.png"\n   with your real CID, e.g. "image": "ipfs://bafybeif.../N.png"\n4. Upload the updated metadata/ folder to IPFS\n5. Use that metadata CID as your baseUri / baseURI\n\nIPFS GATEWAY (preview your files via HTTP)\n   https://cloudflare-ipfs.com/ipfs/<YOUR_CID>\n   https://cloudflare-ipfs.com/ipfs/<YOUR_CID>/0.png\n\nGenerated: ${new Date().toUTCString()}\nSource: The Lily Pad (thelilypad.io)\n`;
+            zipStream.addFile("README.txt", encoder.encode(readme));
 
             setDownloadStatus("Compressing...");
             setDownloadProgress(93);
 
-            const zipBlob = await zip.generateAsync({
-                type: "blob",
-                compression: "DEFLATE",
-                compressionOptions: { level: 6 },
-            });
-
-            downloadBlob(zipBlob, `${safeName()}-${count}nfts-${resolution}px.zip`);
+            const zipBlob = await zipStream.finish();
+            if (zipBlob) {
+                downloadBlob(zipBlob, `${safeName()}-${count}nfts-${resolution}px.zip`);
+            }
 
             setDownloadProgress(100);
             setDownloadStatus("Done!");

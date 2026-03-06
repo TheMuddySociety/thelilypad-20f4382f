@@ -1,0 +1,35 @@
+
+> thelilypad@0.0.0 build
+> vite build
+
+[36mvite v5.4.19 [32mbuilding for production...[36m[39m
+transforming...
+
+[1m[33mwarn[39m[22m - The class `ease-[cubic-bezier(0.32,0.72,0,1)]` is ambiguous and matches multiple utilities.
+[1m[33mwarn[39m[22m - If this is content and not a class, replace it with `ease-&lsqb;cubic-bezier(0.32,0.72,0,1)&rsqb;` to silence this warning.
+[32m✓[39m 2027 modules transformed.
+[31mx[39m Build failed in 7.74s
+[31merror during build:
+[31m[vite-plugin-pwa:build] [plugin vite-plugin-pwa:build] src/components/launchpad/ArtworkUploader.tsx (1047:12): There was an error during the build:
+  Transform failed with 1 error:
+C:/Users/ILLRe/The Lily Pad/thelilypad-20f4382f/src/components/launchpad/ArtworkUploader.tsx:1047:12: ERROR: Expected ")" but found "{"
+Additionally, handling the error in the 'buildEnd' hook caused the following error:
+  Transform failed with 1 error:
+C:/Users/ILLRe/The Lily Pad/thelilypad-20f4382f/src/components/launchpad/ArtworkUploader.tsx:1047:12: ERROR: Expected ")" but found "{"[31m
+file: [36mC:/Users/ILLRe/The Lily Pad/thelilypad-20f4382f/src/components/launchpad/ArtworkUploader.tsx:1047:12[31m
+[33m
+[33mExpected ")" but found "{"[33m
+1045|          </div>
+1046|  
+1047|              {/* NFT Card Preview Mode */}
+   |              ^
+1048|        {artworks.length > 0 && isPreviewMode && (
+1049|          <div className="space-y-4">
+[31m
+    at getRollupError (file:///C:/Users/ILLRe/The%20Lily%20Pad/thelilypad-20f4382f/node_modules/vite/node_modules/rollup/dist/es/shared/parseAst.js:401:41)
+    at file:///C:/Users/ILLRe/The%20Lily%20Pad/thelilypad-20f4382f/node_modules/vite/node_modules/rollup/dist/es/shared/node-entry.js:23418:39
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async catchUnfinishedHookActions (file:///C:/Users/ILLRe/The%20Lily%20Pad/thelilypad-20f4382f/node_modules/vite/node_modules/rollup/dist/es/shared/node-entry.js:22876:16)
+    at async rollupInternal (file:///C:/Users/ILLRe/The%20Lily%20Pad/thelilypad-20f4382f/node_modules/vite/node_modules/rollup/dist/es/shared/node-entry.js:23401:5)
+    at async build (file:///C:/Users/ILLRe/The%20Lily%20Pad/thelilypad-20f4382f/node_modules/vite/dist/node/chunks/dep-C6uTJdX2.js:65693:14)
+    at async CAC.<anonymous> (file:///C:/Users/ILLRe/The%20Lily%20Pad/thelilypad-20f4382f/node_modules/vite/dist/node/cli.js:829:5)[39m

@@ -987,7 +987,6 @@ export function ArtworkUploader({
                 ))}
               </div>
             </ScrollArea>
-        </div>
           </div>
 
           {/* Right: Expanded Edit Panel */}
@@ -1022,20 +1021,20 @@ export function ArtworkUploader({
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs flex items-center gap-1"><Tag className="w-3 h-3" />Trait Attributes</Label>
-                        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => updateArtwork(art.id, { attributes: [...(art.attributes||[]), { trait_type: '', value: '' }] })}><Plus className="w-3 h-3 mr-1" />Add</Button>
+                        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => updateArtwork(art.id, { attributes: [...(art.attributes || []), { trait_type: '', value: '' }] })}><Plus className="w-3 h-3 mr-1" />Add</Button>
                       </div>
                       {(art.attributes || []).map((attr, i) => (
                         <div key={i} className="flex gap-2 items-center">
-                          <Input value={attr.trait_type} onChange={e => { const a=[...(art.attributes||[])]; a[i]={...attr,trait_type:e.target.value}; updateArtwork(art.id,{attributes:a}); }} placeholder="Trait type" className="h-7 text-xs flex-1" />
-                          <Input value={attr.value} onChange={e => { const a=[...(art.attributes||[])]; a[i]={...attr,value:e.target.value}; updateArtwork(art.id,{attributes:a}); }} placeholder="Value" className="h-7 text-xs flex-1" />
-                          <Select value={attr.rarity||'common'} onValueChange={v => { const a=[...(art.attributes||[])]; a[i]={...attr,rarity:v as TraitAttribute['rarity']}; updateArtwork(art.id,{attributes:a}); }}>
+                          <Input value={attr.trait_type} onChange={e => { const a = [...(art.attributes || [])]; a[i] = { ...attr, trait_type: e.target.value }; updateArtwork(art.id, { attributes: a }); }} placeholder="Trait type" className="h-7 text-xs flex-1" />
+                          <Input value={attr.value} onChange={e => { const a = [...(art.attributes || [])]; a[i] = { ...attr, value: e.target.value }; updateArtwork(art.id, { attributes: a }); }} placeholder="Value" className="h-7 text-xs flex-1" />
+                          <Select value={attr.rarity || 'common'} onValueChange={v => { const a = [...(art.attributes || [])]; a[i] = { ...attr, rarity: v as TraitAttribute['rarity'] }; updateArtwork(art.id, { attributes: a }); }}>
                             <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
                             <SelectContent><SelectItem value="common">Common</SelectItem><SelectItem value="uncommon">Uncommon</SelectItem><SelectItem value="rare">Rare</SelectItem><SelectItem value="epic">Epic</SelectItem><SelectItem value="legendary">Legendary</SelectItem></SelectContent>
                           </Select>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { const a=(art.attributes||[]).filter((_,j)=>j!==i); updateArtwork(art.id,{attributes:a}); }}><X className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { const a = (art.attributes || []).filter((_, j) => j !== i); updateArtwork(art.id, { attributes: a }); }}><X className="w-3.5 h-3.5" /></Button>
                         </div>
                       ))}
-                      {(!art.attributes||art.attributes.length===0) && <p className="text-xs text-muted-foreground text-center py-2 border border-dashed border-border/50 rounded-lg">No traits yet — click Add to start</p>}
+                      {(!art.attributes || art.attributes.length === 0) && <p className="text-xs text-muted-foreground text-center py-2 border border-dashed border-border/50 rounded-lg">No traits yet — click Add to start</p>}
                     </div>
                     <Button size="sm" className="w-full" onClick={() => setEditingId(null)}><Check className="w-4 h-4 mr-2" />Done Editing</Button>
                   </div>
@@ -1044,347 +1043,348 @@ export function ArtworkUploader({
             );
           })()}
         </div>
+      )}
 
-            {/* NFT Card Preview Mode */}
-            {artworks.length > 0 && isPreviewMode && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                  <Eye className="w-4 h-4 text-primary" />
-                  <span className="text-sm">
-                    Preview Mode: This is how your NFTs will appear in the marketplace
-                  </span>
-                </div>
+      {/* NFT Card Preview Mode */}
+      {artworks.length > 0 && isPreviewMode && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+            <Eye className="w-4 h-4 text-primary" />
+            <span className="text-sm">
+              Preview Mode: This is how your NFTs will appear in the marketplace
+            </span>
+          </div>
 
-                <ScrollArea className="h-[500px] pr-4">
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {artworks.map((artwork, index) => (
-                      <Card
-                        key={artwork.id}
-                        className="group overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 cursor-pointer"
-                      >
-                        {/* NFT Image */}
-                        <div className="aspect-square relative overflow-hidden">
-                          {artwork.imageUrl ? (
-                            <img
-                              src={artwork.imageUrl}
-                              alt={artwork.name}
-                              className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-muted">
-                              <ImageIcon className="w-12 h-12 text-muted-foreground" />
-                            </div>
-                          )}
-
-                          {/* Verified Badge Placeholder */}
-                          <div className="absolute top-3 left-3">
-                            <Badge className="bg-primary/90 hover:bg-primary text-primary-foreground text-xs">
-                              LilyPad
-                            </Badge>
-                          </div>
-                        </div>
-
-                        {/* NFT Info */}
-                        <CardHeader className="pb-2 pt-3">
-                          <CardTitle className="text-base truncate">
-                            {artwork.name || `Token #${index + 1}`}
-                          </CardTitle>
-                          <CardDescription className="text-xs truncate">
-                            {collectionType === "one_of_one" ? "1 of 1" : "Edition"}
-                          </CardDescription>
-                        </CardHeader>
-
-                        <CardContent className="pb-3">
-                          {artwork.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-                              {artwork.description}
-                            </p>
-                          )}
-
-                          {/* Traits Display */}
-                          {artwork.attributes && artwork.attributes.length > 0 && (
-                            <div className="mb-3 space-y-1">
-                              <p className="text-xs font-medium flex items-center gap-1">
-                                <Sparkles className="w-3 h-3" />
-                                Traits
-                              </p>
-                              <div className="grid grid-cols-2 gap-1">
-                                {artwork.attributes.slice(0, 4).map((attr, i) => (
-                                  <div
-                                    key={i}
-                                    className={`p-1.5 rounded text-center border ${attr.rarity === "legendary" ? "bg-yellow-500/10 border-yellow-500/30" :
-                                      attr.rarity === "epic" ? "bg-purple-500/10 border-purple-500/30" :
-                                        attr.rarity === "rare" ? "bg-blue-500/10 border-blue-500/30" :
-                                          attr.rarity === "uncommon" ? "bg-green-500/10 border-green-500/30" :
-                                            "bg-muted/50 border-border"
-                                      }`}
-                                  >
-                                    <p className="text-[9px] text-muted-foreground uppercase tracking-wide truncate">
-                                      {attr.trait_type}
-                                    </p>
-                                    <p className={`text-[10px] font-medium truncate ${attr.rarity === "legendary" ? "text-yellow-600" :
-                                      attr.rarity === "epic" ? "text-purple-600" :
-                                        attr.rarity === "rare" ? "text-blue-600" :
-                                          attr.rarity === "uncommon" ? "text-green-600" :
-                                            ""
-                                      }`}>
-                                      {attr.value}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                              {artwork.attributes.length > 4 && (
-                                <p className="text-[10px] text-muted-foreground text-center">
-                                  +{artwork.attributes.length - 4} more traits
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Mock Price Display */}
-                          <div className="flex items-center justify-between text-sm mb-2">
-                            <span className="text-muted-foreground">Price</span>
-                            <span className="font-bold">-- {chainSymbol}</span>
-                          </div>
-
-                          {/* Mock Buy Button */}
-                          <Button className="w-full" size="sm" variant="outline" disabled>
-                            <ShoppingCart className="w-4 h-4 mr-2" />
-                            Buy Now
-                          </Button>
-
-                          {/* Token ID indicator */}
-                          <div className="mt-2 pt-2 border-t border-border">
-                            <p className="text-xs text-muted-foreground text-center">
-                              Token ID: #{index + 1}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
-            )}
-
-            {/* Empty State */}
-            {artworks.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">
-                  No artwork uploaded yet.
-                  {collectionType === "one_of_one"
-                    ? " Upload unique images for each NFT in your collection."
-                    : " Upload your edition artwork."}
-                </p>
-              </div>
-            )}
-
-            {/* Batch Edit Modal */}
-            <Dialog open={isBatchEditOpen} onOpenChange={setIsBatchEditOpen}>
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Pencil className="w-5 h-5" />
-                    Batch Edit {selectedIds.size} Artwork{selectedIds.size !== 1 ? 's' : ''}
-                  </DialogTitle>
-                  <DialogDescription>
-                    Apply naming patterns and descriptions to multiple artworks at once.
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4 py-4">
-                  {/* Naming Pattern */}
-                  <div className="space-y-3">
-                    <Label className="flex items-center gap-2">
-                      <Type className="w-4 h-4" />
-                      Naming Pattern
-                    </Label>
-                    <Select value={namingPattern} onValueChange={(v) => setNamingPattern(v as NamingPattern)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="prefix">Add Prefix</SelectItem>
-                        <SelectItem value="suffix">Add Suffix</SelectItem>
-                        <SelectItem value="replace">Replace Name</SelectItem>
-                        <SelectItem value="numbered">Numbered Sequence</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Input
-                      value={batchNameValue}
-                      onChange={(e) => setBatchNameValue(e.target.value)}
-                      placeholder={
-                        namingPattern === "prefix" ? "Prefix text..." :
-                          namingPattern === "suffix" ? "Suffix text..." :
-                            namingPattern === "replace" ? "New name..." :
-                              "Base name (e.g., 'Cosmic Frog')"
-                      }
-                    />
-
-                    {namingPattern === "numbered" && (
-                      <div className="flex items-center gap-2">
-                        <Label className="flex items-center gap-2 whitespace-nowrap">
-                          <Hash className="w-4 h-4" />
-                          Start at:
-                        </Label>
-                        <Input
-                          type="number"
-                          value={startNumber}
-                          onChange={(e) => setStartNumber(parseInt(e.target.value) || 1)}
-                          className="w-24"
-                          min={1}
-                        />
+          <ScrollArea className="h-[500px] pr-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {artworks.map((artwork, index) => (
+                <Card
+                  key={artwork.id}
+                  className="group overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 cursor-pointer"
+                >
+                  {/* NFT Image */}
+                  <div className="aspect-square relative overflow-hidden">
+                    {artwork.imageUrl ? (
+                      <img
+                        src={artwork.imageUrl}
+                        alt={artwork.name}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <ImageIcon className="w-12 h-12 text-muted-foreground" />
                       </div>
                     )}
 
-                    {/* Preview */}
-                    {batchNameValue && (
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-xs text-muted-foreground mb-1">Preview:</p>
-                        <p className="text-sm font-medium">
-                          {namingPattern === "prefix" && `${batchNameValue} [original name]`}
-                          {namingPattern === "suffix" && `[original name] ${batchNameValue}`}
-                          {namingPattern === "replace" && batchNameValue}
-                          {namingPattern === "numbered" && `${batchNameValue} #${startNumber}`}
+                    {/* Verified Badge Placeholder */}
+                    <div className="absolute top-3 left-3">
+                      <Badge className="bg-primary/90 hover:bg-primary text-primary-foreground text-xs">
+                        LilyPad
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* NFT Info */}
+                  <CardHeader className="pb-2 pt-3">
+                    <CardTitle className="text-base truncate">
+                      {artwork.name || `Token #${index + 1}`}
+                    </CardTitle>
+                    <CardDescription className="text-xs truncate">
+                      {collectionType === "one_of_one" ? "1 of 1" : "Edition"}
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="pb-3">
+                    {artwork.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                        {artwork.description}
+                      </p>
+                    )}
+
+                    {/* Traits Display */}
+                    {artwork.attributes && artwork.attributes.length > 0 && (
+                      <div className="mb-3 space-y-1">
+                        <p className="text-xs font-medium flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          Traits
                         </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Description */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="applyDescription"
-                        checked={applyDescription}
-                        onCheckedChange={(checked) => setApplyDescription(checked === true)}
-                      />
-                      <Label htmlFor="applyDescription" className="flex items-center gap-2 cursor-pointer">
-                        <FileText className="w-4 h-4" />
-                        Update Description
-                      </Label>
-                    </div>
-
-                    {applyDescription && (
-                      <Textarea
-                        value={batchDescription}
-                        onChange={(e) => setBatchDescription(e.target.value)}
-                        placeholder="Enter description for all selected artworks..."
-                        rows={3}
-                      />
-                    )}
-                  </div>
-
-                  {/* Bulk Traits */}
-                  <div className="space-y-3 pt-2 border-t border-border">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="applyTraits"
-                        checked={applyTraits}
-                        onCheckedChange={(checked) => setApplyTraits(checked === true)}
-                      />
-                      <Label htmlFor="applyTraits" className="flex items-center gap-2 cursor-pointer">
-                        <Tag className="w-4 h-4" />
-                        Update Traits
-                      </Label>
-                    </div>
-
-                    {applyTraits && (
-                      <div className="space-y-3">
-                        <Select value={traitMode} onValueChange={(v) => setTraitMode(v as typeof traitMode)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="append">Append (add new traits)</SelectItem>
-                            <SelectItem value="replace">Replace (overwrite all traits)</SelectItem>
-                            <SelectItem value="remove">Remove (delete matching traits)</SelectItem>
-                          </SelectContent>
-                        </Select>
-
-                        <div className="space-y-2">
-                          {batchTraits.map((trait, index) => (
-                            <div key={index} className="flex gap-2 items-start">
-                              <div className="flex-1 space-y-1">
-                                <Input
-                                  value={trait.trait_type}
-                                  onChange={(e) => updateBatchTrait(index, { trait_type: e.target.value })}
-                                  placeholder="Trait type (e.g., Background)"
-                                  className="h-8 text-sm"
-                                />
-                                {traitMode !== "remove" && (
-                                  <Input
-                                    value={trait.value}
-                                    onChange={(e) => updateBatchTrait(index, { value: e.target.value })}
-                                    placeholder="Value (e.g., Blue)"
-                                    className="h-8 text-sm"
-                                  />
-                                )}
-                              </div>
-                              {traitMode !== "remove" && (
-                                <Select
-                                  value={trait.rarity || "common"}
-                                  onValueChange={(v) => updateBatchTrait(index, { rarity: v as TraitAttribute["rarity"] })}
-                                >
-                                  <SelectTrigger className="w-24 h-8 text-sm">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="common">Common</SelectItem>
-                                    <SelectItem value="uncommon">Uncommon</SelectItem>
-                                    <SelectItem value="rare">Rare</SelectItem>
-                                    <SelectItem value="epic">Epic</SelectItem>
-                                    <SelectItem value="legendary">Legendary</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => removeBatchTrait(index)}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
+                        <div className="grid grid-cols-2 gap-1">
+                          {artwork.attributes.slice(0, 4).map((attr, i) => (
+                            <div
+                              key={i}
+                              className={`p-1.5 rounded text-center border ${attr.rarity === "legendary" ? "bg-yellow-500/10 border-yellow-500/30" :
+                                attr.rarity === "epic" ? "bg-purple-500/10 border-purple-500/30" :
+                                  attr.rarity === "rare" ? "bg-blue-500/10 border-blue-500/30" :
+                                    attr.rarity === "uncommon" ? "bg-green-500/10 border-green-500/30" :
+                                      "bg-muted/50 border-border"
+                                }`}
+                            >
+                              <p className="text-[9px] text-muted-foreground uppercase tracking-wide truncate">
+                                {attr.trait_type}
+                              </p>
+                              <p className={`text-[10px] font-medium truncate ${attr.rarity === "legendary" ? "text-yellow-600" :
+                                attr.rarity === "epic" ? "text-purple-600" :
+                                  attr.rarity === "rare" ? "text-blue-600" :
+                                    attr.rarity === "uncommon" ? "text-green-600" :
+                                      ""
+                                }`}>
+                                {attr.value}
+                              </p>
                             </div>
                           ))}
+                        </div>
+                        {artwork.attributes.length > 4 && (
+                          <p className="text-[10px] text-muted-foreground text-center">
+                            +{artwork.attributes.length - 4} more traits
+                          </p>
+                        )}
+                      </div>
+                    )}
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={addBatchTrait}
-                          >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Trait
-                          </Button>
+                    {/* Mock Price Display */}
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-muted-foreground">Price</span>
+                      <span className="font-bold">-- {chainSymbol}</span>
+                    </div>
 
-                          {batchTraits.length === 0 && (
-                            <p className="text-xs text-muted-foreground text-center">
-                              {traitMode === "remove"
-                                ? "Add trait types to remove from selected artworks"
-                                : "Add traits to apply to selected artworks"}
-                            </p>
+                    {/* Mock Buy Button */}
+                    <Button className="w-full" size="sm" variant="outline" disabled>
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      Buy Now
+                    </Button>
+
+                    {/* Token ID indicator */}
+                    <div className="mt-2 pt-2 border-t border-border">
+                      <p className="text-xs text-muted-foreground text-center">
+                        Token ID: #{index + 1}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {artworks.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">
+            No artwork uploaded yet.
+            {collectionType === "one_of_one"
+              ? " Upload unique images for each NFT in your collection."
+              : " Upload your edition artwork."}
+          </p>
+        </div>
+      )}
+
+      {/* Batch Edit Modal */}
+      <Dialog open={isBatchEditOpen} onOpenChange={setIsBatchEditOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5" />
+              Batch Edit {selectedIds.size} Artwork{selectedIds.size !== 1 ? 's' : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Apply naming patterns and descriptions to multiple artworks at once.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Naming Pattern */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Type className="w-4 h-4" />
+                Naming Pattern
+              </Label>
+              <Select value={namingPattern} onValueChange={(v) => setNamingPattern(v as NamingPattern)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="prefix">Add Prefix</SelectItem>
+                  <SelectItem value="suffix">Add Suffix</SelectItem>
+                  <SelectItem value="replace">Replace Name</SelectItem>
+                  <SelectItem value="numbered">Numbered Sequence</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Input
+                value={batchNameValue}
+                onChange={(e) => setBatchNameValue(e.target.value)}
+                placeholder={
+                  namingPattern === "prefix" ? "Prefix text..." :
+                    namingPattern === "suffix" ? "Suffix text..." :
+                      namingPattern === "replace" ? "New name..." :
+                        "Base name (e.g., 'Cosmic Frog')"
+                }
+              />
+
+              {namingPattern === "numbered" && (
+                <div className="flex items-center gap-2">
+                  <Label className="flex items-center gap-2 whitespace-nowrap">
+                    <Hash className="w-4 h-4" />
+                    Start at:
+                  </Label>
+                  <Input
+                    type="number"
+                    value={startNumber}
+                    onChange={(e) => setStartNumber(parseInt(e.target.value) || 1)}
+                    className="w-24"
+                    min={1}
+                  />
+                </div>
+              )}
+
+              {/* Preview */}
+              {batchNameValue && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Preview:</p>
+                  <p className="text-sm font-medium">
+                    {namingPattern === "prefix" && `${batchNameValue} [original name]`}
+                    {namingPattern === "suffix" && `[original name] ${batchNameValue}`}
+                    {namingPattern === "replace" && batchNameValue}
+                    {namingPattern === "numbered" && `${batchNameValue} #${startNumber}`}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="applyDescription"
+                  checked={applyDescription}
+                  onCheckedChange={(checked) => setApplyDescription(checked === true)}
+                />
+                <Label htmlFor="applyDescription" className="flex items-center gap-2 cursor-pointer">
+                  <FileText className="w-4 h-4" />
+                  Update Description
+                </Label>
+              </div>
+
+              {applyDescription && (
+                <Textarea
+                  value={batchDescription}
+                  onChange={(e) => setBatchDescription(e.target.value)}
+                  placeholder="Enter description for all selected artworks..."
+                  rows={3}
+                />
+              )}
+            </div>
+
+            {/* Bulk Traits */}
+            <div className="space-y-3 pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="applyTraits"
+                  checked={applyTraits}
+                  onCheckedChange={(checked) => setApplyTraits(checked === true)}
+                />
+                <Label htmlFor="applyTraits" className="flex items-center gap-2 cursor-pointer">
+                  <Tag className="w-4 h-4" />
+                  Update Traits
+                </Label>
+              </div>
+
+              {applyTraits && (
+                <div className="space-y-3">
+                  <Select value={traitMode} onValueChange={(v) => setTraitMode(v as typeof traitMode)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="append">Append (add new traits)</SelectItem>
+                      <SelectItem value="replace">Replace (overwrite all traits)</SelectItem>
+                      <SelectItem value="remove">Remove (delete matching traits)</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <div className="space-y-2">
+                    {batchTraits.map((trait, index) => (
+                      <div key={index} className="flex gap-2 items-start">
+                        <div className="flex-1 space-y-1">
+                          <Input
+                            value={trait.trait_type}
+                            onChange={(e) => updateBatchTrait(index, { trait_type: e.target.value })}
+                            placeholder="Trait type (e.g., Background)"
+                            className="h-8 text-sm"
+                          />
+                          {traitMode !== "remove" && (
+                            <Input
+                              value={trait.value}
+                              onChange={(e) => updateBatchTrait(index, { value: e.target.value })}
+                              placeholder="Value (e.g., Blue)"
+                              className="h-8 text-sm"
+                            />
                           )}
                         </div>
+                        {traitMode !== "remove" && (
+                          <Select
+                            value={trait.rarity || "common"}
+                            onValueChange={(v) => updateBatchTrait(index, { rarity: v as TraitAttribute["rarity"] })}
+                          >
+                            <SelectTrigger className="w-24 h-8 text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="common">Common</SelectItem>
+                              <SelectItem value="uncommon">Uncommon</SelectItem>
+                              <SelectItem value="rare">Rare</SelectItem>
+                              <SelectItem value="epic">Epic</SelectItem>
+                              <SelectItem value="legendary">Legendary</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => removeBatchTrait(index)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
                       </div>
+                    ))}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={addBatchTrait}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Trait
+                    </Button>
+
+                    {batchTraits.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        {traitMode === "remove"
+                          ? "Add trait types to remove from selected artworks"
+                          : "Add traits to apply to selected artworks"}
+                      </p>
                     )}
                   </div>
                 </div>
-
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsBatchEditOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={applyBatchEdit}>
-                    <Check className="w-4 h-4 mr-2" />
-                    Apply Changes
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+              )}
+            </div>
           </div>
-          );
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBatchEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={applyBatchEdit}>
+              <Check className="w-4 h-4 mr-2" />
+              Apply Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }

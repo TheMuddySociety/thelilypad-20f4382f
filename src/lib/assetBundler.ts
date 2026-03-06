@@ -1,4 +1,4 @@
-import JSZip from "jszip";
+import { Zip, ZipPassThrough } from "fflate";
 import { toast } from "sonner";
 import { Layer, BlendMode } from "@/components/launchpad/LayerManager";
 import { TraitRule } from "@/components/launchpad/TraitRulesManager";
@@ -204,6 +204,69 @@ export const nftToXrplMetadata = (
 };
 
 /**
+ * Zips a collection of files into a Blob asynchronously without allocating
+ * huge contiguous ArrayBuffers, and writes directly to disk if supported.
+ */
+export const createZipStream = async (fileName: string) => {
+    const hasFSA = 'showSaveFilePicker' in window;
+    let outStream: any = null;
+    let chunks: Uint8Array[] = [];
+
+    if (hasFSA) {
+        try {
+            const handle = await (window as any).showSaveFilePicker({
+                suggestedName: fileName,
+                types: [{ description: 'ZIP Archive', accept: { 'application/zip': ['.zip'] } }]
+            });
+            outStream = await handle.createWritable();
+        } catch (err: any) {
+            // User cancelled file picker -> abort
+            if (err.name === 'AbortError') throw err;
+            console.warn('File Access API error, falling back to memory chunks', err);
+            outStream = null;
+        }
+    }
+
+    let finishResolve: (val: Blob | null) => void;
+    let finishReject: (err: Error) => void;
+    const finishPromise = new Promise<Blob | null>((res, rej) => {
+        finishResolve = res;
+        finishReject = rej;
+    });
+
+    const zip = new Zip(async (err, dat, final) => {
+        if (err) {
+            finishReject(err);
+            return;
+        }
+        if (outStream) {
+            await outStream.write(dat);
+            if (final) {
+                await outStream.close();
+                finishResolve(null); // no blob needed, already saved!
+            }
+        } else {
+            chunks.push(dat);
+            if (final) {
+                finishResolve(new Blob(chunks as BlobPart[], { type: 'application/zip' }));
+            }
+        }
+    });
+
+    return {
+        addFile: (path: string, data: Uint8Array) => {
+            const fileStream = new ZipPassThrough(path);
+            zip.add(fileStream);
+            fileStream.push(data, true);
+        },
+        finish: async () => {
+            zip.end();
+            return finishPromise;
+        }
+    };
+};
+
+/**
  * Bundle assets into a ZIP file with professional folder structure.
  *
  * Memory-safe approach:
@@ -226,63 +289,54 @@ export const bundleAssetsAsZip = async (
     chain: string,
     resolution: number,
     onProgress: (status: string, progress: number) => void,
-    imageCid: string = "YOUR_IMAGE_CID"
-): Promise<Blob> => {
-    // ── Sanity check (absolute upper bound) ──────────────────────────────
-    // With streaming, 10 000+ items at 4K are fine.  The only real limit
-    // is the browser's blob quota (~2-4 GB depending on browser/OS).
+    imageCid: string = "YOUR_IMAGE_CID",
+    customFileName: string = "export.zip"
+): Promise<Blob | null> => {
+    // ── Sanity check ──────────────────────────────
     const estimatedMB = estimateExportMemoryMB(nfts.length, resolution);
     if (estimatedMB > 3500) {
         toast.warning(
             `Very large export (~${Math.round(estimatedMB)} MB). ` +
-            `Close other tabs and ensure enough disk space.`,
+            `Ensure enough disk space.`,
             { duration: 8000 }
         );
     }
 
-    const zip = new JSZip();
-    const imagesFolder = zip.folder("images");
-    const metadataFolder = zip.folder("metadata");
-    const interactiveFolder = zip.folder("interactive");
+    let zipStream;
+    try {
+        zipStream = await createZipStream(customFileName);
+    } catch (err: any) {
+        // user aborted save dialog
+        return null;
+    }
 
-    if (!imagesFolder || !metadataFolder || !interactiveFolder)
-        throw new Error("Failed to create ZIP folders");
-
-    // Reuse a single canvas for all compositing — keeps peak VRAM to one
-    // frame regardless of collection size.
     const { canvas, ctx } = createReusableCanvas(resolution);
-
-    // Process in small batches so the GC can reclaim blobs between batches
     const BATCH_SIZE = 10;
+    const encoder = new TextEncoder();
 
     for (let i = 0; i < nfts.length; i++) {
-        onProgress(
-            `Compositing ${i + 1} / ${nfts.length}…`,
-            Math.round(((i + 1) / nfts.length) * 80)
-        );
+        onProgress(`Compositing ${i + 1} / ${nfts.length}…`, Math.round(((i + 1) / nfts.length) * 80));
 
         const blob = await compositeNFTImageToBlob(nfts[i], canvas, ctx);
-
         if (blob) {
-            // Store blob directly — no base64 overhead
-            imagesFolder.file(`${nfts[i].id}.png`, blob);
+            const u8 = new Uint8Array(await blob.arrayBuffer());
+            zipStream.addFile(`images/${nfts[i].id}.png`, u8);
         }
 
         const metadata = chain.toLowerCase() === "xrpl"
             ? nftToXrplMetadata(nfts[i], collectionName, collectionDescription, imageCid)
             : nftToSolanaMetadata(nfts[i], collectionName, collectionDescription);
 
-        metadataFolder.file(`${nfts[i].id}.json`, JSON.stringify(metadata, null, 2));
+        const metaBlob = encoder.encode(JSON.stringify(metadata, null, 2));
+        zipStream.addFile(`metadata/${nfts[i].id}.json`, metaBlob);
 
-        // Yield to the event loop every BATCH_SIZE items so the browser
-        // stays responsive and the GC has a chance to run.
         if ((i + 1) % BATCH_SIZE === 0) {
             await new Promise((r) => setTimeout(r, 0));
         }
     }
 
     // Collection manifest
-    zip.file("collection.json", JSON.stringify({
+    const manifestBlob = encoder.encode(JSON.stringify({
         name: collectionName,
         description: collectionDescription,
         total_supply: nfts.length,
@@ -292,13 +346,11 @@ export const bundleAssetsAsZip = async (
         image_cid: imageCid
     }, null, 2));
 
-    onProgress("Compressing ZIP…", 90);
+    zipStream.addFile("collection.json", manifestBlob);
 
-    return await zip.generateAsync({
-        type: "blob",
-        compression: "DEFLATE",
-        compressionOptions: { level: 6 },
-    }, (meta) => {
-        onProgress("Compressing ZIP…", 90 + Math.round(meta.percent * 0.1));
-    });
+    onProgress("Finalizing ZIP…", 95);
+    const finalBlob = await zipStream.finish();
+
+    onProgress("Complete", 100);
+    return finalBlob; // finalBlob is null if we streamed directly to disk!
 };
