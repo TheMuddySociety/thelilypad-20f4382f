@@ -29,6 +29,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { LayerManager, Layer } from "@/components/launchpad/LayerManager";
 import { TraitRarityEditor } from "@/components/launchpad/TraitRarityEditor";
+import { TraitRulesManager, TraitRule } from "@/components/launchpad/TraitRulesManager";
 import { CollectionPreviewEditor } from "@/components/launchpad/CollectionPreviewEditor";
 import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { bundleAssetsAsZip } from "@/lib/assetBundler";
@@ -49,6 +50,7 @@ export default function ArtGenerator() {
 
     // Generation State
     const [layers, setLayers] = useState<Layer[]>([]);
+    const [rules, setRules] = useState<TraitRule[]>([]);
     const [generatedAssets, setGeneratedAssets] = useState<GeneratedAsset[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0 });
@@ -74,7 +76,8 @@ export default function ArtGenerator() {
                     collectionSymbol: "", // Not needed for pure art gen 
                     description,
                     totalSupply: targetSupply,
-                    allowDuplicates: false
+                    allowDuplicates: false,
+                    rules
                 },
                 (current, total) => setGenerationProgress({ current, total })
             );
@@ -302,7 +305,13 @@ export default function ArtGenerator() {
                                                 Proceed to Generate <Sparkles className="w-4 h-4" />
                                             </Button>
                                         </div>
-                                        <TraitRarityEditor layers={layers} onLayersChange={setLayers} />
+                                        <div className="space-y-8">
+                                            <TraitRarityEditor layers={layers} onLayersChange={setLayers} />
+
+                                            <div className="border-t border-border/50 pt-8 mt-8">
+                                                <TraitRulesManager layers={layers} rules={rules} onRulesChange={setRules} />
+                                            </div>
+                                        </div>
                                     </motion.div>
                                 )}
 

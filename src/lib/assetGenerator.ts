@@ -6,6 +6,7 @@
  */
 
 import { Layer, LayerTrait } from "@/components/launchpad/LayerManager";
+import { TraitRule } from "@/components/launchpad/TraitRulesManager";
 
 export interface GeneratedAsset {
     id: string;
@@ -25,6 +26,7 @@ export interface GeneratorConfig {
     description: string;
     totalSupply: number;
     allowDuplicates: boolean;
+    rules?: TraitRule[];
 }
 
 /**
@@ -49,35 +51,94 @@ function selectTraitByRarity(traits: LayerTrait[]): LayerTrait {
  * Generate a unique combination hash for duplicate checking
  */
 function getCombinationHash(selectedTraits: { layerId: string; traitId: string }[]): string {
-    return selectedTraits.map((t) => `${t.layerId}:${t.traitId}`).join("|");
+    return selectedTraits.map((t) => `${t.layerId}:${t.traitId}`).sort().join("|");
 }
 
 /**
- * Generate a single asset combination
+ * Generate a single asset combination respecting rules
  */
 function generateSingleCombination(
     layers: Layer[],
     existingHashes: Set<string>,
-    maxAttempts: number = 100
+    rules: TraitRule[] = [],
+    maxAttempts: number = 200
 ): { traits: { layerId: string; traitId: string; trait: LayerTrait }[]; hash: string } | null {
-    const visibleLayers = layers.filter((l) => l.visible && l.traits.length > 0);
+    const visibleLayers = layers.filter((l) => l.visible).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const selectedTraits = visibleLayers.map((layer) => {
-            const trait = selectTraitByRarity(layer.traits);
-            return { layerId: layer.id, traitId: trait.id, trait };
-        });
+        const selectedTraits: { layerId: string; traitId: string; trait: LayerTrait }[] = [];
+        const selectedMap = new Map<string, string>();
 
-        const hash = getCombinationHash(
-            selectedTraits.map((t) => ({ layerId: t.layerId, traitId: t.traitId }))
-        );
+        for (const layer of visibleLayers) {
+            // Check if layer is optional and randomly skip
+            if (layer.isOptional && Math.random() * 100 > (layer.optionalChance ?? 100)) {
+                continue; // Skip this layer
+            }
+
+            if (layer.traits.length === 0) continue;
+
+            // Get applicable rules for already selected traits
+            const applicableRules = rules.filter((rule) => {
+                const sourceSelected = selectedMap.get(rule.sourceLayerId);
+                return sourceSelected === rule.sourceTraitId;
+            });
+
+            // Find forced traits for this layer
+            const forcedTraits = applicableRules
+                .filter((r) => r.type === "forces" && r.targetLayerId === layer.id)
+                .map((r) => r.targetTraitId);
+
+            let selectedTrait: LayerTrait | undefined;
+
+            if (forcedTraits.length > 0) {
+                selectedTrait = layer.traits.find(t => t.id === forcedTraits[0]);
+            }
+
+            if (!selectedTrait) {
+                // Filter out incompatible traits
+                const incompatibleTraits = applicableRules
+                    .filter((r) => r.type === "incompatible" && r.targetLayerId === layer.id)
+                    .map((r) => r.targetTraitId);
+
+                const availableTraits = layer.traits.filter(
+                    (t) => !incompatibleTraits.includes(t.id)
+                );
+
+                if (availableTraits.length === 0) {
+                    // If all traits are incompatible, fallback to any trait to preserve generation
+                    selectedTrait = selectTraitByRarity(layer.traits);
+                } else {
+                    selectedTrait = selectTraitByRarity(availableTraits);
+                }
+            }
+
+            if (selectedTrait) {
+                selectedTraits.push({ layerId: layer.id, traitId: selectedTrait.id, trait: selectedTrait });
+                selectedMap.set(layer.id, selectedTrait.id);
+            }
+        }
+
+        const hash = getCombinationHash(selectedTraits);
 
         if (!existingHashes.has(hash)) {
-            return { traits: selectedTraits, hash };
+            // Ensure requires rules are satisfied
+            let requiresFailed = false;
+            for (const rule of rules.filter(r => r.type === "requires")) {
+                if (selectedMap.get(rule.sourceLayerId) === rule.sourceTraitId) {
+                    if (selectedMap.get(rule.targetLayerId) !== rule.targetTraitId) {
+                        requiresFailed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!requiresFailed) {
+                return { traits: selectedTraits, hash };
+            }
         }
     }
 
-    return null; // Could not generate unique combination
+    return null; // Could not generate unique valid combination
 }
 
 /**
@@ -106,10 +167,15 @@ async function compositeImages(
         )
     );
 
-    // Set canvas size to first image size
+    // Set canvas size to first image size, but cap at 512 for thumbnails
     if (images.length > 0) {
-        width = images[0].width || 512;
-        height = images[0].height || 512;
+        const originalWidth = images[0].width || 512;
+        const originalHeight = images[0].height || 512;
+
+        // Scale down to max 512px to prevent memory crashes during large collection generation
+        const scale = Math.min(1, 512 / Math.max(originalWidth, originalHeight));
+        width = Math.round(originalWidth * scale);
+        height = Math.round(originalHeight * scale);
     }
 
     canvas.width = width;
@@ -120,7 +186,8 @@ async function compositeImages(
         ctx.drawImage(img, 0, 0, width, height);
     }
 
-    return canvas.toDataURL("image/png");
+    // Use WebP for previews to save RAM/Disk space (PNG is too heavy for 1000s of data URLs)
+    return canvas.toDataURL("image/webp", 0.8);
 }
 
 /**
@@ -142,8 +209,8 @@ export async function generateAssets(
         1
     );
 
-    // Cap supply at max combinations
-    const targetSupply = Math.min(config.totalSupply, maxCombinations);
+    // Cap supply at max combinations (only an estimate now with optional layers)
+    const targetSupply = config.allowDuplicates ? config.totalSupply : Math.min(config.totalSupply, maxCombinations * 2 || config.totalSupply);
 
     for (let i = 0; i < targetSupply; i++) {
         onProgress?.(i + 1, targetSupply);
@@ -151,11 +218,12 @@ export async function generateAssets(
         const combination = generateSingleCombination(
             layers,
             config.allowDuplicates ? new Set() : existingHashes,
+            config.rules || [],
             1000
         );
 
         if (!combination) {
-            console.warn(`Could not generate unique combination at index ${i}`);
+            console.warn(`Could not generate unique valid combination at index ${i}`);
             break;
         }
 
@@ -169,6 +237,11 @@ export async function generateAssets(
                 trait: t.trait,
             };
         });
+
+        // Yield to event loop every 10 items so UI doesn't freeze
+        if (i % 10 === 0) {
+            await new Promise(r => setTimeout(r, 0));
+        }
 
         // Generate composite preview
         const preview = await compositeImages(traitsWithNames);

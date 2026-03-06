@@ -33,6 +33,7 @@ import { LaunchpadPreview } from "@/components/launchpad/LaunchpadPreview";
 import { ModeSelector } from "@/components/launchpad/ModeSelector";
 import { LayerManager, Layer } from "@/components/launchpad/LayerManager";
 import { TraitRarityEditor } from "@/components/launchpad/TraitRarityEditor";
+import { TraitRulesManager, TraitRule } from "@/components/launchpad/TraitRulesManager";
 import { ArtworkUploader, type ArtworkItem } from "@/components/launchpad/ArtworkUploader";
 import { MusicArtworkUploader } from "@/components/launchpad/MusicArtworkUploader";
 import { type MusicTrack } from "@/components/launchpad/MusicMetadataEditor";
@@ -142,6 +143,7 @@ export default function LaunchpadCreate() {
     // 1/1 Mode: Artwork Data
     const [artworks, setArtworks] = useState<ArtworkItem[]>([]);
     const [editionCounts, setEditionCounts] = useState<Record<string, number>>({});
+    const [rules, setRules] = useState<TraitRule[]>([]);
 
     // Music Mode: Track Data
     const [tracks, setTracks] = useState<MusicTrack[]>([]);
@@ -432,7 +434,7 @@ export default function LaunchpadCreate() {
     const handleGenerate = async () => {
         setIsGenerating(true);
         try {
-            const assets = await generateAssets(layers, { collectionName: name, collectionSymbol: symbol, description, totalSupply: targetSupply, allowDuplicates: false }, (current, total) => setGenerationProgress({ current, total }));
+            const assets = await generateAssets(layers, { collectionName: name, collectionSymbol: symbol, description, totalSupply: targetSupply, allowDuplicates: false, rules }, (current, total) => setGenerationProgress({ current, total }));
             setGeneratedAssets(assets);
             toast.success("Generated!");
         } catch (err: any) {
@@ -556,7 +558,14 @@ export default function LaunchpadCreate() {
                                     </div>
                                 )}
                                 {!is1of1 && currentStep === 2 && (mode === "basic" ? <FolderUploader onAssetsLoaded={handleAssetsLoaded} /> : <LayerManager layers={layers} onLayersChange={setLayers} />)}
-                                {!is1of1 && mode === "advanced" && currentStep === 3 && <TraitRarityEditor layers={layers} onLayersChange={setLayers} />}
+                                {!is1of1 && mode === "advanced" && currentStep === 3 && (
+                                    <div className="space-y-8">
+                                        <TraitRarityEditor layers={layers} onLayersChange={setLayers} />
+                                        <div className="border-t border-border/50 pt-8 mt-8">
+                                            <TraitRulesManager layers={layers} rules={rules} onRulesChange={setRules} />
+                                        </div>
+                                    </div>
+                                )}
                                 {!is1of1 && mode === "advanced" && currentStep === 4 && (
                                     <div className="space-y-6 text-center py-10">
                                         <h3 className="text-xl font-bold">Generation</h3>
