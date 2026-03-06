@@ -250,6 +250,88 @@ export async function uploadFileChunkedToArweave(
 }
 
 /**
+ * Uploads a large file to Irys using the Chunked Uploader in Transaction Mode.
+ * This is useful if you want to sign the transaction first, verify it or defer it,
+ * and then upload the chunks.
+ * 
+ * @param file The large file to upload
+ * @param wallet The wallet instance to initialize Irys
+ * @param onProgress Callback function for chunk-by-chunk progress percentage (0-100)
+ * @param isMutable Whether the upload is part of a mutable series
+ * @param rootTx Origin transaction for mutables
+ * @param feeMultiplier Optional network fee multiplier
+ * @param chunkSize Optional size of each chunk to upload at once (defaults to 25MB)
+ * @param batchSize Optional number of chunks to upload at once (defaults to 5)
+ */
+export async function uploadChunkedTransactionToArweave(
+    file: File | Blob,
+    wallet: any,
+    onProgress?: (progressPct: number, uploadedBytes: number, totalBytes: number) => void,
+    isMutable = false,
+    rootTx?: string,
+    feeMultiplier?: number,
+    chunkSize = 25_000_000,
+    batchSize = 5
+): Promise<string> {
+    const irys = await getWebIrys(wallet);
+
+    // Check price and balance — fund if needed
+    const price = await irys.getPrice(file.size);
+    const balance = await irys.getLoadedBalance();
+
+    if (balance.lt(price)) {
+        const toFund = price.minus(balance);
+        console.log(`[Irys] Funding node for chunked tx upload with ${toFund.toString()} (multiplier: ${feeMultiplier || 1})…`);
+        await irys.fund(toFund, feeMultiplier);
+    }
+
+    const tags = [
+        { name: "Content-Type", value: file.type || "application/octet-stream" },
+        { name: "application-id", value: "The Lily Pad" },
+    ];
+
+    if (isMutable && rootTx) {
+        tags.push({ name: "Root-TX", value: rootTx });
+    }
+
+    const data = await file.arrayBuffer();
+
+    // 1. Transaction Mode: Create & Sign First
+    const transaction = irys.createTransaction(new Uint8Array(data) as any, { tags });
+    await transaction.sign();
+
+    // Create the chunked uploader object specific to this file
+    const uploader = irys.uploader.chunkedUploader;
+    uploader.setChunkSize(chunkSize);
+    uploader.setBatchSize(batchSize);
+
+    if (onProgress) {
+        uploader.on("chunkUpload", (info: any) => {
+            const progress = (info.totalUploaded / file.size) * 100;
+            onProgress(Math.max(0, Math.min(100, progress)), info.totalUploaded, file.size);
+        });
+
+        uploader.on("chunkError", (e: any) => {
+            console.error(`[Irys] Error uploading chunk via TX:`, e);
+        });
+    }
+
+    return withRetry(async () => {
+        // 2. Upload the fully signed transaction bundle via chunked uploader
+        const res: any = await uploader.uploadTransaction(transaction);
+        const txId = res?.data?.id || res?.id || transaction.id;
+
+        if (!txId) {
+            throw new Error("Failed to receive transaction ID from Chunked TX Uploader.");
+        }
+
+        return isMutable
+            ? `https://gateway.irys.xyz/mutable/${rootTx || txId}`
+            : `https://arweave.net/${txId}`;
+    }, `chunked tx upload ${(file as File).name || "blob"}`);
+}
+
+/**
  * Upload JSON metadata to Arweave via Irys.
  */
 export async function uploadMetadataToArweave(metadata: any, wallet: any, isMutable = false, rootTx?: string): Promise<string> {
