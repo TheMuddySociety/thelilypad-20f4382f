@@ -5,6 +5,14 @@ import { TraitRule } from "@/components/launchpad/TraitRulesManager";
 
 export interface GeneratedNFT {
     id: number;
+    name?: string;
+    isOneOfOne?: boolean;
+    customFile?: File;
+    metadataOverride?: {
+        name: string;
+        description: string;
+        attributes: { trait_type: string; value: string }[];
+    };
     traits: {
         layerId: string;
         layerName: string;
@@ -151,14 +159,23 @@ export const estimateExportMemoryMB = (count: number, resolution: number): numbe
 /**
  * Generate metadata for Solana (ERC-721 style)
  */
-export const nftToSolanaMetadata = (
+export const nftToStandardMetadata = (
     nft: GeneratedNFT,
     collectionName: string,
     collectionDescription: string,
     baseImageUri: string = ""
-): NFTMetadata => {
+): any => {
+    if (nft.isOneOfOne && nft.metadataOverride) {
+        return {
+            name: nft.metadataOverride.name,
+            description: nft.metadataOverride.description,
+            image: baseImageUri ? `${baseImageUri}/${nft.id}.png` : `ipfs://YOUR_IMAGE_CID/${nft.id}.png`,
+            attributes: nft.metadataOverride.attributes,
+        };
+    }
+
     return {
-        name: `${collectionName} #${nft.id}`,
+        name: nft.name || `${collectionName} #${nft.id}`,
         description: collectionDescription || `${collectionName} NFT #${nft.id}`,
         image: baseImageUri ? `${baseImageUri}/${nft.id}.png` : `ipfs://YOUR_IMAGE_CID/${nft.id}.png`,
         attributes: nft.traits.map((trait) => ({
@@ -178,10 +195,33 @@ export const nftToXrplMetadata = (
     imageCid: string = "YOUR_IMAGE_CID",
     externalUrl: string = ""
 ) => {
+    if (nft.isOneOfOne && nft.metadataOverride) {
+        return {
+            schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
+            nftType: "art.v0",
+            name: nft.metadataOverride.name,
+            description: nft.metadataOverride.description,
+            image: `ipfs://${imageCid}/${nft.id}.png`,
+            animation_url: `ipfs://${imageCid}/${nft.id}.png`,
+            external_url: externalUrl || "https://thelilypad.io",
+            image_mimetype: "image/png",
+            attributes: nft.metadataOverride.attributes,
+            properties: {
+                files: [
+                    {
+                        uri: `ipfs://${imageCid}/${nft.id}.png`,
+                        type: "image/png"
+                    }
+                ],
+                category: "image"
+            }
+        };
+    }
+
     return {
         schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
         nftType: "art.v0",
-        name: `${collectionName} #${nft.id}`,
+        name: nft.name || `${collectionName} #${nft.id}`,
         description: collectionDescription || `${collectionName} NFT #${nft.id}`,
         image: `ipfs://${imageCid}/${nft.id}.png`,
         animation_url: `ipfs://${imageCid}/${nft.id}.png`,
@@ -316,16 +356,27 @@ export const bundleAssetsAsZip = async (
 
     for (let i = 0; i < nfts.length; i++) {
         onProgress(`Compositing ${i + 1} / ${nfts.length}…`, Math.round(((i + 1) / nfts.length) * 80));
+        const nft = nfts[i];
+        let blob: Blob;
 
-        const blob = await compositeNFTImageToBlob(nfts[i], canvas, ctx);
-        if (blob) {
-            const u8 = new Uint8Array(await blob.arrayBuffer());
-            zipStream.addFile(`images/${nfts[i].id}.png`, u8);
+        // Handle Custom 1/1s with their own file
+        if (nft.isOneOfOne && nft.customFile) {
+            blob = nft.customFile;
+        } else {
+            // Try compositing standard traits
+            const composite = await compositeNFTImageToBlob(nft, canvas, ctx);
+            if (!composite) {
+                console.warn(`Failed to composite image for NFT #${nft.id}`);
+                continue;
+            }
+            blob = composite;
         }
+        const u8 = new Uint8Array(await blob.arrayBuffer());
+        zipStream.addFile(`images/${nft.id}.png`, u8);
 
         const metadata = chain.toLowerCase() === "xrpl"
-            ? nftToXrplMetadata(nfts[i], collectionName, collectionDescription, imageCid)
-            : nftToSolanaMetadata(nfts[i], collectionName, collectionDescription);
+            ? nftToXrplMetadata(nft, collectionName, collectionDescription, imageCid)
+            : nftToStandardMetadata(nft, collectionName, collectionDescription);
 
         const metaBlob = encoder.encode(JSON.stringify(metadata, null, 2));
         zipStream.addFile(`metadata/${nfts[i].id}.json`, metaBlob);

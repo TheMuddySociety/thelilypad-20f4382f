@@ -20,8 +20,11 @@ import {
   AlertTriangle,
   Zap,
   AlertCircle,
+  Wand2,
 } from "lucide-react";
 import { Layer, Trait } from "./LayerManager";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 export type RuleType = "incompatible" | "requires" | "forces";
 
@@ -72,7 +75,7 @@ const ruleTypeInfo: Record<
 
 function detectRuleConflicts(rules: TraitRule[], layers: Layer[]): RuleConflict[] {
   const conflicts: RuleConflict[] = [];
-  
+
   const getTraitKey = (layerId: string, traitId: string) => `${layerId}:${traitId}`;
   const getTraitName = (layerId: string, traitId: string) => {
     const layer = layers.find(l => l.id === layerId);
@@ -99,7 +102,7 @@ function detectRuleConflicts(rules: TraitRule[], layers: Layer[]): RuleConflict[
     for (const rule2 of rules) {
       if (rule1.id === rule2.id) continue;
 
-      const sameSourceTarget = 
+      const sameSourceTarget =
         rule1.sourceLayerId === rule2.sourceLayerId &&
         rule1.sourceTraitId === rule2.sourceTraitId &&
         rule1.targetLayerId === rule2.targetLayerId &&
@@ -109,8 +112,8 @@ function detectRuleConflicts(rules: TraitRule[], layers: Layer[]): RuleConflict[
       if (sameSourceTarget) {
         if (rule1.type === "forces" && rule2.type === "incompatible") {
           const existingConflict = conflicts.find(
-            c => c.type === "force-incompatible" && 
-            c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
+            c => c.type === "force-incompatible" &&
+              c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
           );
           if (!existingConflict) {
             conflicts.push({
@@ -124,8 +127,8 @@ function detectRuleConflicts(rules: TraitRule[], layers: Layer[]): RuleConflict[
         // Require + Incompatible on same pair
         if (rule1.type === "requires" && rule2.type === "incompatible") {
           const existingConflict = conflicts.find(
-            c => c.type === "require-incompatible" && 
-            c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
+            c => c.type === "require-incompatible" &&
+              c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
           );
           if (!existingConflict) {
             conflicts.push({
@@ -139,16 +142,16 @@ function detectRuleConflicts(rules: TraitRule[], layers: Layer[]): RuleConflict[
 
       // Circular force: A forces B, B forces A
       if (rule1.type === "forces" && rule2.type === "forces") {
-        const isCircular = 
+        const isCircular =
           rule1.sourceLayerId === rule2.targetLayerId &&
           rule1.sourceTraitId === rule2.targetTraitId &&
           rule1.targetLayerId === rule2.sourceLayerId &&
           rule1.targetTraitId === rule2.sourceTraitId;
-        
+
         if (isCircular) {
           const existingConflict = conflicts.find(
-            c => c.type === "circular-force" && 
-            c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
+            c => c.type === "circular-force" &&
+              c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
           );
           if (!existingConflict) {
             conflicts.push({
@@ -162,16 +165,16 @@ function detectRuleConflicts(rules: TraitRule[], layers: Layer[]): RuleConflict[
 
       // Circular require: A requires B, B requires A
       if (rule1.type === "requires" && rule2.type === "requires") {
-        const isCircular = 
+        const isCircular =
           rule1.sourceLayerId === rule2.targetLayerId &&
           rule1.sourceTraitId === rule2.targetTraitId &&
           rule1.targetLayerId === rule2.sourceLayerId &&
           rule1.targetTraitId === rule2.sourceTraitId;
-        
+
         if (isCircular) {
           const existingConflict = conflicts.find(
-            c => c.type === "circular-require" && 
-            c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
+            c => c.type === "circular-require" &&
+              c.ruleIds.includes(rule1.id) && c.ruleIds.includes(rule2.id)
           );
           if (!existingConflict) {
             conflicts.push({
@@ -199,6 +202,67 @@ export function TraitRulesManager({
 
   // Detect conflicts in current rules
   const conflicts = useMemo(() => detectRuleConflicts(rules, layers), [rules, layers]);
+
+  // Bulk Generator
+  const [keyword1, setKeyword1] = useState("Male");
+  const [keyword2, setKeyword2] = useState("Female");
+
+  const generateBulkRules = () => {
+    if (!keyword1.trim() || !keyword2.trim()) {
+      toast.error("Please enter both keywords.");
+      return;
+    }
+
+    const newRules: TraitRule[] = [];
+
+    // Find matching traits across all visible layers
+    const match1 = layers.flatMap(l =>
+      l.traits
+        .filter(t => t.name.toLowerCase().includes(keyword1.toLowerCase().trim()))
+        .map(t => ({ layer: l.id, trait: t.id }))
+    );
+    const match2 = layers.flatMap(l =>
+      l.traits
+        .filter(t => t.name.toLowerCase().includes(keyword2.toLowerCase().trim()))
+        .map(t => ({ layer: l.id, trait: t.id }))
+    );
+
+    let added = 0;
+    for (const m1 of match1) {
+      for (const m2 of match2) {
+        if (m1.layer !== m2.layer) {
+          // Provide order strictly to check for duplicates
+          const exists = rules.some(r => r.type === "incompatible" &&
+            ((r.sourceLayerId === m1.layer && r.sourceTraitId === m1.trait && r.targetLayerId === m2.layer && r.targetTraitId === m2.trait) ||
+              (r.sourceLayerId === m2.layer && r.sourceTraitId === m2.trait && r.targetLayerId === m1.layer && r.targetTraitId === m1.trait))
+          );
+          const selfExists = newRules.some(r => r.type === "incompatible" &&
+            ((r.sourceLayerId === m1.layer && r.sourceTraitId === m1.trait && r.targetLayerId === m2.layer && r.targetTraitId === m2.trait) ||
+              (r.sourceLayerId === m2.layer && r.sourceTraitId === m2.trait && r.targetLayerId === m1.layer && r.targetTraitId === m1.trait))
+          );
+
+          if (!exists && !selfExists) {
+            newRules.push({
+              id: crypto.randomUUID(),
+              type: "incompatible",
+              sourceLayerId: m1.layer,
+              sourceTraitId: m1.trait,
+              targetLayerId: m2.layer,
+              targetTraitId: m2.trait
+            });
+            added++;
+          }
+        }
+      }
+    }
+
+    if (added > 0) {
+      onRulesChange([...rules, ...newRules]);
+      toast.success(`Generated ${added} incompatible rules between "${keyword1}" and "${keyword2}"`);
+    } else {
+      toast.info("No matching traits found, or rules already exist.");
+    }
+  };
 
   const addRule = () => {
     if (
@@ -317,11 +381,10 @@ export function TraitRulesManager({
                 <button
                   key={type}
                   onClick={() => setNewRule({ ...newRule, type })}
-                  className={`p-3 rounded-lg border text-left transition-colors ${
-                    newRule.type === type
+                  className={`p-3 rounded-lg border text-left transition-colors ${newRule.type === type
                       ? "border-primary bg-primary/10"
                       : "border-border hover:border-primary/50"
-                  }`}
+                    }`}
                 >
                   <Icon className={`w-4 h-4 mb-1 ${info.color}`} />
                   <p className="text-xs font-medium">{info.label}</p>
@@ -454,6 +517,38 @@ export function TraitRulesManager({
         </CardContent>
       </Card>
 
+      {/* Magic Wand: Bulk Rule Generator */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm font-bold flex items-center gap-2 text-primary">
+            <Wand2 className="w-4 h-4" />
+            Smart Trait Grouping
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Automatically make traits incompatible based on keywords (e.g., prevent "Male" traits overlapping with "Female" traits).
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Keyword 1 (e.g. Male)"
+              value={keyword1}
+              onChange={(e) => setKeyword1(e.target.value)}
+              className="h-8 text-xs bg-background"
+            />
+            <Input
+              placeholder="Keyword 2 (e.g. Female)"
+              value={keyword2}
+              onChange={(e) => setKeyword2(e.target.value)}
+              className="h-8 text-xs bg-background"
+            />
+            <Button onClick={generateBulkRules} size="sm" className="h-8 gap-2 shrink-0">
+              <Zap className="w-3.5 h-3.5" /> Generate
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Existing Rules */}
       <div className="space-y-2">
         <Label className="text-sm">Active Rules ({rules.length})</Label>
@@ -471,11 +566,10 @@ export function TraitRulesManager({
                 return (
                   <div
                     key={rule.id}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      hasConflict 
-                        ? "bg-destructive/10 border border-destructive/30" 
+                    className={`flex items-center justify-between p-3 rounded-lg ${hasConflict
+                        ? "bg-destructive/10 border border-destructive/30"
                         : "bg-muted/50"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       {hasConflict ? (

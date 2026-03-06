@@ -100,12 +100,15 @@ export default function ArtGenerator() {
             const nfts = generatedAssets.map((asset, idx) => ({
                 id: idx + 1,
                 name: asset.name,
+                isOneOfOne: asset.isOneOfOne,
+                customFile: asset.customFile,
+                metadataOverride: asset.isOneOfOne ? asset.metadata : undefined,
                 traits: asset.traits.map(t => ({
                     layerId: t.layer,
                     layerName: t.layer,
                     traitId: t.trait,
                     traitName: t.trait,
-                    imageUrl: URL.createObjectURL(t.file)
+                    imageUrl: t.file ? URL.createObjectURL(t.file) : undefined
                 }))
             }));
 

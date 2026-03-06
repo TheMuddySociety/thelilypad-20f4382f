@@ -28,7 +28,12 @@ import {
     Shuffle,
     Sparkles,
     Image as ImageIcon,
+    Upload,
+    Trash2,
+    Plus,
 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import type { GeneratedAsset } from "@/lib/assetGenerator";
@@ -258,6 +263,93 @@ export function CollectionPreviewEditor({
         },
         [selectedAsset, assets, layers, onAssetsChange]
     );
+
+    // ── Custom 1/1 Handlers ──────────────────────────────────────────────────
+    const handleToggleOneOfOne = useCallback(async () => {
+        if (!selectedAsset) return;
+        const isTurningInto1of1 = !selectedAsset.isOneOfOne;
+
+        let newPreview = selectedAsset.preview;
+        let finalAssets = assets.map(asset => {
+            if (asset.id !== selectedAsset.id) return asset;
+            return {
+                ...asset,
+                isOneOfOne: isTurningInto1of1,
+                // If reverting, we clear custom files to start fresh next time
+                customFile: isTurningInto1of1 ? asset.customFile : undefined
+            };
+        });
+
+        // If reverting to generated, recalculate the preview to remove any custom image
+        if (!isTurningInto1of1 && selectedAsset.customFile) {
+            try {
+                const targetAsset = finalAssets.find(a => a.id === selectedAsset.id)!;
+                newPreview = await recompositeAsset(targetAsset, layers);
+                finalAssets = finalAssets.map(a => a.id === selectedAsset.id ? { ...a, preview: newPreview } : a);
+            } catch (err) {
+                console.error("Failed to restore preview", err);
+            }
+        }
+
+        onAssetsChange(finalAssets);
+        toast.success(isTurningInto1of1 ? "Turned into Custom 1/1 NFT" : "Reverted to Generated NFT");
+    }, [selectedAsset, assets, layers, onAssetsChange]);
+
+    const handleUpdateOneOfOneImage = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!selectedAsset || !e.target.files?.[0]) return;
+        const file = e.target.files[0];
+        const previewUrl = URL.createObjectURL(file);
+
+        const updatedAssets = assets.map(asset => {
+            if (asset.id !== selectedAsset.id) return asset;
+            return {
+                ...asset,
+                customFile: file,
+                preview: previewUrl,
+            };
+        });
+        onAssetsChange(updatedAssets);
+        toast.success("1/1 Image Updated");
+    }, [selectedAsset, assets, onAssetsChange]);
+
+    const handleUpdateOneOfOneAttribute = useCallback((index: number, key: string, value: string) => {
+        if (!selectedAsset) return;
+        const updatedAssets = assets.map(asset => {
+            if (asset.id !== selectedAsset.id) return asset;
+            const newAttributes = [...asset.metadata.attributes];
+            const newTraits = [...asset.traits];
+
+            if (newAttributes[index]) {
+                newAttributes[index] = { trait_type: key, value: value };
+            }
+            if (newTraits[index]) {
+                newTraits[index] = { ...newTraits[index], layer: key, trait: value };
+            }
+
+            return {
+                ...asset,
+                traits: newTraits,
+                metadata: { ...asset.metadata, attributes: newAttributes }
+            };
+        });
+        onAssetsChange(updatedAssets);
+    }, [selectedAsset, assets, onAssetsChange]);
+
+    const handleUpdateOneOfOneMetadataFields = useCallback((field: "name" | "description", value: string) => {
+        if (!selectedAsset) return;
+        const updatedAssets = assets.map(asset => {
+            if (asset.id !== selectedAsset.id) return asset;
+            return {
+                ...asset,
+                name: field === "name" ? value : asset.name,
+                metadata: {
+                    ...asset.metadata,
+                    [field]: value
+                }
+            };
+        });
+        onAssetsChange(updatedAssets);
+    }, [selectedAsset, assets, onAssetsChange]);
 
     // ── Grouped layers for filter sidebar ────────────────────────────────────
     const filterGroups = useMemo(() => {
@@ -569,67 +661,156 @@ export function CollectionPreviewEditor({
 
                             <Separator />
 
-                            {/* Trait Properties */}
-                            <div className="px-3 py-2">
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold mb-2">
-                                    Select property to edit
-                                </p>
-                            </div>
+                            {selectedAsset.isOneOfOne ? (
+                                <ScrollArea className="flex-1 px-3">
+                                    <div className="space-y-4 pb-4">
+                                        <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                                            <p className="text-xs font-bold text-primary flex items-center gap-1.5 mb-2">
+                                                <Sparkles className="w-3.5 h-3.5" />
+                                                Custom 1/1 Editor
+                                            </p>
+                                            <Label className="text-[10px] text-muted-foreground mb-1 block">Image Upload</Label>
+                                            <label className="flex items-center justify-center w-full h-10 px-4 transition bg-background border border-dashed rounded-md appearance-none cursor-pointer hover:border-primary focus:outline-none">
+                                                <span className="flex items-center space-x-2">
+                                                    <Upload className="w-4 h-4 text-muted-foreground" />
+                                                    <span className="text-xs font-medium text-muted-foreground">
+                                                        Select new image
+                                                    </span>
+                                                </span>
+                                                <input type="file" name="file_upload" className="hidden" accept="image/*" onChange={handleUpdateOneOfOneImage} />
+                                            </label>
+                                        </div>
 
-                            <ScrollArea className="flex-1 px-3">
-                                <div className="grid grid-cols-2 gap-1.5 pb-4">
-                                    {selectedAsset.traits.map((trait) => {
-                                        const usage = countTraitUsage(
-                                            assets,
-                                            trait.layer,
-                                            trait.trait
-                                        );
-                                        const pct = (
-                                            (usage / assets.length) *
-                                            100
-                                        ).toFixed(1);
-                                        const isEditing =
-                                            editingTraitLayer === trait.layer;
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] text-muted-foreground">Name</Label>
+                                            <Input
+                                                value={selectedAsset.name}
+                                                onChange={(e) => handleUpdateOneOfOneMetadataFields("name", e.target.value)}
+                                                className="h-8 text-xs"
+                                            />
+                                        </div>
 
-                                        return (
-                                            <button
-                                                key={trait.layer}
-                                                onClick={() =>
-                                                    setEditingTraitLayer(
-                                                        isEditing
-                                                            ? null
-                                                            : trait.layer
-                                                    )
-                                                }
-                                                className={cn(
-                                                    "rounded-lg border p-2 text-left transition-all hover:border-primary/50",
-                                                    isEditing
-                                                        ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                                                        : "border-border bg-card/50"
-                                                )}
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] text-muted-foreground">Description</Label>
+                                            <Textarea
+                                                value={selectedAsset.metadata.description}
+                                                onChange={(e) => handleUpdateOneOfOneMetadataFields("description", e.target.value)}
+                                                className="text-xs min-h-[60px] resize-none"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] text-muted-foreground">Attributes</Label>
+                                            <div className="space-y-2">
+                                                {selectedAsset.metadata.attributes.map((attr, idx) => (
+                                                    <div key={idx} className="flex gap-2">
+                                                        <Input
+                                                            value={attr.trait_type}
+                                                            onChange={(e) => handleUpdateOneOfOneAttribute(idx, e.target.value, attr.value)}
+                                                            className="h-7 text-[10px] bg-muted/30"
+                                                            placeholder="Type"
+                                                        />
+                                                        <Input
+                                                            value={attr.value}
+                                                            onChange={(e) => handleUpdateOneOfOneAttribute(idx, attr.trait_type, e.target.value)}
+                                                            className="h-7 text-[10px]"
+                                                            placeholder="Value"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="px-3 pb-4">
+                                        <Button variant="outline" size="sm" onClick={handleToggleOneOfOne} className="w-full text-xs">
+                                            Revert to Generated
+                                        </Button>
+                                    </div>
+                                </ScrollArea>
+                            ) : (
+                                <>
+                                    {/* Trait Properties */}
+                                    <div className="px-3 py-2 flex items-center justify-between">
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+                                            Select property to edit
+                                        </p>
+                                        <Badge variant="outline" className="text-[8px]">
+                                            Generated
+                                        </Badge>
+                                    </div>
+
+                                    <ScrollArea className="flex-1 px-3">
+                                        <div className="grid grid-cols-2 gap-1.5 pb-4">
+                                            {selectedAsset.traits.map((trait) => {
+                                                const usage = countTraitUsage(
+                                                    assets,
+                                                    trait.layer,
+                                                    trait.trait
+                                                );
+                                                const pct = (
+                                                    (usage / assets.length) *
+                                                    100
+                                                ).toFixed(1);
+                                                const isEditing =
+                                                    editingTraitLayer === trait.layer;
+
+                                                return (
+                                                    <button
+                                                        key={trait.layer}
+                                                        onClick={() =>
+                                                            setEditingTraitLayer(
+                                                                isEditing
+                                                                    ? null
+                                                                    : trait.layer
+                                                            )
+                                                        }
+                                                        className={cn(
+                                                            "rounded-lg border p-2 text-left transition-all hover:border-primary/50",
+                                                            isEditing
+                                                                ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                                                                : "border-border bg-card/50"
+                                                        )}
+                                                    >
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={cn(
+                                                                "text-[8px] h-4 px-1.5 uppercase tracking-wider mb-1",
+                                                                isEditing
+                                                                    ? "border-primary text-primary"
+                                                                    : "border-muted-foreground/30"
+                                                            )}
+                                                        >
+                                                            {trait.layer}
+                                                        </Badge>
+                                                        <p className="text-[11px] font-bold truncate">
+                                                            {trait.trait}
+                                                        </p>
+                                                        <p className="text-[9px] text-muted-foreground mt-0.5">
+                                                            Used in {usage} items ({pct}%)
+                                                        </p>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="py-2 border-t border-border mt-2 space-y-2">
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+                                                Advanced Customization
+                                            </p>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleToggleOneOfOne}
+                                                className="w-full text-xs gap-1.5 h-8 bg-card"
                                             >
-                                                <Badge
-                                                    variant="outline"
-                                                    className={cn(
-                                                        "text-[8px] h-4 px-1.5 uppercase tracking-wider mb-1",
-                                                        isEditing
-                                                            ? "border-primary text-primary"
-                                                            : "border-muted-foreground/30"
-                                                    )}
-                                                >
-                                                    {trait.layer}
-                                                </Badge>
-                                                <p className="text-[11px] font-bold truncate">
-                                                    {trait.trait}
-                                                </p>
-                                                <p className="text-[9px] text-muted-foreground mt-0.5">
-                                                    Used in {usage} items ({pct}%)
-                                                </p>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </ScrollArea>
+                                                <Sparkles className="w-3 h-3 text-primary" />
+                                                Make Custom 1/1
+                                            </Button>
+                                        </div>
+                                    </ScrollArea>
+                                </>
+                            )}
                         </>
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-6 text-center">

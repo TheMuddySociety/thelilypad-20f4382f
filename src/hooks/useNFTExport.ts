@@ -6,7 +6,7 @@ import {
     createReusableCanvas,
     estimateExportMemoryMB,
     nftToXrplMetadata,
-    nftToSolanaMetadata,
+    nftToStandardMetadata,
     createZipStream,
     type GeneratedNFT,
     type NFTMetadata,
@@ -465,7 +465,7 @@ export function useNFTExport(
 
                 const metadata = xrplMode
                     ? nftToXrplMetadata(nfts[i], collectionName, collectionDescription)
-                    : nftToSolanaMetadata(nfts[i], collectionName, collectionDescription);
+                    : nftToStandardMetadata(nfts[i], collectionName, collectionDescription);
 
                 zipStream.addFile(`metadata/${nfts[i].id}.json`, encoder.encode(JSON.stringify(metadata, null, 2)));
 
