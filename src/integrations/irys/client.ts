@@ -18,6 +18,69 @@ import { ethers } from "ethers";
 
 export const IRYS_NODE_DEV = "https://devnet.irys.xyz";
 export const IRYS_NODE_MAIN = "https://node1.irys.xyz";
+export const IRYS_GATEWAY = "https://gateway.irys.xyz";
+
+// ── Gateway Download Helpers (Irys Guide: Downloading Data) ──────────────
+
+/**
+ * Constructs a permanent gateway download URL for a given Irys/Arweave transaction ID.
+ * Data uploaded to Irys is instantly accessible via GET requests to this URL.
+ *
+ * @param txId The transaction ID returned from an Irys upload
+ * @returns The full gateway URL (e.g. https://gateway.irys.xyz/{txId})
+ */
+export function getIrysDownloadUrl(txId: string): string {
+    return `${IRYS_GATEWAY}/${txId}`;
+}
+
+/**
+ * Constructs a mutable gateway URL for Dynamic NFTs.
+ * This URL always resolves to the LATEST version in the mutable reference chain.
+ *
+ * @param rootTxId The root transaction ID (first upload in the mutable chain)
+ * @returns The mutable gateway URL (e.g. https://gateway.irys.xyz/mutable/{rootTxId})
+ */
+export function getIrysMutableUrl(rootTxId: string): string {
+    return `${IRYS_GATEWAY}/mutable/${rootTxId}`;
+}
+
+/**
+ * Downloads data from the Irys gateway by transaction ID.
+ * Returns the raw response so the caller can handle it as text, JSON, blob, etc.
+ *
+ * @param txId The transaction ID of the data to download
+ * @returns The fetch Response object
+ */
+export async function downloadFromIrys(txId: string): Promise<Response> {
+    const url = getIrysDownloadUrl(txId);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`[Irys] Download failed for ${txId}: HTTP ${response.status}`);
+    return response;
+}
+
+/**
+ * Downloads and parses JSON metadata from the Irys gateway.
+ * Convenience wrapper for fetching NFT metadata by transaction ID.
+ *
+ * @param txId The transaction ID of the JSON metadata
+ * @returns The parsed JSON object
+ */
+export async function downloadMetadataFromIrys(txId: string): Promise<any> {
+    const response = await downloadFromIrys(txId);
+    return response.json();
+}
+
+/**
+ * Downloads a file as a Blob from the Irys gateway.
+ * Useful for displaying images or saving files locally.
+ *
+ * @param txId The transaction ID of the file
+ * @returns A Blob containing the file data
+ */
+export async function downloadFileFromIrys(txId: string): Promise<Blob> {
+    const response = await downloadFromIrys(txId);
+    return response.blob();
+}
 
 // ── Irys instance cache ──────────────────────────────────────────────────
 
