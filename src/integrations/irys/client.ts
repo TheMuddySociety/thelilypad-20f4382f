@@ -757,6 +757,33 @@ export async function getIrysBalance(wallet: any): Promise<string> {
 }
 
 /**
+ * Monitors the current loaded balance in the Irys node against a predefined standard threshold.
+ * Useful for alerting a UI when a user's prepay balance falls dangerously low (e.g. < 0.1 SOL).
+ * 
+ * @param wallet The wallet instance to initialize Irys
+ * @param thresholdStandard The threshold in standard units (e.g., 0.1) under which the function returns true.
+ * @returns An object containing the current standard balance and a boolean `isBelowThreshold`.
+ */
+export async function checkIrysBalanceThreshold(wallet: any, thresholdStandard: number = 0.1): Promise<{
+    balanceStandard: number;
+    isBelowThreshold: boolean;
+}> {
+    const irys = await getWebIrys(wallet);
+    const atomicBalance = await irys.getLoadedBalance();
+    const balanceStandard = Number(irys.utils.fromAtomic(atomicBalance).toString());
+
+    const isBelowThreshold = Math.abs(balanceStandard) <= thresholdStandard;
+
+    if (isBelowThreshold) {
+        console.warn(`[Irys] Node balance (${balanceStandard} ${irys.token}) is at or below the threshold of ${thresholdStandard}! Please fund.`);
+    } else {
+        console.log(`[Irys] Node balance (${balanceStandard} ${irys.token}) is healthy. Minimum threshold is ${thresholdStandard}.`);
+    }
+
+    return { balanceStandard, isBelowThreshold };
+}
+
+/**
  * Initiates a withdrawal of the user's funded node balance.
  * 
  * @param amountStandard The amount of crypto to withdraw in standard units (e.g. 0.1), or "all" to drain completely.
