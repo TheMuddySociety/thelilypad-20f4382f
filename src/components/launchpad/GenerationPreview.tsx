@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
 import { dataUrlToBlob } from "@/lib/utils";
-import { nftToXrplMetadata, nftToSolanaMetadata, loadImage, compositeNFTImage, type GeneratedNFT, type NFTMetadata } from "@/lib/assetBundler";
+import { nftToXrplMetadata, nftToStandardMetadata, loadImage, compositeNFTImage, type GeneratedNFT, type NFTMetadata } from "@/lib/assetBundler";
 import { type RarityTier, type RarityReport, RARITY_TIERS, getRarityTier, RarityBadge } from "./rarity";
 import { useNFTGenerator } from "@/hooks/useNFTGenerator";
 import { useNFTExport } from "@/hooks/useNFTExport";

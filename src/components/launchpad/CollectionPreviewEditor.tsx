@@ -605,6 +605,14 @@ export function CollectionPreviewEditor({
                                             </div>
                                         </div>
                                     )}
+                                    {/* 1/1 indicator */}
+                                    {asset.isOneOfOne && (
+                                        <div className="absolute top-1 left-1">
+                                            <Badge className="text-[7px] h-4 px-1 bg-amber-500/90 text-white border-0">
+                                                <Sparkles className="w-2.5 h-2.5 mr-0.5" /> 1/1
+                                            </Badge>
+                                        </div>
+                                    )}
                                 </button>
                             ))}
                         </div>
