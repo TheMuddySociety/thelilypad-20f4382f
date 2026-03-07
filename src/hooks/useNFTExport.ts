@@ -136,6 +136,9 @@ export function useNFTExport(
                         metadata: nftToMetadata(nfts[i]),
                     });
                 }
+
+                // Yield so React can flush progress bar updates
+                await new Promise((r) => setTimeout(r, 0));
             }
 
             setExportProgress(90);
@@ -306,8 +309,8 @@ export function useNFTExport(
 
                 zipStream.addFile(`metadata/${nfts[i].id}.json`, encoder.encode(JSON.stringify(metadata, null, 2)));
 
-                // Yield every batch to keep UI responsive
-                if (i % BATCH_SIZE === 0) await new Promise((r) => setTimeout(r, 10));
+                // Yield every iteration so React can flush progress updates to the UI
+                await new Promise((r) => setTimeout(r, 0));
             }
 
             zipStream.addFile("_collection.json", encoder.encode(JSON.stringify({
@@ -385,8 +388,8 @@ export function useNFTExport(
                 const xrplMetadata = nftToXrplMetadata(nfts[i], collectionName, collectionDescription);
                 zipStream.addFile(`metadata/${nfts[i].id}.json`, encoder.encode(JSON.stringify(xrplMetadata, null, 2)));
 
-                // Yield every batch to keep UI responsive and allow GC
-                if (i % BATCH_SIZE === 0) await new Promise((r) => setTimeout(r, 0));
+                // Yield every iteration so React can flush progress updates to the UI
+                await new Promise((r) => setTimeout(r, 0));
             }
 
             zipStream.addFile("_collection.json", encoder.encode(JSON.stringify({
@@ -469,8 +472,8 @@ export function useNFTExport(
 
                 zipStream.addFile(`metadata/${nfts[i].id}.json`, encoder.encode(JSON.stringify(metadata, null, 2)));
 
-                // Yield every batch
-                if (i % BATCH_SIZE === 0) await new Promise((r) => setTimeout(r, 0));
+                // Yield every iteration so React can flush progress updates to the UI
+                await new Promise((r) => setTimeout(r, 0));
             }
 
             setDownloadStatus("Packaging ZIP...");

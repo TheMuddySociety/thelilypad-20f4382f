@@ -38,12 +38,26 @@ export interface NFTMetadata {
 /**
  * Load image helper for canvas compositing
  */
-export const loadImage = (src: string): Promise<HTMLImageElement> => {
+export const loadImage = (src: string, timeoutMs: number = 10000): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = "anonymous";
-        img.onload = () => resolve(img);
-        img.onerror = reject;
+
+        const timer = setTimeout(() => {
+            img.onload = null;
+            img.onerror = null;
+            img.src = ''; // abort loading
+            reject(new Error(`Image load timed out after ${timeoutMs}ms: ${src.substring(0, 80)}`));
+        }, timeoutMs);
+
+        img.onload = () => {
+            clearTimeout(timer);
+            resolve(img);
+        };
+        img.onerror = (e) => {
+            clearTimeout(timer);
+            reject(e);
+        };
         img.src = src;
     });
 };
@@ -381,9 +395,8 @@ export const bundleAssetsAsZip = async (
         const metaBlob = encoder.encode(JSON.stringify(metadata, null, 2));
         zipStream.addFile(`metadata/${nfts[i].id}.json`, metaBlob);
 
-        if ((i + 1) % BATCH_SIZE === 0) {
-            await new Promise((r) => setTimeout(r, 0));
-        }
+        // Yield every iteration so progress updates paint
+        await new Promise((r) => setTimeout(r, 0));
     }
 
     // Collection manifest
