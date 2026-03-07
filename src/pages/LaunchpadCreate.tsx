@@ -293,7 +293,7 @@ export default function LaunchpadCreate() {
                     symbol,
                     description,
                     chain: getDbChainValue(selectedChain, network as 'mainnet' | 'testnet'),
-                    status: "draft",
+                    status: "upcoming",
                     total_supply: assetsToUpload.length,
                     creator_id: user?.id,
                     creator_address: address
@@ -404,7 +404,7 @@ export default function LaunchpadCreate() {
             // ── Step 5: Finalize DB ─────────────────────────────────────────
             await supabase.from("collections").update({
                 contract_address: deployedAddress,
-                status: "active",
+                status: "live",
                 image_url: itemLinks[0]?.arweaveImageUri || '',
                 is_dynamic: isDynamic || false,
             }).eq('id', collectionId);
@@ -417,7 +417,7 @@ export default function LaunchpadCreate() {
             console.error("Launch Error:", e);
             toast.error(e.message || "Launch failed", { id: 'deploy' });
             if (collectionId) {
-                await supabase.from("collections").delete().eq('id', collectionId).eq('status', 'draft');
+                await supabase.from("collections").delete().eq('id', collectionId).eq('status', 'upcoming');
             }
         } finally {
             setIsDeploying(false);

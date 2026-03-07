@@ -192,7 +192,7 @@ export default function XRPLEasyGenerator() {
                     description,
                     chain: getDbChainValue('xrpl', network as 'mainnet' | 'testnet'),
                     total_supply: files.length,
-                    status: "draft",
+                    status: "upcoming",
                     creator_id: user.id,
                     creator_address: address
                 })
@@ -285,7 +285,7 @@ export default function XRPLEasyGenerator() {
             const firstArweaveImage = localItemLinks[0]?.arweavePreviewUri || localItemLinks[0]?.arweaveImageUri || "";
             const { error: finalUpdateErr } = await supabase.from("collections").update({
                 contract_address: result.address,
-                status: "active",
+                status: "live",
                 image_url: firstArweaveImage,
             }).eq('id', collectionId);
 
@@ -297,7 +297,7 @@ export default function XRPLEasyGenerator() {
             toast.error(err.message || "Failed to create collection", { id: 'easy-mint' });
             // Clean up orphaned draft collection to avoid storage/DB bloat
             if (collectionId) {
-                await supabase.from("collections").delete().eq('id', collectionId).eq('status', 'draft').then(() => {
+                await supabase.from("collections").delete().eq('id', collectionId).eq('status', 'upcoming').then(() => {
                     console.log('[EasyGen] Cleaned up orphaned draft collection:', collectionId);
                 });
             }
@@ -343,7 +343,7 @@ export default function XRPLEasyGenerator() {
             const finalCollectionId = collectionId || cid;
             await supabase.from("collections").update({
                 minted: mintResults.length,
-                status: "minted"
+                status: "live"
             }).eq('id', finalCollectionId);
 
             // Index individual NFTs with real on-chain IDs so they show up in the gallery

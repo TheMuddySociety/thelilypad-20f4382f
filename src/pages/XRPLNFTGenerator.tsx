@@ -236,7 +236,7 @@ export default function XRPLNFTGenerator() {
                     description,
                     chain: getDbChainValue("xrpl", network as "mainnet" | "testnet"),
                     total_supply: files.length,
-                    status: "draft",
+                    status: "upcoming",
                     creator_id: user.id,
                     creator_address: address,
                     phases: { taxon } as any, // Store XRPL-specific config in phases JSON
@@ -313,9 +313,9 @@ export default function XRPLNFTGenerator() {
 
             // Update DB with contract address
             const firstArweaveImage = itemLinks[0]?.arweavePreviewUri || itemLinks[0]?.arweaveImageUri || '';
-            await supabase.from("collections").update({
+            const { error: finalUpdateErr } = await supabase.from("collections").update({
                 contract_address: result.address,
-                status: "active",
+                status: "live",
                 image_url: firstArweaveImage,
             }).eq("id", collectionId);
 
@@ -342,10 +342,11 @@ export default function XRPLNFTGenerator() {
             }
 
             // 5. Index minted NFTs with real on-chain IDs
+            const finalCollectionId = collectionId; // Assuming 'cid' is not defined here, using collectionId
             await supabase.from("collections").update({
                 minted: mintResults.length,
-                status: "minted",
-            }).eq("id", collectionId);
+                status: "live",
+            }).eq("id", finalCollectionId);
 
             const { data: { session } } = await supabase.auth.getSession();
             const nftRecords = mintResults.map((res, i) => {
@@ -376,7 +377,9 @@ export default function XRPLNFTGenerator() {
             // Clean up orphaned draft
             if (collectionId) {
                 await supabase.from("collections").delete()
-                    .eq("id", collectionId).eq("status", "draft");
+                    .eq("id", collectionId).eq("status", "upcoming").then(() => {
+                        console.log("[XRPLGen] Cleaned up orphaned draft collection:", collectionId);
+                    });
             }
         } finally {
             setIsLaunching(false);
