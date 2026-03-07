@@ -14,6 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, LayoutGrid } from "lucide-react";
 import { getErrorMessage } from "@/lib/errorUtils";
 import type { Json } from "@/integrations/supabase/types";
+import { SupportedChain, CHAINS, getStoredChain, setStoredChain } from "@/config/chains";
+import { ChainIcon } from "@/components/launchpad/ChainSelector";
+import { cn } from "@/lib/utils";
 
 interface Raffle {
   id: string;
@@ -33,7 +36,7 @@ interface Raffle {
   winners: Json;
 }
 
-const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void }> = ({ raffle, onEnter }) => {
+const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void; currency?: string }> = ({ raffle, onEnter, currency = "SOL" }) => {
   const countdown = useBundleCountdown(raffle.start_date, raffle.end_date, true);
   const isActive = !countdown.isNotStarted && !countdown.isExpired && !raffle.is_drawn;
 
@@ -82,7 +85,7 @@ const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void }
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="flex items-center gap-2">
             <Ticket className="w-4 h-4 text-primary" />
-            <span>{raffle.entry_price > 0 ? `${raffle.entry_price} SOL` : 'Free Entry'}</span>
+            <span>{raffle.entry_price > 0 ? `${raffle.entry_price} ${currency}` : 'Free Entry'}</span>
           </div>
           <div className="flex items-center gap-2">
             <Trophy className="w-4 h-4 text-yellow-500" />
@@ -122,6 +125,14 @@ const Raffles: React.FC = () => {
   const [selectedRaffle, setSelectedRaffle] = useState<Raffle | null>(null);
   const [isLaunchOpen, setIsLaunchOpen] = useState(false);
   const { toast } = useToast();
+
+  const [selectedChain, setSelectedChain] = useState<SupportedChain>(getStoredChain() || 'solana');
+  const currentChain = CHAINS[selectedChain];
+
+  const handleChainChange = (chain: SupportedChain) => {
+    setStoredChain(chain);
+    setSelectedChain(chain);
+  };
 
   useEffect(() => {
     fetchRaffles();
@@ -164,8 +175,29 @@ const Raffles: React.FC = () => {
           </div>
           <Button onClick={() => setIsLaunchOpen(true)} className="gap-2">
             <Plus className="w-4 h-4" />
-            Launch 1/1 or Edition
+            Launch {currentChain.name} 1/1
           </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-8">
+          {(['solana', 'xrpl', 'monad'] as SupportedChain[]).map(chain => {
+            const config = CHAINS[chain];
+            return (
+              <button
+                key={chain}
+                onClick={() => handleChainChange(chain)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg border transition-all text-sm font-medium",
+                  selectedChain === chain
+                    ? "bg-primary/20 border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)] text-primary"
+                    : "bg-card hover:bg-muted text-muted-foreground"
+                )}
+              >
+                <ChainIcon chain={chain} className="w-4 h-4" />
+                {config.name}
+              </button>
+            );
+          })}
         </div>
 
         <Tabs defaultValue="raffles" className="space-y-6">
@@ -214,6 +246,7 @@ const Raffles: React.FC = () => {
                     key={raffle.id}
                     raffle={raffle}
                     onEnter={setSelectedRaffle}
+                    currency={currentChain.symbol}
                   />
                 ))}
               </div>
@@ -241,6 +274,7 @@ const Raffles: React.FC = () => {
           open={!!selectedRaffle}
           onOpenChange={(open) => !open && setSelectedRaffle(null)}
           onSuccess={fetchRaffles}
+          currency={currentChain.symbol}
         />
       )}
 

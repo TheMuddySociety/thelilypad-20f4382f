@@ -30,13 +30,15 @@ interface RaffleEntryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  currency?: string;
 }
 
 export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
   raffle,
   open,
   onOpenChange,
-  onSuccess
+  onSuccess,
+  currency = "SOL"
 }) => {
   const [ticketCount, setTicketCount] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -173,7 +175,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
                   {raffle.winner_count} Winner{raffle.winner_count > 1 ? 's' : ''}
                 </Badge>
                 <Badge variant="secondary">
-                  {raffle.entry_price > 0 ? `${raffle.entry_price} SOL/ticket` : 'Free'}
+                  {raffle.entry_price > 0 ? `${raffle.entry_price} ${currency}/ticket` : 'Free'}
                 </Badge>
               </div>
             </div>
@@ -220,7 +222,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
           <div className="bg-muted/50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span>Ticket Price</span>
-              <span>{raffle.entry_price > 0 ? `${raffle.entry_price} SOL` : 'Free'}</span>
+              <span>{raffle.entry_price > 0 ? `${raffle.entry_price} ${currency}` : 'Free'}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>Quantity</span>
@@ -228,7 +230,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
             </div>
             <div className="border-t border-border pt-2 flex justify-between font-semibold">
               <span>Total</span>
-              <span>{totalCost > 0 ? `${totalCost} SOL` : 'Free'}</span>
+              <span>{totalCost > 0 ? `${totalCost} ${currency}` : 'Free'}</span>
             </div>
           </div>
 
@@ -245,7 +247,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
             ) : (
               <>
                 <Ticket className="w-4 h-4 mr-2" />
-                {totalCost > 0 ? `Pay ${totalCost} SOL` : 'Enter Raffle'}
+                {totalCost > 0 ? `Pay ${totalCost} ${currency}` : 'Enter Raffle'}
               </>
             )}
           </Button>
