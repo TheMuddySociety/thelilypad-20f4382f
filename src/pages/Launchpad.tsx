@@ -336,6 +336,10 @@ export default function Launchpad() {
                 <TrendingUp className="w-4 h-4" />
                 Ready Trade
               </button>
+              <a href="https://github.com/solana-foundation/awesome-solana-ai" target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+                <Sparkles className="w-4 h-4" />
+                Solana AI Tools
+              </a>
             </div>
           </aside>
 

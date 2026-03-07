@@ -17,6 +17,9 @@ const footerLinks = {
     { label: "Privacy Policy", href: "/privacy" },
     { label: "Fees & Pricing", href: "/fees" },
   ],
+  resources: [
+    { label: "Solana AI Tools", href: "https://github.com/solana-foundation/awesome-solana-ai" },
+  ],
 };
 
 const socialLinks = [
@@ -29,7 +32,7 @@ export const Footer: React.FC = () => {
   return (
     <footer className="py-16 border-t border-border/50">
       <div className="container mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-12">
           {/* Brand */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-3 mb-4">
@@ -74,11 +77,32 @@ export const Footer: React.FC = () => {
                   ) : (
                     <a
                       href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="text-muted-foreground hover:text-primary transition-colors text-sm"
                     >
                       {link.label}
                     </a>
                   )}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Resources */}
+          <div>
+            <h4 className="font-semibold mb-4 text-foreground">Resources</h4>
+            <ul className="space-y-2">
+              {footerLinks.resources.map((link) => (
+                <li key={link.label}>
+                  <a
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-primary transition-colors text-sm"
+                  >
+                    {link.label}
+                  </a>
                 </li>
               ))}
             </ul>
