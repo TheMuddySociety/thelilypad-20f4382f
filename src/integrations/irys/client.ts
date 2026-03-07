@@ -1,4 +1,6 @@
-import { WebIrys } from "@irys/sdk";
+import { WebUploader } from "@irys/web-upload";
+import { WebSolana } from "@irys/web-upload-solana";
+import { WebEthereum } from "@irys/web-upload-ethereum";
 import { ethers } from "ethers";
 
 /**
@@ -253,7 +255,7 @@ export async function downloadFileFromIrys(txId: string): Promise<Blob> {
 // ── Irys instance cache ──────────────────────────────────────────────────
 
 interface CachedIrys {
-    irys: WebIrys;
+    irys: any;
     address: string;
     chainType: string;
     network: string;
@@ -272,7 +274,7 @@ export async function getWebIrys(
         chainType: string;
         network: string;
     },
-): Promise<WebIrys> {
+): Promise<any> {
     // Return cached if it matches
     if (
         _cachedIrys &&
@@ -286,31 +288,23 @@ export async function getWebIrys(
     const isMainnet = wallet.network === "mainnet";
     const nodeUrl = isMainnet ? IRYS_NODE_MAIN : IRYS_NODE_DEV;
 
-    let irys: WebIrys;
+    let irys: any;
 
     if (wallet.chainType === "solana") {
         const provider = (window as any).phantom?.solana || (window as any).solana;
         if (!provider) throw new Error("Solana wallet not detected");
 
-        irys = new WebIrys({
-            url: nodeUrl,
-            token: "solana",
-            wallet: { provider },
-        });
+        const builder = WebUploader(WebSolana).withProvider(provider);
+        irys = await (isMainnet ? builder.mainnet() : builder.devnet());
     } else if (wallet.chainType === "monad" || wallet.chainType === "ethereum") {
         const provider = new ethers.BrowserProvider((window as any).ethereum);
-        irys = new WebIrys({
-            url: nodeUrl,
-            token: "ethereum",
-            wallet: { provider },
-        });
+        const builder = WebUploader(WebEthereum).withProvider(provider);
+        irys = await (isMainnet ? builder.mainnet() : builder.devnet());
     } else {
         throw new Error(
             `Irys storage payment not yet configured for ${wallet.chainType}. Please use Solana or Monad for payment.`
         );
     }
-
-    await irys.ready();
 
     _cachedIrys = {
         irys,
