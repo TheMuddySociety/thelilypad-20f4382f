@@ -19,20 +19,15 @@ export const useLaunchpadStats = () => {
 
   const fetchStats = async () => {
     try {
-      const [collectionsResult, liveResult, mintedResult, volumeResult] = await Promise.all([
-        supabase.from("collections").select("id", { count: "exact", head: true }),
-        supabase.from("collections").select("id", { count: "exact", head: true }).eq("status", "live"),
-        supabase.from("minted_nfts").select("id", { count: "exact", head: true }),
-        supabase.from("nft_listings").select("price").eq("status", "sold"),
-      ]);
+      const { data, error } = await supabase.rpc('get_launchpad_stats' as any);
+      if (error) throw error;
 
-      const totalVolume = volumeResult.data?.reduce((sum, listing) => sum + (listing.price || 0), 0) || 0;
-
+      const result = data as any;
       setStats({
-        totalCollections: collectionsResult.count || 0,
-        liveNow: liveResult.count || 0,
-        nftsMinted: mintedResult.count || 0,
-        totalVolume,
+        totalCollections: result?.totalCollections || 0,
+        liveNow: result?.liveNow || 0,
+        nftsMinted: result?.nftsMinted || 0,
+        totalVolume: result?.totalVolume || 0,
       });
     } catch (error) {
       console.error("Error fetching launchpad stats:", error);

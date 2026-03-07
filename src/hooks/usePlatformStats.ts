@@ -19,20 +19,15 @@ export const usePlatformStats = () => {
 
   const fetchStats = async () => {
     try {
-      const [collectionsResult, streamsResult, mintedResult, volumeResult] = await Promise.all([
-        supabase.from("collections").select("id", { count: "exact", head: true }),
-        supabase.from("streams").select("id", { count: "exact", head: true }).eq("is_live", true),
-        supabase.from("minted_nfts").select("id", { count: "exact", head: true }),
-        supabase.from("nft_listings").select("price").eq("status", "sold"),
-      ]);
+      const { data, error } = await supabase.rpc('get_platform_stats' as any);
+      if (error) throw error;
 
-      const totalVolume = volumeResult.data?.reduce((sum, listing) => sum + (listing.price || 0), 0) || 0;
-
+      const result = data as any;
       setStats({
-        totalCollections: collectionsResult.count || 0,
-        liveNow: streamsResult.count || 0,
-        nftsMinted: mintedResult.count || 0,
-        totalVolume,
+        totalCollections: result?.totalCollections || 0,
+        liveNow: result?.liveNow || 0,
+        nftsMinted: result?.nftsMinted || 0,
+        totalVolume: result?.totalVolume || 0,
       });
     } catch (error) {
       console.error("Error fetching platform stats:", error);
@@ -44,7 +39,7 @@ export const usePlatformStats = () => {
   useEffect(() => {
     fetchStats();
 
-    // Set up realtime subscriptions
+    // Set up realtime subscriptions (we keep it to auto-update visually but it will trigger less queries now)
     const channel = supabase
       .channel("platform-stats")
       .on("postgres_changes", { event: "*", schema: "public", table: "collections" }, fetchStats)
@@ -64,3 +59,4 @@ export const usePlatformStats = () => {
 
   return { stats, isLoading };
 };
+

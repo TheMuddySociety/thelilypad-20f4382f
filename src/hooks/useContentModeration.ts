@@ -21,26 +21,10 @@ interface ModerationResponse {
 
 export function useContentModeration() {
   const [isChecking, setIsChecking] = useState(false);
-  const [blockedPatterns, setBlockedPatterns] = useState<string[]>([]);
-
-  // Fetch blocked patterns for client-side quick check
-  const fetchBlockedPatterns = useCallback(async () => {
-    const { data } = await supabase
-      .from("blocked_patterns")
-      .select("pattern")
-      .eq("is_active", true);
-    
-    if (data) {
-      setBlockedPatterns(data.map(p => p.pattern.toLowerCase()));
-    }
-  }, []);
-
-  // Quick client-side check (for instant feedback)
+  // Quick client-side check (deprecated - server-side only for security)
   const quickCheck = useCallback((text: string): boolean => {
-    const lowerText = text.toLowerCase();
-    return !blockedPatterns.some(pattern => lowerText.includes(pattern));
-  }, [blockedPatterns]);
-
+    return true;
+  }, []);
   // Full moderation check via edge function
   const moderateContent = useCallback(async (
     contentType: ContentType,
@@ -53,7 +37,7 @@ export function useContentModeration() {
     if (!contentText && !contentUrl && !imageBase64) return null;
 
     setIsChecking(true);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke("content-moderation", {
         body: {
@@ -68,19 +52,19 @@ export function useContentModeration() {
 
       if (error) {
         console.error("Moderation error:", error);
-        
+
         // Handle rate limiting
         if (error.message?.includes("429")) {
           toast.error("Too many requests. Please wait a moment.");
           return null;
         }
-        
+
         // Handle payment required
         if (error.message?.includes("402")) {
           toast.error("AI moderation service unavailable.");
           return null;
         }
-        
+
         throw error;
       }
 
@@ -99,15 +83,15 @@ export function useContentModeration() {
     imageName?: string
   ): Promise<{ allowed: boolean; reason?: string }> => {
     const response = await moderateContent("image", undefined, undefined, imageBase64);
-    
+
     if (!response) {
       console.warn("Image moderation check failed, allowing image");
       return { allowed: true };
     }
 
     if (response.action === "blocked") {
-      return { 
-        allowed: false, 
+      return {
+        allowed: false,
         reason: response.result.reasons.filter(r => r !== "clean").join(", ") || "inappropriate content"
       };
     }
@@ -126,17 +110,10 @@ export function useContentModeration() {
     text: string,
     showToast = true
   ): Promise<boolean> => {
-    // Quick client check first
-    if (!quickCheck(text)) {
-      if (showToast) {
-        toast.error("Content contains inappropriate language");
-      }
-      return false;
-    }
 
-    // Full AI moderation
+    // Full AI moderation securely performed on edge function
     const response = await moderateContent(contentType, text);
-    
+
     if (!response) {
       // If moderation fails, allow but log warning
       console.warn("Moderation check failed, allowing content");
@@ -159,15 +136,15 @@ export function useContentModeration() {
     }
 
     return true;
-  }, [quickCheck, moderateContent]);
+  }, [moderateContent]);
 
   return {
     isChecking,
-    fetchBlockedPatterns,
-    quickCheck,
+    fetchBlockedPatterns: async () => { }, // Deprecated
+    quickCheck, // Deprecated, always returns true
     moderateContent,
     moderateImage,
     validateContent,
-    blockedPatterns,
+    blockedPatterns: [] as string[], // Deprecated
   };
 }

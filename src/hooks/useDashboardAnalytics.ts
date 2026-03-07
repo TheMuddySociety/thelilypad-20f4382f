@@ -57,103 +57,43 @@ export function useDashboardAnalytics(userId: string | undefined): DashboardAnal
 
   const fetchAnalytics = useCallback(async () => {
     if (!userId) return;
-    
+
     setIsLoading(true);
-    
+
     try {
-      const now = new Date();
-      
-      // Fetch weekly viewer analytics (last 7 days)
-      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-      const days = eachDayOfInterval({ start: weekStart, end: now });
-      
-      const viewerPromises = days.map(async (day) => {
-        const dayStart = new Date(day);
-        dayStart.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(day);
-        dayEnd.setHours(23, 59, 59, 999);
-
-        const { data } = await supabase
-          .from("stream_analytics")
-          .select("concurrent_viewers")
-          .eq("user_id", userId)
-          .gte("recorded_at", dayStart.toISOString())
-          .lte("recorded_at", dayEnd.toISOString());
-
-        const avgViewers = data && data.length > 0
-          ? Math.round(data.reduce((sum, d) => sum + d.concurrent_viewers, 0) / data.length)
-          : 0;
-
-        return {
-          date: format(day, "EEE"),
-          viewers: avgViewers
-        };
+      const { data, error } = await supabase.rpc('get_dashboard_analytics' as any, {
+        target_user_id: userId
       });
 
-      const viewerResults = await Promise.all(viewerPromises);
-      setViewerData(viewerResults);
+      if (error) throw error;
 
-      // Fetch monthly earnings (current year)
-      const yearStart = startOfYear(now);
-      const months = eachMonthOfInterval({ start: yearStart, end: now });
+      const result = data as any;
+      if (result) {
+        setViewerData(result.viewerData || []);
+        setEarningsData(result.earningsData || []);
 
-      const earningsPromises = months.map(async (month) => {
-        const monthEnd = endOfMonth(month);
-        
-        const { data } = await supabase
-          .from("earnings")
-          .select("amount")
-          .eq("user_id", userId)
-          .gte("created_at", month.toISOString())
-          .lte("created_at", monthEnd.toISOString());
+        // Format streams
+        if (result.recentStreams) {
+          setRecentStreams(result.recentStreams.map((stream: any) => ({
+            id: stream.id,
+            title: stream.title,
+            category: stream.category,
+            viewers: stream.viewers,
+            duration: formatDuration(stream.duration_seconds),
+            date: formatDistanceToNow(new Date(stream.ended_at || stream.created_at), { addSuffix: true })
+          })));
+        }
 
-        const totalAmount = data?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
-
-        return {
-          date: format(month, "MMM"),
-          amount: Math.round(totalAmount * 100) / 100
-        };
-      });
-
-      const earningsResults = await Promise.all(earningsPromises);
-      setEarningsData(earningsResults);
-
-      // Fetch recent streams
-      const { data: streamsData } = await supabase
-        .from("streams")
-        .select("id, title, category, peak_viewers, duration_seconds, ended_at, created_at")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      if (streamsData) {
-        setRecentStreams(streamsData.map(stream => ({
-          id: stream.id,
-          title: stream.title || "Untitled Stream",
-          category: stream.category,
-          viewers: stream.peak_viewers || 0,
-          duration: formatDuration(stream.duration_seconds),
-          date: formatDistanceToNow(new Date(stream.ended_at || stream.created_at), { addSuffix: true })
-        })));
-      }
-
-      // Fetch recent donations/earnings
-      const { data: donationsData } = await supabase
-        .from("earnings")
-        .select("id, from_username, amount, message, created_at")
-        .eq("user_id", userId)
-        .eq("type", "tip")
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      if (donationsData) {
-        setRecentDonations(donationsData.map(donation => ({
-          id: donation.id,
-          from: donation.from_username || "Anonymous",
-          amount: Number(donation.amount),
-          message: donation.message,
-          date: formatDistanceToNow(new Date(donation.created_at), { addSuffix: true })
-        })));
+        // Format donations
+        if (result.recentDonations) {
+          setRecentDonations(result.recentDonations.map((donation: any) => ({
+            id: donation.id,
+            from: donation.from,
+            amount: Number(donation.amount),
+            message: donation.message,
+            date: formatDistanceToNow(new Date(donation.created_at), { addSuffix: true })
+          })));
+        }
       }
     } catch (error) {
       console.error("Error fetching dashboard analytics:", error);
