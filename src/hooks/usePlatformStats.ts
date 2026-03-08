@@ -19,16 +19,18 @@ export const usePlatformStats = () => {
 
   const fetchStats = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_platform_stats' as any);
+      const { data, error } = await supabase.rpc("get_platform_stats" as any);
       if (error) throw error;
 
-      const result = data as any;
-      setStats({
-        totalCollections: result?.totalCollections || 0,
-        liveNow: result?.liveNow || 0,
-        nftsMinted: result?.nftsMinted || 0,
-        totalVolume: result?.totalVolume || 0,
-      });
+      const result = data as PlatformStats | null;
+      if (result) {
+        setStats({
+          totalCollections: result.totalCollections ?? 0,
+          liveNow: result.liveNow ?? 0,
+          nftsMinted: result.nftsMinted ?? 0,
+          totalVolume: Number(result.totalVolume) || 0,
+        });
+      }
     } catch (error) {
       console.error("Error fetching platform stats:", error);
     } finally {
@@ -39,7 +41,6 @@ export const usePlatformStats = () => {
   useEffect(() => {
     fetchStats();
 
-    // Set up realtime subscriptions (we keep it to auto-update visually but it will trigger less queries now)
     const channel = supabase
       .channel("platform-stats")
       .on("postgres_changes", { event: "*", schema: "public", table: "collections" }, fetchStats)
@@ -48,7 +49,6 @@ export const usePlatformStats = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "nft_listings" }, fetchStats)
       .subscribe();
 
-    // Auto-refresh fallback every 30 seconds
     const interval = setInterval(fetchStats, 30000);
 
     return () => {
@@ -59,4 +59,3 @@ export const usePlatformStats = () => {
 
   return { stats, isLoading };
 };
-
