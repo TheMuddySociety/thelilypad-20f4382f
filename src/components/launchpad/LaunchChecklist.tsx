@@ -204,10 +204,10 @@ export function LaunchChecklist({
       },
       optional: true
     },
-    {
+    ...(collection.chain === 'xrpl' ? [] : [{
       id: "deploy",
       title: "Deploy Contract",
-      description: "Deploy your NFT smart contract to Solana",
+      description: "Deploy your NFT smart contract to the blockchain",
       guidance: "Once everything is ready, deploy your smart contract to the blockchain. This makes your collection live and enables minting. This step requires gas fees.",
       isComplete: !!collection.contract_address,
       icon: Rocket,
@@ -215,7 +215,7 @@ export function LaunchChecklist({
         label: "Deploy Now",
         onClick: onDeployClick
       }
-    }
+    }])
   ], [collection, hasValidPhases, hasArtwork, hasAllowlistPhases, hasSocialLinks, onEditClick, onDeployClick, onAllowlistClick]);
 
   const requiredSteps = steps.filter(s => !s.optional);
