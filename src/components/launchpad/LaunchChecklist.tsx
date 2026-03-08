@@ -50,6 +50,7 @@ interface Collection {
   social_discord?: string | null;
   social_website?: string | null;
   social_telegram?: string | null;
+  chain?: string;
 }
 
 interface LaunchChecklistProps {
