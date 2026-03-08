@@ -3019,10 +3019,13 @@ export type Database = {
       }
     }
     Functions: {
+      get_launchpad_stats: { Args: never; Returns: Json }
+      get_platform_stats: { Args: never; Returns: Json }
       get_profile_id_by_wallet: {
         Args: { wallet_addr: string }
         Returns: string
       }
+      get_top_collections_stats: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
