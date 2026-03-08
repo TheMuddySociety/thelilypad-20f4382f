@@ -84,10 +84,12 @@ export default function Auth() {
     description: "Connect your wallet to access The Lily Pad. Choose Phantom for Solana or Monad, or XRPL browser wallet."
   });
 
-  // Redirect when authenticated
+  // Redirect when authenticated or needs profile setup
   useEffect(() => {
     if (state === "AUTHENTICATED") {
       navigate("/");
+    } else if (state === "NEEDS_PROFILE") {
+      navigate("/profile-setup");
     }
   }, [state, navigate]);
 
