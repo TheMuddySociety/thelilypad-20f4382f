@@ -21,6 +21,7 @@ import { StreakLeaderboard } from "@/components/StreakLeaderboard";
 import { StreakChallenge } from "@/components/StreakChallenge";
 import { ChallengeBadges } from "@/components/ChallengeBadges";
 import { RewardsClaimCard } from "@/components/RewardsClaimCard";
+import { TokenLaunchMechanics } from "@/components/TokenLaunchMechanics";
 import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { useSEO } from "@/hooks/useSEO";
 import { useQuery } from "@tanstack/react-query";
@@ -186,6 +187,11 @@ export default function BuybackProgram() {
           </div>
         </div>
 
+        {/* Token Launch Mechanics */}
+        <div className="mb-16">
+          <TokenLaunchMechanics chain={selectedChain} />
+        </div>
+
         {/* Live Stats, Leaderboard, and Rewards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16">
           <div className="lg:col-span-2 space-y-6">
@@ -323,10 +329,10 @@ export default function BuybackProgram() {
                       <Badge
                         variant="outline"
                         className={`absolute top-3 right-3 ${collection.status === 'live'
-                            ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                            : collection.status === 'upcoming'
-                              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-                              : 'bg-muted text-muted-foreground border-border'
+                          ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                          : collection.status === 'upcoming'
+                            ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                            : 'bg-muted text-muted-foreground border-border'
                           }`}
                       >
                         <Sparkles className="w-3 h-3 mr-1" />
