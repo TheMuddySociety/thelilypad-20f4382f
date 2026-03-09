@@ -24,6 +24,7 @@ export interface UserProfile {
     payout_wallet_address: string | null;
     playlist_ids: string[] | null;
     is_verified: boolean;
+    is_private: boolean;
     created_at: string;
     updated_at: string;
 }
