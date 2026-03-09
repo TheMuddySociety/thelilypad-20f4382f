@@ -1454,6 +1454,44 @@ export type Database = {
           },
         ]
       }
+      linked_wallets: {
+        Row: {
+          chain: string
+          id: string
+          is_primary: boolean
+          label: string | null
+          linked_at: string
+          profile_id: string
+          wallet_address: string
+        }
+        Insert: {
+          chain?: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          linked_at?: string
+          profile_id: string
+          wallet_address: string
+        }
+        Update: {
+          chain?: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          linked_at?: string
+          profile_id?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linked_wallets_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_transactions: {
         Row: {
           action_type: string
@@ -2769,6 +2807,7 @@ export type Database = {
           id: string
           is_collector: boolean | null
           is_creator: boolean | null
+          is_private: boolean
           is_streamer: boolean | null
           is_verified: boolean | null
           payout_wallet_address: string | null
@@ -2794,6 +2833,7 @@ export type Database = {
           id?: string
           is_collector?: boolean | null
           is_creator?: boolean | null
+          is_private?: boolean
           is_streamer?: boolean | null
           is_verified?: boolean | null
           payout_wallet_address?: string | null
@@ -2819,6 +2859,7 @@ export type Database = {
           id?: string
           is_collector?: boolean | null
           is_creator?: boolean | null
+          is_private?: boolean
           is_streamer?: boolean | null
           is_verified?: boolean | null
           payout_wallet_address?: string | null
