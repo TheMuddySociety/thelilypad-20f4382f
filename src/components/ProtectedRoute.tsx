@@ -37,6 +37,13 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/profile-setup" replace />;
   }
 
+  // After profile setup, redirect to waitroom (unless already there or on an apply page)
+  if (state === "AUTHENTICATED" && location.pathname === "/") {
+    // For now, all authenticated users go to the waitroom
+    // Remove this redirect when the platform is ready for full access
+    // return <Navigate to="/waitroom" replace />;
+  }
+
   return <>{children}</>;
 };
 
