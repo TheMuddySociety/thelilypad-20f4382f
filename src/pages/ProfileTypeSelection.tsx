@@ -87,15 +87,17 @@ export default function ProfileTypeSelection() {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
   const { createProfile } = useUserProfile();
   const { state: authState } = useAuth();
   const referralCode = searchParams.get('ref');
 
+  // Redirect once auth state catches up after profile creation
   useEffect(() => {
     if (authState === 'AUTHENTICATED') {
-      navigate('/waitroom', { replace: true });
+      navigate(pendingRedirect || '/waitroom', { replace: true });
     }
-  }, [authState, navigate]);
+  }, [authState, pendingRedirect, navigate]);
 
   useSEO({
     title: 'Welcome to The Lily Pad - Set Up Your Profile',
@@ -141,18 +143,16 @@ export default function ProfileTypeSelection() {
 
       toast.success('Profile created! Welcome to The Lily Pad 🐸');
 
-      // Route based on role vetting requirements
+      // Determine target route based on role
+      let targetRoute = '/waitroom';
       if (selectedOption.roles.isCreator) {
-        navigate('/creator/apply', { replace: true });
-        return;
-      }
-      if (selectedOption.roles.isStreamer) {
-        navigate('/streamer/apply', { replace: true });
-        return;
+        targetRoute = '/creator/apply';
+      } else if (selectedOption.roles.isStreamer) {
+        targetRoute = '/streamer/apply';
       }
 
-      // Collectors go straight to wait room
-      navigate('/waitroom', { replace: true });
+      // Set pending redirect — the useEffect will navigate once auth state updates
+      setPendingRedirect(targetRoute);
     } catch (error: any) {
       console.error('Error creating profile:', error);
       toast.error('Failed to create profile', { description: error.message || 'Please try again' });
