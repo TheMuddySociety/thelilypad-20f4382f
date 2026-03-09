@@ -115,6 +115,7 @@ const EditProfile = () => {
 
       // Set playlist IDs
       setPlaylistIds(Array.isArray((profile as any).playlist_ids) ? (profile as any).playlist_ids : []);
+      setIsPrivate((profile as any).is_private ?? false);
     }
     setLoading(profileLoading);
   }, [profile, profileLoading, isConnected, address, navigate]);
