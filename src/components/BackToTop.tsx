@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface BackToTopProps {
   threshold?: number;
@@ -9,6 +10,7 @@ interface BackToTopProps {
 
 export const BackToTop = ({ threshold = 400 }: BackToTopProps) => {
   const [isVisible, setIsVisible] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const toggleVisibility = () => {
@@ -33,7 +35,7 @@ export const BackToTop = ({ threshold = 400 }: BackToTopProps) => {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
-          className="fixed bottom-6 right-6 z-50"
+          className={`fixed right-6 z-50 ${isMobile ? "bottom-24" : "bottom-6"}`}
         >
           <Button
             onClick={scrollToTop}

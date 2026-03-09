@@ -41,7 +41,7 @@ export const MobileBottomNav: React.FC = () => {
               key={item.href}
               to={href}
               className={cn(
-                "flex flex-col items-center justify-center flex-1 py-2 px-1 transition-colors",
+                "relative flex flex-col items-center justify-center flex-1 py-2 px-1 transition-colors",
                 isActive 
                   ? "text-primary" 
                   : "text-muted-foreground hover:text-foreground"
