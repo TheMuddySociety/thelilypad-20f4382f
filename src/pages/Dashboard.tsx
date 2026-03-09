@@ -12,11 +12,11 @@ import { ToastAction } from "@/components/ui/toast";
 import { addDays } from "date-fns";
 import { useSEO } from "@/hooks/useSEO";
 import { useDashboardAnalytics } from "@/hooks/useDashboardAnalytics";
-import { 
-  BarChart3, 
-  Users, 
-  DollarSign, 
-  Eye, 
+import {
+  BarChart3,
+  Users,
+  DollarSign,
+  Eye,
   TrendingUp,
   Clock,
   Video,
@@ -43,6 +43,7 @@ import { ClaimFunds } from "@/components/ClaimFunds";
 import { WithdrawalHistory } from "@/components/WithdrawalHistory";
 import { CreateShopItemModal } from "@/components/shop/CreateShopItemModal";
 import { CreatorNotifications } from "@/components/CreatorNotifications";
+import { StreamKeyManager } from "@/components/StreamKeyManager";
 import {
   LineChart,
   Line,
@@ -159,13 +160,13 @@ export default function Dashboard() {
     setIsDeleting(true);
     const collectionToDelete = draftCollections.find(c => c.id === collectionId);
     const collectionName = collectionToDelete?.name || "Collection";
-    
+
     try {
       const scheduledDeleteAt = addDays(new Date(), 7);
-      
+
       const { error } = await supabase
         .from("collections")
-        .update({ 
+        .update({
           deleted_at: new Date().toISOString(),
           scheduled_permanent_delete_at: scheduledDeleteAt.toISOString()
         })
@@ -181,7 +182,7 @@ export default function Dashboard() {
       } else {
         setDeleteCollectionId(null);
         fetchDraftCollections();
-        
+
         toast({
           title: `"${collectionName}" moved to trash`,
           description: "Will be permanently deleted in 7 days",
@@ -203,7 +204,7 @@ export default function Dashboard() {
     try {
       const { error } = await supabase
         .from("collections")
-        .update({ 
+        .update({
           deleted_at: null,
           scheduled_permanent_delete_at: null
         })
@@ -230,7 +231,7 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
-    
+
     try {
       // Fetch streams count
       const { count: streamsCount } = await supabase
@@ -293,7 +294,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="container mx-auto px-3 sm:px-4 pt-20 sm:pt-24 pb-8 sm:pb-12">
         {/* Header */}
         <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -408,25 +409,25 @@ export default function Dashboard() {
                   <AreaChart data={viewerData}>
                     <defs>
                       <linearGradient id="viewerGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                     <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: "hsl(var(--background))", 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--background))",
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px"
-                      }} 
+                      }}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="viewers" 
-                      stroke="hsl(var(--primary))" 
-                      fill="url(#viewerGradient)" 
+                    <Area
+                      type="monotone"
+                      dataKey="viewers"
+                      stroke="hsl(var(--primary))"
+                      fill="url(#viewerGradient)"
                       strokeWidth={2}
                     />
                   </AreaChart>
@@ -450,9 +451,9 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                     <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: "hsl(var(--background))", 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--background))",
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px"
                       }}
@@ -530,8 +531,8 @@ export default function Dashboard() {
                   >
                     <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0 overflow-hidden">
                       {collection.image_url ? (
-                        <img 
-                          src={collection.image_url} 
+                        <img
+                          src={collection.image_url}
                           alt={collection.name}
                           className="w-full h-full object-cover"
                         />
@@ -542,15 +543,14 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-sm sm:text-base truncate">{collection.name}</h3>
                       <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                        <Badge 
-                          variant="secondary" 
-                          className={`text-xs ${
-                            collection.status === "draft" 
+                        <Badge
+                          variant="secondary"
+                          className={`text-xs ${collection.status === "draft"
                               ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/30"
                               : collection.status === "upcoming"
-                              ? "bg-blue-500/20 text-blue-500 border-blue-500/30"
-                              : "bg-green-500/20 text-green-500 border-green-500/30"
-                          }`}
+                                ? "bg-blue-500/20 text-blue-500 border-blue-500/30"
+                                : "bg-green-500/20 text-green-500 border-green-500/30"
+                            }`}
                         >
                           {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
                         </Badge>
@@ -562,16 +562,16 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {collection.contract_address && (
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className="bg-green-500/20 text-green-400 border-green-500/30 text-xs"
                         >
                           <Lock className="w-3 h-3 mr-1" />
                           Deployed
                         </Badge>
                       )}
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => navigate(`/launchpad/${collection.id}`)}
                       >
@@ -579,8 +579,8 @@ export default function Dashboard() {
                         <span className="hidden sm:inline">View</span>
                       </Button>
                       {!collection.contract_address && (
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           className="text-destructive hover:bg-destructive/10"
                           onClick={() => setDeleteCollectionId(collection.id)}
@@ -612,8 +612,9 @@ export default function Dashboard() {
           onSuccess={() => setShopItemRefreshTrigger((t) => t + 1)}
         />
 
-        {/* Claim Funds & Withdrawal History */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Stream Dashboard Widgets */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 sm:mb-8">
+          <StreamKeyManager userId={user.id} />
           <ClaimFunds />
           <WithdrawalHistory />
         </div>
@@ -727,7 +728,7 @@ export default function Dashboard() {
               Delete Collection?
             </AlertDialogTitle>
           </AlertDialogHeader>
-          
+
           {/* Collection Preview Card */}
           {(() => {
             const collectionToDelete = draftCollections.find(c => c.id === deleteCollectionId);
@@ -736,10 +737,10 @@ export default function Dashboard() {
               <div className="flex gap-4 p-4 bg-muted/50 rounded-lg border">
                 <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
                   {collectionToDelete.image_url ? (
-                    <img 
-                      src={collectionToDelete.image_url} 
+                    <img
+                      src={collectionToDelete.image_url}
                       alt={collectionToDelete.name}
-                      className="w-full h-full object-cover" 
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full">
@@ -771,7 +772,7 @@ export default function Dashboard() {
               <li>Allowlist entries</li>
             </ul>
           </AlertDialogDescription>
-          
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
