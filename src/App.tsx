@@ -115,6 +115,9 @@ const XRPLNFTGenerator = lazy(() => import("./pages/XRPLNFTGenerator"));
 const CreatorApply = lazy(() => import("./pages/CreatorApply"));
 const InterviewRoom = lazy(() => import("./pages/InterviewRoom"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
+const WaitRoom = lazy(() => import("./pages/WaitRoom"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const StreamerApply = lazy(() => import("./pages/StreamerApply"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -188,6 +191,9 @@ const AppContent = () => {
           <Route path="/creator/apply" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreatorApply /></Suspense></ProtectedRoute>} />
           <Route path="/interview/:applicationId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InterviewRoom /></Suspense></ProtectedRoute>} />
           <Route path="/u/:identifier" element={<Suspense fallback={<PageLoader />}><PublicProfile /></Suspense>} />
+          <Route path="/waitroom" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><WaitRoom /></Suspense></ProtectedRoute>} />
+          <Route path="/leaderboard" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Leaderboard /></Suspense></ProtectedRoute>} />
+          <Route path="/streamer/apply" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><StreamerApply /></Suspense></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
