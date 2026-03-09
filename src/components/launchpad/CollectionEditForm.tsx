@@ -324,7 +324,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
     setIsUploadingImage(true);
     try {
-      const wallet = { address: collection.creator_id, chainType: 'solana', network: 'devnet' };
+      const wallet = { address: collection.creator_id, chainType: collection.chain || 'solana', network: 'devnet' };
       const arweaveUrl = await uploadToArweave(imageFile, wallet);
       return arweaveUrl;
     } catch (err) {
@@ -340,7 +340,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     if (!bannerFile) return bannerUrl || null;
 
     try {
-      const wallet = { address: collection.creator_id, chainType: 'solana', network: 'devnet' };
+      const wallet = { address: collection.creator_id, chainType: collection.chain || 'solana', network: 'devnet' };
       const arweaveUrl = await uploadToArweave(bannerFile, wallet);
       return arweaveUrl;
     } catch (err) {
@@ -387,7 +387,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     if (!unrevealedFile) return unrevealedUrl || null;
 
     try {
-      const wallet = { address: collection.creator_id, chainType: 'solana', network: 'devnet' };
+      const wallet = { address: collection.creator_id, chainType: collection.chain || 'solana', network: 'devnet' };
       const arweaveUrl = await uploadToArweave(unrevealedFile, wallet);
       return arweaveUrl;
     } catch (err) {
@@ -470,10 +470,12 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     }
 
     setIsSaving(true);
+    toast.loading("Saving collection changes...", { id: "save-collection" });
     try {
       // Upload image if there's a new file
       let finalImageUrl = imageUrl;
       if (imageFile) {
+        toast.loading("Uploading collection image...", { id: "save-collection" });
         const uploadedUrl = await uploadImageToStorage();
         if (uploadedUrl) {
           finalImageUrl = uploadedUrl;
@@ -483,6 +485,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       // Upload banner if there's a new file
       let finalBannerUrl = bannerUrl;
       if (bannerFile) {
+        toast.loading("Uploading banner image...", { id: "save-collection" });
         const uploadedBannerUrl = await uploadBannerToStorage();
         if (uploadedBannerUrl) {
           finalBannerUrl = uploadedBannerUrl;
@@ -492,11 +495,14 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       // Upload unrevealed image if there's a new file
       let finalUnrevealedUrl = unrevealedUrl;
       if (unrevealedFile) {
+        toast.loading("Uploading unrevealed image...", { id: "save-collection" });
         const uploadedUnrevealedUrl = await uploadUnrevealedToStorage();
         if (uploadedUnrevealedUrl) {
           finalUnrevealedUrl = uploadedUnrevealedUrl;
         }
       }
+
+      toast.loading("Updating collection record...", { id: "save-collection" });
 
       // Convert phases to JSON-compatible format
       const phasesJson = phases.map(p => ({
@@ -518,7 +524,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           name: name.trim(),
           symbol: symbol.trim().toUpperCase(),
           description: description.trim() || null,
-          image_url: finalImageUrl.trim() || null,
+          image_url: finalImageUrl?.trim() || null,
           banner_url: finalBannerUrl?.trim() || null,
           unrevealed_image_url: finalUnrevealedUrl?.trim() || null,
           total_supply: totalSupply,
@@ -545,14 +551,14 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
       if (error) {
         console.error("Error updating collection:", error);
-        toast.error("Failed to save changes");
+        toast.error("Failed to save changes", { id: "save-collection" });
       } else {
-        toast.success("Collection updated successfully");
+        toast.success("Collection updated successfully!", { id: "save-collection" });
         onSave();
       }
     } catch (err) {
-      console.error("Error:", err);
-      toast.error("Failed to save changes");
+      console.error("Error saving collection:", err);
+      toast.error(`Failed to save: ${err instanceof Error ? err.message : "Unknown error"}`, { id: "save-collection" });
     } finally {
       setIsSaving(false);
     }
