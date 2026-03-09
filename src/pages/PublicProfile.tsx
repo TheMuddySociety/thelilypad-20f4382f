@@ -243,6 +243,7 @@ export default function PublicProfile() {
           nft={selectedNft}
           isOpen={!!selectedNft}
           onClose={() => setSelectedNft(null)}
+          network="solana-mainnet"
         />
       )}
     </div>
