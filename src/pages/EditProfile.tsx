@@ -71,6 +71,7 @@ const EditProfile = () => {
   const [categories, setCategories] = useState<string[]>([]);
   const [payoutWalletAddress, setPayoutWalletAddress] = useState("");
   const [playlistIds, setPlaylistIds] = useState<string[]>([]);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   useSEO({
     title: "Edit Profile | The Lily Pad",
