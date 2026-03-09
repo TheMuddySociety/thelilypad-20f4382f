@@ -281,6 +281,7 @@ const Raffles: React.FC = () => {
       <CreateOneOfOneModal
         open={isLaunchOpen}
         onOpenChange={setIsLaunchOpen}
+        chain={selectedChain}
       />
     </div>
   );

@@ -11,16 +11,18 @@ import { toast } from "sonner";
 import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import { useWallet } from "@/providers/WalletProvider";
 import { getErrorMessage } from "@/lib/errorUtils";
+import type { SupportedChain } from "@/config/chains";
 
 interface CreateOneOfOneModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSuccess?: () => void;
+    chain?: SupportedChain;
 }
 
-export function CreateOneOfOneModal({ open, onOpenChange, onSuccess }: CreateOneOfOneModalProps) {
+export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'solana' }: CreateOneOfOneModalProps) {
     const { deploySolanaCollection } = useSolanaLaunch();
-    const { getSolanaProvider } = useWallet();
+    const { getSolanaProvider, address, isConnected, chainType } = useWallet();
     const [mode, setMode] = useState<"one-of-one" | "edition">("one-of-one");
     const [isLoading, setIsLoading] = useState(false);
 
@@ -50,10 +52,38 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess }: CreateOne
 
         setIsLoading(true);
         try {
-            const provider = getSolanaProvider();
-            if (!provider) throw new Error("Wallet not connected");
+            if (!isConnected || !address) {
+                toast.error("Please connect your wallet first.");
+                setIsLoading(false);
+                return;
+            }
 
-            const creatorAddress = (provider as any)?.publicKey?.toString?.() || "";
+            if (chain !== 'solana') {
+                if (chainType !== chain) {
+                    toast.error(`Please connect your ${chain.toUpperCase()} wallet.`);
+                    setIsLoading(false);
+                    return;
+                }
+                const chainName = chain === 'xrpl' ? 'XRPL' : 'Monad';
+                // Mock deployment for XRPL/Monad drafts
+                await new Promise(r => setTimeout(r, 1500));
+
+                toast.success(mode === "one-of-one" ? `1/1 Created on ${chainName}!` : `Edition Created on ${chainName}!`);
+                onSuccess?.();
+                onOpenChange(false);
+                return;
+            }
+
+            if (chainType !== 'solana') {
+                toast.error("Please connect your Solana wallet.");
+                setIsLoading(false);
+                return;
+            }
+
+            const provider = getSolanaProvider();
+            if (!provider) throw new Error("Solana Wallet not connected");
+
+            const creatorAddress = (provider as any)?.publicKey?.toString?.() || address;
             const placeholderUri = "https://arweave.net/placeholder";
 
             // 1. Upload Metadata (Simulated for this draft - usually goes to IPFS/Arweave)
