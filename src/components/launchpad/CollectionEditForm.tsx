@@ -53,6 +53,7 @@ import { LayerManager, Layer } from "./LayerManager";
 import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
 import { GenerationPreview } from "./GenerationPreview";
 import { ArtworkUploader, ArtworkItem } from "./ArtworkUploader";
+import { uploadToArweave } from "@/integrations/irys/client";
 
 interface Phase {
   id: string;
@@ -323,30 +324,12 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
     setIsUploadingImage(true);
     try {
-      const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${collection.creator_id}/${Date.now()}.${fileExt}`;
-
-      const { data, error } = await supabase.storage
-        .from('collection-images')
-        .upload(fileName, imageFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) {
-        console.error("Upload error:", error);
-        toast.error("Failed to upload image");
-        return null;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('collection-images')
-        .getPublicUrl(fileName);
-
-      return publicUrl;
+      const wallet = { address: collection.creator_id, chainType: 'solana', network: 'devnet' };
+      const arweaveUrl = await uploadToArweave(imageFile, wallet);
+      return arweaveUrl;
     } catch (err) {
       console.error("Upload error:", err);
-      toast.error("Failed to upload image");
+      toast.error("Failed to upload image to Arweave");
       return null;
     } finally {
       setIsUploadingImage(false);
@@ -357,30 +340,12 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     if (!bannerFile) return bannerUrl || null;
 
     try {
-      const fileExt = bannerFile.name.split('.').pop();
-      const fileName = `${collection.creator_id}/banner-${Date.now()}.${fileExt}`;
-
-      const { data, error } = await supabase.storage
-        .from('collection-images')
-        .upload(fileName, bannerFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) {
-        console.error("Banner upload error:", error);
-        toast.error("Failed to upload banner");
-        return null;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('collection-images')
-        .getPublicUrl(fileName);
-
-      return publicUrl;
+      const wallet = { address: collection.creator_id, chainType: 'solana', network: 'devnet' };
+      const arweaveUrl = await uploadToArweave(bannerFile, wallet);
+      return arweaveUrl;
     } catch (err) {
       console.error("Banner upload error:", err);
-      toast.error("Failed to upload banner");
+      toast.error("Failed to upload banner to Arweave");
       return null;
     }
   };
@@ -422,30 +387,12 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     if (!unrevealedFile) return unrevealedUrl || null;
 
     try {
-      const fileExt = unrevealedFile.name.split('.').pop();
-      const fileName = `${collection.creator_id}/unrevealed-${Date.now()}.${fileExt}`;
-
-      const { data, error } = await supabase.storage
-        .from('collection-images')
-        .upload(fileName, unrevealedFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) {
-        console.error("Unrevealed upload error:", error);
-        toast.error("Failed to upload unrevealed image");
-        return null;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('collection-images')
-        .getPublicUrl(fileName);
-
-      return publicUrl;
+      const wallet = { address: collection.creator_id, chainType: 'solana', network: 'devnet' };
+      const arweaveUrl = await uploadToArweave(unrevealedFile, wallet);
+      return arweaveUrl;
     } catch (err) {
       console.error("Unrevealed upload error:", err);
-      toast.error("Failed to upload unrevealed image");
+      toast.error("Failed to upload unrevealed image to Arweave");
       return null;
     }
   };
@@ -625,44 +572,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
         .delete()
         .eq("collection_id", collection.id);
 
-      // Delete collection images from storage
-      if (collection.image_url?.includes('collection-images')) {
-        try {
-          const urlParts = collection.image_url.split('/collection-images/');
-          if (urlParts[1]) {
-            await supabase.storage.from('collection-images').remove([urlParts[1]]);
-          }
-        } catch (e) {
-          console.error("Error deleting image:", e);
-        }
-      }
-
-      if (collection.banner_url?.includes('collection-images')) {
-        try {
-          const urlParts = collection.banner_url.split('/collection-images/');
-          if (urlParts[1]) {
-            await supabase.storage.from('collection-images').remove([urlParts[1]]);
-          }
-        } catch (e) {
-          console.error("Error deleting banner:", e);
-        }
-      }
-
-      // Delete artwork files if any
-      const artworksData = collection.artworks_metadata as ArtworkItem[] | null;
-      if (artworksData && Array.isArray(artworksData)) {
-        const filesToDelete = artworksData
-          .filter(a => a.imageUrl?.includes('collection-images'))
-          .map(a => {
-            const parts = a.imageUrl.split('/collection-images/');
-            return parts[1];
-          })
-          .filter(Boolean);
-
-        if (filesToDelete.length > 0) {
-          await supabase.storage.from('collection-images').remove(filesToDelete);
-        }
-      }
+      // Note: Assets are stored on Arweave (immutable / permanent storage).
+      // No storage cleanup needed — Arweave data is permanent by design.
 
       // Delete the collection
       const { error } = await supabase

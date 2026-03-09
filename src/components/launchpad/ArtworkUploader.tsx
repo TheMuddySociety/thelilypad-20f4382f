@@ -199,35 +199,17 @@ export function ArtworkUploader({
         const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
 
         try {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${creatorId}/artwork/${id}.${fileExt}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('collection-images')
-            .upload(fileName, file, {
-              cacheControl: '3600',
-              upsert: false
-            });
-
-          if (uploadError) {
-            console.error("Upload error:", uploadError);
-            toast.error(`Failed to upload ${file.name}`);
-            continue;
-          }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('collection-images')
-            .getPublicUrl(fileName);
-
+          // Use a local blob URL for preview instead of uploading to Supabase
           newArtworks.push({
             id,
             name,
-            imageUrl: publicUrl,
+            imageUrl: URL.createObjectURL(file), // Local preview
+            file, // Keep the file explicitly for the final Arweave deployment!
             description: ""
           });
         } catch (err) {
-          console.error("Error uploading:", err);
-          toast.error(`Failed to upload ${file.name}`);
+          console.error("Error creating local preview:", err);
+          toast.error(`Failed to process ${file.name}`);
         }
       }
 
@@ -261,17 +243,9 @@ export function ArtworkUploader({
 
   const removeArtwork = async (id: string) => {
     const artwork = artworks.find(a => a.id === id);
-    if (artwork?.imageUrl && artwork.imageUrl.includes('collection-images')) {
-      try {
-        const urlParts = artwork.imageUrl.split('/collection-images/');
-        if (urlParts[1]) {
-          await supabase.storage
-            .from('collection-images')
-            .remove([decodeURIComponent(urlParts[1])]);
-        }
-      } catch (err) {
-        console.error("Error deleting file:", err);
-      }
+    // Cleanup local object URL if it exists
+    if (artwork?.imageUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(artwork.imageUrl);
     }
     onArtworksChange(artworks.filter(a => a.id !== id));
     selectedIds.delete(id);
@@ -305,17 +279,8 @@ export function ArtworkUploader({
     const selectedArtworks = artworks.filter(a => selectedIds.has(a.id));
 
     for (const artwork of selectedArtworks) {
-      if (artwork.imageUrl && artwork.imageUrl.includes('collection-images')) {
-        try {
-          const urlParts = artwork.imageUrl.split('/collection-images/');
-          if (urlParts[1]) {
-            await supabase.storage
-              .from('collection-images')
-              .remove([decodeURIComponent(urlParts[1])]);
-          }
-        } catch (err) {
-          console.error("Error deleting file:", err);
-        }
+      if (artwork.imageUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(artwork.imageUrl);
       }
     }
 
