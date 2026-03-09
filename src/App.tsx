@@ -115,6 +115,9 @@ const XRPLNFTGenerator = lazy(() => import("./pages/XRPLNFTGenerator"));
 const CreatorApply = lazy(() => import("./pages/CreatorApply"));
 const InterviewRoom = lazy(() => import("./pages/InterviewRoom"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
+const WaitRoom = lazy(() => import("./pages/WaitRoom"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const StreamerApply = lazy(() => import("./pages/StreamerApply"));
 
 // Loading fallback component
 const PageLoader = () => (
