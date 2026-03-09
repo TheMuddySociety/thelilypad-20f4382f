@@ -290,7 +290,11 @@ export async function getWebIrys(
 
     let irys: any;
 
-    if (wallet.chainType === "solana") {
+    // TODO: Temporary override for Monad storage testing. 
+    // Always use Phantom/Solana to pay for Irys storage across all chains for now.
+    const effectiveChainType = "solana";
+
+    if (effectiveChainType === "solana") {
         const provider = (window as any).phantom?.solana || (window as any).solana;
         if (!provider) throw new Error("Solana wallet not detected");
 
