@@ -87,14 +87,15 @@ export default function ProfileTypeSelection() {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
   const { createProfile } = useUserProfile();
   const { state: authState } = useAuth();
   const referralCode = searchParams.get('ref');
 
-  // If user lands here already authenticated, send them away
+  // Redirect once auth state catches up after profile creation
   useEffect(() => {
-    if (authState === 'AUTHENTICATED' && !pendingRedirect) {
-      navigate('/waitroom', { replace: true });
+    if (authState === 'AUTHENTICATED') {
+      navigate(pendingRedirect || '/waitroom', { replace: true });
     }
   }, [authState, pendingRedirect, navigate]);
 
@@ -104,15 +105,6 @@ export default function ProfileTypeSelection() {
   });
 
   const selectedOption = roleOptions.find((opt) => opt.id === selectedRole);
-  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
-
-  // Handle post-creation redirect once auth state catches up
-  useEffect(() => {
-    if (authState === 'AUTHENTICATED' && pendingRedirect) {
-      navigate(pendingRedirect, { replace: true });
-      setPendingRedirect(null);
-    }
-  }, [authState, pendingRedirect, navigate]);
 
   const handleSubmit = async () => {
     if (!selectedRole || !selectedOption) {
