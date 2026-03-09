@@ -374,6 +374,28 @@ export default function LaunchpadCreate() {
 
                     // Insert individual items with Arweave URIs
                     await solanaLaunch.uploadJsonMetadataBatch(candyMachineItems);
+                } else {
+                    // Bubblegum V2 minting for 1of1 and limited edition NFTs 
+                    // (creates Metaplex core compress NFTs)
+                    if (assetsToUpload.length > 0) {
+                        try {
+                            // Tree capacity: maxDepth 14 fits up to 16,384 NFTs
+                            const treeAddress = await solanaLaunch.deployBubblegumTree(14, 64, 8);
+                            for (let i = 0; i < itemLinks.length; i++) {
+                                await solanaLaunch.mintCompressedCore(
+                                    treeAddress,
+                                    deployedAddress,
+                                    `${name} ${itemLinks.length > 1 ? '#' + (i + 1) : ''}`.trim(),
+                                    itemLinks[i].arweaveUri,
+                                    Math.round(royaltyPercent * 100),
+                                    address
+                                );
+                            }
+                        } catch (e) {
+                            console.error("Bubblegum mint error", e);
+                            throw new Error("Failed to mint Compressed NFTs on Core collection");
+                        }
+                    }
                 }
             } else if (selectedChain === 'xrpl') {
                 const result = await xrplLaunch.deployXRPLCollection({

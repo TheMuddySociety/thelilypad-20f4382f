@@ -22,7 +22,7 @@ interface CreateOneOfOneModalProps {
 }
 
 export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'solana' }: CreateOneOfOneModalProps) {
-    const { deploySolanaCollection } = useSolanaLaunch();
+    const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore } = useSolanaLaunch();
     const { getSolanaProvider, address, isConnected, chainType } = useWallet();
     const [mode, setMode] = useState<"one-of-one" | "edition">("one-of-one");
     const [isLoading, setIsLoading] = useState(false);
@@ -117,11 +117,29 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                     sellerFeeBasisPoints: 0,
                     creators: [{ address: creatorAddress, share: 100 }],
                 });
-                toast.dismiss("deploy");
 
                 if (result?.address) {
                     txHash = result.address;
+
+                    // Note: 1of1's and limit edition only creates Metaplex core compress NFTs
+                    toast.loading("Deploying Bubblegum Tree for compressed NFTs...", { id: "deploy" });
+                    const treeAddress = await deployBubblegumTree(14, 64, 8); // ~16k capacity tree
+
+                    const supplyCount = mode === "edition" ? parseInt(supply) || 1 : 1;
+
+                    for (let i = 0; i < supplyCount; i++) {
+                        toast.loading(`Minting compressed NFT ${i + 1}/${supplyCount}...`, { id: "deploy" });
+                        await mintCompressedCore(
+                            treeAddress,
+                            result.address,
+                            `${name} ${mode === "edition" ? '#' + (i + 1) : ''}`.trim(),
+                            imageUrl, // Same metadata URI
+                            0, // sellerFeeBasisPoints
+                            creatorAddress
+                        );
+                    }
                 }
+                toast.dismiss("deploy");
             }
 
             // Insert into the Database for All Chains so they show in "My NFTs"
@@ -131,6 +149,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 .from("collections")
                 .insert({
                     name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
+                    symbol,
                     description: description,
                     image_url: imageUrl,
                     creator_id: userId,

@@ -13,6 +13,11 @@ import {
     updateV1 as updateCoreAsset,
 } from '@metaplex-foundation/mpl-core';
 import {
+    createTreeV2,
+    mintV2,
+    parseLeafFromMintV2Transaction,
+} from '@metaplex-foundation/mpl-bubblegum';
+import {
     createCandyMachine as createCoreCandyMachineIx,
     fetchCandyMachine,
     addConfigLines,
@@ -498,4 +503,76 @@ export async function insertItemsToCandyMachine(
     }
 
     console.log("[CM Insert] All items inserted successfully!");
+}
+
+/**
+ * Bubblegum: Create a Merkle Tree for compressed NFTs
+ */
+export async function createBubblegumTree(
+    umi: Umi,
+    maxDepth: number = 14,
+    maxBufferSize: number = 64,
+    canopyDepth: number = 8
+): Promise<string> {
+    const merkleTree = generateSigner(umi);
+
+    console.log("=== CREATING BUBBLEGUM MERKLE TREE ===");
+    console.log("🌳 Tree:", merkleTree.publicKey.toString());
+
+    let builder = (await createTreeV2(umi, {
+        merkleTree,
+        maxDepth,
+        maxBufferSize,
+        canopyDepth,
+    })).add(setComputeUnitPrice(umi, { microLamports: 100_000 }));
+
+    await builder.sendAndConfirm(umi, {
+        send: { skipPreflight: false },
+        confirm: { commitment: 'confirmed' }
+    });
+
+    return merkleTree.publicKey.toString();
+}
+
+/**
+ * Bubblegum: Mint a compressed NFT (cNFT) into a Core Collection
+ */
+export async function mintCompressedCoreNft(
+    umi: Umi,
+    params: {
+        treeAddress: string;
+        collectionAddress: string;
+        name: string;
+        uri: string;
+        sellerFeeBasisPoints: number;
+        owner?: string;
+    }
+): Promise<{ signature: Uint8Array; assetId: string }> {
+    console.log("=== MINTING BUBBLEGUM CORE cNFT ===");
+    const leafOwner = params.owner ? publicKey(params.owner) : umi.identity.publicKey;
+
+    let builder = mintV2(umi, {
+        leafOwner,
+        merkleTree: publicKey(params.treeAddress),
+        coreCollection: publicKey(params.collectionAddress),
+        metadata: {
+            name: params.name,
+            uri: params.uri,
+            sellerFeeBasisPoints: params.sellerFeeBasisPoints,
+            collection: some(publicKey(params.collectionAddress)),
+            creators: [], // creators typically defined on the collection level plugin
+        },
+    }).add(setComputeUnitPrice(umi, { microLamports: 50_000 }));
+
+    const response = await builder.sendAndConfirm(umi, {
+        send: { skipPreflight: false },
+        confirm: { commitment: 'confirmed' }
+    });
+
+    console.log("Extracting asset ID...");
+    const leaf = await parseLeafFromMintV2Transaction(umi, response.signature);
+
+    console.log(`Minted cNFT! Asset ID: ${leaf.id}`);
+
+    return { signature: response.signature, assetId: leaf.id.toString() };
 }

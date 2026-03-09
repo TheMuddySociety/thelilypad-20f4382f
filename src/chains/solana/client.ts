@@ -4,6 +4,7 @@ import { mplCore } from '@metaplex-foundation/mpl-core';
 import { mplCandyMachine as mplCoreCandyMachine } from '@metaplex-foundation/mpl-core-candy-machine';
 import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
 import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
+import { mplBubblegum } from '@metaplex-foundation/mpl-bubblegum';
 import { Umi } from '@metaplex-foundation/umi';
 
 /**
@@ -45,6 +46,7 @@ export function createUmi(
         .use(mplCore())
         .use(mplCoreCandyMachine())
         .use(mplToolbox())
+        .use(mplBubblegum())
         .use(irysUploader());
 
     // Attach wallet if provided

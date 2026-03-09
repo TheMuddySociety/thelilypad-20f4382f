@@ -10,6 +10,8 @@ import {
     uploadFiles as uploadFilesToChain,
     uploadMetadata as uploadMetadataToChain,
     uploadJsonBatch,
+    createBubblegumTree,
+    mintCompressedCoreNft,
 } from '@/chains';
 import type { LaunchpadPhase, SolanaCollectionParams } from '@/chains';
 import { Umi, transactionBuilder, publicKey, some, none } from '@metaplex-foundation/umi';
@@ -131,6 +133,70 @@ export const useSolanaLaunch = () => {
             const msg = err.message || "Failed to deploy Core collection";
             setError(msg);
             toast.error(msg, { id: 'sol-deploy' });
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi]);
+
+    /**
+     * Deploy a Bubblegum Merkle Tree
+     */
+    const deployBubblegumTree = useCallback(async (
+        maxDepth: number = 14,
+        maxBufferSize: number = 64,
+        canopyDepth: number = 8
+    ) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const umi = await getUmi();
+            toast.loading("Deploying Bubblegum Tree...", { id: 'tree-deploy' });
+            const treeAddress = await createBubblegumTree(umi, maxDepth, maxBufferSize, canopyDepth);
+            toast.success("Bubblegum Tree Deployed!", { id: 'tree-deploy' });
+            return treeAddress;
+        } catch (err: any) {
+            console.error("Tree Deployment Error:", err);
+            const msg = err.message || "Failed to deploy Bubblegum Tree";
+            setError(msg);
+            toast.error(msg, { id: 'tree-deploy' });
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi]);
+
+    /**
+     * Mint a Compressed Core NFT
+     */
+    const mintCompressedCore = useCallback(async (
+        treeAddress: string,
+        collectionAddress: string,
+        name: string,
+        uri: string,
+        sellerFeeBasisPoints: number = 0,
+        owner?: string
+    ) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const umi = await getUmi();
+            toast.loading(`Minting compressed NFT: ${name}...`, { id: 'cnft-mint' });
+            const result = await mintCompressedCoreNft(umi, {
+                treeAddress,
+                collectionAddress,
+                name,
+                uri,
+                sellerFeeBasisPoints,
+                owner
+            });
+            toast.success("Compressed NFT Minted!", { id: 'cnft-mint' });
+            return result;
+        } catch (err: any) {
+            console.error("Compressed Mint Error:", err);
+            const msg = err.message || "Failed to mint Compressed NFT";
+            setError(msg);
+            toast.error(msg, { id: 'cnft-mint' });
             throw err;
         } finally {
             setIsLoading(false);
@@ -338,5 +404,7 @@ export const useSolanaLaunch = () => {
         uploadFiles,
         uploadMetadata,
         uploadJsonMetadataBatch,
+        deployBubblegumTree,
+        mintCompressedCore,
     };
 };
