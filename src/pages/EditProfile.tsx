@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ImageCropModal } from "@/components/ImageCropModal";
+import { LinkedWalletsManager } from "@/components/profile/LinkedWalletsManager";
+import { PrivacyToggle } from "@/components/profile/PrivacyToggle";
 
 interface ScheduleItem {
   day: string;
