@@ -2101,6 +2101,51 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      referral_signups: {
+        Row: {
+          created_at: string
+          id: string
+          referral_code: string
+          referred_user_id: string
+          referrer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          referral_code: string
+          referred_user_id: string
+          referrer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          referral_code?: string
+          referred_user_id?: string
+          referrer_id?: string
+        }
+        Relationships: []
+      }
       shop_bundle_items: {
         Row: {
           bundle_id: string
@@ -2569,6 +2614,60 @@ export type Database = {
         }
         Relationships: []
       }
+      streamer_applications: {
+        Row: {
+          admin_notes: string | null
+          content_type: string
+          created_at: string | null
+          display_name: string
+          email: string
+          id: string
+          motivation: string | null
+          platform_links: string[]
+          reviewed_at: string | null
+          reviewed_by: string | null
+          schedule_description: string | null
+          social_links: Json | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          content_type: string
+          created_at?: string | null
+          display_name: string
+          email: string
+          id?: string
+          motivation?: string | null
+          platform_links?: string[]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          schedule_description?: string | null
+          social_links?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          content_type?: string
+          created_at?: string | null
+          display_name?: string
+          email?: string
+          id?: string
+          motivation?: string | null
+          platform_links?: string[]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          schedule_description?: string | null
+          social_links?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       streamer_profiles: {
         Row: {
           avatar_url: string | null
@@ -2813,6 +2912,7 @@ export type Database = {
           payout_wallet_address: string | null
           playlist_ids: string[] | null
           profile_setup_completed: boolean | null
+          referred_by: string | null
           schedule: Json | null
           social_discord: string | null
           social_instagram: string | null
@@ -2839,6 +2939,7 @@ export type Database = {
           payout_wallet_address?: string | null
           playlist_ids?: string[] | null
           profile_setup_completed?: boolean | null
+          referred_by?: string | null
           schedule?: Json | null
           social_discord?: string | null
           social_instagram?: string | null
@@ -2865,6 +2966,7 @@ export type Database = {
           payout_wallet_address?: string | null
           playlist_ids?: string[] | null
           profile_setup_completed?: boolean | null
+          referred_by?: string | null
           schedule?: Json | null
           social_discord?: string | null
           social_instagram?: string | null
@@ -2992,6 +3094,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      waitroom_messages: {
+        Row: {
+          avatar_url: string | null
+          content: string
+          created_at: string
+          display_name: string | null
+          id: string
+          user_id: string
+          wallet_address: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          content: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          user_id: string
+          wallet_address: string
+        }
+        Update: {
+          avatar_url?: string | null
+          content?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          user_id?: string
+          wallet_address?: string
+        }
+        Relationships: []
       }
     }
     Views: {
