@@ -91,8 +91,8 @@ const BlindBoxManager = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [rewards, setRewards] = useState<Reward[]>([
-    { type: "token", name: "Small SOL", value: "0.1", rarity: "common", weight: 50 },
-    { type: "token", name: "Big SOL", value: "1", rarity: "rare", weight: 15 },
+    { type: "token", name: "Small USDC", value: "0.1", rarity: "common", weight: 50 },
+    { type: "token", name: "Big USDC", value: "1", rarity: "rare", weight: 15 },
   ]);
 
   // Phase 3: Pool configuration state
@@ -255,7 +255,7 @@ const BlindBoxManager = () => {
     setStartDate("");
     setEndDate("");
     setRewards([
-      { type: "token", name: "Small SOL", value: "0.1", rarity: "common", weight: 50 },
+      { type: "token", name: "Small USDC", value: "0.1", rarity: "common", weight: 50 },
     ]);
     // Reset pool config
     setPoolType('off_chain');
@@ -445,7 +445,7 @@ const BlindBoxManager = () => {
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs flex items-center gap-1">
-                    <Coins className="w-3 h-3" /> Price (SOL)
+                    <Coins className="w-3 h-3" /> Price (USDC)
                   </Label>
                   <Input
                     type="number"
@@ -544,7 +544,7 @@ const BlindBoxManager = () => {
                       }`}
                   >
                     <span className="font-medium">Escrow</span>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">SOL/Token pool</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">USDC/Token pool</p>
                   </button>
                 </div>
 
@@ -587,7 +587,7 @@ const BlindBoxManager = () => {
                       className="h-8 text-xs bg-background/50"
                     />
                     <p className="text-[9px] text-muted-foreground">
-                      Fund this wallet with SOL/tokens to distribute as rewards
+                      Fund this wallet with USDC/tokens to distribute as rewards
                     </p>
                   </div>
                 )}
@@ -627,7 +627,7 @@ const BlindBoxManager = () => {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="nft">NFT</SelectItem>
-                              <SelectItem value="token">SOL</SelectItem>
+                              <SelectItem value="token">USDC</SelectItem>
                               <SelectItem value="shop_item">Item</SelectItem>
                             </SelectContent>
                           </Select>
@@ -752,7 +752,7 @@ const BlindBoxManager = () => {
                     <div className="flex items-start justify-between">
                       <div>
                         <h3 className="font-semibold text-sm">{box.name}</h3>
-                        <p className="text-lg font-bold text-primary">{box.price} SOL</p>
+                        <p className="text-lg font-bold text-primary">{box.price} USDC</p>
                       </div>
                       <button
                         onClick={() => copyBoxId(box.id)}
@@ -831,7 +831,7 @@ const BlindBoxManager = () => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="glass-card p-3">
                   <p className="text-[10px] text-muted-foreground uppercase">Price</p>
-                  <p className="font-bold text-primary">{selectedBox.price} SOL</p>
+                  <p className="font-bold text-primary">{selectedBox.price} USDC</p>
                 </div>
                 <div className="glass-card p-3">
                   <p className="text-[10px] text-muted-foreground uppercase">Remaining</p>
@@ -865,7 +865,7 @@ const BlindBoxManager = () => {
                           </Badge>
                         </div>
                         <span className="text-sm text-muted-foreground">
-                          {reward.type === "token" ? `${reward.value} SOL` : reward.value}
+                          {reward.type === "token" ? `${reward.value} USDC` : reward.value}
                         </span>
                       </div>
                     );

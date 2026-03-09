@@ -86,18 +86,18 @@ const OfficialPacks: React.FC = () => {
     const now = Date.now();
     return bundles.filter(bundle => {
       if (!bundle.is_limited_time) return true;
-      
+
       // Check if started (or no start date)
       if (bundle.starts_at && new Date(bundle.starts_at).getTime() > now) {
         // Not started yet - still show it with "Coming Soon" badge
         return true;
       }
-      
+
       // Check if expired
       if (bundle.expires_at && new Date(bundle.expires_at).getTime() <= now) {
         return false; // Expired, don't show
       }
-      
+
       return true;
     });
   }, [bundles]);
@@ -106,14 +106,14 @@ const OfficialPacks: React.FC = () => {
     queryKey: ['bundle-items-map', bundles.map(b => b.id)],
     queryFn: async () => {
       if (bundles.length === 0) return {};
-      
+
       const { data, error } = await supabase
         .from("shop_bundle_items")
         .select("*, shop_items(*)")
         .in("bundle_id", bundles.map(b => b.id));
 
       if (error) throw error;
-      
+
       const map: Record<string, BundleItem[]> = {};
       (data as BundleItem[]).forEach(item => {
         if (!map[item.bundle_id]) map[item.bundle_id] = [];
@@ -153,14 +153,14 @@ const OfficialPacks: React.FC = () => {
   };
 
   const PackCard = ({ pack }: { pack: OfficialPack }) => (
-    <Card 
+    <Card
       className="group overflow-hidden hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 cursor-pointer border-border/50 hover:border-primary/30"
       onClick={() => navigate(`/marketplace/sticker/${pack.id}`)}
     >
       <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
         {pack.image_url ? (
-          <img 
-            src={pack.image_url} 
+          <img
+            src={pack.image_url}
             alt={pack.name}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
           />
@@ -169,7 +169,7 @@ const OfficialPacks: React.FC = () => {
             {getCategoryIcon(pack.category)}
           </div>
         )}
-        
+
         {/* Official Badge Overlay */}
         <div className="absolute top-2 left-2">
           <Badge className="bg-primary/90 text-primary-foreground border-0 gap-1">
@@ -177,15 +177,15 @@ const OfficialPacks: React.FC = () => {
             Official
           </Badge>
         </div>
-        
+
         {/* Price Overlay */}
         <div className="absolute bottom-2 right-2">
           <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm font-bold">
-            {pack.price_mon > 0 ? `${pack.price_mon} SOL` : "FREE"}
+            {pack.price_mon > 0 ? `${pack.price_mon} USDC` : "FREE"}
           </Badge>
         </div>
       </div>
-      
+
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-primary transition-colors">
@@ -193,13 +193,13 @@ const OfficialPacks: React.FC = () => {
           </h3>
           {getTierBadge(pack.tier)}
         </div>
-        
+
         {pack.description && (
           <p className="text-sm text-muted-foreground line-clamp-2">
             {pack.description}
           </p>
         )}
-        
+
         <div className="flex items-center justify-between pt-2 border-t border-border/50">
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             {getCategoryIcon(pack.category)}
@@ -210,7 +210,7 @@ const OfficialPacks: React.FC = () => {
             {pack.total_sales} sold
           </div>
         </div>
-        
+
         <Button className="w-full gap-2 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
           <Eye className="w-4 h-4" />
           View Pack
@@ -231,17 +231,16 @@ const OfficialPacks: React.FC = () => {
   const BundleCard = ({ bundle }: { bundle: Bundle }) => {
     const items = bundleItemsMap[bundle.id] || [];
     const savings = bundle.original_price - bundle.bundle_price;
-    
+
     // Check if this is a "coming soon" bundle
-    const isNotStarted = bundle.is_limited_time && bundle.starts_at && 
+    const isNotStarted = bundle.is_limited_time && bundle.starts_at &&
       new Date(bundle.starts_at).getTime() > Date.now();
-    
+
     return (
-      <Card className={`group overflow-hidden transition-all duration-300 border-2 bg-gradient-to-br from-primary/5 to-secondary/5 ${
-        bundle.is_limited_time 
-          ? "border-amber-500/30 hover:border-amber-500/60 hover:shadow-xl hover:shadow-amber-500/10" 
+      <Card className={`group overflow-hidden transition-all duration-300 border-2 bg-gradient-to-br from-primary/5 to-secondary/5 ${bundle.is_limited_time
+          ? "border-amber-500/30 hover:border-amber-500/60 hover:shadow-xl hover:shadow-amber-500/10"
           : "border-primary/20 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10"
-      }`}>
+        }`}>
         <div className="relative p-6">
           {/* Badges */}
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
@@ -258,7 +257,7 @@ const OfficialPacks: React.FC = () => {
               />
             )}
           </div>
-          
+
           <div className="flex items-center gap-3 mb-4">
             <div className={`p-3 rounded-xl ${bundle.is_limited_time ? "bg-amber-500/20" : "bg-primary/20"}`}>
               {bundle.is_limited_time ? (
@@ -274,13 +273,13 @@ const OfficialPacks: React.FC = () => {
               </p>
             </div>
           </div>
-          
+
           {bundle.description && (
             <p className="text-muted-foreground mb-4">
               {bundle.description}
             </p>
           )}
-          
+
           {/* Included Packs Preview */}
           {items.length > 0 && (
             <div className="mb-4">
@@ -290,12 +289,12 @@ const OfficialPacks: React.FC = () => {
               </p>
               <div className="flex flex-wrap gap-2">
                 {items.slice(0, 4).map((item) => (
-                  <div 
+                  <div
                     key={item.id}
                     className="flex items-center gap-2 bg-muted/50 rounded-lg p-2"
                   >
                     {item.shop_items.image_url ? (
-                      <img 
+                      <img
                         src={item.shop_items.image_url}
                         alt={item.shop_items.name}
                         className="w-8 h-8 rounded object-cover"
@@ -332,25 +331,25 @@ const OfficialPacks: React.FC = () => {
               />
             </div>
           )}
-          
+
           {/* Pricing */}
           <div className="bg-muted/50 rounded-lg p-4 mb-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-muted-foreground">Original Price:</span>
-              <span className="text-lg line-through text-muted-foreground">{bundle.original_price} SOL</span>
+              <span className="text-lg line-through text-muted-foreground">{bundle.original_price} USDC</span>
             </div>
             <div className="flex justify-between items-center mb-2 text-green-600">
               <span className="text-sm">You Save:</span>
-              <span className="font-medium">{savings.toFixed(2)} SOL</span>
+              <span className="font-medium">{savings.toFixed(2)} USDC</span>
             </div>
             <div className="flex justify-between items-center pt-2 border-t border-border">
               <span className="font-semibold">Bundle Price:</span>
-              <span className="text-2xl font-bold text-primary">{bundle.bundle_price} SOL</span>
+              <span className="text-2xl font-bold text-primary">{bundle.bundle_price} USDC</span>
             </div>
           </div>
-          
+
           {isNotStarted ? (
-            <Button 
+            <Button
               className="w-full gap-2 h-12 text-lg"
               variant="secondary"
               disabled
@@ -359,7 +358,7 @@ const OfficialPacks: React.FC = () => {
               Coming Soon
             </Button>
           ) : (
-            <Button 
+            <Button
               className="w-full gap-2 h-12 text-lg"
               onClick={() => handleBundleClick(bundle)}
             >
@@ -375,7 +374,7 @@ const OfficialPacks: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="container mx-auto px-4 pt-28 pb-12">
         {/* Hero Section */}
         <div className="relative mb-12 rounded-2xl overflow-hidden bg-gradient-to-br from-primary/20 via-secondary/10 to-accent/20 p-8 md:p-12">
@@ -393,7 +392,7 @@ const OfficialPacks: React.FC = () => {
               Official Lily Pad & Frognad Packs
             </h1>
             <p className="text-muted-foreground text-lg max-w-2xl">
-              Exclusive sticker packs, emotes, and emojis created by The Lily Pad team. 
+              Exclusive sticker packs, emotes, and emojis created by The Lily Pad team.
               Show your support and express yourself with our official collection!
             </p>
           </div>
@@ -467,7 +466,7 @@ const OfficialPacks: React.FC = () => {
             </div>
             <h2 className="text-2xl font-semibold mb-2">No Packs Available</h2>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Official packs are coming soon! Check back later for exclusive 
+              Official packs are coming soon! Check back later for exclusive
               Lily Pad and Frognad stickers, emotes, and emojis.
             </p>
           </div>
@@ -490,7 +489,7 @@ const OfficialPacks: React.FC = () => {
                 </div>
               </section>
             )}
-            
+
             {/* Other Official Packs */}
             {otherPacks.length > 0 && (
               <section>
@@ -505,7 +504,7 @@ const OfficialPacks: React.FC = () => {
                 </div>
               </section>
             )}
-            
+
             {/* If no categorization needed, show all */}
             {lilyPadPacks.length === 0 && otherPacks.length === 0 && filteredPacks.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

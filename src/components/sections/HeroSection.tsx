@@ -31,7 +31,7 @@ export const HeroSection: React.FC = () => {
   ];
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-14 sm:pt-16 md:pt-20">
+    <section className="py-16 md:py-24 relative overflow-hidden bg-background">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-hero-gradient" />
 

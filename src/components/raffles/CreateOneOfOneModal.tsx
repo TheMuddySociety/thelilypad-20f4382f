@@ -53,7 +53,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
         setIsLoading(true);
         try {
             if (!isConnected || !address) {
-                toast.error("Please connect your wallet first.");
+                toast.error("Please connect your wallet first. If connected, wait a moment.");
                 setIsLoading(false);
                 return;
             }
@@ -118,7 +118,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 <DialogHeader>
                     <DialogTitle>Launch {mode === "one-of-one" ? "1-of-1" : "Edition"}</DialogTitle>
                     <DialogDescription>
-                        Create a standalone NFT or a limited edition series on Solana.
+                        Create a standalone NFT or a limited edition series on {chain === 'xrpl' ? 'XRPL' : chain === 'monad' ? 'Monad' : 'Solana'}.
                     </DialogDescription>
                 </DialogHeader>
 

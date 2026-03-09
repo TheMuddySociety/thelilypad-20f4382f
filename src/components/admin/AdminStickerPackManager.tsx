@@ -112,10 +112,10 @@ export const AdminStickerPackManager: React.FC = () => {
     try {
       // Get creator ID (auth user or profile id for wallet-only)
       const { data: { user } } = await supabase.auth.getUser();
-        const creatorId = user?.id;
+      const creatorId = user?.id;
 
       if (!creatorId) {
-          throw new Error("You must be signed in to create official packs.");
+        throw new Error("You must be signed in to create official packs.");
       }
 
       let imageUrl: string | null = null;
@@ -310,7 +310,7 @@ export const AdminStickerPackManager: React.FC = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {pack.price_mon > 0 ? `${pack.price_mon} SOL` : 'Free'}
+                      {pack.price_mon > 0 ? `${pack.price_mon} USDC` : 'Free'}
                     </TableCell>
                     <TableCell>{pack.total_sales}</TableCell>
                     <TableCell>
@@ -487,7 +487,7 @@ export const AdminStickerPackManager: React.FC = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="admin-pack-price">Price (SOL)</Label>
+                <Label htmlFor="admin-pack-price">Price (USDC)</Label>
                 <Input
                   id="admin-pack-price"
                   type="number"

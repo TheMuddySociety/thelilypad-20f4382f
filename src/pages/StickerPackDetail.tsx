@@ -136,17 +136,10 @@ export default function StickerPackDetail() {
 
     fetchData();
   }, [packId, userId, isConnected, profileLoading, navigate]);
-
   const handlePurchase = async () => {
     if (!isConnected) {
-      toast.error("Please connect your Solana wallet to purchase");
+      toast.error("Please connect your wallet to purchase");
       navigate("/auth");
-      return;
-    }
-
-    if (!userId) {
-      toast.error("Please complete your profile to purchase");
-      navigate("/profile-setup");
       return;
     }
 
@@ -167,7 +160,7 @@ export default function StickerPackDetail() {
           item_id: pack.id,
           user_id: purchaseUserId,
           price_paid: 0,
-          currency: "SOL",
+          currency: "USDC",
           tx_hash: "free_claim",
         });
 
@@ -192,7 +185,7 @@ export default function StickerPackDetail() {
       return;
     }
 
-    // Paid sticker pack - process SOL payment
+    // Paid sticker pack - process USDC payment (mocked via standard tx for now)
     setIsPurchasing(true);
     try {
       const solanaProvider = getSolanaProvider();
@@ -258,7 +251,7 @@ export default function StickerPackDetail() {
         item_id: pack.id,
         user_id: purchaseUserId,
         price_paid: pack.price_mon,
-        currency: "SOL",
+        currency: "USDC",
         tx_hash: signature,
       });
 
@@ -394,7 +387,7 @@ export default function StickerPackDetail() {
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Price</span>
                     <span className="font-bold text-lg">
-                      {pack.price_mon > 0 ? `${pack.price_mon} SOL` : "Free"}
+                      {pack.price_mon > 0 ? `${pack.price_mon} USDC` : "Free"}
                     </span>
                   </div>
                 </div>
@@ -417,7 +410,7 @@ export default function StickerPackDetail() {
                     ) : (
                       <ShoppingCart className="w-4 h-4" />
                     )}
-                    {pack.price_mon > 0 ? `Buy for ${pack.price_mon} SOL` : "Get for Free"}
+                    {pack.price_mon > 0 ? `Buy for ${pack.price_mon} USDC` : "Get for Free"}
                   </Button>
                 )}
               </CardContent>

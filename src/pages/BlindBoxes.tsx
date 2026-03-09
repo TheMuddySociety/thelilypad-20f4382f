@@ -78,7 +78,7 @@ const BlindBoxCard: React.FC<{ box: BlindBox; onPurchase: (box: BlindBox) => voi
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="flex items-center gap-2">
             <Package className="w-4 h-4 text-primary" />
-            <span className="font-semibold">{box.price} SOL</span>
+            <span className="font-semibold">{box.price} USDC</span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground" />

@@ -56,7 +56,7 @@ export const CreateStickerPackModal: React.FC<CreateStickerPackModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!userId) {
       toast.error("You must be signed in");
       return;
@@ -75,7 +75,7 @@ export const CreateStickerPackModal: React.FC<CreateStickerPackModalProps> = ({
       if (imageFile) {
         const fileExt = imageFile.name.split(".").pop();
         const fileName = `${userId}/${Date.now()}-pack-cover.${fileExt}`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from("shop-items")
           .upload(fileName, imageFile);
@@ -141,7 +141,7 @@ export const CreateStickerPackModal: React.FC<CreateStickerPackModalProps> = ({
           {/* Cover Image */}
           <div className="space-y-2">
             <Label>Cover Image</Label>
-            <div 
+            <div
               className="aspect-video relative overflow-hidden rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 transition-colors cursor-pointer"
               onClick={() => document.getElementById("pack-cover-input")?.click()}
             >
@@ -208,7 +208,7 @@ export const CreateStickerPackModal: React.FC<CreateStickerPackModalProps> = ({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="price">Price (SOL)</Label>
+              <Label htmlFor="price">Price (USDC)</Label>
               <Input
                 id="price"
                 type="number"

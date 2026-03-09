@@ -156,7 +156,7 @@ export const FeaturesSection: React.FC = () => {
               <div
                 key={feature.id}
                 className={`flex flex-col ${feature.imagePosition === "right" ? "lg:flex-row" : "lg:flex-row-reverse"
-                  } gap-12 items-center`}
+                  } gap-8 items-center`}
               >
                 {/* Content side */}
                 <div className="flex-1 space-y-6">

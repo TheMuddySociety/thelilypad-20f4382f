@@ -103,8 +103,8 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
     "idle" | "confirming" | "processing" | "complete"
   >("idle");
 
-  // Price in SOL (use bundle_price_sol if available, otherwise estimate)
-  const priceInSol = bundle.bundle_price_sol || bundle.bundle_price * 0.01; // Rough estimate
+  // Price in USDC (use bundle_price_sol if available, otherwise estimate)
+  const priceInUsdc = bundle.bundle_price_sol || bundle.bundle_price * 0.01; // Rough estimate
 
   useEffect(() => {
     const checkExistingPurchases = async () => {
@@ -154,8 +154,8 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
     }
 
     const userBalance = parseFloat(balance || "0");
-    if (userBalance < priceInSol) {
-      toast.error(`Insufficient balance. You need ${priceInSol.toFixed(4)} SOL`);
+    if (userBalance < priceInUsdc) {
+      toast.error(`Insufficient balance. You need ${priceInUsdc.toFixed(4)} USDC`);
       return;
     }
 
@@ -178,7 +178,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         SystemProgram.transfer({
           fromPubkey: provider.publicKey,
           toPubkey: new PublicKey(PLATFORM_TREASURY_ADDRESS),
-          lamports: Math.floor(priceInSol * LAMPORTS_PER_SOL),
+          lamports: Math.floor(priceInUsdc * LAMPORTS_PER_SOL),
         })
       );
 
@@ -209,9 +209,9 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         .insert({
           bundle_id: bundle.id,
           user_id: purchaseUserId,
-          price_paid: priceInSol,
+          price_paid: priceInUsdc,
           tx_hash: signature,
-          currency: "SOL",
+          currency: "USDC",
         });
 
       if (purchaseError) throw purchaseError;
@@ -222,7 +222,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         user_id: purchaseUserId,
         price_paid: 0, // Part of bundle
         tx_hash: signature,
-        currency: "SOL",
+        currency: "USDC",
       }));
 
       await supabase.from("shop_purchases").insert(itemPurchases);
@@ -287,7 +287,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
                   ${bundle.original_price.toFixed(2)}
                 </div>
                 <div className="text-2xl font-bold text-primary">
-                  {priceInSol.toFixed(4)} SOL
+                  {priceInUsdc.toFixed(4)} USDC
                 </div>
               </div>
               <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
@@ -381,7 +381,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
               {purchaseStep === "idle" && (
                 <>
                   <ShoppingCart className="w-4 h-4 mr-2" />
-                  Purchase for {priceInSol.toFixed(4)} SOL
+                  Purchase for {priceInUsdc.toFixed(4)} USDC
                 </>
               )}
             </Button>
@@ -391,7 +391,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
           {isConnected && !hasPurchased && (
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>Your balance:</span>
-              <span>{parseFloat(balance || "0").toFixed(4)} SOL</span>
+              <span>{parseFloat(balance || "0").toFixed(4)} USDC</span>
             </div>
           )}
         </div>

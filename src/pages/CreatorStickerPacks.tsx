@@ -362,7 +362,7 @@ export default function CreatorStickerPacks() {
                       <div className="flex items-center justify-between text-sm mb-3">
                         <span className="text-muted-foreground">Price</span>
                         <span className="font-medium">
-                          {pack.price_mon > 0 ? `${pack.price_mon} SOL` : "Free"}
+                          {pack.price_mon > 0 ? `${pack.price_mon} USDC` : "Free"}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm mb-4">

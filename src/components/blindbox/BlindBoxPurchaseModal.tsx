@@ -211,7 +211,7 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
             </div>
             <div className="flex-1">
               <h4 className="font-semibold">{box.name}</h4>
-              <p className="text-2xl font-bold text-primary mt-1">{box.price} SOL</p>
+              <p className="text-2xl font-bold text-primary mt-1">{box.price} USDC</p>
               <div className="flex gap-2 mt-2">
                 <Badge variant="outline" className="text-xs">
                   <Package className="w-3 h-3 mr-1" />
@@ -290,7 +290,7 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
           <div className="glass-card p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Price per Box</span>
-              <span>{box.price} SOL</span>
+              <span>{box.price} USDC</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Quantity</span>
@@ -298,7 +298,7 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
             </div>
             <div className="border-t border-border pt-2 flex justify-between font-bold text-lg">
               <span>Total</span>
-              <span className="text-primary">{totalCost.toFixed(2)} SOL</span>
+              <span className="text-primary">{totalCost.toFixed(2)} USDC</span>
             </div>
           </div>
 
@@ -320,7 +320,7 @@ export const BlindBoxPurchaseModal: React.FC<BlindBoxPurchaseModalProps> = ({
             ) : (
               <>
                 <Sparkles className="w-5 h-5 mr-2" />
-                Open for {totalCost.toFixed(2)} SOL
+                Open for {totalCost.toFixed(2)} USDC
               </>
             )}
           </Button>
