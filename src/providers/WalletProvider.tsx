@@ -250,13 +250,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [ensureSupabaseSession]);
 
   // Connect Monad wallet via Phantom (EVM address)
-  const connectMonad = useCallback(async () => {
+  const connectMonad = useCallback(async (silent = false) => {
     setState(prev => ({ ...prev, isConnecting: true, walletType: "phantom", chainType: "monad" }));
 
     try {
       const phantomEvm = (window as any).phantom?.ethereum;
       if (phantomEvm) {
-        const accounts: string[] = await phantomEvm.request({ method: 'eth_requestAccounts' });
+        let accounts: string[];
+        if (silent) {
+          accounts = await phantomEvm.request({ method: 'eth_accounts' });
+        } else {
+          accounts = await phantomEvm.request({ method: 'eth_requestAccounts' });
+        }
+
         const address = accounts[0];
         if (!address) throw new Error('No EVM address returned from Phantom');
 
@@ -414,12 +420,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (phantomEvm) {
             const accounts = await phantomEvm.request({ method: 'eth_accounts' });
             if (accounts?.[0]) {
-              await connectMonad();
+              await connectMonad(true);
               return;
             }
           }
-          await connectMonad();
-          return;
+          // If silent connect fails or no accounts, we must fail gracefully
+          throw new Error("No trusted EVM accounts");
         }
 
         // 2. XRPL Re-connection
