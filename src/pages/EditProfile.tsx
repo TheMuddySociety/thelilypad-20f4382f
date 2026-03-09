@@ -141,6 +141,7 @@ const EditProfile = () => {
         categories: categories,
         payout_wallet_address: payoutWalletAddress || null,
         playlist_ids: playlistIds,
+        is_private: isPrivate,
         // Preserve existing role flags or default to collector
         is_collector: profile?.is_collector ?? true,
         is_creator: profile?.is_creator ?? false,
