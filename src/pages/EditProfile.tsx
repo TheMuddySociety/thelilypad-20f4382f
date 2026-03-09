@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ImageCropModal } from "@/components/ImageCropModal";
+import { LinkedWalletsManager } from "@/components/profile/LinkedWalletsManager";
+import { PrivacyToggle } from "@/components/profile/PrivacyToggle";
 
 interface ScheduleItem {
   day: string;
@@ -69,6 +71,7 @@ const EditProfile = () => {
   const [categories, setCategories] = useState<string[]>([]);
   const [payoutWalletAddress, setPayoutWalletAddress] = useState("");
   const [playlistIds, setPlaylistIds] = useState<string[]>([]);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   useSEO({
     title: "Edit Profile | The Lily Pad",
@@ -112,6 +115,7 @@ const EditProfile = () => {
 
       // Set playlist IDs
       setPlaylistIds(Array.isArray((profile as any).playlist_ids) ? (profile as any).playlist_ids : []);
+      setIsPrivate((profile as any).is_private ?? false);
     }
     setLoading(profileLoading);
   }, [profile, profileLoading, isConnected, address, navigate]);
@@ -137,6 +141,7 @@ const EditProfile = () => {
         categories: categories,
         payout_wallet_address: payoutWalletAddress || null,
         playlist_ids: playlistIds,
+        is_private: isPrivate,
         // Preserve existing role flags or default to collector
         is_collector: profile?.is_collector ?? true,
         is_creator: profile?.is_creator ?? false,
@@ -723,6 +728,12 @@ const EditProfile = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Linked Wallets */}
+          <LinkedWalletsManager />
+
+          {/* Privacy */}
+          <PrivacyToggle isPrivate={isPrivate} onChange={setIsPrivate} />
 
           {/* Music Playlists - Only for Streamers */}
           {profile?.is_streamer && (address || profile?.user_id) && (

@@ -114,6 +114,7 @@ const XRPLEasyGenerator = lazy(() => import("./pages/XRPLEasyGenerator"));
 const XRPLNFTGenerator = lazy(() => import("./pages/XRPLNFTGenerator"));
 const CreatorApply = lazy(() => import("./pages/CreatorApply"));
 const InterviewRoom = lazy(() => import("./pages/InterviewRoom"));
+const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -186,6 +187,7 @@ const AppContent = () => {
           <Route path="/launchpad/xrpl-generator" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><XRPLNFTGenerator /></Suspense></ProtectedRoute>} />
           <Route path="/creator/apply" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreatorApply /></Suspense></ProtectedRoute>} />
           <Route path="/interview/:applicationId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InterviewRoom /></Suspense></ProtectedRoute>} />
+          <Route path="/u/:identifier" element={<Suspense fallback={<PageLoader />}><PublicProfile /></Suspense>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
