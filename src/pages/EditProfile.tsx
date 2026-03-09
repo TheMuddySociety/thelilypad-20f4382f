@@ -729,6 +729,12 @@ const EditProfile = () => {
             </CardContent>
           </Card>
 
+          {/* Linked Wallets */}
+          <LinkedWalletsManager />
+
+          {/* Privacy */}
+          <PrivacyToggle isPrivate={isPrivate} onChange={setIsPrivate} />
+
           {/* Music Playlists - Only for Streamers */}
           {profile?.is_streamer && (address || profile?.user_id) && (
             <StreamerPlaylistSelector
