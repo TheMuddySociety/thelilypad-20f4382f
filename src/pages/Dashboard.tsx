@@ -39,11 +39,9 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ShopItemsList } from "@/components/shop/ShopItemsList";
-import { ClaimFunds } from "@/components/ClaimFunds";
-import { WithdrawalHistory } from "@/components/WithdrawalHistory";
+import { StreamKeyManager } from "@/components/StreamKeyManager";
 import { CreateShopItemModal } from "@/components/shop/CreateShopItemModal";
 import { CreatorNotifications } from "@/components/CreatorNotifications";
-import { StreamKeyManager } from "@/components/StreamKeyManager";
 import {
   LineChart,
   Line,
@@ -371,6 +369,14 @@ export default function Dashboard() {
                 <div className="text-2xl sm:text-3xl font-bold">{formatCurrency(stats.totalEarnings)}</div>
               )}
               <p className="text-xs sm:text-sm text-muted-foreground">Total Earnings</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full mt-4 h-8 text-xs text-primary hover:text-primary hover:bg-primary/10"
+                onClick={() => navigate("/earnings")}
+              >
+                View Details <ArrowUpRight className="w-3 h-3 ml-1" />
+              </Button>
             </CardContent>
           </Card>
 
@@ -546,10 +552,10 @@ export default function Dashboard() {
                         <Badge
                           variant="secondary"
                           className={`text-xs ${collection.status === "draft"
-                              ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/30"
-                              : collection.status === "upcoming"
-                                ? "bg-blue-500/20 text-blue-500 border-blue-500/30"
-                                : "bg-green-500/20 text-green-500 border-green-500/30"
+                            ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/30"
+                            : collection.status === "upcoming"
+                              ? "bg-blue-500/20 text-blue-500 border-blue-500/30"
+                              : "bg-green-500/20 text-green-500 border-green-500/30"
                             }`}
                         >
                           {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
@@ -613,10 +619,20 @@ export default function Dashboard() {
         />
 
         {/* Stream Dashboard Widgets */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 sm:mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 sm:mb-8">
           <StreamKeyManager userId={user.id} />
-          <ClaimFunds />
-          <WithdrawalHistory />
+          <Card className="glass-card border-border/50 h-full flex flex-col justify-center items-center p-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+              <DollarSign className="w-8 h-8 text-primary" />
+            </div>
+            <CardTitle className="mb-2">Earnings & Payouts</CardTitle>
+            <CardDescription className="mb-6 max-w-sm">
+              Manage your channel revenue, view your total earnings, and withdraw funds directly to your wallet.
+            </CardDescription>
+            <Button onClick={() => navigate("/earnings")} className="w-full sm:w-auto" size="lg">
+              Manage Earnings
+            </Button>
+          </Card>
         </div>
 
         {/* Recent Activity */}

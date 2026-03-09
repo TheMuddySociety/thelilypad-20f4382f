@@ -118,6 +118,7 @@ const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const WaitRoom = lazy(() => import("./pages/WaitRoom"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const StreamerApply = lazy(() => import("./pages/StreamerApply"));
+const Earnings = lazy(() => import("./pages/Earnings"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -156,6 +157,7 @@ const AppContent = () => {
           <Route path="/streamers" element={<ProtectedRoute><Streamers /></ProtectedRoute>} />
           <Route path="/go-live" element={<ProtectedRoute><GoLive /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/earnings" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Earnings /></Suspense></ProtectedRoute>} />
           <Route path="/donor-profile" element={<ProtectedRoute><DonorProfile /></ProtectedRoute>} />
           <Route path="/streamer/:streamerId" element={<ProtectedRoute><StreamerProfile /></ProtectedRoute>} />
           <Route path="/streamer/:streamerId/collections" element={<ProtectedRoute><StreamerCollections /></ProtectedRoute>} />
