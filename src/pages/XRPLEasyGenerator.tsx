@@ -205,55 +205,48 @@ export default function XRPLEasyGenerator() {
             setUploadProgress(15);
             await new Promise((r) => setTimeout(r, 0)); // yield to UI
 
-            // 2. Upload entire batch to Supabase Storage
-            toast.loading(`Uploading ${files.length} items to Supabase…`, { id: 'easy-mint' });
+            // 2. Upload images + metadata JSON to Arweave — batch-optimised
+            toast.loading(`Securing ${files.length} items to Arweave…`, { id: 'easy-mint' });
 
-            const localItemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string; arweaveThumbUri: string; arweavePreviewUri: string }[] = [];
-
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+            const batchItems: BatchUploadItem[] = files.map((file, i) => {
                 const baseName = file.name.split('.').slice(0, -1).join('.');
                 const importedMetadata = metadataMap[baseName] || metadataMap[i.toString()] || metadataMap[(i + 1).toString()];
 
-                // Upload Image
-                const fileExt = file.name.split('.').pop() || 'png';
-                const imagePath = `${collectionId}/${i + 1}.${fileExt}`;
-                const { error: imageErr } = await supabase.storage.from('collection-images').upload(imagePath, file);
-                if (imageErr) throw new Error(`Failed to upload ${file.name}`);
-
-                const { data: { publicUrl: imageUrl } } = supabase.storage.from('collection-images').getPublicUrl(imagePath);
-
-                // Build Metadata
-                const metadata = {
-                    schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
-                    nftType: "art.v0",
-                    name: importedMetadata?.name || `${name} #${i + 1}`,
-                    description: importedMetadata?.description || description,
-                    image: imageUrl,
-                    attributes: importedMetadata?.attributes || importedMetadata?.traits || []
+                return {
+                    file,
+                    buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => ({
+                        schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
+                        nftType: "art.v0",
+                        name: importedMetadata?.name || `${name} #${i + 1}`,
+                        description: importedMetadata?.description || description,
+                        image: arweaveImageUri,
+                        ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
+                        ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
+                        attributes: importedMetadata?.attributes || importedMetadata?.traits || [],
+                        collection: { name: name, family: symbol },
+                    }),
                 };
+            });
 
-                // Upload Metadata
-                const metaPath = `${collectionId}/${i + 1}.json`;
-                const metaBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
-                const { error: metaErr } = await supabase.storage.from('collection-images').upload(metaPath, metaBlob);
-                if (metaErr) throw new Error(`Failed to upload metadata for ${file.name}`);
+            const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
+                batchItems,
+                { address, chainType: 'xrpl', network },
+                (completed, total, status) => {
+                    setUploadProgress(15 + Math.round((completed / total) * 45));
+                    toast.loading(status, { id: 'easy-mint' });
+                },
+                3, // concurrency
+                true, // enable thumbnails
+                [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }] // custom tags
+            );
 
-                const { data: { publicUrl: metaUrl } } = supabase.storage.from('collection-images').getPublicUrl(metaPath);
-
-                localItemLinks.push({
-                    tokenID: i.toString(),
-                    arweaveUri: metaUrl,
-                    arweaveImageUri: imageUrl,
-                    arweaveThumbUri: imageUrl,
-                    arweavePreviewUri: imageUrl,
-                });
-
-                setUploadProgress(15 + Math.round(((i + 1) / files.length) * 45));
-
-                // Yield
-                if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
-            }
+            const localItemLinks = uploadResults.map((r) => ({
+                tokenID: r.tokenId.toString(),
+                arweaveUri: r.arweaveUri,
+                arweaveImageUri: r.arweaveImageUri,
+                arweaveThumbUri: r.arweaveThumbUri,
+                arweavePreviewUri: r.arweavePreviewUri,
+            }));
 
             // 3. Collection Assets Uploaded
             setUploadProgress(60);

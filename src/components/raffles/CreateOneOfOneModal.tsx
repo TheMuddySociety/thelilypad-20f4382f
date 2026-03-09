@@ -13,6 +13,7 @@ import { useWallet } from "@/providers/WalletProvider";
 import { getErrorMessage } from "@/lib/errorUtils";
 import type { SupportedChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadBatchToArweave, BatchUploadItem } from "@/integrations/irys/client";
 
 interface CreateOneOfOneModalProps {
     open: boolean;
@@ -63,24 +64,34 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             const { data: { user } } = await supabase.auth.getUser();
             const userId = user?.id || address;
 
-            // Shared Logic: Upload Image to Supabase Storage
-            toast.loading("Uploading artwork...", { id: "upload" });
-            const fileExt = file.name.split(".").pop() || "png";
-            const fileName = `${address}-${Date.now()}.${fileExt}`;
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from("collection-images")
-                .upload(fileName, file);
+            // Shared Logic: Upload Image to Arweave (Irys)
+            toast.loading("Uploading artwork to Arweave...", { id: "upload" });
 
-            if (uploadError) {
-                toast.dismiss("upload");
-                throw uploadError;
-            }
+            const batchItems: BatchUploadItem[] = [
+                {
+                    file,
+                    buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => ({
+                        name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
+                        description,
+                        image: arweaveImageUri,
+                        ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
+                        ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {})
+                    })
+                }
+            ];
 
-            const { data: publicUrlData } = supabase.storage
-                .from("collection-images")
-                .getPublicUrl(fileName);
+            const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
+                batchItems,
+                { address, chainType: chain, network: "devnet" }, // defaults to devnet/testnet logic or passes thru
+                (completed, total, status) => {
+                    toast.loading(status, { id: "upload" });
+                },
+                1,
+                false
+            );
 
-            const imageUrl = publicUrlData.publicUrl;
+            const imageUrl = uploadResults[0]?.arweaveImageUri || manifestUri || "";
+            const metadataUrl = uploadResults[0]?.arweaveUri || "";
             toast.dismiss("upload");
 
             let txHash = `mock_tx_${Date.now()}`;
@@ -133,7 +144,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                             treeAddress,
                             result.address,
                             `${name} ${mode === "edition" ? '#' + (i + 1) : ''}`.trim(),
-                            imageUrl, // Same metadata URI
+                            metadataUrl, // Use the proper JSON metadata URI
                             0, // sellerFeeBasisPoints
                             creatorAddress
                         );
