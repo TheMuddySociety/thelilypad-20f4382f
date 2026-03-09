@@ -246,7 +246,7 @@ export default function Auth() {
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">
-                    Phantom supports Google, Apple, and passkeys sign-in options.
+                    It always takes leaps to go over problems.
                   </p>
                 </motion.div>
               )}
