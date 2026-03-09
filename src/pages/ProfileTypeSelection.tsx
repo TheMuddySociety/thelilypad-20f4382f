@@ -91,11 +91,12 @@ export default function ProfileTypeSelection() {
   const { state: authState } = useAuth();
   const referralCode = searchParams.get('ref');
 
+  // If user lands here already authenticated, send them away
   useEffect(() => {
-    if (authState === 'AUTHENTICATED') {
+    if (authState === 'AUTHENTICATED' && !pendingRedirect) {
       navigate('/waitroom', { replace: true });
     }
-  }, [authState, navigate]);
+  }, [authState, pendingRedirect, navigate]);
 
   useSEO({
     title: 'Welcome to The Lily Pad - Set Up Your Profile',
