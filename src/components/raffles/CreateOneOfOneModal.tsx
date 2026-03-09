@@ -12,6 +12,7 @@ import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import { useWallet } from "@/providers/WalletProvider";
 import { getErrorMessage } from "@/lib/errorUtils";
 import type { SupportedChain } from "@/config/chains";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CreateOneOfOneModalProps {
     open: boolean;
@@ -58,54 +59,125 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 return;
             }
 
+            // Shared Logic: Get User ID
+            const { data: { user } } = await supabase.auth.getUser();
+            const userId = user?.id || address;
+
+            // Shared Logic: Upload Image to Supabase Storage
+            toast.loading("Uploading artwork...", { id: "upload" });
+            const fileExt = file.name.split(".").pop() || "png";
+            const fileName = `${address}-${Date.now()}.${fileExt}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from("collection-images")
+                .upload(fileName, file);
+
+            if (uploadError) {
+                toast.dismiss("upload");
+                throw uploadError;
+            }
+
+            const { data: publicUrlData } = supabase.storage
+                .from("collection-images")
+                .getPublicUrl(fileName);
+
+            const imageUrl = publicUrlData.publicUrl;
+            toast.dismiss("upload");
+
+            let txHash = `mock_tx_${Date.now()}`;
+            const chainName = chain === 'xrpl' ? 'XRPL' : chain === 'monad' ? 'Monad' : 'Solana';
+
             if (chain !== 'solana') {
                 if (chainType !== chain) {
                     toast.error(`Please connect your ${chain.toUpperCase()} wallet.`);
                     setIsLoading(false);
                     return;
                 }
-                const chainName = chain === 'xrpl' ? 'XRPL' : 'Monad';
+
                 // Mock deployment for XRPL/Monad drafts
+                toast.loading(`Deploying on ${chainName}...`, { id: "deploy" });
                 await new Promise(r => setTimeout(r, 1500));
+                toast.dismiss("deploy");
+            } else {
+                if (chainType !== 'solana') {
+                    toast.error("Please connect your Solana wallet.");
+                    setIsLoading(false);
+                    return;
+                }
 
+                const provider = getSolanaProvider();
+                if (!provider) throw new Error("Solana Wallet not connected");
+
+                const creatorAddress = (provider as any)?.publicKey?.toString?.() || address;
+
+                toast.loading("Deploying Solana collection...", { id: "deploy" });
+                const result = await deploySolanaCollection({
+                    name,
+                    symbol,
+                    uri: imageUrl, // use the actual uploaded url for mock metadata
+                    sellerFeeBasisPoints: 0,
+                    creators: [{ address: creatorAddress, share: 100 }],
+                });
+                toast.dismiss("deploy");
+
+                if (result?.address) {
+                    txHash = result.address;
+                }
+            }
+
+            // Insert into the Database for All Chains so they show in "My NFTs"
+            toast.loading("Finalizing NFT...", { id: "finalize" });
+
+            const { data: collectionInsert, error: collectionError } = await supabase
+                .from("collections")
+                .insert({
+                    name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
+                    description: description,
+                    image_url: imageUrl,
+                    creator_id: userId,
+                    creator_address: address,
+                    contract_address: txHash
+                })
+                .select("id")
+                .single();
+
+            const collectionId = collectionError ? null : collectionInsert?.id;
+
+            const supplyCount = mode === "edition" ? parseInt(supply) || 1 : 1;
+            const nftRecords = [];
+
+            for (let i = 0; i < supplyCount; i++) {
+                nftRecords.push({
+                    name: `${name} #${i + 1}`,
+                    description: description,
+                    image_url: imageUrl,
+                    collection_id: collectionId,
+                    owner_address: address, // Ensure MyNFTs picks it up
+                    owner_id: userId,
+                    token_id: i + 1,
+                    tx_hash: `${txHash}_${i}`,
+                    attributes: [{ trait_type: "Type", value: mode === "edition" ? "Edition" : "1/1" }, { trait_type: "Chain", value: chainName }],
+                    is_revealed: true
+                });
+            }
+
+            const { error: insertError } = await supabase.from("minted_nfts").insert(nftRecords);
+
+            toast.dismiss("finalize");
+
+            if (insertError) {
+                console.error("NFT Database Insert error:", insertError);
+                toast.error("Failed to save NFT to database, but it may have deployed.");
+            } else {
                 toast.success(mode === "one-of-one" ? `1/1 Created on ${chainName}!` : `Edition Created on ${chainName}!`);
-                onSuccess?.();
-                onOpenChange(false);
-                return;
-            }
-
-            if (chainType !== 'solana') {
-                toast.error("Please connect your Solana wallet.");
-                setIsLoading(false);
-                return;
-            }
-
-            const provider = getSolanaProvider();
-            if (!provider) throw new Error("Solana Wallet not connected");
-
-            const creatorAddress = (provider as any)?.publicKey?.toString?.() || address;
-            const placeholderUri = "https://arweave.net/placeholder";
-
-            // 1. Upload Metadata (Simulated for this draft - usually goes to IPFS/Arweave)
-            // In a real app, we'd upload file & json here.
-
-            // 2. Deploy Collection
-            const result = await deploySolanaCollection({
-                name,
-                symbol,
-                uri: placeholderUri,
-                sellerFeeBasisPoints: 0,
-                creators: [{ address: creatorAddress, share: 100 }],
-            });
-
-            if (result) {
-                toast.success(mode === "one-of-one" ? "1/1 Created Successfully!" : "Edition Created!");
                 onSuccess?.();
                 onOpenChange(false);
             }
 
         } catch (error) {
             console.error(error);
+            toast.dismiss("upload");
+            toast.dismiss("deploy");
+            toast.dismiss("finalize");
             toast.error(getErrorMessage(error));
         } finally {
             setIsLoading(false);
