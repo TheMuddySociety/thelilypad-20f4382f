@@ -19,7 +19,7 @@ export const PresentationCard: React.FC = () => {
   return (
     <section
       ref={containerRef}
-      className="relative py-24 sm:py-32 md:py-40 overflow-hidden"
+      className="relative py-16 sm:py-20 md:py-24 overflow-hidden"
     >
       {/* Background subtle gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/20 to-background" />

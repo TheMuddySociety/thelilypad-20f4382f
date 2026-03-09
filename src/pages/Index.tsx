@@ -1,14 +1,11 @@
 import React from "react";
 import { Navbar } from "@/components/Navbar";
 import { HeroSection } from "@/components/sections/HeroSection";
-import { PresentationCard } from "@/components/sections/PresentationCard";
 import { FeaturedCollectionsSection } from "@/components/sections/FeaturedCollectionsSection";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
-import { ValuePropsSection } from "@/components/sections/ValuePropsSection";
 import { FeaturesSection } from "@/components/sections/FeaturesSection";
 import { MarketplacePreview } from "@/components/sections/MarketplacePreview";
 import { HowItWorks } from "@/components/sections/HowItWorks";
-import { CommunityBenefits } from "@/components/sections/CommunityBenefits";
 import { FeaturedCardStack } from "@/components/sections/FeaturedCardStack";
 import { TestimonialsSection } from "@/components/sections/TestimonialsSection";
 import { Footer } from "@/components/sections/Footer";
@@ -43,14 +40,11 @@ const Index: React.FC = () => {
       <Navbar />
       <HeroSection />
       <FeaturedCardStack />
-      <PresentationCard />
       <FeaturedCollectionsSection />
       <TopCollectionsHighlights />
-      <ValuePropsSection />
       <FeaturesSection />
       <MarketplacePreview />
       <HowItWorks />
-      <CommunityBenefits />
       <TestimonialsSection />
       <Footer />
     </main>

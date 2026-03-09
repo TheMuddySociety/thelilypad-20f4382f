@@ -28,7 +28,7 @@ import { useNavigate } from "react-router-dom";
 export const HowItWorks: React.FC = () => {
   const navigate = useNavigate();
   return (
-    <section className="py-24 relative">
+    <section className="py-16 relative">
       <div className="container mx-auto px-6">
         {/* Section header */}
         <div className="text-center mb-16">

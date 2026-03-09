@@ -112,7 +112,7 @@ export const TopCollectionsHighlights: React.FC = () => {
   };
 
   return (
-    <section className="relative py-16 sm:py-24 overflow-hidden">
+    <section className="relative py-16 sm:py-16 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-muted/30 via-background to-muted/20" />
 
       <div className="relative z-10 container mx-auto px-4 sm:px-6">

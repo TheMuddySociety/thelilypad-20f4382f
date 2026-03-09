@@ -56,7 +56,7 @@ export const TestimonialsSection = () => {
     }));
 
     return (
-        <section className="relative py-16 sm:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <section className="relative py-16 sm:py-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-b from-background via-primary/5 to-background pointer-events-none" />
 
             <div className="relative max-w-7xl mx-auto">

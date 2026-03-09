@@ -6,7 +6,7 @@ import { HomepageFeaturedCollections } from "./HomepageFeaturedCollections";
 
 export const FeaturedCollectionsSection: React.FC = () => {
   return (
-    <section className="relative py-16 sm:py-24 overflow-hidden">
+    <section className="relative py-16 sm:py-16 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/10 to-background" />
 

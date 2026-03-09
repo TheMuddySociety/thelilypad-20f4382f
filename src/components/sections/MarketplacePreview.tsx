@@ -75,7 +75,7 @@ export const MarketplacePreview: React.FC = () => {
   };
 
   return (
-    <section className="py-24 relative">
+    <section className="py-16 relative">
       {/* Background accent */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-secondary/5 to-transparent" />
 
