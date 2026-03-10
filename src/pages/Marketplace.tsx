@@ -141,11 +141,11 @@ export default function Marketplace() {
               key={tab.id}
               onClick={() => setSelectedChain(tab.id)}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${selectedChain === tab.id
-                  ? tab.id === 'solana' ? 'bg-green-500/15 text-green-400 border border-green-500/30'
-                    : tab.id === 'xrpl' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
-                      : tab.id === 'monad' ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
-                        : 'bg-primary/15 text-primary border border-primary/30'
-                  : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent'
+                ? tab.id === 'solana' ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                  : tab.id === 'xrpl' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                    : tab.id === 'monad' ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                      : 'bg-primary/15 text-primary border border-primary/30'
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent'
                 }`}
             >
               <span>{tab.icon}</span>
@@ -173,7 +173,7 @@ export default function Marketplace() {
             <TopCollectionsHighlights />
           </div>
           <div>
-            <BuybackStats />
+            <BuybackStats chain={selectedChain !== 'all' ? selectedChain as any : 'solana'} />
           </div>
         </div>
 

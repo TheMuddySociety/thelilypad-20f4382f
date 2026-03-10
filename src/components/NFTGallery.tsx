@@ -38,6 +38,9 @@ interface NFTGalleryProps {
   contractAddress?: string | null;
   limit?: number;
   showFilters?: boolean;
+  explorerUrl?: string;
+  chain?: string;
+  isTestnet?: boolean;
 }
 
 export function NFTGallery({
@@ -47,7 +50,10 @@ export function NFTGallery({
   unrevealedImage,
   contractAddress,
   limit = 100,
-  showFilters = true
+  showFilters = true,
+  explorerUrl: propExplorerUrl,
+  chain = 'solana',
+  isTestnet = false
 }: NFTGalleryProps) {
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -216,13 +222,30 @@ export function NFTGallery({
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const explorerUrl = (hash: string) => {
-    return `https://explorer.solana.com/tx/${hash}`;
+  const getExplorerUrl = (hash: string) => {
+    if (propExplorerUrl) return `${propExplorerUrl}/tx/${hash}`;
+
+    // Fallback if not provided
+    if (chain === 'xrpl') {
+      return `https://${isTestnet ? 'testnet.' : ''}xrpl.org/transactions/${hash}`;
+    }
+    if (chain === 'monad') {
+      return `https://monad-explorer.io/tx/${hash}`;
+    }
+    return `https://explorer.solana.com/tx/${hash}${isTestnet ? '?cluster=devnet' : ''}`;
   };
 
   const tokenExplorerUrl = (tokenId: number | string) => {
     if (!contractAddress) return null;
-    return `https://explorer.solana.com/address/${contractAddress}`;
+    if (propExplorerUrl) return `${propExplorerUrl}/address/${contractAddress}`;
+
+    if (chain === 'xrpl') {
+      return `https://${isTestnet ? 'testnet.' : ''}xrpl.org/accounts/${contractAddress}`;
+    }
+    if (chain === 'monad') {
+      return `https://monad-explorer.io/address/${contractAddress}`;
+    }
+    return `https://explorer.solana.com/address/${contractAddress}${isTestnet ? '?cluster=devnet' : ''}`;
   };
 
   const getRarityBadge = (score: number) => {
@@ -655,7 +678,7 @@ export function NFTGallery({
                       variant="outline"
                       size="sm"
                       className="flex-1"
-                      onClick={() => window.open(explorerUrl(selectedNft.tx_hash), "_blank")}
+                      onClick={() => window.open(getExplorerUrl(selectedNft.tx_hash), "_blank")}
                     >
                       <ExternalLink className="w-4 h-4 mr-2" />
                       View TX
@@ -677,26 +700,28 @@ export function NFTGallery({
             </>
           )}
         </DialogContent>
-      </Dialog>
+      </Dialog >
 
       {/* Make Offer Modal */}
-      {selectedNft && (
-        <MakeOfferModal
-          open={showOfferModal}
-          onOpenChange={setShowOfferModal}
-          nft={{
-            id: selectedNft.id,
-            name: selectedNft.name,
-            image_url: selectedNft.image_url,
-            owner_id: selectedNft.owner_id,
-            owner_address: selectedNft.owner_address,
-            token_id: selectedNft.token_id,
-          }}
-          onOfferMade={() => {
-            // Refresh offers list
-          }}
-        />
-      )}
+      {
+        selectedNft && (
+          <MakeOfferModal
+            open={showOfferModal}
+            onOpenChange={setShowOfferModal}
+            nft={{
+              id: selectedNft.id,
+              name: selectedNft.name,
+              image_url: selectedNft.image_url,
+              owner_id: selectedNft.owner_id,
+              owner_address: selectedNft.owner_address,
+              token_id: selectedNft.token_id,
+            }}
+            onOfferMade={() => {
+              // Refresh offers list
+            }}
+          />
+        )
+      }
     </>
   );
 }

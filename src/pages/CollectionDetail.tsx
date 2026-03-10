@@ -200,9 +200,10 @@ export default function CollectionDetail() {
               collectionId={collection.id}
               totalSupply={collection.total_supply}
               minted={collection.minted}
+              currency={currency}
             />
 
-            <BuybackProgramInfo collectionId={collection.id} />
+            <BuybackProgramInfo collectionId={collection.id} currency={currency} />
 
             <CollectionAboutCard
               collection={collection as any}
@@ -223,6 +224,9 @@ export default function CollectionDetail() {
               collectionImage={collection.image_url}
               unrevealedImage={collection.unrevealed_image_url}
               contractAddress={collection.contract_address}
+              explorerUrl={collectionExplorerUrl}
+              chain={collectionChain}
+              isTestnet={isCollectionTestnet}
             />
 
             <RevealHistory collectionId={collection.id} collectionName={collection.name} />

@@ -153,7 +153,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setState(prev => ({ ...prev, isConnecting: true, walletType: "solana", chainType: "solana" }));
 
     try {
-      const response = await provider.connect();
+      // Add a 10s timeout to provider.connect()
+      const connectionPromise = provider.connect();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Phantom connection timed out")), 10000)
+      );
+
+      const response = await Promise.race([connectionPromise, timeoutPromise]) as any;
       const address = response.publicKey.toString();
       const balance = await fetchSolanaBalance(address);
 

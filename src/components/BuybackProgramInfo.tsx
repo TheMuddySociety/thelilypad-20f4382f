@@ -7,17 +7,18 @@ import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 
 interface BuybackProgramInfoProps {
   collectionId: string;
+  currency?: string;
 }
 
-export function BuybackProgramInfo({ collectionId }: BuybackProgramInfoProps) {
+export function BuybackProgramInfo({ collectionId, currency = "SOL" }: BuybackProgramInfoProps) {
   const { isInProgram, isLoading } = useBuybackProgram();
-  
+
   const inProgram = isInProgram(collectionId);
-  
+
   if (isLoading) {
     return null;
   }
-  
+
   if (!inProgram) {
     return null;
   }
@@ -38,10 +39,10 @@ export function BuybackProgramInfo({ collectionId }: BuybackProgramInfoProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          This collection is part of <strong className="text-foreground">The Lily Pad Buyback Program</strong>. 
+          This collection is part of <strong className="text-foreground">The Lily Pad Buyback Program</strong>.
           When you trade NFTs from this collection, you contribute to the buyback pool and may earn rewards!
         </p>
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border/50">
             <div className="p-2 rounded-full bg-primary/10">
@@ -50,11 +51,11 @@ export function BuybackProgramInfo({ collectionId }: BuybackProgramInfoProps) {
             <div>
               <p className="font-medium text-sm">Volume Rewards</p>
               <p className="text-xs text-muted-foreground">
-                Top volume movers receive SOL rewards
+                Top volume movers receive {currency} rewards
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border/50">
             <div className="p-2 rounded-full bg-green-500/10">
               <Trophy className="w-4 h-4 text-green-500" />
@@ -66,7 +67,7 @@ export function BuybackProgramInfo({ collectionId }: BuybackProgramInfoProps) {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border/50">
             <div className="p-2 rounded-full bg-amber-500/10">
               <Gift className="w-4 h-4 text-amber-500" />
@@ -79,7 +80,7 @@ export function BuybackProgramInfo({ collectionId }: BuybackProgramInfoProps) {
             </div>
           </div>
         </div>
-        
+
         <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
           <Link to="/buyback-program">
             Learn More About the Program

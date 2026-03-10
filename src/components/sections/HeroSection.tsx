@@ -12,9 +12,9 @@ const formatNumber = (num: number): string => {
 };
 
 const formatVolume = (num: number): string => {
-  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M SOL`;
-  if (num >= 1000) return `${(num / 1000).toFixed(2)}K SOL`;
-  return `${num.toFixed(2)} SOL`;
+  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(2)}K`;
+  return `${num.toFixed(2)}`;
 };
 
 import { useNavigate } from "react-router-dom";
@@ -27,7 +27,7 @@ export const HeroSection: React.FC = () => {
     { label: "Total Collections", value: formatNumber(stats.totalCollections) },
     { label: "Live Now", value: formatNumber(stats.liveNow) },
     { label: "NFTs Minted", value: formatNumber(stats.nftsMinted) },
-    { label: "Total Volume", value: formatVolume(stats.totalVolume) },
+    { label: "Volume (SOL Equiv)", value: formatVolume(stats.totalVolume) },
   ];
 
   return (
@@ -78,7 +78,7 @@ export const HeroSection: React.FC = () => {
           className="text-base sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-8 sm:mb-10 opacity-0 animate-fade-in flex flex-wrap items-center justify-center gap-2 px-2"
           style={{ animationDelay: "0.6s" }}
         >
-          <span>The all-in-one NFT launch pad and marketplace built on Solana.</span>
+          <span>The premier multi-chain NFT ecosystem for Solana, XRPL, and Monad.</span>
         </p>
 
         {/* CTA Buttons */}

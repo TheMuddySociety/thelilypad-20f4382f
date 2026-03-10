@@ -20,6 +20,7 @@ interface CollectionAnalyticsProps {
   collectionId: string;
   totalSupply: number;
   minted: number;
+  currency?: string;
 }
 
 interface SalesData {
@@ -40,7 +41,7 @@ interface ListingStats {
   floorChange24h: number;
 }
 
-export function CollectionAnalytics({ collectionId, totalSupply, minted }: CollectionAnalyticsProps) {
+export function CollectionAnalytics({ collectionId, totalSupply, minted, currency = "SOL" }: CollectionAnalyticsProps) {
   const [stats, setStats] = useState<ListingStats | null>(null);
   const [chartData, setChartData] = useState<SalesData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -172,12 +173,12 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 divide-x divide-border">
           <StatItem
             label="Floor Price"
-            value={`${formatNumber(stats?.floorPrice || 0)} SOL`}
+            value={`${formatNumber(stats?.floorPrice || 0)} ${currency}`}
             change={stats?.floorChange24h}
           />
           <StatItem
             label="24h Vol"
-            value={`${formatNumber(stats?.volume24h || 0)} SOL`}
+            value={`${formatNumber(stats?.volume24h || 0)} ${currency}`}
           />
           <StatItem
             label="24h Sales"
@@ -185,11 +186,11 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
           />
           <StatItem
             label="All Vol"
-            value={`${formatNumber(stats?.totalVolume || 0)} SOL`}
+            value={`${formatNumber(stats?.totalVolume || 0)} ${currency}`}
           />
           <StatItem
             label="Avg Price"
-            value={`${formatNumber(stats?.avgPrice || 0)} SOL`}
+            value={`${formatNumber(stats?.avgPrice || 0)} ${currency}`}
           />
           <StatItem
             label="Listed / Supply"
@@ -274,7 +275,7 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
                     stroke="hsl(var(--primary))"
                     fillOpacity={1}
                     fill="url(#volumeGradient)"
-                    name="Volume (SOL)"
+                    name={`Volume (${currency})`}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -318,7 +319,7 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
                   <MetricCard
                     icon={<DollarSign className="w-4 h-4" />}
                     label="Avg Price"
-                    value={`${formatNumber(stats?.avgPrice || 0)} SOL`}
+                    value={`${formatNumber(stats?.avgPrice || 0)} ${currency}`}
                   />
                   <MetricCard
                     icon={<Layers className="w-4 h-4" />}
@@ -341,7 +342,7 @@ export function CollectionAnalytics({ collectionId, totalSupply, minted }: Colle
           </TabsContent>
 
           <TabsContent value="activity" className="p-4 mt-0">
-            <RecentActivity collectionId={collectionId} />
+            <RecentActivity collectionId={collectionId} currency={currency} />
           </TabsContent>
         </Tabs>
       </CardContent>
@@ -394,7 +395,7 @@ function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: stri
   );
 }
 
-function RecentActivity({ collectionId }: { collectionId: string }) {
+function RecentActivity({ collectionId, currency = "SOL" }: { collectionId: string; currency?: string }) {
   const [activities, setActivities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -459,7 +460,7 @@ function RecentActivity({ collectionId }: { collectionId: string }) {
             </p>
           </div>
           <div className="text-right">
-            <p className="font-semibold text-sm">{Number(activity.price).toFixed(2)} SOL</p>
+            <p className="font-semibold text-sm">{Number(activity.price).toFixed(2)} {currency}</p>
             <p className="text-xs text-muted-foreground">
               {new Date(activity.created_at).toLocaleDateString()}
             </p>
