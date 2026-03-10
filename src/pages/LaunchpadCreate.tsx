@@ -23,6 +23,7 @@ import {
     Hash,
     Palette,
     ArrowLeft,
+    ExternalLink,
     Download,
     Loader2
 } from "lucide-react";
@@ -65,6 +66,7 @@ import { LaunchpadTools } from "@/components/launchpad/LaunchpadTools";
 import { XRPLConfigurator } from "@/components/launchpad/chains/XRPLConfigurator";
 import { Switch } from "@/components/ui/switch";
 import { Check, Info } from "lucide-react";
+import { addToDecentralizedIndex, IndexedCollection } from "@/integrations/arweave/indexClient";
 
 // Default Phases
 const defaultPhases: LaunchpadPhase[] = [
@@ -433,6 +435,35 @@ export default function LaunchpadCreate() {
                     image_url: itemLinks[0]?.arweaveImageUri || '',
                     is_dynamic: isDynamic || false,
                 }).eq('id', collectionId);
+            }
+
+            // ── Step 6: Decentralized Indexing (Always) ─────────────────────
+            try {
+                const indexedData: IndexedCollection = {
+                    id: collectionId || `offline-${Date.now()}`,
+                    name,
+                    symbol,
+                    description,
+                    chain: selectedChain,
+                    contract_address: deployedAddress,
+                    image_url: itemLinks[0]?.arweaveImageUri || '',
+                    manifest_uri: primaryArweaveUri,
+                    created_at: new Date().toISOString(),
+                    creator_address: address || '',
+                    is_dynamic: isDynamic || false
+                };
+
+                const indexRoot = import.meta.env.VITE_INDEX_ROOT_TX;
+                const newIndexUri = await addToDecentralizedIndex(
+                    indexedData,
+                    { address, chainType: selectedChain, network },
+                    indexRoot
+                );
+
+                console.log("[Decentralized] Index updated. If you are using a new index, save this root:",
+                    newIndexUri.split('/').pop());
+            } catch (indexErr) {
+                console.warn("Decentralized indexing failed (optional):", indexErr);
             }
 
             toast.success(

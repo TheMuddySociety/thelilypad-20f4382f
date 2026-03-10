@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/providers/WalletProvider';
 import { supabase } from '@/integrations/supabase/client';
+import { getDecentralizedProfile, saveDecentralizedProfile } from '@/integrations/arweave/profileClient';
+import { useChain } from '@/providers/ChainProvider';
 
 export interface UserProfile {
     id: string;
@@ -30,7 +32,8 @@ export interface UserProfile {
 }
 
 export const useUserProfile = () => {
-    const { address, isConnected } = useWallet();
+    const { address, isConnected, network } = useWallet();
+    const { chain } = useChain();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(false); // FIX #2: Initialize to false
     const [error, setError] = useState<string | null>(null);
@@ -57,19 +60,27 @@ export const useUserProfile = () => {
 
         const fetchProfile = async () => {
             try {
-                const { data, error: fetchError } = await supabase
-                    .from('user_profiles')
-                    .select('*')
-                    .eq('wallet_address', address)
-                    .maybeSingle();
+                // 1. Fetch from Arweave (Primary for Decentralized Mode)
+                const arweaveProfile = await getDecentralizedProfile(address);
+
+                // 2. Fetch from Supabase (Secondary)
+                let supabaseProfile: UserProfile | null = null;
+                try {
+                    const { data, error: fetchError } = await supabase
+                        .from('user_profiles')
+                        .select('*')
+                        .eq('wallet_address', address)
+                        .maybeSingle();
+                    if (!fetchError && data) supabaseProfile = data as UserProfile;
+                } catch (e) {
+                    console.warn("Supabase profile fetch failed", e);
+                }
 
                 if (!isMounted) return;
 
-                if (fetchError) {
-                    throw fetchError;
-                }
-
-                setProfile(data as UserProfile | null);
+                // Merge: Arweave data wins for shared fields
+                const merged = arweaveProfile || supabaseProfile;
+                setProfile(merged);
             } catch (err: unknown) {
                 if (!isMounted) return;
                 console.error('Error fetching user profile:', err);
@@ -109,6 +120,16 @@ export const useUserProfile = () => {
         };
     }, [address, isConnected]);
 
+    // Decentralized Persistence Wrapper
+    const persistToArweave = async (updates: Partial<UserProfile>) => {
+        if (!address) return;
+        try {
+            await saveDecentralizedProfile(updates, { address, network });
+        } catch (e) {
+            console.warn("Decentralized profile persistence failed:", e);
+        }
+    };
+
     const createProfile = async (roleSelection: {
         isCollector: boolean;
         isCreator: boolean;
@@ -118,27 +139,41 @@ export const useUserProfile = () => {
             throw new Error('Wallet not connected');
         }
 
-        // Get the current auth user to link profile
-        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const updates = {
+            wallet_address: address,
+            is_collector: roleSelection.isCollector,
+            is_creator: roleSelection.isCreator,
+            is_streamer: roleSelection.isStreamer,
+            profile_setup_completed: true,
+            ...(displayName?.trim() ? { display_name: displayName.trim() } : {}),
+        };
 
-        const { data, error: insertError } = await supabase
-            .from('user_profiles')
-            .upsert({
-                wallet_address: address,
-                user_id: authUser?.id || null,
-                is_collector: roleSelection.isCollector,
-                is_creator: roleSelection.isCreator,
-                is_streamer: roleSelection.isStreamer,
-                profile_setup_completed: true,
-                ...(displayName?.trim() ? { display_name: displayName.trim() } : {}),
-            }, { onConflict: 'wallet_address' })
-            .select()
-            .single();
+        // Persist to Arweave (Always)
+        await persistToArweave(updates);
 
-        if (insertError) throw insertError;
+        // Link to Supabase (if available)
+        try {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            const { data, error: insertError } = await supabase
+                .from('user_profiles')
+                .upsert({
+                    ...updates,
+                    user_id: authUser?.id || null,
+                }, { onConflict: 'wallet_address' })
+                .select()
+                .single();
 
-        setProfile(data as UserProfile);
-        return data as UserProfile;
+            if (!insertError) {
+                setProfile(data as UserProfile);
+                return data as UserProfile;
+            }
+        } catch (e) {
+            console.warn("Supabase creation failed, falling back to local state");
+        }
+
+        const fallback = { ...profile, ...updates } as UserProfile;
+        setProfile(fallback);
+        return fallback;
     };
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
@@ -146,48 +181,64 @@ export const useUserProfile = () => {
             throw new Error('Wallet not connected');
         }
 
-        const { data, error: updateError } = await supabase
-            .from('user_profiles')
-            .update(updates as Record<string, unknown>)
-            .eq('wallet_address', address)
-            .select()
-            .single();
+        // Persist to Arweave
+        await persistToArweave({ ...profile, ...updates });
 
-        if (updateError) throw updateError;
+        try {
+            const { data, error: updateError } = await supabase
+                .from('user_profiles')
+                .update(updates as Record<string, unknown>)
+                .eq('wallet_address', address)
+                .select()
+                .single();
 
-        setProfile(data as UserProfile);
-        return data as UserProfile;
+            if (!updateError) {
+                setProfile(data as UserProfile);
+                return data as UserProfile;
+            }
+        } catch (e) {
+            console.warn("Supabase update failed");
+        }
+
+        const fallback = { ...profile, ...updates } as UserProfile;
+        setProfile(fallback);
+        return fallback;
     };
 
-    // Upsert profile - creates if doesn't exist, updates if exists
     const saveProfile = async (updates: Partial<UserProfile>) => {
         if (!address) {
             throw new Error('Wallet not connected');
         }
 
-        // Get the current auth user to link profile
-        const { data: { user: authUser } } = await supabase.auth.getUser();
+        // Persist to Arweave
+        await persistToArweave({ ...profile, ...updates });
 
-        const upsertData = {
-            wallet_address: address,
-            user_id: authUser?.id || null, // Include user_id for RLS compliance
-            ...updates,
-            profile_setup_completed: true,
-        };
+        try {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            const upsertData = {
+                wallet_address: address,
+                user_id: authUser?.id || null,
+                ...updates,
+                profile_setup_completed: true,
+            };
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error: upsertError } = await (supabase
-            .from('user_profiles') as any)
-            .upsert(upsertData, {
-                onConflict: 'wallet_address'
-            })
-            .select()
-            .single();
+            const { data, error: upsertError } = await (supabase
+                .from('user_profiles') as any)
+                .upsert(upsertData, { onConflict: 'wallet_address' })
+                .select()
+                .single();
 
-        if (upsertError) throw upsertError;
+            if (!upsertError) {
+                setProfile(data as UserProfile);
+                return data as UserProfile;
+            }
+        } catch (e) {
+            console.warn("Supabase save failed");
+        }
 
-        setProfile(data as UserProfile);
-        return data as UserProfile;
+        const fallback = { ...profile, ...updates } as UserProfile;
+        setProfile(fallback);
+        return fallback;
     };
 
     return {

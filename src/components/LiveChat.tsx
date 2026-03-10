@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useDecentralizedChat } from '@/hooks/useDecentralizedChat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, MessageCircle, Users, Loader2 } from 'lucide-react';
+import { Send, MessageCircle, Users, Loader2, ShieldCheck, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { StickerEmojiPicker } from '@/components/chat/StickerEmojiPicker';
@@ -35,104 +35,30 @@ interface LiveChatProps {
 }
 
 export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { messages, loading: isLoading, sendMessage, address: walletAddress } = useDecentralizedChat(playbackId);
   const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [user, setUser] = useState<any>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Check auth state
+  // Still track presence for viewer count via Supabase
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Fetch initial messages
-  useEffect(() => {
-    const fetchMessages = async () => {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('stream_chat_messages')
-        .select('*')
-        .eq('playback_id', playbackId)
-        .order('created_at', { ascending: true })
-        .limit(100);
-
-      if (error) {
-        console.error('Error fetching messages:', error);
-      } else {
-        setMessages((data as ChatMessage[]) || []);
-      }
-      setIsLoading(false);
-    };
-
-    fetchMessages();
-  }, [playbackId]);
-
-  // Subscribe to new messages
-  useEffect(() => {
-    const channel = supabase
-      .channel(`chat-${playbackId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'stream_chat_messages',
-          filter: `playback_id=eq.${playbackId}`
-        },
-        (payload) => {
-          const newMsg = payload.new as ChatMessage;
-          setMessages(prev => [...prev, newMsg]);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'stream_chat_messages',
-          filter: `playback_id=eq.${playbackId}`
-        },
-        (payload) => {
-          const deletedId = payload.old.id;
-          setMessages(prev => prev.filter(m => m.id !== deletedId));
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [playbackId]);
-
-  // Track presence for viewer count
-  useEffect(() => {
-    const presenceChannel = supabase.channel(`presence-${playbackId}`, {
+    const presenceChannel = (window as any).supabase?.channel(`presence-${playbackId}`, {
       config: {
         presence: {
-          key: user?.id || `anon-${Math.random().toString(36).slice(2)}`
+          key: walletAddress || `anon-${Math.random().toString(36).slice(2)}`
         }
       }
     });
+
+    if (!presenceChannel) return;
 
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
         setViewerCount(Object.keys(state).length);
       })
-      .subscribe(async (status) => {
+      .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
           await presenceChannel.track({
             online_at: new Date().toISOString()
@@ -141,9 +67,9 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
       });
 
     return () => {
-      supabase.removeChannel(presenceChannel);
+      (window as any).supabase?.removeChannel(presenceChannel);
     };
-  }, [playbackId, user?.id]);
+  }, [playbackId, walletAddress]);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -154,73 +80,37 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!newMessage.trim()) return;
-    
-    if (!user) {
-      toast.error('Please sign in to chat');
-      return;
-    }
+    if (!newMessage.trim() || isSending) return;
 
-    if (newMessage.length > 500) {
-      toast.error('Message too long (max 500 characters)');
+    if (!walletAddress) {
+      toast.error('Please connect wallet to chat');
       return;
     }
 
     setIsSending(true);
-    
-    const { error } = await supabase
-      .from('stream_chat_messages')
-      .insert({
-        playback_id: playbackId,
-        user_id: user.id,
-        username: user.email?.split('@')[0] || 'Anonymous',
-        message: newMessage.trim(),
-        message_type: 'text'
-      });
-
-    if (error) {
-      console.error('Error sending message:', error);
-      toast.error('Failed to send message');
-    } else {
-      setNewMessage('');
-    }
-    
+    await sendMessage(newMessage.trim(), 'text');
+    setNewMessage('');
     setIsSending(false);
   };
 
   const handleSendSticker = async (sticker: SelectedSticker) => {
-    if (!user) {
-      toast.error('Please sign in to chat');
+    if (!walletAddress) {
+      toast.error('Please connect wallet to chat');
       return;
     }
 
     setIsSending(true);
-
-    const { error } = await supabase
-      .from('stream_chat_messages')
-      .insert({
-        playback_id: playbackId,
-        user_id: user.id,
-        username: user.email?.split('@')[0] || 'Anonymous',
-        message: '',
-        message_type: 'sticker',
-        sticker_url: sticker.url,
-        sticker_name: sticker.name,
-        sticker_item_id: sticker.itemId
-      });
-
-    if (error) {
-      console.error('Error sending sticker:', error);
-      toast.error('Failed to send sticker');
-    }
-
+    await sendMessage('', 'sticker', {
+      sticker_url: sticker.url,
+      sticker_name: sticker.name,
+      sticker_item_id: sticker.itemId
+    });
     setIsSending(false);
   };
 
   const getAvatarColor = (username: string) => {
     const colors = [
-      'bg-red-500', 'bg-blue-500', 'bg-green-500', 
+      'bg-red-500', 'bg-blue-500', 'bg-green-500',
       'bg-yellow-500', 'bg-purple-500', 'bg-pink-500',
       'bg-indigo-500', 'bg-teal-500', 'bg-orange-500'
     ];
@@ -228,21 +118,21 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
     return colors[index];
   };
 
-  const renderMessageContent = (msg: ChatMessage) => {
+  const renderMessageContent = (msg: any) => {
     if (msg.message_type === 'sticker' || msg.message_type === 'emoji') {
       return (
-        <img 
-          src={msg.sticker_url || ''} 
-          alt={msg.sticker_name || 'Sticker'} 
+        <img
+          src={msg.sticker_url || ''}
+          alt={msg.sticker_name || 'Sticker'}
           className="max-w-24 max-h-24 rounded object-contain"
           title={msg.sticker_name || undefined}
         />
       );
     }
-    
+
     return (
       <p className="text-sm text-foreground/90 break-words">
-        {msg.message}
+        {msg.content}
       </p>
     );
   };
@@ -261,7 +151,7 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
@@ -277,19 +167,30 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
               ) : (
                 messages.map((msg) => (
                   <div key={msg.id} className="flex gap-2 group">
-                    <Avatar className={`h-6 w-6 flex-shrink-0 ${getAvatarColor(msg.username)}`}>
+                    <Avatar className={`h-6 w-6 flex-shrink-0 ${getAvatarColor(msg.sender_name)}`}>
                       <AvatarFallback className="text-xs text-white">
-                        {msg.username.charAt(0).toUpperCase()}
+                        {msg.sender_name.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2">
                         <span className="font-medium text-sm truncate">
-                          {msg.username}
+                          {msg.sender_name}
                         </span>
-                        <span className="text-xs text-muted-foreground flex-shrink-0">
-                          {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          {msg.is_decentralized ? (
+                            <span title="Permanently Stored on Arweave">
+                              <ShieldCheck className="h-3 w-3 text-primary opacity-60" />
+                            </span>
+                          ) : (
+                            <span title="Synced via Edge">
+                              <Globe className="h-3 w-3 text-muted-foreground opacity-40" />
+                            </span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                            {formatDistanceToNow(new Date(msg.timestamp), { addSuffix: true })}
+                          </span>
+                        </div>
                       </div>
                       {renderMessageContent(msg)}
                     </div>
@@ -299,16 +200,16 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
             </div>
           </ScrollArea>
         )}
-        
+
         <form onSubmit={handleSendMessage} className="p-3 border-t">
-          {!user ? (
+          {!walletAddress ? (
             <p className="text-center text-muted-foreground text-sm py-2">
-              Sign in to chat
+              Connect wallet to chat
             </p>
           ) : (
             <div className="flex gap-2">
               <StickerEmojiPicker
-                userId={user.id}
+                userId={walletAddress}
                 onSelect={handleSendSticker}
               />
               <Input
@@ -319,8 +220,8 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
                 disabled={isSending}
                 className="flex-1"
               />
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 size="icon"
                 disabled={isSending || !newMessage.trim()}
               >

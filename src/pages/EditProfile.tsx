@@ -150,8 +150,8 @@ const EditProfile = () => {
 
       toast({
         title: "Profile saved!",
-        description: displayName 
-          ? "Your profile has been updated." 
+        description: displayName
+          ? "Your profile has been updated."
           : "Profile saved! Add a display name to hide your wallet address."
       });
 
@@ -396,19 +396,34 @@ const EditProfile = () => {
       <main className="container mx-auto px-4 pt-24 pb-12">
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              onClick={() => navigate(-1)}
-              className="gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-            <Button onClick={handleSave} disabled={saving} className="gap-2">
-              <Save className="h-4 w-4" />
-              {saving ? 'Saving...' : 'Save Profile'}
-            </Button>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <Button
+                variant="ghost"
+                onClick={() => navigate(-1)}
+                className="gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              <div className="flex gap-2">
+                <Button onClick={handleSave} disabled={saving} className="gap-2">
+                  <Save className="h-4 w-4" />
+                  {saving ? 'Saving...' : 'Save Profile'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-xs font-medium text-primary">Decentralized Profile Sync Active</span>
+              </div>
+              <div className="flex items-center gap-1.5 grayscale opacity-70">
+                <img src="https://gateway.irys.xyz/K-BvY7_Z18p7V1z4P-C8_XlP0A6C9oY_4C4jQyv_S40" alt="Irys" className="h-3.5" />
+                <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-tighter">Powered by Arweave</span>
+              </div>
+            </div>
           </div>
 
           {/* Basic Info */}

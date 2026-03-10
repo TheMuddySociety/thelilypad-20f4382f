@@ -363,7 +363,8 @@ export async function uploadToArweave(
     wallet: any,
     isMutable = false,
     rootTx?: string,
-    feeMultiplier?: number
+    feeMultiplier?: number,
+    customTags?: { name: string; value: string }[]
 ): Promise<string> {
     const irys = await getWebIrys(wallet);
 
@@ -380,6 +381,7 @@ export async function uploadToArweave(
     const tags = [
         { name: "Content-Type", value: file.type || "application/octet-stream" },
         { name: "application-id", value: "The Lily Pad" },
+        ...(customTags || [])
     ];
 
     if (isMutable && rootTx) {
@@ -445,6 +447,7 @@ export async function uploadFileChunkedToArweave(
     const tags = [
         { name: "Content-Type", value: file.type || "application/octet-stream" },
         { name: "application-id", value: "The Lily Pad" },
+        ...(customTags || [])
     ];
 
     if (isMutable && rootTx) {
@@ -547,6 +550,7 @@ export async function uploadChunkedTransactionToArweave(
     const tags = [
         { name: "Content-Type", value: file.type || "application/octet-stream" },
         { name: "application-id", value: "The Lily Pad" },
+        ...(customTags || [])
     ];
 
     if (isMutable && rootTx) {
@@ -608,15 +612,18 @@ export async function uploadChunkedTransactionToArweave(
     };
 }
 
-/**
- * Upload JSON metadata to Arweave via Irys.
- */
-export async function uploadMetadataToArweave(metadata: any, wallet: any, isMutable = false, rootTx?: string): Promise<string> {
+export async function uploadMetadataToArweave(
+    metadata: any,
+    wallet: any,
+    isMutable = false,
+    rootTx?: string,
+    customTags?: { name: string; value: string }[]
+): Promise<string> {
     const json = JSON.stringify(metadata, null, 2);
     const blob = new Blob([json], { type: "application/json" });
     const file = new File([blob], "metadata.json", { type: "application/json" });
 
-    return uploadToArweave(file, wallet, isMutable, rootTx);
+    return uploadToArweave(file, wallet, isMutable, rootTx, 1.0, customTags);
 }
 
 // ── Single NFT Upload (Irys Guide: Uploading NFTs) ──────────────────────

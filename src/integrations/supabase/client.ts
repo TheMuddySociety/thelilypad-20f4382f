@@ -23,22 +23,6 @@ export const supabase = isSupabaseConfigured
     }
   })
   : ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: () => mockResponse({ id: "offline" }),
-          order: () => ({ range: () => mockResponse([]) }),
-          maybeSingle: () => mockResponse(null)
-        }),
-        maybeSingle: () => mockResponse(null),
-        order: () => ({ range: () => mockResponse([]) }),
-        is: () => ({ in: () => ({ order: () => ({ range: () => mockResponse([]) }) }) })
-      }),
-      insert: () => ({ select: () => ({ single: () => mockResponse({ id: "offline" }) }) }),
-      update: () => ({ eq: () => mockResponse(null) }),
-      upsert: () => ({ select: () => ({ single: () => mockResponse(null) }) }),
-      delete: () => ({ eq: () => ({ eq: () => mockResponse(null) }) }),
-    }),
     storage: {
       from: () => ({
         upload: () => mockResponse({ path: "mock-path" }),
@@ -50,14 +34,45 @@ export const supabase = isSupabaseConfigured
     rpc: () => mockResponse({ totalCollections: 0, liveNow: 0, nftsMinted: 0, totalVolume: 0 }),
     auth: {
       getUser: () => mockResponse({ user: null }),
+      getSession: () => mockResponse({ session: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => { } } } }),
       signOut: () => mockResponse(null),
     },
-    channel: () => ({
-      on: () => ({ subscribe: () => { } }),
-      subscribe: () => { },
-      unsubscribe: () => { }
-    }),
+    channel: function () {
+      const self = {
+        on: () => self,
+        subscribe: () => self,
+        unsubscribe: () => { },
+        track: () => Promise.resolve(),
+        presenceState: () => ({})
+      };
+      return self;
+    },
     removeChannel: () => { },
+    from: () => {
+      const self = {
+        select: () => self,
+        eq: () => self,
+        neq: () => self,
+        lt: () => self,
+        lte: () => self,
+        gt: () => self,
+        gte: () => self,
+        ilike: () => self,
+        order: () => self,
+        limit: () => self,
+        single: () => mockResponse({ id: "offline" }),
+        maybeSingle: () => mockResponse(null),
+        insert: () => self,
+        update: () => self,
+        upsert: () => self,
+        delete: () => self,
+        match: () => self, // Added match for better compatibility
+        in: () => self,
+        range: () => mockResponse([]),
+        then: (resolve: any) => resolve(mockResponse([])) // Allow awaiting the chain
+      };
+      return self;
+    },
     isOffline: true
   } as any);

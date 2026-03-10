@@ -88,7 +88,7 @@ async function fetchBaseMarketplaceData(): Promise<MarketplaceBaseData> {
     }, {} as Record<string, number>);
 
     hotMints = new Map(
-      Object.entries(mintCounts).filter(([_, count]) => count >= 3)
+      (Object.entries(mintCounts) as [string, number][]).filter(([_, count]) => count >= 3)
     );
   }
 
@@ -153,35 +153,77 @@ async function fetchBaseMarketplaceData(): Promise<MarketplaceBaseData> {
   };
 }
 
+import { getDecentralizedIndex, type IndexedCollection } from "@/integrations/arweave/indexClient";
+
 async function fetchCollectionsPage(pageParam: number, chain: ChainFilter): Promise<{ collections: Collection[]; nextPage: number | undefined }> {
-  let query = supabase
-    .from("collections")
-    .select("*")
-    .is("deleted_at", null)
-    .in("status", ["active", "minting", "soldout", "live", "upcoming", "minted"])
-    .order("created_at", { ascending: false });
-
-  // Filter by chain (support 'all' to show everything)
-  if (chain !== 'all') {
-    query = query.in("chain", getDbChainValues(chain));
+  // 1. Fetch from Decentralized Index (Arweave)
+  let arweaveCollections: Collection[] = [];
+  try {
+    const indexRoot = import.meta.env.VITE_INDEX_ROOT_TX;
+    const dex = await getDecentralizedIndex(indexRoot);
+    arweaveCollections = dex.collections.map(c => ({
+      id: c.id,
+      name: c.name,
+      image_url: c.image_url,
+      creator_address: c.creator_address,
+      total_supply: 0, // Metadata only
+      minted: 0,
+      status: "live",
+      phases: {},
+      royalty_percent: 0,
+      created_at: c.created_at,
+      contract_address: c.contract_address,
+      chain: c.chain
+    }));
+  } catch (e) {
+    console.warn("Failed to fetch decentralized index:", e);
   }
 
-  const { data: collectionsData, error: collectionsError } = await query.range(
-    pageParam * ITEMS_PER_PAGE,
-    (pageParam + 1) * ITEMS_PER_PAGE - 1
-  );
+  // 2. Fetch from Supabase (if available)
+  let supabaseCollections: Collection[] = [];
+  try {
+    let query = supabase
+      .from("collections")
+      .select("*")
+      .is("deleted_at", null)
+      .in("status", ["active", "minting", "soldout", "live", "upcoming", "minted"])
+      .order("created_at", { ascending: false });
 
-  if (collectionsError) {
-    console.error("Error fetching collections:", collectionsError);
-    throw collectionsError;
+    if (chain !== 'all') {
+      query = query.in("chain", getDbChainValues(chain));
+    }
+
+    const { data, error } = await query.range(
+      pageParam * ITEMS_PER_PAGE,
+      (pageParam + 1) * ITEMS_PER_PAGE - 1
+    );
+
+    if (!error && data) {
+      supabaseCollections = data as Collection[];
+    }
+  } catch (e) {
+    console.warn("Supabase fetch failed", e);
   }
 
-  // Note: sorting is handled at DB level via .order("created_at", { ascending: false })
-  // The previous JS sort only sorted within each page, which was incorrect for paginated data.
+  // 3. Merge and De-duplicate (by contract address)
+  const combined = [...arweaveCollections, ...supabaseCollections];
+  const unique = combined.reduce((acc, current) => {
+    const x = acc.find(item => item.contract_address === current.contract_address);
+    if (!x) {
+      return acc.concat([current]);
+    } else {
+      return acc;
+    }
+  }, [] as Collection[]);
+
+  // 4. Handle paging for the combined list
+  const start = pageParam * ITEMS_PER_PAGE;
+  const end = start + ITEMS_PER_PAGE;
+  const page = unique.slice(start, end);
 
   return {
-    collections: collectionsData || [],
-    nextPage: collectionsData && collectionsData.length === ITEMS_PER_PAGE ? pageParam + 1 : undefined,
+    collections: page,
+    nextPage: unique.length > end ? pageParam + 1 : undefined,
   };
 }
 

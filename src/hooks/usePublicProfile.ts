@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getDecentralizedProfile } from '@/integrations/arweave/profileClient';
 import type { UserProfile } from './useUserProfile';
 import type { LinkedWallet } from './useLinkedWallets';
 
@@ -48,14 +49,27 @@ export function usePublicProfile(identifier: string | undefined): PublicProfileD
 
         // If not found by display_name, try wallet_address
         if (!data && !isUuid) {
-          const walletResult = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('wallet_address', identifier)
-            .maybeSingle();
-          
-          data = walletResult.data;
-          fetchError = walletResult.error;
+          // 1. Try decentralized Arweave profile first if it looks like a wallet
+          const arweaveProfile = await getDecentralizedProfile(identifier);
+          if (arweaveProfile) {
+            data = arweaveProfile;
+          } else {
+            // 2. Fallback to Supabase
+            const walletResult = await supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('wallet_address', identifier)
+              .maybeSingle();
+
+            data = walletResult.data;
+            fetchError = walletResult.error;
+          }
+        } else if (data && data.wallet_address) {
+          // Even if found in Supabase, try to refresh from Arweave for latest decentralized state
+          const arweaveProfile = await getDecentralizedProfile(data.wallet_address);
+          if (arweaveProfile) {
+            data = { ...data, ...arweaveProfile };
+          }
         }
 
         if (cancelled) return;
