@@ -423,22 +423,49 @@ export default function LaunchpadCreate() {
                 deployedAddress = result.address;
             }
 
-            // ── Step 5: Finalize DB ─────────────────────────────────────────
-            await supabase.from("collections").update({
-                contract_address: deployedAddress,
-                status: "live",
-                image_url: itemLinks[0]?.arweaveImageUri || '',
-                is_dynamic: isDynamic || false,
-            }).eq('id', collectionId);
+            // ── Step 5: Finalize DB (Optional in Decentralized Mode) ────────
+            const isOffline = (supabase as any).isOffline;
 
-            toast.success("Successfully Launched!", { id: 'deploy' });
+            if (!isOffline) {
+                await supabase.from("collections").update({
+                    contract_address: deployedAddress,
+                    status: "live",
+                    image_url: itemLinks[0]?.arweaveImageUri || '',
+                    is_dynamic: isDynamic || false,
+                }).eq('id', collectionId);
+            }
+
+            toast.success(
+                <div className="flex flex-col gap-1">
+                    <span className="font-bold">Successfully Launched!</span>
+                    <span className="text-xs opacity-80">Metadata secured on Arweave</span>
+                    <a
+                        href={primaryArweaveUri}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] text-primary underline mt-1"
+                    >
+                        View Arweave Manifest
+                    </a>
+                </div>,
+                { id: 'deploy', duration: 10000 }
+            );
+
             clearDraft();
-            navigate('/launchpad');
+
+            // If offline, redirect to home instead of an empty launchpad list
+            if (isOffline) {
+                navigate('/');
+            } else {
+                navigate('/launchpad');
+            }
 
         } catch (e: any) {
             console.error("Launch Error:", e);
             toast.error(e.message || "Launch failed", { id: 'deploy' });
-            if (collectionId) {
+
+            const isOffline = (supabase as any).isOffline;
+            if (collectionId && !isOffline) {
                 await supabase.from("collections").delete().eq('id', collectionId).eq('status', 'upcoming');
             }
         } finally {
