@@ -1,14 +1,10 @@
-/**
- * Chain-aware utility functions for currency display and blockchain interactions
- * Solana Launchpad Edition
- */
-
-export type ChainValue = 'solana' | 'solana-devnet' | string;
+// Re-use central config
+import { SupportedChain, CHAINS } from '@/config/chains';
 
 /**
  * Get the currency symbol for a given chain
  */
-export const getCurrencySymbol = (chain: ChainValue | string): string => {
+export const getCurrencySymbol = (chain: string): string => {
   const normalized = (chain || '').toLowerCase();
   if (normalized.includes('xrpl') || normalized.includes('xrp')) return 'XRP';
   if (normalized.includes('monad')) return 'MON';
@@ -18,7 +14,7 @@ export const getCurrencySymbol = (chain: ChainValue | string): string => {
 /**
  * Get the currency icon for a given chain
  */
-export const getCurrencyIcon = (chain: ChainValue | string): string => {
+export const getCurrencyIcon = (chain: string): string => {
   const normalized = (chain || '').toLowerCase();
   if (normalized.includes('xrpl') || normalized.includes('xrp')) return '✕';
   if (normalized.includes('monad')) return '◈';
@@ -30,7 +26,7 @@ export const getCurrencyIcon = (chain: ChainValue | string): string => {
  */
 export const formatPriceWithCurrency = (
   price: string | number | null | undefined,
-  chain: ChainValue | string
+  chain: string
 ): string => {
   if (price === null || price === undefined) return 'TBA';
   const numPrice = typeof price === 'string' ? parseFloat(price) : price;
@@ -39,15 +35,13 @@ export const formatPriceWithCurrency = (
 };
 
 /**
- * Get the block explorer URL for a chain (Solana only)
+ * Get the block explorer URL for a chain
  */
-export const getExplorerUrl = (chain: ChainValue | string, network: 'mainnet' | 'testnet' = 'testnet'): string => {
-  const normalizedChain = chain?.toLowerCase() || "";
-  // Check if explicit devnet or testnet network context
-  const isDevnet = normalizedChain.includes('devnet') || network === 'testnet';
-  return isDevnet
-    ? 'https://explorer.solana.com?cluster=devnet'
-    : 'https://explorer.solana.com';
+export const getExplorerUrl = (chain: string, network: 'mainnet' | 'testnet' | 'devnet' = 'testnet'): string => {
+  const baseChain = (chain || '').split('-')[0] as SupportedChain;
+  const config = CHAINS[baseChain] || CHAINS.solana;
+  const net = network === 'testnet' ? 'testnet' : network === 'devnet' ? 'devnet' : 'mainnet';
+  return config.networks[net as keyof typeof config.networks]?.explorer || config.networks.testnet.explorer;
 };
 
 /**
@@ -55,20 +49,29 @@ export const getExplorerUrl = (chain: ChainValue | string, network: 'mainnet' | 
  */
 export const getTxExplorerUrl = (
   txHash: string,
-  chain: ChainValue | string,
-  network: 'mainnet' | 'testnet' = 'testnet'
+  chain: string,
+  network: 'mainnet' | 'testnet' | 'devnet' = 'testnet'
 ): string => {
-  const normalizedChain = chain?.toLowerCase() || "";
-  const isDevnet = normalizedChain.includes('devnet') || network === 'testnet';
-  const cluster = isDevnet ? '?cluster=devnet' : '';
-  return `https://explorer.solana.com/tx/${txHash}${cluster}`;
+  const baseChain = (chain || '').split('-')[0] as SupportedChain;
+  const config = CHAINS[baseChain] || CHAINS.solana;
+  const net = (network === 'testnet' || network === 'devnet') ? 'testnet' : 'mainnet';
+  const explorer = config.networks[net as keyof typeof config.networks]?.explorer || config.networks.testnet.explorer;
+
+  if (baseChain === 'solana') {
+    const cluster = net === 'testnet' ? '?cluster=devnet' : '';
+    return `${explorer}/tx/${txHash}${cluster}`;
+  }
+  if (baseChain === 'xrpl') {
+    return `${explorer}/transactions/${txHash}`;
+  }
+  return `${explorer}/tx/${txHash}`;
 };
 
 /**
  * Check if a chain is a Solana chain
  */
-export const isSolanaChain = (chain: ChainValue | string): boolean => {
-  const normalizedChain = chain?.toLowerCase() || "";
+export const isSolanaChain = (chain: string): boolean => {
+  const normalizedChain = (chain || '').toLowerCase();
   // If it's empty, default to Solana for compatibility
   if (!normalizedChain) return true;
   return normalizedChain.includes('solana');
@@ -77,8 +80,8 @@ export const isSolanaChain = (chain: ChainValue | string): boolean => {
 /**
  * Check if a chain is a testnet
  */
-export const isTestnet = (chain: ChainValue | string): boolean => {
-  const normalizedChain = chain?.toLowerCase() || "";
+export const isTestnet = (chain: string): boolean => {
+  const normalizedChain = (chain || '').toLowerCase();
   // Solana specific testnet/devnet check
   return normalizedChain.includes('testnet') ||
     normalizedChain.includes('devnet');
@@ -87,10 +90,11 @@ export const isTestnet = (chain: ChainValue | string): boolean => {
 /**
  * Get the network display name
  */
-export const getNetworkDisplayName = (chain: ChainValue | string): string => {
-  const normalizedChain = chain?.toLowerCase() || "";
-  if (normalizedChain.includes('devnet')) return 'Solana Devnet';
-  return 'Solana';
+export const getNetworkDisplayName = (chain: string, network: 'mainnet' | 'testnet' | 'devnet' = 'testnet'): string => {
+  const baseChain = (chain || '').split('-')[0] as SupportedChain;
+  const config = CHAINS[baseChain] || CHAINS.solana;
+  const netLabel = network === 'mainnet' ? 'Mainnet' : network === 'devnet' ? 'Devnet' : 'Testnet';
+  return `${config.name} ${netLabel}`;
 };
 
 /**

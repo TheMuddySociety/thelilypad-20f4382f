@@ -33,9 +33,12 @@ interface ContractDeployModalProps {
     total_supply: number;
     royalty_percent: number;
     creator_address: string;
+    chain?: string;
   };
   onDeploySuccess: (contractAddress: string) => void;
 }
+
+import { SupportedChain, CHAINS } from "@/config/chains";
 
 export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
   open,
@@ -49,10 +52,28 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
   const [ipfsCID, setIpfsCID] = React.useState("");
   const [isSavingCID, setIsSavingCID] = React.useState(false);
 
+  const chainId = (collection.chain?.split('-')[0] as SupportedChain) || 'solana';
+  const currentChain = CHAINS[chainId] || CHAINS.solana;
+
   const handleManualSubmit = async () => {
-    // For Solana, contract addresses are base58 encoded public keys
-    if (!manualAddress || manualAddress.length < 32) {
+    // Basic validation based on chain
+    if (!manualAddress) {
+      toast.error("Please enter a valid address");
+      return;
+    }
+
+    if (chainId === 'solana' && manualAddress.length < 32) {
       toast.error("Please enter a valid Solana address");
+      return;
+    }
+
+    if (chainId === 'xrpl' && !manualAddress.startsWith('r')) {
+      toast.error("Please enter a valid XRPL address (starts with 'r')");
+      return;
+    }
+
+    if (chainId === 'monad' && !manualAddress.startsWith('0x')) {
+      toast.error("Please enter a valid Monad/EVM address (starts with '0x')");
       return;
     }
 
@@ -98,7 +119,9 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
     onOpenChange(false);
   };
 
-  const networkName = network === 'mainnet' ? 'Solana Mainnet' : 'Solana Devnet';
+  const netKey = network === 'mainnet' ? 'mainnet' : 'testnet';
+  const networkName = currentChain.networks[netKey]?.name || (network === 'mainnet' ? 'Mainnet' : 'Devnet');
+  const fullNetworkName = `${currentChain.name} ${networkName}`;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -109,7 +132,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
             Deploy Collection
           </DialogTitle>
           <DialogDescription>
-            Deploy your NFT collection to {networkName}
+            Deploy your NFT collection to {fullNetworkName}
           </DialogDescription>
         </DialogHeader>
 
@@ -119,7 +142,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
             <Leaf className="w-5 h-5 text-primary" />
             <span className="text-sm font-medium text-primary">The Lily Pad Collection</span>
             <Badge variant="secondary" className="text-xs">
-              Solana
+              {currentChain.name}
             </Badge>
           </div>
 
@@ -135,7 +158,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Max Supply</span>
-              <span className="font-medium">{collection.total_supply.toLocaleString()}</span>
+              <span className="font-medium">{collection.total_supply?.toLocaleString() || "0"}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Royalty</span>
@@ -144,7 +167,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Network</span>
               <Badge variant="outline" className="text-xs">
-                {networkName}
+                {fullNetworkName}
               </Badge>
             </div>
           </div>
@@ -167,9 +190,14 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
               <div className="flex items-start gap-2">
                 <Info className="w-4 h-4 mt-0.5 text-primary" />
                 <div className="text-sm">
-                  <p className="font-medium text-primary">Solana Deployment</p>
+                  <p className="font-medium text-primary">{currentChain.name} Deployment</p>
                   <p className="text-muted-foreground mt-1 text-xs">
-                    Collections on Solana are deployed using the Metaplex Core standard for high performance and low fees.
+                    {chainId === 'solana'
+                      ? "Collections on Solana are deployed using the Metaplex Core standard for high performance and low fees."
+                      : chainId === 'xrpl'
+                        ? "XRPL NFTs use native on-ledger features. No smart contracts required, just establish provenance."
+                        : `Collections on ${currentChain.name} are deployed using standard ERC-721 smart contracts.`
+                    }
                   </p>
                 </div>
               </div>
@@ -213,7 +241,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                 </Label>
                 <Input
                   id="contract-address"
-                  placeholder="Enter Solana collection address..."
+                  placeholder={`Enter ${currentChain.name} collection address...`}
                   value={manualAddress}
                   onChange={(e) => setManualAddress(e.target.value)}
                   className="font-mono text-sm"

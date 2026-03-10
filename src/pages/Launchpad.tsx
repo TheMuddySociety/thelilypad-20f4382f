@@ -266,7 +266,7 @@ export default function Launchpad() {
             { label: "Total Collections", value: statsLoading ? null : stats.totalCollections.toLocaleString(), icon: LayoutGrid },
             { label: "Live Now", value: statsLoading ? null : stats.liveNow.toString(), icon: Sparkles, pulse: stats.liveNow > 0 },
             { label: "NFTs Minted", value: statsLoading ? null : stats.nftsMinted >= 1000 ? `${(stats.nftsMinted / 1000).toFixed(1)}K` : stats.nftsMinted.toLocaleString(), icon: TrendingUp },
-            { label: "Total Volume", value: statsLoading ? null : `${stats.totalVolume >= 1000 ? `${(stats.totalVolume / 1000).toFixed(1)}K` : stats.totalVolume} SOL`, icon: BarChart3 },
+            { label: "Volume (SOL Equiv)", value: statsLoading ? null : `${stats.totalVolume >= 1000 ? `${(stats.totalVolume / 1000).toFixed(1)}K` : stats.totalVolume}`, icon: BarChart3 },
           ].map(({ label, value, icon: Icon, pulse }) => (
             <Card key={label} className="border-border/60">
               <CardContent className="pt-5 pb-4">
