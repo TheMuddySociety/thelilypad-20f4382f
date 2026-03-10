@@ -298,11 +298,18 @@ export async function getWebIrys(
         const provider = (window as any).phantom?.solana || (window as any).solana;
         if (!provider) throw new Error("Solana wallet not detected");
 
-        const builder = WebUploader(WebSolana).withProvider(provider);
+        const rpcUrl = "https://api.devnet.solana.com";
+        let builder = WebUploader(WebSolana).withProvider(provider);
+        if (!isMainnet) {
+            builder = builder.withRpc(rpcUrl);
+        }
         irys = await (isMainnet ? builder.mainnet() : builder.devnet());
     } else if (wallet.chainType === "monad" || wallet.chainType === "ethereum") {
         const provider = new ethers.BrowserProvider((window as any).ethereum);
-        const builder = WebUploader(WebEthereum).withProvider(provider);
+        let builder = WebUploader(WebEthereum).withProvider(provider);
+        if (!isMainnet) {
+            builder = builder.withRpc("https://api.devnet.solana.com");
+        }
         irys = await (isMainnet ? builder.mainnet() : builder.devnet());
     } else {
         throw new Error(
@@ -430,7 +437,8 @@ export async function uploadFileChunkedToArweave(
     feeMultiplier?: number,
     chunkSize = 25_000_000,
     batchSize = 5,
-    resumeData?: string
+    resumeData?: string,
+    customTags?: { name: string; value: string }[]
 ): Promise<ChunkedUploadInstance> {
     const irys = await getWebIrys(wallet);
 
@@ -533,7 +541,8 @@ export async function uploadChunkedTransactionToArweave(
     feeMultiplier?: number,
     chunkSize = 25_000_000,
     batchSize = 5,
-    resumeData?: string
+    resumeData?: string,
+    customTags?: { name: string; value: string }[]
 ): Promise<ChunkedUploadInstance> {
     const irys = await getWebIrys(wallet);
 

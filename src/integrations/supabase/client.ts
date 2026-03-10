@@ -35,7 +35,7 @@ export const supabase = isSupabaseConfigured
     auth: {
       getUser: () => mockResponse({ user: null }),
       getSession: () => mockResponse({ session: null }),
-      signInAnonymously: () => mockResponse({ user: { id: "offline-anon" }, session: null }),
+      signInAnonymously: (options?: any) => mockResponse({ user: { id: "offline-anon", user_metadata: options?.options?.data || {} }, session: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => { } } } }),
       signOut: () => mockResponse(null),
     },
@@ -59,6 +59,11 @@ export const supabase = isSupabaseConfigured
         lte: () => self,
         gt: () => self,
         gte: () => self,
+        is: () => self,
+        or: () => self,
+        not: () => self,
+        contains: () => self,
+        filter: () => self,
         ilike: () => self,
         order: () => self,
         limit: () => self,
@@ -68,7 +73,7 @@ export const supabase = isSupabaseConfigured
         update: () => self,
         upsert: () => self,
         delete: () => self,
-        match: () => self, // Added match for better compatibility
+        match: () => self,
         in: () => self,
         range: () => mockResponse([]),
         then: (resolve: any) => resolve(mockResponse([])) // Allow awaiting the chain
