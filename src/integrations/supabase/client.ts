@@ -35,6 +35,7 @@ export const supabase = isSupabaseConfigured
     auth: {
       getUser: () => mockResponse({ user: null }),
       getSession: () => mockResponse({ session: null }),
+      signInAnonymously: () => mockResponse({ user: { id: "offline-anon" }, session: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => { } } } }),
       signOut: () => mockResponse(null),
     },

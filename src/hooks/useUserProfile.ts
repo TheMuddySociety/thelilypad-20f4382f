@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useWallet } from '@/providers/WalletProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { getDecentralizedProfile, saveDecentralizedProfile } from '@/integrations/arweave/profileClient';
@@ -34,91 +35,62 @@ export interface UserProfile {
 export const useUserProfile = () => {
     const { address, isConnected, network } = useWallet();
     const { chain } = useChain();
-    const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [loading, setLoading] = useState(false); // FIX #2: Initialize to false
-    const [error, setError] = useState<string | null>(null);
+    const queryClient = useQueryClient();
 
-    useEffect(() => {
-        // FIX #1: Distinguish between disconnected and connecting states
-        if (!isConnected) {
-            // Wallet is disconnected - stop loading
-            setProfile(null);
-            setLoading(false);
-            return;
-        }
+    const fetchProfile = async () => {
+        if (!address) return null;
 
-        if (!address) {
-            // Wallet is connecting or stabilizing - STAY LOADING
-            setLoading(true);
-            return;
-        }
+        try {
+            // 1. Fetch from Arweave (Primary for Decentralized Mode)
+            const arweaveProfile = await getDecentralizedProfile(address);
 
-        // FIX #3: Guard profile fetch with cleanup
-        let isMounted = true;
-        setLoading(true);
-        setError(null);
-
-        const fetchProfile = async () => {
+            // 2. Fetch from Supabase (Secondary)
+            let supabaseProfile: UserProfile | null = null;
             try {
-                // 1. Fetch from Arweave (Primary for Decentralized Mode)
-                const arweaveProfile = await getDecentralizedProfile(address);
-
-                // 2. Fetch from Supabase (Secondary)
-                let supabaseProfile: UserProfile | null = null;
-                try {
-                    const { data, error: fetchError } = await supabase
-                        .from('user_profiles')
-                        .select('*')
-                        .eq('wallet_address', address)
-                        .maybeSingle();
-                    if (!fetchError && data) supabaseProfile = data as UserProfile;
-                } catch (e) {
-                    console.warn("Supabase profile fetch failed", e);
-                }
-
-                if (!isMounted) return;
-
-                // Merge: Arweave data wins for shared fields
-                const merged = arweaveProfile || supabaseProfile;
-                setProfile(merged);
-            } catch (err: unknown) {
-                if (!isMounted) return;
-                console.error('Error fetching user profile:', err);
-                setError(err instanceof Error ? err.message : 'Unknown error');
-                setProfile(null);
-            } finally {
-                if (isMounted) setLoading(false);
+                const { data, error: fetchError } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('wallet_address', address)
+                    .maybeSingle();
+                if (!fetchError && data) supabaseProfile = data as UserProfile;
+            } catch (e) {
+                console.warn("Supabase profile fetch failed", e);
             }
-        };
 
-        fetchProfile();
+            // Merge: Arweave data wins for shared fields
+            return arweaveProfile || supabaseProfile;
+        } catch (err: unknown) {
+            console.error('Error in profile fetch function:', err);
+            return null;
+        }
+    };
 
-        // Subscribe to realtime changes
+    const { data: profile, isLoading, error, refetch } = useQuery({
+        queryKey: ['user-profile', address],
+        queryFn: fetchProfile,
+        enabled: !!address && isConnected,
+        staleTime: 60000,
+    });
+
+    // Realtime changes hook proxying to query invalidation
+    useEffect(() => {
+        if (!address) return;
         const channel = supabase
-            .channel(`profile-${address}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'user_profiles',
-                    filter: `wallet_address=eq.${address}`
-                },
-                (payload) => {
-                    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                        setProfile(payload.new as UserProfile);
-                    } else if (payload.eventType === 'DELETE') {
-                        setProfile(null);
-                    }
-                }
-            )
+            .channel(`profile-updates-${address}`)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'user_profiles',
+                filter: `wallet_address=eq.${address}`
+            }, () => {
+                queryClient.invalidateQueries({ queryKey: ['user-profile', address] });
+            })
             .subscribe();
 
         return () => {
-            isMounted = false;
             supabase.removeChannel(channel);
         };
-    }, [address, isConnected]);
+    }, [address, queryClient]);
 
     // Decentralized Persistence Wrapper
     const persistToArweave = async (updates: Partial<UserProfile>) => {
@@ -146,12 +118,15 @@ export const useUserProfile = () => {
             is_streamer: roleSelection.isStreamer,
             profile_setup_completed: true,
             ...(displayName?.trim() ? { display_name: displayName.trim() } : {}),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
 
         // Persist to Arweave (Always)
         await persistToArweave(updates);
 
         // Link to Supabase (if available)
+        let finalProfile: UserProfile | null = null;
         try {
             const { data: { user: authUser } } = await supabase.auth.getUser();
             const { data, error: insertError } = await supabase
@@ -164,16 +139,22 @@ export const useUserProfile = () => {
                 .single();
 
             if (!insertError) {
-                setProfile(data as UserProfile);
-                return data as UserProfile;
+                finalProfile = data as UserProfile;
             }
         } catch (e) {
             console.warn("Supabase creation failed, falling back to local state");
         }
 
-        const fallback = { ...profile, ...updates } as UserProfile;
-        setProfile(fallback);
-        return fallback;
+        if (!finalProfile) {
+            finalProfile = { ...profile, ...updates } as UserProfile;
+        }
+
+        // Update local cache immediately
+        queryClient.setQueryData(['user-profile', address], finalProfile);
+        // Force refetch to ensure everything is settled
+        await queryClient.invalidateQueries({ queryKey: ['user-profile', address] });
+
+        return finalProfile;
     };
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
@@ -184,6 +165,7 @@ export const useUserProfile = () => {
         // Persist to Arweave
         await persistToArweave({ ...profile, ...updates });
 
+        let finalProfile: UserProfile | null = null;
         try {
             const { data, error: updateError } = await supabase
                 .from('user_profiles')
@@ -193,16 +175,20 @@ export const useUserProfile = () => {
                 .single();
 
             if (!updateError) {
-                setProfile(data as UserProfile);
-                return data as UserProfile;
+                finalProfile = data as UserProfile;
             }
         } catch (e) {
             console.warn("Supabase update failed");
         }
 
-        const fallback = { ...profile, ...updates } as UserProfile;
-        setProfile(fallback);
-        return fallback;
+        if (!finalProfile) {
+            finalProfile = { ...profile, ...updates } as UserProfile;
+        }
+
+        queryClient.setQueryData(['user-profile', address], finalProfile);
+        queryClient.invalidateQueries({ queryKey: ['user-profile', address] });
+
+        return finalProfile;
     };
 
     const saveProfile = async (updates: Partial<UserProfile>) => {
@@ -213,6 +199,7 @@ export const useUserProfile = () => {
         // Persist to Arweave
         await persistToArweave({ ...profile, ...updates });
 
+        let finalProfile: UserProfile | null = null;
         try {
             const { data: { user: authUser } } = await supabase.auth.getUser();
             const upsertData = {
@@ -229,26 +216,32 @@ export const useUserProfile = () => {
                 .single();
 
             if (!upsertError) {
-                setProfile(data as UserProfile);
-                return data as UserProfile;
+                finalProfile = data as UserProfile;
             }
         } catch (e) {
             console.warn("Supabase save failed");
         }
 
-        const fallback = { ...profile, ...updates } as UserProfile;
-        setProfile(fallback);
-        return fallback;
+        if (!finalProfile) {
+            finalProfile = { ...profile, ...updates } as UserProfile;
+        }
+
+        queryClient.setQueryData(['user-profile', address], finalProfile);
+        queryClient.invalidateQueries({ queryKey: ['user-profile', address] });
+
+        return finalProfile;
     };
 
     return {
-        profile,
-        loading,
-        error,
+        profile: profile ?? null,
+        loading: isLoading,
+        isLoading,
+        error: error instanceof Error ? error.message : null,
         createProfile,
         updateProfile,
         saveProfile,
+        refetch,
         hasProfile: !!profile,
-        profileComplete: profile?.profile_setup_completed ?? false
+        profileComplete: (profile as UserProfile)?.profile_setup_completed ?? false
     };
 };
