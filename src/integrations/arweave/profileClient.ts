@@ -1,8 +1,8 @@
 import {
     uploadMetadataToArweave,
-    getIrysMutableUrl,
-    queryIrysByTags
+    getIrysMutableUrl
 } from "@/integrations/irys/client";
+import { queryIrysByTags } from "@/integrations/irys/graphql";
 import { UserProfile } from "@/hooks/useUserProfile";
 
 /**

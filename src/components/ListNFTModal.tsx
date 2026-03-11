@@ -94,8 +94,11 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
   // Authoritative chain source: wallet chainType (not URL param or collection.chain)
   const { chainType } = useWallet();
 
-  // Derive the chain: wallet chainType is authoritative; fall back to collection.chain
-  const resolvedChain = chainType || nft?.collection?.chain || 'solana';
+  // Derive the chain: wallet chainType could be wrong if exploring other chain's NFTs.
+  // Use collection chain, then owner address signature, then fallback.
+  const isXRPLOwner = nft?.owner_address?.startsWith('r') || false;
+  const derivedChain = nft?.collection?.chain || (isXRPLOwner ? 'xrpl' : null);
+  const resolvedChain = derivedChain || chainType || 'solana';
   const currency = getCurrencyForChain(resolvedChain);
   const isXRPL = resolvedChain === 'xrpl';
 
@@ -106,9 +109,11 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
 
     if (isXRPL) {
       // For XRPL: use nft_token_id (64-char hex NFTokenID) if available,
-      // OR fall back to contract_address (issuer account) — listing is DB-only
-      // so we don't actually need the on-chain address, just a valid identifier.
-      const xrplId = nft.nft_token_id || nft.collection?.contract_address || nft.id;
+      // fallback to attributes.xrpl_nft_id, then contract_address.
+      const nftAny = nft as any;
+      const parsedAttrs = typeof nftAny.attributes === 'string' ? JSON.parse(nftAny.attributes) : (nftAny.attributes as any);
+      const attrTokenId = parsedAttrs?.xrpl_nft_id;
+      const xrplId = nftAny.nft_token_id || attrTokenId || nft.collection?.contract_address || nft.id;
       return { type: 'xrpl', value: xrplId };
     }
 
@@ -273,9 +278,9 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
               <Badge variant="outline" className="mt-1">
                 #{nft.token_id}
               </Badge>
-              {isXRPL && nft.nft_token_id && (
+              {isXRPL && ((nft as any).nft_token_id || ((nft as any).attributes?.xrpl_nft_id)) && (
                 <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate max-w-[180px]">
-                  {nft.nft_token_id.slice(0, 16)}…
+                  {((nft as any).nft_token_id || ((nft as any).attributes?.xrpl_nft_id)).slice(0, 16)}…
                 </p>
               )}
             </div>

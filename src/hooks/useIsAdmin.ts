@@ -9,7 +9,8 @@ export const useIsAdmin = () => {
 
   // Hardcoded admin addresses for emergency/developer access
   const HARDCODED_ADMINS = [
-    'Cra8LAvpQAk3hx4By5STHp4xrq7HSAnZLk4Jwzv1wUAH'
+    'Cra8LAvpQAk3hx4By5STHp4xrq7HSAnZLk4Jwzv1wUAH',
+    'rDioFjwotyCXApacrJ7C1oK3tmSmGtEnjT'
   ];
 
   useEffect(() => {

@@ -13,6 +13,7 @@ import { ListNFTModal } from "@/components/ListNFTModal";
 import { PortfolioValueChart } from "@/components/PortfolioValueChart";
 import { CardStack3D } from "@/components/ui/3d-card-stack";
 import { ipfsToHttp } from "@/lib/ipfs";
+import { useXRPLSync } from "@/hooks/useXRPLSync";
 
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,6 +94,9 @@ export default function MyNFTs() {
   const { address, isConnected, chainType } = useWallet();
   // Derive currency symbol from connected chain (not hardcoded SOL)
   const chainSymbol = chainType === 'xrpl' ? 'XRP' : chainType === 'monad' ? 'MON' : 'SOL';
+  
+  const { syncMissingNFTs, isSyncing } = useXRPLSync();
+  
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
@@ -467,6 +471,19 @@ export default function MyNFTs() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {chainType === 'xrpl' && address && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => syncMissingNFTs(address)}
+                disabled={isSyncing}
+                className="gap-2 border-primary/20 hover:bg-primary/10 transition-colors"
+                title="Recover NFTs missing from your wallet"
+              >
+                {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Recover Mints
+              </Button>
+            )}
             <div className="flex items-center border rounded-lg p-1">
               <Button
                 variant={viewMode === "grid" ? "secondary" : "ghost"}

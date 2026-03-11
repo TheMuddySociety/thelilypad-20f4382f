@@ -129,7 +129,7 @@ export default function XRPLNFTGenerator() {
     // ── Step 2: Flags ─────────────────────────────────────────────
     const [flags, setFlags] = useState({
         burnable: false,
-        onlyXRP: true,
+        onlyXRP: false,
         transferable: true,
         mutable: false,
     });
@@ -162,7 +162,6 @@ export default function XRPLNFTGenerator() {
         ].filter(Boolean) as string[],
         royalty: [
             (transferFeePercent > 50) && "XRPL max royalty is 50%",
-            (transferFeePercent > 0 && !flags.onlyXRP) && "Consider enabling OnlyXRP when transfer fee is set to avoid non-XRP fee disputes",
         ].filter(Boolean) as string[],
         metadata: [],
         review: [],
@@ -354,9 +353,8 @@ export default function XRPLNFTGenerator() {
                 return {
                     collection_id: collectionId,
                     token_id: i,
-                    nft_token_id: res.nfTokenId,
+                    attributes: { xrpl_nft_id: res.nfTokenId, description },
                     name: `${collectionName} #${i + 1}`,
-                    description,
                     image_url: itemLinks[i]?.arweaveThumbUri || itemLinks[i]?.arweaveImageUri || '',
                     owner_address: result.address,
                     owner_id: session?.user?.id || "",

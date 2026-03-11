@@ -347,9 +347,8 @@ export default function XRPLEasyGenerator() {
                 return {
                     collection_id: finalCollectionId,
                     token_id: i,                              // sequential index for gallery ordering
-                    nft_token_id: res.nfTokenId,             // real 64-char XRPL NFTokenID
+                    attributes: { xrpl_nft_id: res.nfTokenId, description: description },
                     name: `${name} #${i + 1}`,
-                    description: description,
                     image_url: itemLinks[i]?.arweaveThumbUri || itemLinks[i]?.arweaveImageUri || '',
                     owner_address: deployedResult.address,
                     owner_id: session?.user?.id || '',
