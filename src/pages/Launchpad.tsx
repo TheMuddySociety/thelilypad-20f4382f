@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
-import { HybridEscrowForm } from "@/components/launchpad/HybridEscrowForm";
+import { MPLHybridLanding } from "@/components/launchpad/MPLHybridLanding";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +97,23 @@ const COLLECTION_TYPES: CollectionTypeTile[] = [
     highlight: true,
     chains: ["xrpl"],
     tag: "No-Code",
+  },
+  {
+    id: "music",
+    title: "Music NFTs",
+    description: "Launch audio collectibles. Upload tracks + cover art, set metadata (genre, artist, BPM), and deploy a Candy Machine.",
+    icon: Music,
+    chains: ["solana"],
+    tag: "Audio",
+  },
+  {
+    id: "hybrid-404",
+    title: "MPL-Hybrid (404)",
+    description: "Create an escrow that lets holders swap between your fungible token and NFTs instantly. The ERC-404 equivalent on Solana.",
+    icon: Repeat,
+    highlight: true,
+    chains: ["solana"],
+    tag: "MPL-Hybrid",
   },
 ];
 
@@ -346,13 +363,7 @@ export default function Launchpad() {
 
             {/* ── MPL-404 Hybrid Escrow Form (full-page overlay in panel) ── */}
             {showHybridForm ? (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <HybridEscrowForm onClose={() => setShowHybridForm(false)} />
-              </motion.div>
+                <MPLHybridLanding onClose={() => setShowHybridForm(false)} />
             ) : (
               <>
                 {/* ── Chain header + Create button ───────────────────────────── */}
