@@ -525,6 +525,7 @@ export async function getAccountNFTs(
             command: 'account_nfts',
             account,
             limit: 400, // maximum per page
+            ledger_index: 'validated', // always query finalized ledger (official XRPLF pattern)
             ...(marker ? { marker } : {}),
         });
 
@@ -547,6 +548,7 @@ export async function getNFTSellOffers(
         const response = await client.request({
             command: 'nft_sell_offers',
             nft_id: nfTokenId,
+            ledger_index: 'validated', // always query finalized ledger
         });
         return (response.result as any).offers ?? [];
     } catch {
@@ -565,6 +567,7 @@ export async function getNFTBuyOffers(
         const response = await client.request({
             command: 'nft_buy_offers',
             nft_id: nfTokenId,
+            ledger_index: 'validated', // always query finalized ledger
         });
         return (response.result as any).offers ?? [];
     } catch {
