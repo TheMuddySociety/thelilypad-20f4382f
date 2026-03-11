@@ -12,6 +12,7 @@ import { ShoppingCart, Loader2, Info } from "lucide-react";
 import { useWallet } from "@/providers/WalletProvider";
 import { useSolanaCoreTransfer } from "@/hooks/useSolanaCoreTransfer";
 import { useMonadTransfer } from "@/hooks/useMonadTransfer";
+import { useXRPLMarketplace } from "@/hooks/useXRPLMarketplace";
 import { toast } from "sonner";
 
 interface Listing {
@@ -48,18 +49,16 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
   const { address } = useWallet();
   const solanaTransfer = useSolanaCoreTransfer();
   const monadTransfer = useMonadTransfer();
+  const xrplTransfer = useXRPLMarketplace();
   const [isSuccess, setIsSuccess] = useState(false);
 
   // Determine chain and currency
-  // IMPORTANT: listing.currency is the authoritative source — it was stored at list-time
-  // and reflects the chain the NFT was actually listed on. Do NOT re-derive from buyer's
-  // connected wallet chain, or it will show the wrong currency.
   const chainId = listing?.chain || 'solana';
   const currencySymbol = listing?.currency || (chainId === 'monad' ? 'MON' : chainId === 'xrpl' ? 'XRP' : 'SOL');
   const chainName = chainId === 'monad' ? 'Monad' : chainId === 'xrpl' ? 'XRP Ledger' : 'Solana';
 
-  const isLoading = solanaTransfer.isLoading || monadTransfer.isLoading;
-  const error = solanaTransfer.error || monadTransfer.error;
+  const isLoading = solanaTransfer.isLoading || monadTransfer.isLoading || xrplTransfer.isLoading;
+  const error = solanaTransfer.error || monadTransfer.error || xrplTransfer.error;
 
   const handleBuy = async () => {
     if (!listing || !address) return;
@@ -84,6 +83,15 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
           listing.nft.contract_address || listing.nft.collection?.contract_address || "",
           address,
           { collectionAddress: listing.nft.collection?.contract_address || undefined }
+        );
+      } else if (chainId === 'xrpl') {
+        // For XRPL, the listing.marketplace_id or listing.id might store the offer index
+        // Extracting it from the listing object
+        const offerIndex = (listing as any).marketplace_id || listing.id;
+        result = await xrplTransfer.buyNFT(
+          listing.id,
+          offerIndex,
+          listing.price
         );
       } else {
         toast.error(`${chainName} purchases not yet supported in this modal.`);

@@ -15,7 +15,7 @@ export const PLATFORM_FEE_BPS = TREASURY_CONFIG.fees.marketplace.platformFee;
 
 // Treasury address - uses config or env override
 export const PLATFORM_TREASURY_ADDRESS = 
-    import.meta.env.VITE_TREASURY_ADDRESS || PLATFORM_WALLETS.treasury;
+    import.meta.env.VITE_TREASURY_ADDRESS || PLATFORM_WALLETS.solana.treasury;
 
 /**
  * Calculate the platform fee for a given price in lamports

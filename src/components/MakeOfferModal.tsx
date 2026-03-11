@@ -32,7 +32,9 @@ interface MakeOfferModalProps {
     owner_id: string;
     owner_address: string;
     token_id: number;
+    chain?: string;
   };
+  currency?: string;
   listingPrice?: number | null;
   onOfferMade?: () => void;
 }
@@ -43,12 +45,17 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   open,
   onOpenChange,
   nft,
+  currency,
   listingPrice,
   onOfferMade,
 }) => {
   const { address, isConnected } = useWallet();
   const [offerPrice, setOfferPrice] = useState("");
   const [message, setMessage] = useState("");
+  
+  const chainId = nft.chain || 'solana';
+  const currencySymbol = currency || (chainId === 'xrpl' ? 'XRP' : chainId === 'monad' ? 'MON' : 'SOL');
+  
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(addDays(new Date(), 7));
   const [offerState, setOfferState] = useState<OfferState>("idle");
   const [submittedPrice, setSubmittedPrice] = useState("");
@@ -84,7 +91,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
     if (listingPrice && price >= listingPrice) {
       toast.error("Offer must be below the listing price", {
-        description: `Current listing price is ${listingPrice} SOL`,
+        description: `Current listing price is ${listingPrice} ${currencySymbol}`,
       });
       return;
     }
@@ -114,6 +121,8 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         owner_id: nft.owner_id,
         owner_address: nft.owner_address,
         offer_price: price,
+        currency: currencySymbol,
+        chain: chainId,
         message: message.trim() || null,
         expires_at: expiresAt?.toISOString() || null,
       });
@@ -124,7 +133,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       setOfferState("success");
 
       toast.success("Offer submitted!", {
-        description: `Your offer of ${price} SOL has been sent`,
+        description: `Your offer of ${price} ${currencySymbol} has been sent`,
       });
 
       onOfferMade?.();
@@ -174,7 +183,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               >
                 <h3 className="text-xl font-semibold">Offer Sent!</h3>
                 <p className="text-muted-foreground mt-1">
-                  {submittedPrice} SOL offer for {nft.name || `Token #${nft.token_id}`}
+                  {submittedPrice} {currencySymbol} offer for {nft.name || `Token #${nft.token_id}`}
                 </p>
               </motion.div>
             </motion.div>
@@ -233,7 +242,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                     <p className="font-medium">{nft.name || `Token #${nft.token_id}`}</p>
                     {listingPrice && (
                       <p className="text-sm text-muted-foreground">
-                        Listed for {listingPrice} SOL
+                        Listed for {listingPrice} {currencySymbol}
                       </p>
                     )}
                   </div>
@@ -256,12 +265,12 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                       disabled={offerState === "submitting"}
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                      SOL
+                      {currencySymbol}
                     </span>
                   </div>
                   {listingPrice && (
                     <p className="text-xs text-muted-foreground">
-                      Must be less than {listingPrice} SOL
+                      Must be less than {listingPrice} {currencySymbol}
                     </p>
                   )}
                 </div>

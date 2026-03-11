@@ -9,12 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WalletNFTDetailModal } from '@/components/wallet/WalletNFTDetailModal';
 import {
-  Lock, Twitter, Youtube, MessageCircle, Instagram, Music2, ExternalLink, Image as ImageIcon, User, Radio, Rocket, Activity
+  Lock, Twitter, Youtube, MessageCircle, Instagram, Music2, ExternalLink, Image as ImageIcon, User, Radio, Rocket, Activity, Sparkles
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/providers/AuthProvider';
 
 const socialIcons: Record<string, typeof Twitter> = {
   twitter: Twitter,
@@ -129,6 +130,8 @@ export default function PublicProfile() {
     );
   }
 
+  const { walletAddress } = useAuth();
+  const isOwnProfile = walletAddress && profile && (profile.wallet_address === walletAddress);
   const isPrivate = (profile as any).is_private;
 
   return (
@@ -178,16 +181,26 @@ export default function PublicProfile() {
                   {profile.is_streamer && (
                     <Badge variant="outline" className="text-xs">Streamer</Badge>
                   )}
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 gap-1">
+                    <Sparkles className="w-3 h-3" /> Whitelisted
+                  </Badge>
                 </div>
                 {profile.bio && (
                   <p className="text-muted-foreground mt-1 text-sm max-w-lg">{profile.bio}</p>
                 )}
               </div>
-              {liveStream && (
-                <Button onClick={() => navigate(`/streamer/${profile.id}`)} className="bg-red-500 hover:bg-red-600 text-white gap-2 shrink-0">
-                  <Radio className="w-4 h-4" /> Watch Stream
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {isOwnProfile && (
+                  <Button onClick={() => navigate('/waitroom')} variant="outline" className="border-primary/30 bg-primary/5 hover:bg-primary/10 gap-2 shrink-0">
+                    <ImageIcon className="w-4 h-4" /> Whitelisted Pass
+                  </Button>
+                )}
+                {liveStream && (
+                  <Button onClick={() => navigate(`/streamer/${profile.id}`)} className="bg-red-500 hover:bg-red-600 text-white gap-2 shrink-0">
+                    <Radio className="w-4 h-4" /> Watch Stream
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

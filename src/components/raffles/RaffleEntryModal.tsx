@@ -6,8 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Ticket, Trophy, Minus, Plus, Loader2, CheckCircle } from "lucide-react";
+import { Ticket, Trophy, Minus, Plus, Loader2, CheckCircle, ExternalLink } from "lucide-react";
 import { getErrorMessage } from "@/lib/errorUtils";
+import { useSolanaPayment } from "@/hooks/useSolanaPayment";
+import { useXRPLPayment } from "@/hooks/useXRPLPayment";
+import { useMonadPayment } from "@/hooks/useMonadPayment";
+import { SupportedChain } from "@/config/chains";
+import { getPlatformWallet } from "@/config/treasury";
 
 interface Raffle {
   id: string;
@@ -31,6 +36,7 @@ interface RaffleEntryModalProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   currency?: string;
+  chain?: SupportedChain;
 }
 
 export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
@@ -38,13 +44,19 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
   open,
   onOpenChange,
   onSuccess,
-  currency = "SOL"
+  currency = "SOL",
+  chain = "solana"
 }) => {
   const [ticketCount, setTicketCount] = useState(1);
   const [loading, setLoading] = useState(false);
   const [userEntries, setUserEntries] = useState(0);
   const [success, setSuccess] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const { sendAndVerifyPayment: sendSolanaPayment } = useSolanaPayment();
+  const { sendPayment: sendXRPPayment } = useXRPLPayment();
+  const { sendPayment: sendMonadPayment } = useMonadPayment();
 
   const maxTickets = raffle.max_tickets_per_user || 100;
   const remainingTickets = maxTickets - userEntries;
@@ -93,18 +105,51 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
     }
 
     setLoading(true);
+    setTxHash(null);
+
     try {
+      let hash = "";
+
+      // 1. Handle Payment if totalCost > 0
+      if (totalCost > 0) {
+        const treasury = getPlatformWallet('treasury', chain);
+        
+        if (chain === 'solana') {
+          const result = await sendSolanaPayment({
+            amount: totalCost,
+            recipient: treasury,
+            transactionType: 'raffleEntry',
+            memo: `Raffle entry: ${raffle.name}`
+          });
+          if (!result.success) throw new Error(result.error || "Solana payment failed");
+          hash = result.signature || "";
+        } 
+        else if (chain === 'xrpl') {
+          const result = await sendXRPPayment(totalCost.toString(), treasury);
+          if (!result.success) throw new Error(result.error || "XRPL payment failed");
+          hash = result.hash || "";
+        }
+        else if (chain === 'monad') {
+          const result = await sendMonadPayment(totalCost.toString(), treasury);
+          if (!result.success) throw new Error(result.error || "Monad payment failed");
+          hash = result.hash || "";
+        }
+      }
+
+      // 2. Insert Entry into Database
       const { error } = await supabase
         .from('lily_raffle_entries')
         .insert({
           raffle_id: raffle.id,
           user_id: user.id,
           ticket_count: ticketCount,
-          total_paid: totalCost
+          total_paid: totalCost,
+          tx_hash: hash || null
         } as any);
 
       if (error) throw error;
 
+      setTxHash(hash);
       setSuccess(true);
       toast({
         title: "Entry successful!",
@@ -135,7 +180,19 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
             <p className="text-sm text-muted-foreground">
               Good luck! Winners will be announced when the raffle ends.
             </p>
-            <Button className="mt-6" onClick={() => onOpenChange(false)}>
+            {txHash && (
+              <div className="mt-4 p-2 bg-muted rounded border flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-mono truncate mr-2">TX: {txHash}</span>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-primary" onClick={() => {
+                  window.open(chain === 'solana' ? `https://solscan.io/tx/${txHash}?cluster=devnet` : 
+                              chain === 'xrpl' ? `https://testnet.xrpl.org/transactions/${txHash}` :
+                              `https://testnet.explorer.monad.xyz/tx/${txHash}`, '_blank');
+                }}>
+                  <ExternalLink className="w-3 h-3 mr-1" /> View
+                </Button>
+              </div>
+            )}
+            <Button className="mt-6 w-full" onClick={() => onOpenChange(false)}>
               Close
             </Button>
           </div>

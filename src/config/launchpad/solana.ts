@@ -83,7 +83,7 @@ export const SOLANA_LAUNCHPAD_CONFIG: ChainLaunchpadConfig = {
         treasuryAddress: "",
         splits: [
             { label: "Creator", address: "", bps: 8500 },
-            { label: "Platform", address: "2cS7yyypbtxQ4qBdZRYtXDEDTQJZK34h4RPmXxz4sKHk", bps: 1500 },
+            { label: "Platform", address: "BQefQgbpAqPjoGKLTmAA2haZh9pEURYNefPFwsTotgem", bps: 1500 },
         ],
     },
     tools: [

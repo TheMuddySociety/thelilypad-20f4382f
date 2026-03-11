@@ -269,6 +269,7 @@ const Raffles: React.FC = () => {
           onOpenChange={(open) => !open && setSelectedRaffle(null)}
           onSuccess={fetchRaffles}
           currency={currentChain.symbol}
+          chain={selectedChain}
         />
       )}
 

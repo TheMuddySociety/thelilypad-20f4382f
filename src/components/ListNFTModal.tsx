@@ -38,8 +38,10 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/providers/WalletProvider";
 import { XRPIcon } from "@/components/icons/XRPIcon";
+import { useXRPLMarketplace } from "@/hooks/useXRPLMarketplace";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+// ... existing types ...
 
 interface MintedNFT {
   id: string;
@@ -93,6 +95,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
 
   // Authoritative chain source: wallet chainType (not URL param or collection.chain)
   const { chainType } = useWallet();
+  const xrplMarketplace = useXRPLMarketplace();
 
   // Derive the chain: wallet chainType could be wrong if exploring other chain's NFTs.
   // Use collection chain, then owner address signature, then fallback.
@@ -167,6 +170,25 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
         setListingStatus('listing');
       }
 
+      let onChainResult = null;
+      if (isXRPL) {
+        const nfTokenId = (nft as any).nft_token_id || nft.collection?.contract_address || (nft as any).attributes?.xrpl_nft_id;
+        if (!nfTokenId) {
+          throw new Error("Could not find NFTokenID for this XRPL NFT");
+        }
+        
+        onChainResult = await xrplMarketplace.listNFT(
+          nft.id,
+          nfTokenId,
+          parseFloat(price),
+          expiresAt
+        );
+        
+        if (!onChainResult.success) {
+          throw new Error(onChainResult.error || "Failed to create on-chain offer");
+        }
+      }
+
       // Insert listing record — currency derived from chain, not hardcoded
       const { error: insertError } = await supabase
         .from('nft_listings')
@@ -175,9 +197,10 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
           seller_id: user.id,
           seller_address: nft.owner_address,
           price: parseFloat(price),
-          currency: currency.symbol,      // ← FIX: was hardcoded 'SOL'
+          currency: currency.symbol,
           expires_at: expiresAt?.toISOString() || null,
-          tx_hash: null,                  // No on-chain tx yet for XRPL (settlement at purchase)
+          tx_hash: onChainResult?.hash || null,
+          marketplace_id: onChainResult?.offerIndex || null, // Store the NFTokenOfferIndex
           status: 'active',
         }]);
 

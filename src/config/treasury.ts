@@ -3,28 +3,43 @@ import { PublicKey } from '@solana/web3.js';
 
 // Platform wallet addresses for fee distribution
 export const PLATFORM_WALLETS = {
-  // Main treasury wallet for receiving platform fees
-  treasury: '2cS7yyypbtxQ4qBdZRYtXDEDTQJZK34h4RPmXxz4sKHk',
-  
-  // Team allocation wallet
-  team: 'FuvA3GMUtCjDXJgFJPZnAAru2cmK3fG3dNjBhTXodsFH',
-  
-  // Default creator/build wallet
-  creator: '5m1ANTPnTsfQCDp8TyDKJYx8BWiEzt1Gomshsc2V3HNe',
-  
-  // Buyback pool funds
-  buybackPool: 'CRg5KBtoxtHPmHcGDMiCqPrCLe8edKTiUyaHHowYhyvV',
+  solana: {
+    treasury: 'BQefQgbpAqPjoGKLTmAA2haZh9pEURYNefPFwsTotgem',
+    team: 'BQefQgbpAqPjoGKLTmAA2haZh9pEURYNefPFwsTotgem',
+    creator: 'BQefQgbpAqPjoGKLTmAA2haZh9pEURYNefPFwsTotgem',
+    buybackPool: 'BQefQgbpAqPjoGKLTmAA2haZh9pEURYNefPFwsTotgem',
+  },
+  xrpl: {
+    treasury: 'rXYdhW4ZHdzt27VuHJgNwbD1aJjcKZJ9M',
+    team: 'rXYdhW4ZHdzt27VuHJgNwbD1aJjcKZJ9M',
+    creator: 'rXYdhW4ZHdzt27VuHJgNwbD1aJjcKZJ9M',
+    buybackPool: 'rXYdhW4ZHdzt27VuHJgNwbD1aJjcKZJ9M',
+  },
+  monad: {
+    treasury: '0x54Ac7Bcaba9A41b701066B7D8b204Ec14b72C96E',
+    team: '0x54Ac7Bcaba9A41b701066B7D8b204Ec14b72C96E', // Using main for others until specified
+    creator: '0x54Ac7Bcaba9A41b701066B7D8b204Ec14b72C96E',
+    buybackPool: '0x54Ac7Bcaba9A41b701066B7D8b204Ec14b72C96E',
+  }
 } as const;
 
-// Get PublicKey for a platform wallet
-export function getPlatformWalletPubkey(wallet: keyof typeof PLATFORM_WALLETS): PublicKey {
-  return new PublicKey(PLATFORM_WALLETS[wallet]);
+// Get wallet address for a platform wallet on a specific chain
+export function getPlatformWallet(
+  wallet: keyof typeof PLATFORM_WALLETS.solana,
+  chain: 'solana' | 'xrpl' | 'monad' = 'solana'
+): string {
+  return (PLATFORM_WALLETS as any)[chain]?.[wallet] || PLATFORM_WALLETS.solana[wallet];
+}
+
+// Get PublicKey for a platform wallet (Solana only)
+export function getPlatformWalletPubkey(wallet: keyof typeof PLATFORM_WALLETS.solana): PublicKey {
+  return new PublicKey(PLATFORM_WALLETS.solana[wallet]);
 }
 
 // Platform Treasury Configuration for On-Chain Transactions
 export const TREASURY_CONFIG = {
-  // Main treasury wallet for receiving platform fees (legacy, use PLATFORM_WALLETS.treasury)
-  treasuryWallet: PLATFORM_WALLETS.treasury,
+  // Main treasury wallet for receiving platform fees (legacy, use PLATFORM_WALLETS.solana.treasury)
+  treasuryWallet: PLATFORM_WALLETS.solana.treasury,
   
   // Fee percentages (in basis points, 100 = 1%)
   fees: {

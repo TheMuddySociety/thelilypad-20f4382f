@@ -13,9 +13,10 @@ import {
     updateV1 as updateCoreAsset,
 } from '@metaplex-foundation/mpl-core';
 import {
-    createTreeV2,
+    createTree,
     mintV2,
     parseLeafFromMintV2Transaction,
+    findTreeConfigPda,
 } from '@metaplex-foundation/mpl-bubblegum';
 import {
     createCandyMachine as createCoreCandyMachineIx,
@@ -519,7 +520,7 @@ export async function createBubblegumTree(
     console.log("=== CREATING BUBBLEGUM MERKLE TREE ===");
     console.log("🌳 Tree:", merkleTree.publicKey.toString());
 
-    let builder = (await createTreeV2(umi, {
+    let builder = (await createTree(umi, {
         merkleTree,
         maxDepth,
         maxBufferSize,
@@ -530,6 +531,10 @@ export async function createBubblegumTree(
         send: { skipPreflight: false },
         confirm: { commitment: 'confirmed' }
     });
+
+    // Handle RPC propagation lag
+    console.log("Waiting for tree propagation...");
+    await new Promise(r => setTimeout(r, 2000));
 
     return merkleTree.publicKey.toString();
 }
@@ -550,10 +555,15 @@ export async function mintCompressedCoreNft(
 ): Promise<{ signature: Uint8Array; assetId: string }> {
     console.log("=== MINTING BUBBLEGUM CORE cNFT ===");
     const leafOwner = params.owner ? publicKey(params.owner) : umi.identity.publicKey;
+    const tree = publicKey(params.treeAddress);
+    const treeConfig = findTreeConfigPda(umi, { merkleTree: tree });
+
+    console.log("Resolving tree config:", treeConfig[0].toString());
 
     let builder = mintV2(umi, {
         leafOwner,
-        merkleTree: publicKey(params.treeAddress),
+        merkleTree: tree,
+        treeConfig,
         coreCollection: publicKey(params.collectionAddress),
         metadata: {
             name: params.name,

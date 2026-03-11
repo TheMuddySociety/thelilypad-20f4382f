@@ -11,9 +11,19 @@ import { toast } from "sonner";
 import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import { useWallet } from "@/providers/WalletProvider";
 import { getErrorMessage } from "@/lib/errorUtils";
+import { cn } from "@/lib/utils";
 import type { SupportedChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadBatchToArweave, BatchUploadItem } from "@/integrations/irys/client";
+import { Plus, Trash2, Clock, Calendar } from "lucide-react";
+
+interface Tier {
+    name: string;
+    supply: number;
+    price?: number;
+    startDate?: string;
+    endDate?: string;
+}
 
 interface CreateOneOfOneModalProps {
     open: boolean;
@@ -32,7 +42,9 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
     const [name, setName] = useState("");
     const [symbol, setSymbol] = useState("");
     const [description, setDescription] = useState("");
-    const [supply, setSupply] = useState("1"); // For editions
+    const [supply, setSupply] = useState("1"); // Legacy single supply
+    const [tiers, setTiers] = useState<Tier[]>([]);
+    const [useTiers, setUseTiers] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
 
@@ -136,16 +148,35 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                     toast.loading("Deploying Bubblegum Tree for compressed NFTs...", { id: "deploy" });
                     const treeAddress = await deployBubblegumTree(14, 64, 8); // ~16k capacity tree
 
-                    const supplyCount = mode === "edition" ? parseInt(supply) || 1 : 1;
+                    const mintItems = [];
+                    if (mode === "edition" && useTiers && tiers.length > 0) {
+                        for (const tier of tiers) {
+                            for (let i = 0; i < tier.supply; i++) {
+                                mintItems.push({
+                                    name: `${name} - ${tier.name} #${i + 1}`,
+                                    tier: tier.name
+                                });
+                            }
+                        }
+                    } else {
+                        const supplyCount = mode === "edition" ? parseInt(supply) || 1 : 1;
+                        for (let i = 0; i < supplyCount; i++) {
+                            mintItems.push({
+                                name: `${name} ${mode === "edition" ? '#' + (i + 1) : ''}`.trim(),
+                                tier: mode === "edition" ? "Edition" : "1/1"
+                            });
+                        }
+                    }
 
-                    for (let i = 0; i < supplyCount; i++) {
-                        toast.loading(`Minting compressed NFT ${i + 1}/${supplyCount}...`, { id: "deploy" });
+                    for (let i = 0; i < mintItems.length; i++) {
+                        const item = mintItems[i];
+                        toast.loading(`Minting compressed NFT ${i + 1}/${mintItems.length}...`, { id: "deploy" });
                         await mintCompressedCore(
                             treeAddress,
                             result.address,
-                            `${name} ${mode === "edition" ? '#' + (i + 1) : ''}`.trim(),
-                            metadataUrl, // Use the proper JSON metadata URI
-                            0, // sellerFeeBasisPoints
+                            item.name,
+                            metadataUrl,
+                            0,
                             creatorAddress
                         );
                     }
@@ -173,20 +204,43 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
 
             const collectionId = collectionError ? null : collectionInsert?.id;
 
-            const supplyCount = mode === "edition" ? parseInt(supply) || 1 : 1;
-            const nftRecords = [];
+            const finalMintItems = [];
+            if (mode === "edition" && useTiers && tiers.length > 0) {
+                for (const tier of tiers) {
+                    for (let i = 0; i < tier.supply; i++) {
+                        finalMintItems.push({
+                            name: `${name} - ${tier.name} #${i + 1}`,
+                            tier: tier.name,
+                            tokenId: finalMintItems.length + 1
+                        });
+                    }
+                }
+            } else {
+                const supplyCount = mode === "edition" ? parseInt(supply) || 1 : 1;
+                for (let i = 0; i < supplyCount; i++) {
+                    finalMintItems.push({
+                        name: `${name} ${mode === "edition" ? '#' + (i + 1) : ''}`.trim(),
+                        tier: mode === "edition" ? "Edition" : "1/1",
+                        tokenId: i + 1
+                    });
+                }
+            }
 
-            for (let i = 0; i < supplyCount; i++) {
+            const nftRecords = [];
+            for (const item of finalMintItems) {
                 nftRecords.push({
-                    name: `${name} #${i + 1}`,
+                    name: item.name,
                     description: description,
                     image_url: imageUrl,
                     collection_id: collectionId,
-                    owner_address: address, // Ensure MyNFTs picks it up
+                    owner_address: address,
                     owner_id: userId,
-                    token_id: i + 1,
-                    tx_hash: `${txHash}_${i}`,
-                    attributes: [{ trait_type: "Type", value: mode === "edition" ? "Edition" : "1/1" }, { trait_type: "Chain", value: chainName }],
+                    token_id: item.tokenId,
+                    tx_hash: `${txHash}_${item.tokenId}`,
+                    attributes: [
+                        { trait_type: "Type", value: item.tier },
+                        { trait_type: "Chain", value: chainName }
+                    ],
                     is_revealed: true
                 });
             }
@@ -217,7 +271,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className={cn("transition-all duration-300", mode === "edition" && useTiers ? "max-w-2xl" : "max-w-md")}>
                 <DialogHeader>
                     <DialogTitle>Launch {mode === "one-of-one" ? "1-of-1" : "Edition"}</DialogTitle>
                     <DialogDescription>
@@ -278,15 +332,153 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                     </div>
 
                     {mode === "edition" && (
-                        <div className="space-y-2">
-                            <Label>Supply</Label>
-                            <Input
-                                type="number"
-                                value={supply}
-                                onChange={e => setSupply(e.target.value)}
-                                min="1"
-                            />
-                            <p className="text-xs text-muted-foreground">Number of copies to mint</p>
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-sm font-medium">Edition Type</Label>
+                                <div className="flex gap-2">
+                                    <Button 
+                                        variant={!useTiers ? "default" : "outline"} 
+                                        size="sm" 
+                                        onClick={() => setUseTiers(false)}
+                                        className="h-8"
+                                    >
+                                        Simple
+                                    </Button>
+                                    <Button 
+                                        variant={useTiers ? "default" : "outline"} 
+                                        size="sm" 
+                                        onClick={() => {
+                                            setUseTiers(true);
+                                            if (tiers.length === 0) setTiers([{ name: "Standard", supply: 10 }]);
+                                        }}
+                                        className="h-8"
+                                    >
+                                        Tiered
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {!useTiers ? (
+                                <div className="space-y-2">
+                                    <Label>Supply</Label>
+                                    <Input
+                                        type="number"
+                                        value={supply}
+                                        onChange={e => setSupply(e.target.value)}
+                                        min="1"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Number of copies to mint</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wider">Tiers Configuration</Label>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => setTiers([...tiers, { name: "New Tier", supply: 5 }])}
+                                            className="h-7 text-xs gap-1"
+                                        >
+                                            <Plus className="w-3 h-3" /> Add Tier
+                                        </Button>
+                                    </div>
+                                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                                        {tiers.map((tier, idx) => (
+                                            <Card key={idx} className="p-3 bg-muted/30 border-muted relative group">
+                                                <div className="grid grid-cols-12 gap-3 items-end">
+                                                    <div className="col-span-12 sm:col-span-5 space-y-1.5">
+                                                        <Label className="text-[10px]">Tier Name</Label>
+                                                        <Input 
+                                                            className="h-8 text-sm" 
+                                                            value={tier.name} 
+                                                            onChange={e => {
+                                                                const newTiers = [...tiers];
+                                                                newTiers[idx].name = e.target.value;
+                                                                setTiers(newTiers);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-6 sm:col-span-3 space-y-1.5">
+                                                        <Label className="text-[10px]">Supply</Label>
+                                                        <Input 
+                                                            type="number" 
+                                                            className="h-8 text-sm" 
+                                                            value={tier.supply} 
+                                                            onChange={e => {
+                                                                const newTiers = [...tiers];
+                                                                newTiers[idx].supply = parseInt(e.target.value) || 0;
+                                                                setTiers(newTiers);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-6 sm:col-span-3 space-y-1.5">
+                                                        <Label className="text-[10px]">Price ({chain === 'solana' ? 'SOL' : chain === 'xrpl' ? 'XRP' : 'MON'})</Label>
+                                                        <Input 
+                                                            type="number" 
+                                                            className="h-8 text-sm" 
+                                                            step="0.01"
+                                                            value={tier.price || ""} 
+                                                            placeholder="0.00"
+                                                            onChange={e => {
+                                                                const newTiers = [...tiers];
+                                                                newTiers[idx].price = parseFloat(e.target.value) || 0;
+                                                                setTiers(newTiers);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-12 sm:col-span-1 flex justify-end">
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                            onClick={() => setTiers(tiers.filter((_, i) => i !== idx))}
+                                                            disabled={tiers.length <= 1}
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-3 grid grid-cols-2 gap-3 border-t border-muted/50 pt-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                    <div className="space-y-1">
+                                                        <Label className="text-[9px] flex items-center gap-1">
+                                                            <Calendar className="w-2.5 h-2.5" /> Start Date
+                                                        </Label>
+                                                        <Input 
+                                                            type="datetime-local" 
+                                                            className="h-7 text-[10px] px-1.5" 
+                                                            value={tier.startDate || ""}
+                                                            onChange={e => {
+                                                                const newTiers = [...tiers];
+                                                                newTiers[idx].startDate = e.target.value;
+                                                                setTiers(newTiers);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <Label className="text-[9px] flex items-center gap-1">
+                                                            <Clock className="w-2.5 h-2.5" /> End Date
+                                                        </Label>
+                                                        <Input 
+                                                            type="datetime-local" 
+                                                            className="h-7 text-[10px] px-1.5" 
+                                                            value={tier.endDate || ""}
+                                                            onChange={e => {
+                                                                const newTiers = [...tiers];
+                                                                newTiers[idx].endDate = e.target.value;
+                                                                setTiers(newTiers);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground text-center italic">
+                                        Total supply: {tiers.reduce((acc, t) => acc + (t.supply || 0), 0)} NFTs
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
 
