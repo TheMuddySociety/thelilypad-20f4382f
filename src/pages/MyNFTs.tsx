@@ -1037,7 +1037,7 @@ export default function MyNFTs() {
                     ) : (
                       <div className="flex flex-col gap-2">
                         <Badge variant="secondary" className="w-full justify-center py-2">
-                          Listed for {listingsMap.get(selectedNft.id)?.price.toFixed(2)} SOL
+                          Listed for {listingsMap.get(selectedNft.id)?.price.toFixed(2)} {chainSymbol}
                         </Badge>
                         <Button
                           variant="destructive"

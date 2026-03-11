@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { useChainCurrency } from "@/hooks/useChainCurrency";
 
 interface PurchasedItem {
   id: string;
@@ -73,6 +74,7 @@ interface PurchasedBundle {
 
 export default function MyPurchases() {
   const navigate = useNavigate();
+  const { symbol, txUrl } = useChainCurrency();
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [purchasedItems, setPurchasedItems] = useState<PurchasedItem[]>([]);
@@ -263,7 +265,7 @@ export default function MyPurchases() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Spent</p>
-                <p className="text-2xl font-bold">{totalSpent.toFixed(2)} SOL</p>
+                <p className="text-2xl font-bold">{totalSpent.toFixed(2)} {symbol}</p>
               </div>
             </CardContent>
           </Card>
@@ -345,7 +347,7 @@ export default function MyPurchases() {
                               {format(new Date(purchase.purchased_at), "MMM d, yyyy")}
                             </div>
                             <div className="font-medium text-foreground">
-                              {Number(purchase.price_paid).toFixed(2)} SOL
+                              {Number(purchase.price_paid).toFixed(2)} {symbol}
                             </div>
                           </div>
                         </div>
@@ -385,7 +387,7 @@ export default function MyPurchases() {
                               className="text-xs text-muted-foreground gap-1"
                               onClick={() =>
                                 window.open(
-                                  `https://explorer.solana.com/tx/${purchase.tx_hash}?cluster=devnet`,
+                                  txUrl(purchase.tx_hash!),
                                   "_blank"
                                 )
                               }
@@ -436,7 +438,7 @@ export default function MyPurchases() {
                           {format(new Date(purchase.purchased_at), "MMM d, yyyy")}
                         </div>
                         <div className="font-medium text-foreground">
-                          {Number(purchase.price_paid).toFixed(2)} SOL
+                          {Number(purchase.price_paid).toFixed(2)} {symbol}
                         </div>
                       </div>
                     </div>
@@ -507,7 +509,7 @@ export default function MyPurchases() {
                           className="text-xs text-muted-foreground gap-1"
                           onClick={() =>
                             window.open(
-                              `https://explorer.solana.com/tx/${purchase.tx_hash}?cluster=devnet`,
+                              txUrl(purchase.tx_hash!),
                               "_blank"
                             )
                           }

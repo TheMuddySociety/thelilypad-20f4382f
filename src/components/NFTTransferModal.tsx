@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useChainCurrency } from "@/hooks/useChainCurrency";
 import {
   Send,
   Loader2,
@@ -74,9 +75,9 @@ export function NFTTransferModal({
     onOpenChange(false);
   };
 
-  const explorerUrl = (hash: string) => {
-    return `https://explorer.solana.com/tx/${hash}?cluster=devnet`;
-  };
+  const { txUrl } = useChainCurrency();
+
+  const explorerUrl = (hash: string) => txUrl(hash);
 
   if (!nft) return null;
 
