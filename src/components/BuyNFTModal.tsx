@@ -51,9 +51,12 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
   const [isSuccess, setIsSuccess] = useState(false);
 
   // Determine chain and currency
+  // IMPORTANT: listing.currency is the authoritative source — it was stored at list-time
+  // and reflects the chain the NFT was actually listed on. Do NOT re-derive from buyer's
+  // connected wallet chain, or it will show the wrong currency.
   const chainId = listing?.chain || 'solana';
-  const currencySymbol = chainId === 'monad' ? 'MON' : chainId === 'xrpl' ? 'XRP' : 'SOL';
-  const chainName = chainId === 'monad' ? 'Monad' : chainId === 'xrpl' ? 'XRPL' : 'Solana';
+  const currencySymbol = listing?.currency || (chainId === 'monad' ? 'MON' : chainId === 'xrpl' ? 'XRP' : 'SOL');
+  const chainName = chainId === 'monad' ? 'Monad' : chainId === 'xrpl' ? 'XRP Ledger' : 'Solana';
 
   const isLoading = solanaTransfer.isLoading || monadTransfer.isLoading;
   const error = solanaTransfer.error || monadTransfer.error;
@@ -128,7 +131,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
               <p className="font-medium">{listing.nft.name || `Token #${listing.nft.token_id}`}</p>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">
-                  {chainId === 'solana' ? 'Core Asset' : 'ERC-721'}
+                  {chainId === 'xrpl' ? 'XLS-20' : chainId === 'solana' ? 'Core Asset' : 'ERC-721'}
                 </Badge>
                 <p className="text-sm font-semibold">{listing.price} {currencySymbol}</p>
               </div>

@@ -165,7 +165,8 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                     image_url: imageUrl,
                     creator_id: userId,
                     creator_address: address,
-                    contract_address: txHash
+                    contract_address: txHash,
+                    chain: chain,  // CRITICAL: store the chain so Buy/List modals resolve correct currency
                 })
                 .select("id")
                 .single();

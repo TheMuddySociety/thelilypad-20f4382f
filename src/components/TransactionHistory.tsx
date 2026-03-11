@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Clock, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useWallet } from "@/providers/WalletProvider";
 
 interface Transaction {
   id: string;
@@ -30,6 +31,8 @@ interface TransactionHistoryProps {
 export function TransactionHistory({ userId, collectionId, limit = 10 }: TransactionHistoryProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { chainType } = useWallet();
+  const chainSymbol = chainType === 'xrpl' ? 'XRP' : chainType === 'monad' ? 'MON' : 'SOL';
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -99,6 +102,7 @@ export function TransactionHistory({ userId, collectionId, limit = 10 }: Transac
   };
 
   const explorerUrl = (hash: string) => {
+    if (chainType === 'xrpl') return `https://testnet.xrpl.org/transactions/${hash}`;
     return `https://explorer.solana.com/tx/${hash}`;
   };
 
@@ -168,7 +172,7 @@ export function TransactionHistory({ userId, collectionId, limit = 10 }: Transac
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <div className="font-medium">
-                  {tx.price_paid > 0 ? `${tx.price_paid} SOL` : "Free"}
+                  {tx.price_paid > 0 ? `${tx.price_paid} ${chainSymbol}` : "Free"}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {!isNaN(new Date(tx.created_at).getTime()) ? formatDistanceToNow(new Date(tx.created_at), { addSuffix: true }) : "Unknown"}
