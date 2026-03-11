@@ -91,7 +91,12 @@ function resolveFlowType(standard?: string): CollectionFlowType {
 export default function LaunchpadCreate() {
     const { chain: chainParam, type: typeParam } = useParams<{ chain: string; type: string }>();
     const navigate = useNavigate();
-    const { address, network } = useWallet();
+    const { address, network, chainType } = useWallet();
+    // Derive canonical chain from the connected wallet (authoritative for deploys)
+    const walletChain: typeof selectedChain =
+        chainType === 'xrpl' ? 'xrpl'
+        : chainType === 'monad' ? 'monad'
+        : 'solana';
     const { isAdmin } = useAuth();
     const { chain } = useChain();
     const { theme } = chain;
@@ -248,6 +253,15 @@ export default function LaunchpadCreate() {
         if (!name || !symbol) return toast.error("Please enter a name and symbol.");
         if (!address) return toast.error("Connect your wallet to launch.");
 
+        // ── Chain-wallet mismatch guard ─────────────────────────────────────
+        if (walletChain !== selectedChain) {
+            setIsDeploying(false);
+            return toast.error(
+                `Wallet is connected to ${walletChain.toUpperCase()} but you are deploying on ${selectedChain.toUpperCase()}. ` +
+                `Switch your wallet or select the correct chain.`
+            );
+        }
+
         setIsDeploying(true);
         let collectionId = "";
 
@@ -328,7 +342,7 @@ export default function LaunchpadCreate() {
 
             const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
                 batchItems,
-                { address, chainType: selectedChain, network },
+                { address, chainType: walletChain, network }, // use wallet's actual chain, not URL param
                 (completed, total, status) => {
                     toast.loading(status, { id: 'deploy' });
                 },
@@ -381,30 +395,6 @@ export default function LaunchpadCreate() {
                         primaryArweaveUri
                     );
 
-                    // Insert individual items with Arweave URIs
-                    await solanaLaunch.uploadJsonMetadataBatch(candyMachineItems);
-                } else {
-                    // Bubblegum V2 minting for 1of1 and limited edition NFTs 
-                    // (creates Metaplex core compress NFTs)
-                    if (assetsToUpload.length > 0) {
-                        try {
-                            // Tree capacity: maxDepth 14 fits up to 16,384 NFTs
-                            const treeAddress = await solanaLaunch.deployBubblegumTree(14, 64, 8);
-                            for (let i = 0; i < itemLinks.length; i++) {
-                                await solanaLaunch.mintCompressedCore(
-                                    treeAddress,
-                                    deployedAddress,
-                                    `${name} ${itemLinks.length > 1 ? '#' + (i + 1) : ''}`.trim(),
-                                    itemLinks[i].arweaveUri,
-                                    Math.round(royaltyPercent * 100),
-                                    address
-                                );
-                            }
-                        } catch (e) {
-                            console.error("Bubblegum mint error", e);
-                            throw new Error("Failed to mint Compressed NFTs on Core collection");
-                        }
-                    }
                 }
             } else if (selectedChain === 'xrpl') {
                 const result = await xrplLaunch.deployXRPLCollection({
