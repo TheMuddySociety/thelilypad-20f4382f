@@ -90,7 +90,9 @@ interface CollectionStats {
 
 export default function MyNFTs() {
   const navigate = useNavigate();
-  const { address, isConnected } = useWallet();
+  const { address, isConnected, chainType } = useWallet();
+  // Derive currency symbol from connected chain (not hardcoded SOL)
+  const chainSymbol = chainType === 'xrpl' ? 'XRP' : chainType === 'monad' ? 'MON' : 'SOL';
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
@@ -328,12 +330,15 @@ export default function MyNFTs() {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
+  // Chain-aware explorer URLs
   const explorerUrl = (hash: string) => {
+    if (chainType === 'xrpl') return `https://testnet.xrpl.org/transactions/${hash}`;
     return `https://explorer.solana.com/tx/${hash}?cluster=devnet`;
   };
 
   const tokenExplorerUrl = (contractAddress: string | null, tokenId: number) => {
     if (!contractAddress) return null;
+    if (chainType === 'xrpl') return `https://testnet.xrpl.org/accounts/${contractAddress}`;
     return `https://explorer.solana.com/address/${contractAddress}?cluster=devnet`;
   };
 
@@ -529,7 +534,7 @@ export default function MyNFTs() {
                   <div>
                     <p className="text-sm text-muted-foreground">Est. Portfolio Value</p>
                     <p className="text-2xl font-bold">
-                      {portfolioValue > 0 ? `${portfolioValue.toFixed(2)} SOL` : "—"}
+                      {portfolioValue > 0 ? `${portfolioValue.toFixed(2)} ${chainSymbol}` : "—"}
                     </p>
                     {portfolioValue > 0 && (
                       <p className="text-xs text-muted-foreground">
@@ -592,7 +597,7 @@ export default function MyNFTs() {
                       <Badge variant="outline" className="text-xs">{collection.count}</Badge>
                       {collection.floorPrice !== null && (
                         <span className="text-[10px] text-muted-foreground">
-                          {collection.floorPrice.toFixed(2)} SOL
+                          {collection.floorPrice.toFixed(2)} {chainSymbol}
                         </span>
                       )}
                     </div>

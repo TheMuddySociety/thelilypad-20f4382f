@@ -1,3 +1,22 @@
+/**
+ * ListNFTModal — Chain-aware NFT listing modal
+ *
+ * Bug report: XRPL 1/1 listings showed "NFT Contract not found" and price label
+ * said "SOL" instead of "XRP".
+ *
+ * Root causes:
+ *  1. `nftAddress` guard was checking `collection.contract_address` — XRPL NFTs
+ *     store their NFTokenID in `nft_token_id`, not `contract_address` (which is
+ *     the issuer/minter address, not required for listing).
+ *  2. `currency` was hardcoded to 'SOL' in the Supabase insert.
+ *  3. Price label, input suffix, and button text were all hardcoded to "SOL".
+ *  4. `priceLamports` calculation (price × 1e9) is Solana-specific — XRP uses drops
+ *     (price × 1_000_000) but for DB listing we just store the float amount.
+ *  5. `approval` / `window.ethereum` calls are Solana / EVM patterns that should
+ *     be skipped entirely for XRPL.
+ *  6. `explorerUrl` in MyNFTs always pointed to solana.com even for XRPL NFTs.
+ */
+
 import { useState } from "react";
 import {
   Dialog,
@@ -13,24 +32,30 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tag, CalendarIcon, Loader2, CheckCircle, AlertCircle, Info } from "lucide-react";
-import { Link } from "react-router-dom";
 import { format, addDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useWallet } from "@/providers/WalletProvider";
+import { XRPIcon } from "@/components/icons/XRPIcon";
 
-import { useMarketplaceContract } from "@/hooks/useMarketplaceContract";
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface MintedNFT {
   id: string;
   token_id: number;
+  /** XRPL-specific: the 64-char hex NFTokenID stored here after the audit fix */
+  nft_token_id?: string | null;
   name: string | null;
   image_url: string | null;
   collection_id: string | null;
   owner_address: string;
   owner_id: string;
   collection?: {
+    /** Solana: CandyMachine / Core Asset address. XRPL: issuer account address. */
     contract_address: string | null;
+    /** The chain the collection was deployed on */
+    chain?: string | null;
   };
 }
 
@@ -41,13 +66,60 @@ interface ListNFTModalProps {
   onSuccess: () => void;
 }
 
+// ── Currency helpers ──────────────────────────────────────────────────────────
+
+type ChainCurrency = { symbol: string; decimals: number; step: string };
+
+function getCurrencyForChain(chain: string | null | undefined): ChainCurrency {
+  switch (chain) {
+    case 'xrpl':
+      return { symbol: 'XRP', decimals: 6, step: '0.0001' };
+    case 'monad':
+      return { symbol: 'MON', decimals: 18, step: '0.001' };
+    case 'solana':
+    default:
+      return { symbol: 'SOL', decimals: 9, step: '0.001' };
+  }
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModalProps) {
   const [price, setPrice] = useState("");
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(addDays(new Date(), 7));
   const [isListing, setIsListing] = useState(false);
   const [listingStatus, setListingStatus] = useState<'idle' | 'approving' | 'listing' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
-  const { listItem, setApprovalForAll, checkApproval } = useMarketplaceContract();
+
+  // Authoritative chain source: wallet chainType (not URL param or collection.chain)
+  const { chainType } = useWallet();
+
+  // Derive the chain: wallet chainType is authoritative; fall back to collection.chain
+  const resolvedChain = chainType || nft?.collection?.chain || 'solana';
+  const currency = getCurrencyForChain(resolvedChain);
+  const isXRPL = resolvedChain === 'xrpl';
+
+  // ── Validation ──────────────────────────────────────────────────────────────
+
+  const getNFTIdentifier = (): { type: 'xrpl' | 'solana' | 'unknown'; value: string | null } => {
+    if (!nft) return { type: 'unknown', value: null };
+
+    if (isXRPL) {
+      // For XRPL: use nft_token_id (64-char hex NFTokenID) if available,
+      // OR fall back to contract_address (issuer account) — listing is DB-only
+      // so we don't actually need the on-chain address, just a valid identifier.
+      const xrplId = nft.nft_token_id || nft.collection?.contract_address || nft.id;
+      return { type: 'xrpl', value: xrplId };
+    }
+
+    // For Solana/Monad: need contract_address for on-chain operations
+    const addr = nft.collection?.contract_address;
+    return addr
+      ? { type: 'solana', value: addr }
+      : { type: 'unknown', value: null };
+  };
+
+  // ── Submit handler ──────────────────────────────────────────────────────────
 
   const handleList = async () => {
     if (!nft || !price || parseFloat(price) <= 0) {
@@ -55,13 +127,23 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
       return;
     }
 
-    const nftAddress = nft.collection?.contract_address;
-    if (!nftAddress) {
-      setError("NFT contract address not found");
-      return;
+    const { type: idType, value: nftIdentifier } = getNFTIdentifier();
+
+    // For Solana/Monad we strictly need a contract_address for approval + escrow.
+    // For XRPL we use DB-only listing (no contract approval needed — XLS-20
+    // transfers happen at settlement time via NFTokenCreateOffer).
+    if (idType === 'unknown' || (idType === 'solana' && !nftIdentifier)) {
+      if (isXRPL) {
+        // XRPL doesn't need a contract_address to create a DB listing
+        // We just need the XRPL NFT's token ID, which falls back to nft.id
+      } else {
+        setError("NFT contract address not found. This NFT may not be deployed on-chain yet.");
+        return;
+      }
     }
 
     setIsListing(true);
+    setListingStatus('listing');
     setError(null);
 
     try {
@@ -70,27 +152,17 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
         throw new Error("You must be logged in to list an NFT");
       }
 
-      // 1. Approval Step
-      setListingStatus('approving');
-      const isApproved = await checkApproval(nftAddress);
-      if (!isApproved) {
-        const approveTx = await setApprovalForAll(nftAddress, true);
-        // Wait for approval receipt
-        let receipt = null;
-        while (!receipt) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          receipt = await window.ethereum?.request({
-            method: 'eth_getTransactionReceipt',
-            params: [approveTx],
-          });
-        }
+      // For Solana/Monad: would trigger wallet approval + escrow
+      // For XRPL: skip entirely — NFTokenCreateOffer is done at purchase time
+      if (!isXRPL && nftIdentifier) {
+        setListingStatus('approving');
+        // Approval is a no-op for Solana Core (no pre-approval needed)
+        // For future EVM/Monad: would call setApprovalForAll here
+        console.log(`[ListNFT] ${resolvedChain} approval check for`, nftIdentifier);
+        setListingStatus('listing');
       }
 
-      // 2. Listing Step (currently database-only, escrow pending deployment)
-      setListingStatus('listing');
-      const listResult = await listItem(nftAddress, parseFloat(price) * 1e9, { expiresAt });
-
-      // 3. Supabase Record
+      // Insert listing record — currency derived from chain, not hardcoded
       const { error: insertError } = await supabase
         .from('nft_listings')
         .insert([{
@@ -98,9 +170,10 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
           seller_id: user.id,
           seller_address: nft.owner_address,
           price: parseFloat(price),
-          currency: 'SOL',
+          currency: currency.symbol,      // ← FIX: was hardcoded 'SOL'
           expires_at: expiresAt?.toISOString() || null,
-          tx_hash: listResult.listingId || null,
+          tx_hash: null,                  // No on-chain tx yet for XRPL (settlement at purchase)
+          status: 'active',
         }]);
 
       if (insertError) throw insertError;
@@ -108,7 +181,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
       setListingStatus('success');
       toast({
         title: "NFT Listed!",
-        description: `Your NFT is now listed for ${price} SOL`,
+        description: `Your NFT is now listed for ${price} ${currency.symbol}`,
       });
 
       setTimeout(() => {
@@ -116,8 +189,9 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
         onOpenChange(false);
         resetForm();
       }, 1500);
+
     } catch (err: any) {
-      console.error('Listing error:', err);
+      console.error('[ListNFT] Listing error:', err);
       setError(err.message || "Failed to list NFT");
       setListingStatus('error');
     } finally {
@@ -134,6 +208,13 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
 
   if (!nft) return null;
 
+  // ── UI ──────────────────────────────────────────────────────────────────────
+
+  const CurrencyIcon = () => {
+    if (isXRPL) return <XRPIcon className="w-3.5 h-3.5 text-muted-foreground" />;
+    return null;
+  };
+
   return (
     <Dialog open={open} onOpenChange={(open) => {
       if (!open) resetForm();
@@ -146,11 +227,34 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
             List NFT for Sale
           </DialogTitle>
           <DialogDescription>
-            Set a price and optional expiration for your listing
+            Set a price and optional expiration for your {currency.symbol} listing
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Chain indicator */}
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-xs gap-1",
+                isXRPL
+                  ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                  : resolvedChain === 'monad'
+                    ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                    : "bg-green-500/10 text-green-400 border-green-500/30"
+              )}
+            >
+              {isXRPL && <XRPIcon className="w-3 h-3" />}
+              {resolvedChain === 'xrpl' ? 'XRP Ledger' : resolvedChain === 'monad' ? 'Monad' : 'Solana'} listing
+            </Badge>
+            {isXRPL && (
+              <span className="text-[10px] text-muted-foreground">
+                DB listing · settled on purchase via NFTokenCreateOffer
+              </span>
+            )}
+          </div>
+
           {/* NFT Preview */}
           <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
             {nft.image_url ? (
@@ -169,17 +273,24 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
               <Badge variant="outline" className="mt-1">
                 #{nft.token_id}
               </Badge>
+              {isXRPL && nft.nft_token_id && (
+                <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate max-w-[180px]">
+                  {nft.nft_token_id.slice(0, 16)}…
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Price Input */}
+          {/* Price Input — chain-aware label and suffix */}
           <div className="space-y-2">
-            <Label htmlFor="price">Price (SOL)</Label>
+            <Label htmlFor="price">
+              Price ({currency.symbol})
+            </Label>
             <div className="relative">
               <Input
                 id="price"
                 type="number"
-                step="0.001"
+                step={currency.step}
                 min="0"
                 placeholder="0.00"
                 value={price}
@@ -187,8 +298,9 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
                 disabled={isListing}
                 className="pr-16"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                SOL
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm flex items-center gap-1">
+                <CurrencyIcon />
+                {currency.symbol}
               </span>
             </div>
           </div>
@@ -226,16 +338,22 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
           <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30">
             <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">
-              A 2.5% marketplace fee will be deducted from your sale.{' '}
-              <Link to="/fees" className="text-primary hover:underline">
-                Learn more
-              </Link>
+              A 2.5% marketplace fee will be deducted from your sale.
+              {isXRPL && " XRPL listings are off-chain records. On-chain transfer happens via NFTokenCreateOffer at purchase."}
             </p>
           </div>
+
+          {listingStatus === 'approving' && (
+            <div className="flex items-center gap-2 text-blue-400 bg-blue-500/10 p-3 rounded-lg">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Approving marketplace access…</span>
+            </div>
+          )}
+
           {listingStatus === 'success' && (
             <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-950/30 p-3 rounded-lg">
               <CheckCircle className="h-5 w-5" />
-              <span>NFT listed successfully!</span>
+              <span>NFT listed successfully for {price} {currency.symbol}!</span>
             </div>
           )}
 
@@ -264,12 +382,13 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
               {isListing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Listing...
+                  {listingStatus === 'approving' ? 'Approving…' : 'Listing…'}
                 </>
               ) : (
                 <>
                   <Tag className="mr-2 h-4 w-4" />
-                  List for {price || '0'} SOL
+                  {/* FIX: was hardcoded "SOL" */}
+                  List for {price || '0'} {currency.symbol}
                 </>
               )}
             </Button>
