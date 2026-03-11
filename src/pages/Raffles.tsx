@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
+import Marketplace from "@/pages/Marketplace";
 
 
 import { supabase } from "@/integrations/supabase/client";
@@ -255,18 +256,9 @@ const Raffles: React.FC = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="marketplace">
-            <div className="text-center py-12 border-2 border-dashed rounded-lg">
-              <LayoutGrid className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">Marketplace Coming Soon</h3>
-              <p className="text-muted-foreground mb-4">
-                A dedicated space for 1/1 and Limited Edition artworks.
-              </p>
-              <Button variant="outline" onClick={() => setIsLaunchOpen(true)}>
-                Be the first to list
-              </Button>
-            </div>
-          </TabsContent>
+                      <TabsContent value="marketplace">
+              <Marketplace />
+            </TabsContent>
         </Tabs>
       </main>
 
