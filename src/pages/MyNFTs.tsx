@@ -553,6 +553,7 @@ export default function MyNFTs() {
           <PortfolioValueChart
             nfts={nfts.map(n => ({ id: n.id, minted_at: n.minted_at, collection_id: n.collection_id }))}
             collectionStats={collectionStats}
+            currency={chainSymbol}
           />
         )}
 

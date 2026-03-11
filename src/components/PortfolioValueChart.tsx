@@ -19,9 +19,11 @@ interface CollectionStats {
 interface PortfolioValueChartProps {
   nfts: NFT[];
   collectionStats: CollectionStats[];
+  /** Currency symbol to display — e.g. 'XRP', 'SOL', 'MON'. Defaults to 'SOL'. */
+  currency?: string;
 }
 
-export function PortfolioValueChart({ nfts, collectionStats }: PortfolioValueChartProps) {
+export function PortfolioValueChart({ nfts, collectionStats, currency = 'SOL' }: PortfolioValueChartProps) {
   const chartData = useMemo(() => {
     if (nfts.length === 0) return [];
 
@@ -141,7 +143,7 @@ export function PortfolioValueChart({ nfts, collectionStats }: PortfolioValueCha
             )}
           </div>
         </div>
-        <p className="text-2xl font-bold">{currentValue.toFixed(2)} SOL</p>
+        <p className="text-2xl font-bold">{currentValue.toFixed(2)} {currency}</p>
         <p className="text-xs text-muted-foreground">Estimated based on current floor prices</p>
       </CardHeader>
       <CardContent>
@@ -180,7 +182,7 @@ export function PortfolioValueChart({ nfts, collectionStats }: PortfolioValueCha
                     return (
                       <div className="bg-popover border rounded-lg shadow-lg p-3">
                         <p className="text-sm font-medium">{data.fullDate}</p>
-                        <p className="text-lg font-bold text-primary">{data.value.toFixed(2)} SOL</p>
+                        <p className="text-lg font-bold text-primary">{data.value.toFixed(2)} {currency}</p>
                         <p className="text-xs text-muted-foreground">{data.nftCount} NFTs</p>
                       </div>
                     );
