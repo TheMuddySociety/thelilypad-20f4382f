@@ -219,7 +219,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         walletData = generateXRPLWallet();
       }
 
-      await saveXRPLWallet(walletData);
+      // Only save if we generated a new wallet (don't re-encrypt and overwrite existing)
+      if (!(stored && action === 'generate')) {
+        await saveXRPLWallet(walletData);
+      }
 
       const network = getXRPLNetwork();
       let balance = '0';
@@ -374,7 +377,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isConnecting: false,
       balance: null,
       walletType: null,
-      chainType: "solana" as ChainType,
+      chainType: "solana" as ChainType, // Reset to default chain on disconnect
       authProvider: undefined,
     }));
 
@@ -491,11 +494,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const stored = await loadXRPLWallet();
     if (!stored) throw new Error("XRPL wallet not found. Please connect your wallet.");
 
-    const wallet = importXRPLWallet(stored.seed);
-    const xrplWallet = (window as any).xrpl?.Wallet ? (window as any).xrpl.Wallet.fromSeed(stored.seed) : null;
-
-    const signer = xrplWallet || (import.meta.env.MODE === 'test' ? null : (await import('xrpl')).Wallet.fromSeed(stored.seed));
-
+    // Use the static xrpl import (already bundled) — dynamic import / window.xrpl is unreliable
+    const { Wallet } = await import('xrpl');
+    const signer = Wallet.fromSeed(stored.seed);
     if (!signer) throw new Error("XRPL library not loaded");
 
     return signer.sign(tx);

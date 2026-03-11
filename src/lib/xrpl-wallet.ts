@@ -227,7 +227,7 @@ export async function fetchXRPBalance(address: string, network: XRPLNetworkType 
       ledger_index: 'validated',
     });
     const drops = String(response.result.account_data.Balance);
-    return String(Number(drops) / 1_000_000);
+    return String(dropsToXrp(drops)); // uses xrpl.js library — handles precision correctly
   } catch (error: any) {
     if (error?.data?.error === 'actNotFound') {
       return '0';
@@ -257,7 +257,8 @@ export async function sendXRP(
     const prepared = await client.autofill({
       TransactionType: 'Payment',
       Account: wallet.classicAddress,
-      Amount: String(Math.round(Number(amount) * 1_000_000)),
+      // xrpToDrops() handles precision correctly (returns string of integer drops)
+      Amount: xrpToDrops(amount),
       Destination: destination,
       ...(destinationTag !== undefined ? { DestinationTag: destinationTag } : {}) as any,
     });

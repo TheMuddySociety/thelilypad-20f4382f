@@ -86,8 +86,8 @@ export const useXRPLMint = () => {
 
         try {
             // FIX XRPL-013: use XRPL-specific network setting, not Solana's
-            const xrplNetwork = getXRPLNetwork();
-            const endpoint = getXRPLEndpoint(xrplNetwork === 'mainnet' ? 'mainnet' : 'testnet');
+            const xrplNetwork = getXRPLNetwork(); // 'mainnet' | 'testnet' | 'devnet'
+            const endpoint = getXRPLEndpoint(xrplNetwork); // pass through exactly — no coercion
             client = new Client(endpoint);
             await client.connect();
 
