@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Wallet, ExternalLink, Clock, Sparkles, Zap, Hexagon } from "lucide-react";
+import { XRPIcon } from "@/components/icons/XRPIcon";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { waitForPhantomExtension } from "@/config/phantom";
@@ -69,10 +70,10 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
         const xrplOption: WalletOption = {
           id: "xrpl",
           name: "XRPL Browser Wallet",
-          icon: "✕",
+          icon: <XRPIcon className="w-7 h-7" />,
           isInstalled: true,
           installUrl: "",
-          description: "Non-custodial browser extension",
+          description: "Non-custodial browser wallet",
         };
 
         if (chain.id === 'xrpl') {
@@ -95,7 +96,7 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
           {
             id: "xrpl",
             name: "XRPL Browser Wallet",
-            icon: "✕",
+            icon: <XRPIcon className="w-7 h-7" />,
             isInstalled: true,
             installUrl: "",
           }
@@ -121,7 +122,7 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
   const getChainIcon = () => {
     switch (chain.id) {
       case 'solana': return <span className="mr-1 text-emerald-400">◎</span>;
-      case 'xrpl': return <span className="mr-1 text-blue-400">✕</span>;
+      case 'xrpl': return <XRPIcon className="w-3.5 h-3.5 mr-1 text-blue-400" />;
       case 'monad': return <Hexagon className="w-3 h-3 mr-1 text-purple-400" />;
       default: return null;
     }

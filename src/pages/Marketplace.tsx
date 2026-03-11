@@ -5,6 +5,7 @@ import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import BuybackStats from "@/components/BuybackStats";
 import { Sparkles } from "lucide-react";
+import { XRPIcon } from "@/components/icons/XRPIcon";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
 import { BackToTop } from "@/components/BackToTop";
@@ -131,12 +132,12 @@ export default function Marketplace() {
 
         {/* Chain Selector Tabs */}
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
-          {[
-            { id: 'all' as ChainFilter, label: 'All Chains', icon: '🌐' },
-            { id: 'solana' as ChainFilter, label: 'Solana', icon: '◎' },
-            { id: 'xrpl' as ChainFilter, label: 'XRPL', icon: '✕' },
-            { id: 'monad' as ChainFilter, label: 'Monad', icon: '◈' },
-          ].map((tab) => (
+          {([
+            { id: 'all' as ChainFilter, label: 'All Chains', icon: <span>🌐</span> },
+            { id: 'solana' as ChainFilter, label: 'Solana', icon: <span>◎</span> },
+            { id: 'xrpl' as ChainFilter, label: 'XRPL', icon: <XRPIcon className="w-3.5 h-3.5" /> },
+            { id: 'monad' as ChainFilter, label: 'Monad', icon: <span>◈</span> },
+          ] as { id: ChainFilter; label: string; icon: React.ReactNode }[]).map((tab) => (
             <button
               key={tab.id}
               onClick={() => setSelectedChain(tab.id)}
@@ -148,7 +149,7 @@ export default function Marketplace() {
                 : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent'
                 }`}
             >
-              <span>{tab.icon}</span>
+              {tab.icon}
               {tab.label}
             </button>
           ))}

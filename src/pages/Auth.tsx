@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Loader2, Import, PlusCircle, ArrowRight } from "lucide-react";
+import { XRPIcon } from "@/components/icons/XRPIcon";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
 import { hasStoredXRPLWallet } from "@/lib/xrpl-wallet";
@@ -35,13 +36,11 @@ const PhantomIcon = () => (
   </svg>
 );
 
-// XRP Ledger icon
+// XRP Ledger icon — official symbol (curly brackets + X) on dark background tile
 const XRPLIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="128" height="128" rx="26" fill="#23292F" />
-    <path d="M44 38H54.5L64 52.5L73.5 38H84L69.5 58L84 78H73.5L64 63.5L54.5 78H44L58.5 58L44 38Z" fill="white" />
-    <path d="M44 88H84V92H44V88Z" fill="#00AAE4" />
-  </svg>
+  <span className="flex items-center justify-center w-5 h-5 rounded bg-[#23292F]">
+    <XRPIcon className="w-3.5 h-3.5 text-white" />
+  </span>
 );
 
 // Monad icon — purple diamond
@@ -263,7 +262,7 @@ export default function Auth() {
                   {/* XRPL badge */}
                   <div className="flex items-center justify-center">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#00AAE4]/10 text-[#00AAE4] text-xs font-medium border border-[#00AAE4]/20">
-                      ✕ XRP Ledger (Testnet)
+                      <XRPIcon className="w-3.5 h-3.5" /> XRP Ledger (Testnet)
                     </span>
                   </div>
 

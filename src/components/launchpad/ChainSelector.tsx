@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown, Check, Sparkles, Zap, Hexagon } from 'lucide-react';
+import { XRPIcon } from '@/components/icons/XRPIcon';
 import { cn } from '@/lib/utils';
 import {
     SupportedChain,
@@ -52,12 +53,8 @@ const ChainIcon: React.FC<{ chain: SupportedChain; className?: string }> = ({ ch
                 </svg>
             );
         case 'xrpl':
-            return (
-                <svg className={cn("w-4 h-4", className)} viewBox="0 0 128 128" fill="none">
-                    <path d="M28.8 16H44.8L64 35.2L83.2 16H99.2L70.4 44.8L99.2 73.6H83.2L64 54.4L44.8 73.6H28.8L57.6 44.8L28.8 16Z" fill="currentColor" />
-                    <path d="M28.8 112H44.8L64 92.8L83.2 112H99.2L70.4 83.2L99.2 54.4H83.2L64 73.6L44.8 54.4H28.8L57.6 83.2L28.8 112Z" fill="currentColor" />
-                </svg>
-            );
+            // Official XRP Ledger symbol — curly brackets + X mark
+            return <XRPIcon className={cn("w-4 h-4", className)} />;
         case 'monad':
             return (
                 <Hexagon className={cn("w-4 h-4", className)} style={{ color: '#836EF9' }} />

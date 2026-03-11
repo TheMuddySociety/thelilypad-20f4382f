@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/providers/WalletProvider";
 import { Wallet, LogOut, ExternalLink, User, ChevronDown, ChevronUp, Coins } from "lucide-react";
+import { XRPIcon } from "@/components/icons/XRPIcon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -108,7 +109,12 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
   const chainCfg = CHAINS[chainType as SupportedChain] ?? CHAINS.solana;
   const chainDisplayName = network === 'mainnet' ? chainCfg.name : `${chainCfg.name} Testnet`;
   const balanceSymbol = chainCfg.symbol;
-  const chainIcon = chainType === 'xrpl' ? '✕' : chainType === 'monad' ? '◈' : '◎';
+  // Render the chain icon — XRP uses official SVG, others use unicode glyphs
+  const renderChainIcon = (sizeClass = "w-4 h-4") => {
+    if (chainType === 'xrpl') return <XRPIcon className={sizeClass} />;
+    if (chainType === 'monad') return <span className="text-sm">◈</span>;
+    return <span className="text-sm">◎</span>;
+  };
   const explorerUrl = address
     ? getExplorerUrl(chainType as SupportedChain, address, 'address', network === 'mainnet' ? 'mainnet' : 'testnet')
     : '#';
@@ -159,7 +165,7 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
               <span className="text-lg">{getWalletIcon()}</span>
 
               {/* Chain icon */}
-              <span className="text-sm">{chainIcon}</span>
+              {renderChainIcon()}
 
               {/* Address */}
               <span className="font-mono text-xs">{formatAddress(address!)}</span>
@@ -176,7 +182,7 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
               </Badge>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-lg">{chainIcon}</span>
+              {renderChainIcon("w-5 h-5")}
               <span className="text-lg font-semibold">{formatBalance(balance)} {balanceSymbol}</span>
             </div>
           </div>
