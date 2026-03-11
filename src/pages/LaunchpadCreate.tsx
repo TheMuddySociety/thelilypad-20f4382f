@@ -342,7 +342,7 @@ export default function LaunchpadCreate() {
             // ── Step 3: Persistence Finalized ───────────────────────────────
             toast.loading("Persistence secured on Arweave...", { id: 'deploy' });
             // If the manifest was created, we can use it, otherwise fallback to first metadata
-            const primaryArweaveUri = manifestUri || itemLinks[0]?.arweaveUri || "";
+            const primaryArweaveUri = manifestUri || (itemLinks.length > 0 ? itemLinks[0].arweaveUri : "");
 
             // ── Step 4: Chain-Specific Deployment ───────────────────────────
             toast.loading(`Deploying on ${currentChain.name}...`, { id: 'deploy' });
@@ -432,7 +432,7 @@ export default function LaunchpadCreate() {
                 await supabase.from("collections").update({
                     contract_address: deployedAddress,
                     status: "live",
-                    image_url: itemLinks[0]?.arweaveImageUri || '',
+                    image_url: (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : ''),
                     is_dynamic: isDynamic || false,
                 }).eq('id', collectionId);
             }
@@ -446,7 +446,7 @@ export default function LaunchpadCreate() {
                     description,
                     chain: selectedChain,
                     contract_address: deployedAddress,
-                    image_url: itemLinks[0]?.arweaveImageUri || '',
+                    image_url: (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : ''),
                     manifest_uri: primaryArweaveUri,
                     created_at: new Date().toISOString(),
                     creator_address: address || '',
@@ -727,7 +727,7 @@ export default function LaunchpadCreate() {
                                 )}
                                 {((is1of1 && currentStep === 3) || (mode === "music" && currentStep === 3) || (!is1of1 && mode !== "music" && (mode === "basic" ? currentStep === 3 : currentStep === 5))) && (
                                     <div className="space-y-6">
-                                        {selectedChain === 'xrpl' ? <XRPLConfigurator taxon={xrplTaxon} onTaxonChange={setXrplTaxon} transferFee={xrplTransferFee} onTransferFeeChange={setXrplTransferFee} /> : <GuardConfigurator phase={phases[0]} onChange={u => setPhases(p => [{ ...p[0], ...u }])} chainSymbol={chainSymbol} />}
+                                        {selectedChain === 'xrpl' ? <XRPLConfigurator taxon={xrplTaxon} onTaxonChange={setXrplTaxon} transferFee={xrplTransferFee} onTransferFeeChange={setXrplTransferFee} /> : <GuardConfigurator phase={phases[0] || defaultPhases[0]} onChange={u => setPhases(p => [{ ...(p[0] || defaultPhases[0]), ...u }])} chainSymbol={chainSymbol} />
                                         <Separator />
                                         <div className="space-y-3">
                                             <Label>Treasury Wallet</Label>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
+
+
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Ticket, Clock, Users, Trophy } from "lucide-react";
