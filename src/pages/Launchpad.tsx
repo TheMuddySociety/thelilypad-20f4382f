@@ -98,14 +98,8 @@ const COLLECTION_TYPES: CollectionTypeTile[] = [
     chains: ["xrpl"],
     tag: "No-Code",
   },
-  {
-    id: "1of1",
-    title: "1/1 & Limited Editions",
-    description: "Hand-crafted one-of-a-kind pieces or small numbered editions. Perfect for collectors and gallery drops.",
-    icon: ImageIcon,
-    chains: ["solana", "xrpl", "monad"],
-  },
 ];
+
 
 // ── Filter tabs ───────────────────────────────────────────────────────────────
 const FILTER_TABS = [
@@ -118,7 +112,7 @@ const FILTER_TABS = [
 
 // ── Draft finder (reads from the new lilypad_draft_* keys) ────────────────────
 const DRAFT_PREFIX = 'lilypad_draft_';
-const DRAFT_TYPES = ['generative', '1of1', 'xrpl-589', 'music', 'advanced', 'basic'];
+const DRAFT_TYPES = ['generative', 'xrpl-589', 'music', 'advanced', 'basic'];
 
 /** Find the most recent draft for a given chain across all type keys */
 function findLatestDraft(chain: string): { key: string; type: string; data: any } | null {
@@ -328,6 +322,10 @@ export default function Launchpad() {
 
             <div className="pt-4 border-t border-border/40">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground px-1 mb-3">Quick Links</p>
+              <button onClick={() => navigate("/raffles")} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                1/1 &amp; Editions Studio
+              </button>
               <button onClick={() => navigate("/marketplace")} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
                 <ShoppingCart className="w-4 h-4" />
                 Marketplace

@@ -109,17 +109,24 @@ export default function LaunchpadCreate() {
     const chainSymbol = currentChain.symbol;
     const launchpadConfig = getLaunchpadConfig(selectedChain);
 
+    // Redirect 1/1 & Editions to Raffles & Studio
+    useEffect(() => {
+        if (typeParam === "1of1") {
+            navigate("/raffles", { replace: true });
+        }
+    }, [typeParam, navigate]);
+
     // Wizard State
-    const [mode, setMode] = useState<CollectionMode>(resolveFlowType(typeParam) === "1of1" ? "1of1" : "basic");
+    const [mode, setMode] = useState<CollectionMode>("basic");
     const [currentStep, setCurrentStep] = useState(0);
     const [direction, setDirection] = useState(0);
     const [isDeploying, setIsDeploying] = useState(false);
 
     const flowType = resolveFlowType(typeParam);
-    const is1of1 = mode === "1of1" || flowType === "1of1";
+    const is1of1 = false; // 1/1s are now handled by Raffles & Studio
 
-    const STEPS = is1of1
-        ? (launchpadConfig.modes["1of1"] || [])
+    const STEPS = mode === "music"
+        ? (launchpadConfig.modes.basic || [])
         : (mode === "basic" ? launchpadConfig.modes.basic : launchpadConfig.modes.advanced) || [];
     const maxStep = STEPS.length - 1;
 
@@ -610,7 +617,7 @@ export default function LaunchpadCreate() {
                                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                 className="space-y-8"
                             >
-                                {currentStep === 0 && !is1of1 && <ModeSelector mode={mode} onModeChange={setMode} />}
+                                {currentStep === 0 && !is1of1 && <ModeSelector mode={mode as "basic" | "advanced" | "music"} onModeChange={setMode} />}
                                 {((is1of1 && currentStep === 0) || (!is1of1 && currentStep === 1)) && (
                                     <div className="space-y-6">
                                         <div className="space-y-4">
@@ -727,7 +734,7 @@ export default function LaunchpadCreate() {
                                 )}
                                 {((is1of1 && currentStep === 3) || (mode === "music" && currentStep === 3) || (!is1of1 && mode !== "music" && (mode === "basic" ? currentStep === 3 : currentStep === 5))) && (
                                     <div className="space-y-6">
-                                        {selectedChain === 'xrpl' ? <XRPLConfigurator taxon={xrplTaxon} onTaxonChange={setXrplTaxon} transferFee={xrplTransferFee} onTransferFeeChange={setXrplTransferFee} /> : <GuardConfigurator phase={phases[0] || defaultPhases[0]} onChange={u => setPhases(p => [{ ...(p[0] || defaultPhases[0]), ...u }])} chainSymbol={chainSymbol} />
+                                        {selectedChain === 'xrpl' ? <XRPLConfigurator taxon={xrplTaxon} onTaxonChange={setXrplTaxon} transferFee={xrplTransferFee} onTransferFeeChange={setXrplTransferFee} /> : <GuardConfigurator phase={phases[0] || defaultPhases[0]} onChange={u => setPhases(p => [{ ...(p[0] || defaultPhases[0]), ...u }])} chainSymbol={chainSymbol} />}
                                         <Separator />
                                         <div className="space-y-3">
                                             <Label>Treasury Wallet</Label>
