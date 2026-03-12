@@ -235,7 +235,7 @@ export default function XRPLEasyGenerator() {
                     setUploadProgress(15 + Math.round((completed / total) * 45));
                     toast.loading(status, { id: 'easy-mint' });
                 },
-                3, // concurrency
+                25, // concurrency
                 true, // enable thumbnails
                 [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }] // custom tags
             );

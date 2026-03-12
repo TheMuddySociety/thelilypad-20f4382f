@@ -93,7 +93,7 @@ export async function generateThumbnails(file: File): Promise<ProcessedImage> {
 export async function generateThumbnailsBatch(
     files: File[],
     onProgress?: (completed: number, total: number) => void,
-    concurrency = 3,
+    concurrency = 25,
 ): Promise<ProcessedImage[]> {
     const results: ProcessedImage[] = new Array(files.length);
 

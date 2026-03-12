@@ -346,7 +346,7 @@ export default function LaunchpadCreate() {
                 (completed, total, status) => {
                     toast.loading(status, { id: 'deploy' });
                 },
-                3, // concurrency
+                25, // concurrency
                 true, // enable thumbnails
                 [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }], // custom tags
                 isDynamic, // isMutable — uses Irys mutable references for Dynamic NFTs

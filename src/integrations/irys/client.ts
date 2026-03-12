@@ -836,7 +836,7 @@ export async function uploadBatchToArweave(
     items: BatchUploadItem[],
     wallet: any,
     onProgress?: (completed: number, total: number, status: string) => void,
-    concurrency = 3,
+    concurrency = 25,
     enableThumbnails = true,
     customTags: { name: string; value: string }[] = [],
     isMutable = false,

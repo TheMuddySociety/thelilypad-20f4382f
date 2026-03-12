@@ -277,7 +277,7 @@ export default function XRPLNFTGenerator() {
                     setUploadProgress(15 + Math.round((completed / total) * 40));
                     toast.loading(status, { id: "xrpl-gen" });
                 },
-                3, // concurrency
+                25, // concurrency
                 true, // enable thumbnails
                 [{ name: "Collection-Name", value: collectionName }] // custom tags
             );
