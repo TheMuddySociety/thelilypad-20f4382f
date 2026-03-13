@@ -202,6 +202,23 @@
   backface-visibility: hidden;
 }
 
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+@keyframes shiny {
+  0% { transform: translateX(-200%) translateY(-50%) rotate(-30deg); }
+  100% { transform: translateX(200%) translateY(-50%) rotate(-30deg); }
+}
+
+.animate-shiny {
+  animation: shiny 3s infinite linear;
+}
+
 /* Mobile safe area for bottom navigation */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);

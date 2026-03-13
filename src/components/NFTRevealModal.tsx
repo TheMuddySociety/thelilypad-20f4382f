@@ -133,22 +133,6 @@ export function NFTRevealModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[480px] p-0 overflow-hidden bg-transparent border-none shadow-none sm:rounded-[2.5rem]">
-        <style dangerouslySetInnerHTML={{
-          __html: `
-          .perspective-1000 { perspective: 1000px; }
-          .backface-hidden { backface-visibility: hidden; }
-          .rotate-y-180 { transform: rotateY(180deg); }
-          .transform-style-3d { transform-style: preserve-3d; }
-          
-          @keyframes shiny {
-            0% { transform: translateX(-200%) translateY(-50%) rotate(-30deg); }
-            100% { transform: translateX(200%) translateY(-50%) rotate(-30deg); }
-          }
-          .animate-shiny {
-            animation: shiny 3s infinite linear;
-          }
-        `}} />
-
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
