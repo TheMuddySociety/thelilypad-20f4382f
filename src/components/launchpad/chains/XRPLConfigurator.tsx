@@ -49,7 +49,7 @@ export function XRPLConfigurator({ taxon, onTaxonChange, transferFee, onTransfer
                             <Zap className="w-4 h-4" /> Transfer Fee
                         </Label>
                         <Badge variant="outline" className="text-[10px]">
-                            {(transferFee / 1000).toFixed(2)}%
+                            {transferFee.toFixed(2)}%
                         </Badge>
                     </div>
                     <Input
@@ -57,17 +57,17 @@ export function XRPLConfigurator({ taxon, onTaxonChange, transferFee, onTransfer
                         value={transferFee}
                         onChange={(e) => onTransferFeeChange(Number(e.target.value))}
                         className="bg-background/50 border-white/10"
-                        placeholder="0 - 50000"
+                        placeholder="0 - 50"
                         min={0}
-                        max={50000}
+                        max={50}
                     />
                     <p className="text-[10px] text-muted-foreground">
-                        Royalty in basis points (1,000 = 1%). Max 50,000 (50%).
+                        Royalty percentage (e.g. 5.1%). Max 50%.
                     </p>
                 </div>
             </div>
 
-            {transferFee > 50000 && (
+            {transferFee > 50 && (
                 <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex gap-2 items-center text-destructive">
                     <ShieldAlert className="w-4 h-4" />
                     <span className="text-xs font-medium">XRPL maximum transfer fee is 50.00%</span>

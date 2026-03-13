@@ -16,13 +16,14 @@ import { toast } from "sonner";
 const TESTNET_FAUCET_URL = "https://faucet.solana.com";
 
 export const NetworkSwitch: React.FC = () => {
-  const { network, switchNetwork, isConnected } = useWallet();
+  const { network, switchNetwork, isConnected, chainType } = useWallet();
 
   const getNetworkLabel = (net: string) => {
+    const chainName = chainType === 'xrpl' ? 'XRPL' : chainType === 'monad' ? 'Monad' : 'Solana';
     switch (net) {
-      case "mainnet": return "Solana Mainnet";
-      case "testnet": return "Solana Testnet";
-      case "devnet": return "Solana Devnet";
+      case "mainnet": return `${chainName} Mainnet`;
+      case "testnet": return `${chainName} Testnet`;
+      case "devnet": return `${chainName} Devnet`;
       default: return net;
     }
   };

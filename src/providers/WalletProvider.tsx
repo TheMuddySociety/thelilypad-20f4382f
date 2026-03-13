@@ -240,6 +240,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isConnected: true,
         isConnecting: false,
         balance,
+        // Sync global network state with XRPL preference
+        network: network as NetworkType,
         walletType: "xrpl",
         chainType: "xrpl",
         authProvider: "xrpl-browser",
@@ -247,6 +249,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       localStorage.setItem("walletConnected", "true");
       localStorage.setItem("walletType", "xrpl");
+      localStorage.setItem("chainType", "xrpl");
+      // Ensure global network state matches XRPL
+      localStorage.setItem("solanaNetwork", network); 
       setStoredChain('xrpl');
 
       toast.success(`XRPL wallet connected on ${network}`);
@@ -389,12 +394,26 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     toast.success("Wallet disconnected");
   }, [state.walletType]);
 
-  // Switch Solana network
+  // Switch network across all chains
   const switchNetwork = useCallback(async (network: NetworkType) => {
     setState(prev => ({ ...prev, network }));
     localStorage.setItem("solanaNetwork", network);
+    
+    // Also update XRPL specific network if we are on XRPL
+    if (state.chainType === 'xrpl' && state.address) {
+      import('@/lib/xrpl-wallet').then(async ({ setXRPLNetwork, fetchXRPBalance }) => {
+        setXRPLNetwork(network as XRPLNetworkType);
+        try {
+          const balance = await fetchXRPBalance(state.address!, network as XRPLNetworkType);
+          setState(prev => ({ ...prev, balance }));
+        } catch {
+          setState(prev => ({ ...prev, balance: '0' }));
+        }
+      });
+    }
+    
     toast.success(`Switched to ${network}`);
-  }, [state.address]);
+  }, [state.chainType, state.address]);
 
   // Helper to get raw provider
   const getSolanaProviderCallback = useCallback(() => {
