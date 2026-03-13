@@ -71,11 +71,12 @@ export const TREASURY_CONFIG = {
       platformFee: 0, // 0% fee on tips - 100% goes to creator
     },
     
-    // Launchpad/Minting fees
+    // Launchpad/Minting fees (Undercutting LaunchMyNFT - they take 2.5% / 1.5% > 0.3 SOL)
     launchpad: {
-      platformFee: 500, // 5% platform fee on mints
-      buybackAllocation: 100, // 1% goes to buyback pool (from platform fee)
-      teamAllocation: 100, // 1% goes to team (from platform fee)
+      platformFee: 200, // 2.0% platform fee on mints
+      premiumFee: 125,  // 1.25% platform fee for mints >= 0.3 SOL
+      buybackAllocation: 25, // 0.25% goes to buyback (at 2% total)
+      teamAllocation: 25,    // 0.25% goes to team (at 2% total)
     },
   },
   
@@ -134,9 +135,19 @@ export function getLaunchpadFeeSplit(mintPrice: number): {
   total: number;
 } {
   const { launchpad } = TREASURY_CONFIG.fees;
-  const platformFeeAmount = (mintPrice * launchpad.platformFee) / 10000;
-  const teamAmount = (mintPrice * launchpad.teamAllocation) / 10000;
-  const buybackAmount = (mintPrice * launchpad.buybackAllocation) / 10000;
+  
+  // Use tiered fee based on price to undercut competition
+  // LMNFT takes 2.5% standard or 1.5% for > 0.3 SOL
+  const isPremium = mintPrice >= 0.3;
+  const platformFeeBps = isPremium ? launchpad.premiumFee : launchpad.platformFee;
+  
+  const platformFeeAmount = (mintPrice * platformFeeBps) / 10000;
+  
+  // Scale allocations proportionately
+  const scale = platformFeeBps / launchpad.platformFee;
+  const teamAmount = (mintPrice * launchpad.teamAllocation * scale) / 10000;
+  const buybackAmount = (mintPrice * launchpad.buybackAllocation * scale) / 10000;
+  
   const treasuryAmount = platformFeeAmount - teamAmount - buybackAmount;
   const creatorAmount = mintPrice - platformFeeAmount;
   

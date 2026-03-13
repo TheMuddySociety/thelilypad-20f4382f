@@ -47,7 +47,12 @@ export function GuardConfigurator({ phase, onChange, chainSymbol = 'SOL' }: Guar
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Payment & Limits Config */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2 p-4 rounded-xl bg-secondary/20 border border-white/5 backdrop-blur-sm">
+                <div className="space-y-2 p-4 rounded-xl bg-secondary/20 border border-white/5 backdrop-blur-sm relative overflow-hidden group">
+                    <div className="absolute top-0 right-0">
+                        <Badge variant="outline" className="text-[9px] py-0.5 px-2 bg-green-500/10 text-green-400 border-green-500/20 rounded-bl-lg border-t-0 border-r-0">
+                            {phase.price >= 0.3 ? "1.25% FEE (PREMIUM)" : "2.0% FEE"}
+                        </Badge>
+                    </div>
                     <Label className="flex items-center gap-2 text-primary font-semibold"><Coins className="w-4 h-4" /> Mint Price ({chainSymbol})</Label>
                     <Input
                         type="number"
@@ -56,6 +61,11 @@ export function GuardConfigurator({ phase, onChange, chainSymbol = 'SOL' }: Guar
                         className="bg-background/50 border-white/10"
                         placeholder="0.00"
                     />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                        {phase.price >= 0.3 
+                            ? "✨ Premium Rate: 1.25% (Saves 50% vs competition)" 
+                            : "Lower than competition (2.0% vs 2.5%)"}
+                    </p>
                 </div>
                 <div className="space-y-2 p-4 rounded-xl bg-secondary/20 border border-white/5 backdrop-blur-sm">
                     <Label className="flex items-center gap-2 text-primary font-semibold"><Users className="w-4 h-4" /> Max Per Wallet</Label>

@@ -94,8 +94,15 @@ export function getFeeBreakdown(
     type: keyof typeof TREASURY_CONFIG.fees
 ) {
     const feeConfig = TREASURY_CONFIG.fees[type];
-    const feeBps = 'platformFee' in feeConfig ? feeConfig.platformFee : 0;
     
+    // Special handling for tiered launchpad fees
+    if (type === 'launchpad') {
+        const isPremium = amount >= 0.3;
+        const feeBps = isPremium ? (feeConfig as any).premiumFee : (feeConfig as any).platformFee;
+        return getFeeDetails(amount, feeBps);
+    }
+    
+    const feeBps = 'platformFee' in feeConfig ? feeConfig.platformFee : 0;
     return getFeeDetails(amount, feeBps);
 }
 

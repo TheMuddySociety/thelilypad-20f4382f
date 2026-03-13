@@ -737,9 +737,15 @@ export default function LaunchpadCreate() {
                                         <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto"><Rocket className="w-10 h-10" /></div>
                                         <h2 className="text-2xl font-bold">Ready to Launch!</h2>
                                         <LaunchpadTools config={launchpadConfig} theme={theme} />
-                                        <Button onClick={handleDeploy} disabled={isDeploying} className="w-full h-16 text-xl font-bold mt-8">
-                                            {isDeploying ? "Deploying..." : "Launch Collection"}
-                                        </Button>
+                                        <div className="space-y-4">
+                                            <Button onClick={handleDeploy} disabled={isDeploying} className="w-full h-16 text-xl font-bold">
+                                                {isDeploying ? "Deploying..." : "Launch Collection"}
+                                            </Button>
+                                            <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
+                                                <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-[9px]">LOWEST FEES</Badge>
+                                                <span>2.0% Flat Fee • Zero Launch Fees • Permanent Arweave Storage</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </motion.div>
