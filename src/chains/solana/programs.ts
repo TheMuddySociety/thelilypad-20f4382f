@@ -317,7 +317,7 @@ export async function createCoreCandyMachine(
     const candyGuard = generateSigner(umi);
     const collectionMint = publicKey(collectionAddress);
 
-    const treasury = treasuryWallet || PLATFORM_WALLETS.treasury;
+    const treasury = treasuryWallet || PLATFORM_WALLETS.solana.treasury;
     const primaryPhase = phases.find(p => p.price > 0) || phases[0];
     const primaryPrice = primaryPhase?.price || 0;
 

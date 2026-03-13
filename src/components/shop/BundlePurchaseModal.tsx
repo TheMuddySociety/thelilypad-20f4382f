@@ -41,7 +41,7 @@ import { createProtocolMemoInstruction } from "@/lib/solanaProtocol";
 import { PLATFORM_WALLETS } from "@/config/treasury";
 
 // Platform treasury address for receiving bundle payments (Solana)
-const PLATFORM_TREASURY_ADDRESS = PLATFORM_WALLETS.treasury;
+const PLATFORM_TREASURY_ADDRESS = PLATFORM_WALLETS.solana.treasury;
 
 interface BundleItem {
   id: string;
