@@ -5,6 +5,7 @@ import { SendTransactionError } from '@solana/web3.js';
 import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi } from '@/config/solana';
 import { generateSigner, publicKey } from '@metaplex-foundation/umi';
+import { createCoreCollection as createCollectionAction } from '@/chains/solana/programs';
 
 export interface CreateNftParams {
     name: string;
@@ -76,5 +77,15 @@ export const useMplCore = () => {
         }
     };
 
-    return { umi, createCoreNft, fetchCoreAsset, fetchCoreCollection };
+    const createCoreCollection = async (params: { name: string; symbol: string; uri: string }) => {
+        try {
+            const result = await createCollectionAction(umi, params);
+            return { collectionAddress: result.address };
+        } catch (error) {
+            console.error("Error creating collection:", error);
+            throw error;
+        }
+    };
+
+    return { umi, createCoreNft, fetchCoreAsset, fetchCoreCollection, createCoreCollection };
 };

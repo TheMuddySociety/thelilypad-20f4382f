@@ -6,6 +6,7 @@ import { useWallet } from "@/providers/WalletProvider";
 import { useChain } from "@/providers/ChainProvider";
 import { useSolanaMint } from "@/hooks/useSolanaMint";
 import { useXRPLMint } from "@/hooks/useXRPLMint";
+import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { initializeUmi } from "@/config/solana";
 import { publicKey } from "@metaplex-foundation/umi";
 import { fetchCandyMachine } from "@metaplex-foundation/mpl-core-candy-machine";
@@ -22,6 +23,7 @@ export function useCollectionDetail() {
     const { setChain } = useChain();
     const solanaMint = useSolanaMint();
     const xrplMint = useXRPLMint();
+    const monadLaunch = useMonadLaunch();
 
     // ── State ──────────────────────────────────────────────────────────────────
     const [collection, setCollection] = useState<Collection | null>(null);
@@ -280,6 +282,22 @@ export function useCollectionDetail() {
                     setShowRevealModal(true);
                     fetchCollection();
                     toast.success("Minted!", { id: 'xrpl-mint' });
+                }
+            } else if (isMonad) {
+                toast.loading(`Minting your NFT on Monad...`, { id: 'monad-mint' });
+                const result = await monadLaunch.mintNFT(
+                    collection.contract_address!,
+                    amount,
+                    activePhase?.price?.toString()
+                );
+
+                if (result.success && result.address) {
+                    setMintTxHash(result.address); // Using address as hash for now if hash isn't returned
+                    setRevealTxHash(result.address);
+                    setRevealedNfts(generateRandomAttributes(amount, collection.minted));
+                    setShowRevealModal(true);
+                    fetchCollection();
+                    toast.success("Minted!", { id: 'monad-mint' });
                 }
             } else {
                 toast.info(`${collectionNetwork} minting logic coming soon`);

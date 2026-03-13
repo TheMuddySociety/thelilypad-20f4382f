@@ -22,6 +22,8 @@ import { useWallet } from "@/providers/WalletProvider";
 import { toast } from "sonner";
 import { isValidIPFSCID } from "@/config/nftFactory";
 import { supabase } from "@/integrations/supabase/client";
+import { useMplCore } from "@/hooks/useMplCore";
+import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 
 interface ContractDeployModalProps {
   open: boolean;
@@ -51,6 +53,10 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
   const [showManualInput, setShowManualInput] = React.useState(false);
   const [ipfsCID, setIpfsCID] = React.useState("");
   const [isSavingCID, setIsSavingCID] = React.useState(false);
+  const [isDeploying, setIsDeploying] = React.useState(false);
+
+  const { createCoreCollection } = useMplCore();
+  const monadLaunch = useMonadLaunch();
 
   const chainId = (collection.chain?.split('-')[0] as SupportedChain) || 'solana';
   const currentChain = CHAINS[chainId] || CHAINS.solana;
@@ -109,6 +115,56 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
       toast.error("An error occurred");
     } finally {
       setIsSavingCID(false);
+    }
+  };
+
+  const handleDeploy = async () => {
+    setIsDeploying(true);
+    try {
+      let contractAddress = "";
+
+      if (chainId === 'solana') {
+        toast.loading("Deploying Metaplex Core Collection...", { id: 'deploying' });
+        const { collectionAddress } = await createCoreCollection({
+          name: collection.name,
+          symbol: collection.symbol,
+          uri: "", // Will be updated later or use placeholder
+        });
+        contractAddress = collectionAddress.toString();
+      } else if (chainId === 'monad') {
+        toast.loading("Deploying Monad ERC-721 Collection...", { id: 'deploying' });
+        const result = await monadLaunch.createCollection({
+          name: collection.name,
+          symbol: collection.symbol,
+          description: "Created via The Lily Pad",
+          imageUri: "", // Placeholder
+          totalSupply: collection.total_supply,
+          royaltyBasisPoints: collection.royalty_percent * 100,
+        });
+        if (result.success && result.address) {
+          contractAddress = result.address;
+        } else {
+          throw new Error("Deployment failed to return an address");
+        }
+      } else if (chainId === 'xrpl') {
+        toast.error("XRPL deployment logic is currently being optimized. Please use manual linking if you have an existing account domain set.");
+        setIsDeploying(false);
+        return;
+      }
+
+      if (contractAddress) {
+        toast.success("Successfully deployed!", { id: 'deploying' });
+        onDeploySuccess(contractAddress);
+        onOpenChange(false);
+      }
+    } catch (error: any) {
+      console.error("Deployment error:", error);
+      toast.error("Deployment failed", { 
+        description: error.message || "An unexpected error occurred during deployment",
+        id: 'deploying'
+      });
+    } finally {
+      setIsDeploying(false);
     }
   };
 
@@ -201,6 +257,32 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Deploy Button */}
+          {isConnected && !showManualInput && (
+            <div className="space-y-3">
+              <Button 
+                className="w-full gap-2 py-6 text-lg font-bold shadow-lg shadow-primary/20"
+                onClick={handleDeploy}
+                disabled={isDeploying}
+              >
+                {isDeploying ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Deploying...
+                  </>
+                ) : (
+                  <>
+                    <Rocket className="w-5 h-5" />
+                    Deploy to {currentChain.name}
+                  </>
+                )}
+              </Button>
+              <p className="text-[10px] text-center text-muted-foreground uppercase tracking-wider">
+                This will trigger a wallet transaction
+              </p>
             </div>
           )}
 
