@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import type { SupportedChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadBatchToArweave, BatchUploadItem } from "@/integrations/irys/client";
+import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
+import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { Plus, Trash2, Clock, Calendar } from "lucide-react";
 
 interface Tier {
@@ -34,7 +36,9 @@ interface CreateOneOfOneModalProps {
 
 export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'solana' }: CreateOneOfOneModalProps) {
     const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore } = useSolanaLaunch();
-    const { getSolanaProvider, address, isConnected, chainType } = useWallet();
+    const { deployXRPLCollection, mintXRPLItems } = useXRPLLaunch();
+    const { createCollection: deployMonadCollection, mintNFT: mintMonadNFT } = useMonadLaunch();
+    const { getSolanaProvider, address, isConnected, chainType, network } = useWallet();
     const [mode, setMode] = useState<"one-of-one" | "edition">("one-of-one");
     const [isLoading, setIsLoading] = useState(false);
 
@@ -109,18 +113,102 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             let txHash = `mock_tx_${Date.now()}`;
             const chainName = chain === 'xrpl' ? 'XRPL' : chain === 'monad' ? 'Monad' : 'Solana';
 
-            if (chain !== 'solana') {
-                if (chainType !== chain) {
-                    toast.error(`Please connect your ${chain.toUpperCase()} wallet.`);
+            const mintItems = [];
+            if (mode === "edition" && useTiers && tiers.length > 0) {
+                for (const tier of tiers) {
+                    for (let i = 0; i < tier.supply; i++) {
+                        mintItems.push({
+                            name: `${name} - ${tier.name} #${i + 1}`,
+                            tier: tier.name
+                        });
+                    }
+                }
+            } else {
+                const supplyCount = mode === "edition" ? parseInt(supply) || 1 : 1;
+                for (let i = 0; i < supplyCount; i++) {
+                    mintItems.push({
+                        name: `${name} ${mode === "edition" ? '#' + (i + 1) : ''}`.trim(),
+                        tier: mode === "edition" ? "Edition" : "1/1"
+                    });
+                }
+            }
+
+            if (chain === 'xrpl') {
+                if (chainType !== 'xrpl') {
+                    toast.error(`Please connect your XRPL wallet.`);
                     setIsLoading(false);
                     return;
                 }
 
-                // Mock deployment for XRPL/Monad drafts
-                toast.loading(`Deploying on ${chainName}...`, { id: "deploy" });
-                await new Promise(r => setTimeout(r, 1500));
+                toast.loading(`Deploying XRPL Collection...`, { id: "deploy" });
+                const taxon = Math.floor(Date.now() % 1_000_000);
+                const primaryArweaveUri = manifestUri || uploadResults[0]?.arweaveUri || "";
+                
+                const xrplResult = await deployXRPLCollection({
+                    name,
+                    symbol,
+                    description,
+                    totalSupply: mintItems.length,
+                    baseUri: primaryArweaveUri,
+                    transferFee: 0,
+                    flags: 8, // tfTransferable
+                    taxon,
+                });
+
+                if (xrplResult?.address) {
+                    txHash = xrplResult.address;
+                    toast.loading(`Minting ${mintItems.length} NFTs on XRPL...`, { id: "deploy" });
+                    
+                    const xrplItems = mintItems.map(item => ({
+                        name: item.name,
+                        uri: metadataUrl || imageUrl
+                    }));
+
+                    const mintResults = await mintXRPLItems(
+                        xrplResult.address,
+                        xrplResult.taxon,
+                        xrplItems,
+                        0,
+                        8
+                    );
+                    
+                    if (mintResults && mintResults.length > 0) {
+                        // Use the first mint tx hash as the primary reference if needed
+                        // Though for XRPL we often use the account address as the "contract"
+                    }
+                }
+                toast.dismiss("deploy");
+            } else if (chain === 'monad') {
+                if (chainType !== 'monad') {
+                    toast.error(`Please connect your Monad wallet.`);
+                    setIsLoading(false);
+                    return;
+                }
+
+                toast.loading(`Deploying Monad Collection...`, { id: "deploy" });
+                const monadResult = await deployMonadCollection({
+                    name,
+                    symbol,
+                    description: description || "Lily Pad 1/1",
+                    imageUri: imageUrl,
+                    royaltyBasisPoints: 0,
+                    totalSupply: mintItems.length,
+                });
+
+                if (monadResult.success && monadResult.address) {
+                    txHash = monadResult.address;
+                    toast.loading(`Minting ${mintItems.length} NFTs on Monad...`, { id: "deploy" });
+                    
+                    // Monad minting is usually one by one in the current hook or batch if supported
+                    for (let i = 0; i < mintItems.length; i++) {
+                        await mintMonadNFT(monadResult.address, 1);
+                    }
+                } else {
+                    throw new Error(monadResult.error || "Monad deployment failed");
+                }
                 toast.dismiss("deploy");
             } else {
+                // Solana logic
                 if (chainType !== 'solana') {
                     toast.error("Please connect your Solana wallet.");
                     setIsLoading(false);
@@ -136,7 +224,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 const result = await deploySolanaCollection({
                     name,
                     symbol,
-                    uri: imageUrl, // use the actual uploaded url for mock metadata
+                    uri: imageUrl,
                     sellerFeeBasisPoints: 0,
                     creators: [{ address: creatorAddress, share: 100 }],
                 });
@@ -144,29 +232,8 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 if (result?.address) {
                     txHash = result.address;
 
-                    // Note: 1of1's and limit edition only creates Metaplex core compress NFTs
                     toast.loading("Deploying Bubblegum Tree for compressed NFTs...", { id: "deploy" });
-                    const treeAddress = await deployBubblegumTree(14, 64, 8); // ~16k capacity tree
-
-                    const mintItems = [];
-                    if (mode === "edition" && useTiers && tiers.length > 0) {
-                        for (const tier of tiers) {
-                            for (let i = 0; i < tier.supply; i++) {
-                                mintItems.push({
-                                    name: `${name} - ${tier.name} #${i + 1}`,
-                                    tier: tier.name
-                                });
-                            }
-                        }
-                    } else {
-                        const supplyCount = mode === "edition" ? parseInt(supply) || 1 : 1;
-                        for (let i = 0; i < supplyCount; i++) {
-                            mintItems.push({
-                                name: `${name} ${mode === "edition" ? '#' + (i + 1) : ''}`.trim(),
-                                tier: mode === "edition" ? "Edition" : "1/1"
-                            });
-                        }
-                    }
+                    const treeAddress = await deployBubblegumTree(14, 64, 8);
 
                     for (let i = 0; i < mintItems.length; i++) {
                         const item = mintItems[i];

@@ -813,14 +813,30 @@ export default function XRPLNFTGenerator() {
                                     </CardContent>
                                 </Card>
 
-                                <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 flex items-start gap-3">
-                                    <Zap className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-sm font-semibold">Ready to mint {parseInt(totalSupply).toLocaleString()} NFTs</p>
-                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                 <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 flex items-start gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                        <Zap className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <p className="text-sm font-semibold">Ready to mint {parseInt(totalSupply).toLocaleString()} NFTs</p>
+                                            <Badge className="bg-green-500/15 text-green-500 border-green-500/30 border text-[10px] h-5">
+                                                LOWEST FEES
+                                            </Badge>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground leading-relaxed">
                                             Collecting your assets and metadata is the next step. The generator will wire these parameters into every{" "}
                                             <code className="bg-muted px-1 rounded">NFTokenMint</code> transaction.
                                         </p>
+                                        <div className="mt-3 p-2 bg-background/50 rounded-lg border border-primary/10">
+                                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Lily Pad Advantage</p>
+                                          <p className="text-xs font-medium mt-0.5">
+                                            2.0% Flat Fee • Zero Launch Fees • Permanent Arweave Storage
+                                          </p>
+                                          <p className="text-[10px] text-primary mt-1">
+                                            You save 0.5% compared to LaunchMyNFT and other platforms.
+                                          </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

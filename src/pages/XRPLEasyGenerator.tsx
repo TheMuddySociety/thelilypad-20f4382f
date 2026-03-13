@@ -664,10 +664,21 @@ export default function XRPLEasyGenerator() {
                                             <span className="flex items-center gap-1"><Database className="w-3 h-3" /> Storage Status</span>
                                             <span className="text-green-500 flex items-center gap-1"><Check className="w-3 h-3" /> Supabase Hosted</span>
                                         </div>
-                                        <div className="flex justify-between items-center text-xs text-muted-foreground">
+                                         <div className="flex justify-between items-center text-xs text-muted-foreground">
                                             <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Ledger Status</span>
                                             <span className="text-green-500 flex items-center gap-1"><Check className="w-3 h-3" /> Account Set</span>
-                                        </div>
+                                         </div>
+
+                                         <div className="mt-4 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <p className="text-[10px] text-primary uppercase font-bold tracking-wider">Lily Pad Advantage</p>
+                                                <Badge className="h-4 text-[9px] bg-primary text-primary-foreground">LOWEST FEES</Badge>
+                                            </div>
+                                            <p className="text-xs font-semibold">2.0% Flat Fee • Zero Launch Fees</p>
+                                            <p className="text-[10px] text-muted-foreground mt-1">
+                                                Competitive pricing that undercuts LaunchMyNFT by 0.5%
+                                            </p>
+                                         </div>
                                     </div>
 
                                     <div className="flex flex-col gap-3">
