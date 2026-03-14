@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -733,7 +733,7 @@ export function ArtworkUploader({
                         <img
                           src={artwork.imageUrl}
                           alt={artwork.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-muted">
@@ -1033,7 +1033,7 @@ export function ArtworkUploader({
                       <img
                         src={artwork.imageUrl}
                         alt={artwork.name}
-                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        className="w-full h-full object-contain transition-transform group-hover:scale-105"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-muted">

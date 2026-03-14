@@ -583,7 +583,7 @@ export function CollectionPreviewEditor({
                                         <img
                                             src={asset.preview}
                                             alt={asset.name}
-                                            className="w-full h-full object-cover"
+                                            className="w-full h-full object-contain"
                                             loading="lazy"
                                         />
                                     ) : (

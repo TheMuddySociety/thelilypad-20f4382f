@@ -153,8 +153,8 @@ export default function XRPLEasyGenerator() {
             if (selected.length > 0) {
                 const img = new Image();
                 img.onload = () => {
-                    if (img.width < MIN_RECOMMENDED_RES || img.height < MIN_RECOMMENDED_RES) {
-                        toast.info(`Note: For high-quality art, 2000x2000px+ is recommended. Your sample image is ${img.width}x${img.height}px.`, {
+                    if (img.width < MIN_RECOMMENDED_RES && img.height < MIN_RECOMMENDED_RES) {
+                        toast.info(`Note: For high-quality art, 2000px+ is recommended. Your sample image is ${img.width}x${img.height}px.`, {
                             duration: 5000,
                         });
                     }
@@ -557,7 +557,7 @@ export default function XRPLEasyGenerator() {
                                                     <p className="text-sm text-muted-foreground">PNG, JPG, or GIF up to 100MB each</p>
                                                     <div className="flex flex-wrap justify-center gap-2 mt-4">
                                                         <Badge variant="outline" className="text-[10px] bg-muted">500px Low</Badge>
-                                                        <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20">2000px High (Min)</Badge>
+                                                        <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20">2000px High</Badge>
                                                         <Badge variant="outline" className="text-[10px] bg-primary/20 border-primary/30 text-primary">4000px+ Pro</Badge>
                                                     </div>
                                                 </div>
@@ -598,15 +598,15 @@ export default function XRPLEasyGenerator() {
                                                 </div>
                                                 <div className="p-1 rounded bg-primary/10 border border-primary/20">
                                                     <p className="font-bold text-primary mb-0.5">High Quality</p>
-                                                    <p>2000x2000px</p>
+                                                    <p>2000px</p>
                                                 </div>
                                                 <div className="p-1 rounded bg-primary/20 border border-primary/30">
                                                     <p className="font-bold text-primary mb-0.5">Gallery/Pro</p>
-                                                    <p>4000x4000px</p>
+                                                    <p>4000px</p>
                                                 </div>
                                             </div>
                                             <p className="text-[10px] text-muted-foreground leading-tight mt-1">
-                                                * Note: 4000x4000px results in approx 10-50MB files. Supported fully via Irys bundling.
+                                                * Note: 4000px results in approx 10-50MB files. Supported fully via Irys bundling.
                                             </p>
                                         </div>
                                     </div>

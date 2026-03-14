@@ -103,11 +103,11 @@ export function ArtworkMetadataEditor({
 
         <div className="space-y-6">
           {/* Preview */}
-          <div className="relative rounded-lg overflow-hidden border border-border">
+          <div className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted/50">
             <img
               src={artwork.preview}
               alt={artwork.name}
-              className="w-full aspect-square object-cover"
+              className="w-full h-full object-contain"
             />
           </div>
 

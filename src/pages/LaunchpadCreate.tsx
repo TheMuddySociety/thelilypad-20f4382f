@@ -774,7 +774,7 @@ export default function LaunchpadCreate() {
                             <div className="grid grid-cols-4 gap-2">
                                 {(mode === 'music' ? tracks.map(t => ({ preview: t.coverPreview })) : (is1of1 ? artworks : (mode === 'basic' ? folderAssets : generatedAssets))).slice(0, 12).map((a, i) => (
                                     <div key={i} className="aspect-square rounded overflow-hidden bg-muted border border-border">
-                                        <img src={'preview' in a ? a.preview : (a.file ? URL.createObjectURL(a.file) : '')} className="w-full h-full object-cover" />
+                                        <img src={'preview' in a ? a.preview : (a.file ? URL.createObjectURL(a.file) : '')} className="w-full h-full object-contain" />
                                     </div>
                                 ))}
                             </div>
