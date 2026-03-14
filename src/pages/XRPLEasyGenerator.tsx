@@ -554,9 +554,10 @@ export default function XRPLEasyGenerator() {
                                                 </div>
                                                 <div>
                                                     <p className="text-lg font-medium">Drop your images here</p>
-                                                    <p className="text-sm text-muted-foreground">PNG, JPG, or GIF up to 100MB each</p>
+                                                    <p className="text-sm text-neutral-400 mt-2">Supports ANY aspect ratio (Portrait, Landscape, Square)</p>
                                                     <div className="flex flex-wrap justify-center gap-2 mt-4">
-                                                        <Badge variant="outline" className="text-[10px] bg-muted">500px Low</Badge>
+                                                        <Badge variant="outline" className="text-[10px] bg-muted">300-500px Small</Badge>
+                                                        <Badge variant="outline" className="text-[10px] bg-muted/60">1000px Standard</Badge>
                                                         <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20">2000px High</Badge>
                                                         <Badge variant="outline" className="text-[10px] bg-primary/20 border-primary/30 text-primary">4000px+ Pro</Badge>
                                                     </div>
@@ -593,16 +594,16 @@ export default function XRPLEasyGenerator() {
                                             <p className="text-sm font-semibold text-blue-500">Resolution Guidelines</p>
                                             <div className="grid grid-cols-3 gap-2 text-[10px] mt-2">
                                                 <div className="p-1 rounded bg-muted/50 border border-border/50">
-                                                    <p className="font-bold opacity-70 mb-0.5">Mobile/Low</p>
-                                                    <p>500 - 1080px</p>
+                                                    <p className="font-bold opacity-70 mb-0.5">Small Scale</p>
+                                                    <p>300 - 500px</p>
                                                 </div>
                                                 <div className="p-1 rounded bg-primary/10 border border-primary/20">
-                                                    <p className="font-bold text-primary mb-0.5">High Quality</p>
-                                                    <p>2000px</p>
+                                                    <p className="font-bold text-primary mb-0.5">Standard/HD</p>
+                                                    <p>1080 - 2000px</p>
                                                 </div>
                                                 <div className="p-1 rounded bg-primary/20 border border-primary/30">
                                                     <p className="font-bold text-primary mb-0.5">Gallery/Pro</p>
-                                                    <p>4000px</p>
+                                                    <p>4000px+</p>
                                                 </div>
                                             </div>
                                             <p className="text-[10px] text-muted-foreground leading-tight mt-1">

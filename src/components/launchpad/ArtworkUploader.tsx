@@ -463,10 +463,12 @@ export function ArtworkUploader({
                   PNG, JPG, GIF, WEBP up to 100MB each
                 </p>
                 <div className="flex flex-wrap justify-center gap-2 mt-2">
-                  <Badge variant="outline" className="text-[9px] bg-muted opacity-80 font-normal">500px Low</Badge>
-                  <Badge variant="outline" className="text-[9px] bg-primary/10 border-primary/20 font-medium">2000px High (Min)</Badge>
-                  <Badge variant="outline" className="text-[9px] bg-primary/20 border-primary/30 text-primary font-bold">4000px+ Pro</Badge>
+                  <Badge variant="outline" className="text-[9px] bg-muted opacity-80 font-normal">300-500px Small</Badge>
+                  <Badge variant="outline" className="text-[9px] bg-muted/50 opacity-80 font-normal">1000px Standard</Badge>
+                  <Badge variant="outline" className="text-[9px] bg-primary/10 border-primary/20 font-medium">2000px High Quality</Badge>
+                  <Badge variant="outline" className="text-[9px] bg-primary/20 border-primary/30 text-primary font-bold">4000px+ Pro/Gallery</Badge>
                 </div>
+                <p className="text-[9px] text-primary/70 mt-1 italic">Supports any aspect ratio & resolution (300px to 4000px+)</p>
               </div>
               <div className="flex gap-2 mt-2">
                 <Button
