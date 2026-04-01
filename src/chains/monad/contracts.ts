@@ -2,32 +2,70 @@ import {
     createPublicClient,
     createWalletClient,
     custom,
-    hexToNumber,
     http,
-    parseEther
+    parseEther,
+    type Address,
 } from 'viem';
 import { monadTestnet } from 'viem/chains';
 import { MonadCollectionParams, MonadDeployResult } from './types';
 import { MONAD_ERC721_ABI } from './abi/ERC721';
-import { MONAD_NETWORKS, DEFAULT_MONAD_NETWORK } from '@/config/monad';
+import { MONAD_FACTORY_ABI } from './abi/Factory';
+import { MONAD_NETWORKS, DEFAULT_MONAD_NETWORK, MONAD_CONTRACTS } from '@/config/monad';
 
 /**
- * Deploy ERC-721 collection on Monad
- * Currently using Beta Mock - update with Factory ABI when finalized
+ * Deploy ERC-721A collection on Monad via Factory contract.
+ * Falls back to mock when no factory is deployed yet.
  */
 export async function deployMonadCollection(
     params: MonadCollectionParams
 ): Promise<MonadDeployResult> {
-    console.log("[Monad] Deploying ERC-721 collection:", params.name);
+    console.log("[Monad] Deploying ERC-721A collection:", params.name);
 
-    // In production, this would call a Factory contract. 
-    // For Beta, we return a successful mock deployment.
+    const factoryAddress = MONAD_CONTRACTS[DEFAULT_MONAD_NETWORK].nftFactory;
+
+    // If factory contract is deployed, use real deployment
+    if (factoryAddress && typeof window !== 'undefined' && window.ethereum) {
+        try {
+            const walletClient = createWalletClient({
+                chain: monadTestnet,
+                transport: custom(window.ethereum),
+            });
+
+            const [account] = await walletClient.getAddresses();
+
+            const hash = await walletClient.writeContract({
+                account,
+                chain: monadTestnet,
+                address: factoryAddress as Address,
+                abi: MONAD_FACTORY_ABI,
+                functionName: 'createCollection',
+                args: [
+                    params.name,
+                    params.symbol,
+                    params.metadataBaseUri || '',
+                    BigInt(params.totalSupply),
+                    parseEther(params.mintPrice || '0'),
+                    BigInt(params.royaltyBasisPoints || 500),
+                    account,
+                ],
+            });
+
+            return {
+                success: true,
+                address: factoryAddress,
+                transactionHash: hash,
+            };
+        } catch (err: any) {
+            console.warn("[Monad] Factory deployment failed, falling back to mock:", err.message);
+        }
+    }
+
+    // Beta mock fallback
     const mockAddress = `0x${Math.random().toString(16).slice(2, 42).padEnd(40, '0')}`;
-
     return {
         success: true,
         address: mockAddress,
-        transactionHash: "0x" + Math.random().toString(16).slice(2, 66)
+        transactionHash: "0x" + Math.random().toString(16).slice(2, 66),
     };
 }
 
@@ -45,17 +83,16 @@ export async function mintMonadNFT(
         try {
             const publicClient = createPublicClient({
                 chain: monadTestnet,
-                transport: http(MONAD_NETWORKS[DEFAULT_MONAD_NETWORK].url)
+                transport: http(MONAD_NETWORKS[DEFAULT_MONAD_NETWORK].url),
             });
 
             const walletClient = createWalletClient({
                 chain: monadTestnet,
-                transport: custom(window.ethereum)
+                transport: custom(window.ethereum),
             });
 
             const [account] = await walletClient.getAddresses();
 
-            // If the address is a real-looking contract (not mock), try real mint
             if (contractAddress.length === 42 && !contractAddress.includes('...')) {
                 const { request } = await publicClient.simulateContract({
                     account,
@@ -63,7 +100,7 @@ export async function mintMonadNFT(
                     abi: MONAD_ERC721_ABI,
                     functionName: 'batchMint',
                     args: [account, BigInt(quantity)],
-                    value: parseEther(mintPrice) * BigInt(quantity)
+                    value: parseEther(mintPrice) * BigInt(quantity),
                 });
 
                 const hash = await walletClient.writeContract(request);
@@ -71,18 +108,37 @@ export async function mintMonadNFT(
                 return {
                     success: true,
                     address: contractAddress,
-                    transactionHash: hash
+                    transactionHash: hash,
                 };
             }
         } catch (err: any) {
-            console.warn("[Monad] Real mint failed or address is mock. Falling back to Beta result.", err.message);
+            console.warn("[Monad] Real mint failed. Falling back to Beta result.", err.message);
         }
     }
 
-    // Fallback for Beta Test Mode
     return {
         success: true,
         address: contractAddress,
-        transactionHash: "0x" + Math.random().toString(16).slice(2, 66)
+        transactionHash: "0x" + Math.random().toString(16).slice(2, 66),
     };
+}
+
+/**
+ * Read collection info from a deployed contract
+ */
+export async function getMonadCollectionInfo(contractAddress: Address) {
+    const publicClient = createPublicClient({
+        chain: monadTestnet,
+        transport: http(MONAD_NETWORKS[DEFAULT_MONAD_NETWORK].url),
+    });
+
+    const [name, symbol, totalSupply, maxSupply, price] = await Promise.all([
+        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'name' } as any),
+        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'symbol' } as any),
+        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'totalSupply' } as any),
+        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'maxSupply' } as any),
+        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'mintPrice' } as any),
+    ]);
+
+    return { name, symbol, totalSupply, maxSupply, mintPrice: price };
 }

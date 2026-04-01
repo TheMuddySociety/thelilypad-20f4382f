@@ -88,7 +88,7 @@ export function StreakLeaderboard() {
         .select('user_id, display_name')
         .in('user_id', userIds);
 
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p.display_name]) || []);
+      const profileMap = new Map((profiles as { user_id: string; display_name: string }[] | null)?.map(p => [p.user_id, p.display_name]) || []);
 
       return top10.map((entry, index) => ({
         userId: entry.userId,

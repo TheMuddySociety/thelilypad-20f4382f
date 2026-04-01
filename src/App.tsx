@@ -110,8 +110,9 @@ const LimitedEditionMint = lazy(() => import("./pages/LimitedEditionMint"));
 const ReadyTrade = lazy(() => import("./pages/ReadyTrade"));
 const CreateCollectionPage = lazy(() => import("./pages/LaunchpadCreate"));
 const ArtGenerator = lazy(() => import("./pages/ArtGenerator"));
-const XRPLEasyGenerator = lazy(() => import("./pages/XRPLEasyGenerator"));
-const XRPLNFTGenerator = lazy(() => import("./pages/XRPLNFTGenerator"));
+// XRPL generators hidden behind feature flag — uncomment when XRPL_ENABLED = true
+// const XRPLEasyGenerator = lazy(() => import("./pages/XRPLEasyGenerator"));
+// const XRPLNFTGenerator = lazy(() => import("./pages/XRPLNFTGenerator"));
 const CreatorApply = lazy(() => import("./pages/CreatorApply"));
 const InterviewRoom = lazy(() => import("./pages/InterviewRoom"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
@@ -188,8 +189,7 @@ const AppContent = () => {
           <Route path="/ready-trade" element={<ProtectedRoute><ReadyTrade /></ProtectedRoute>} />
           <Route path="/launchpad/create/:chain/:type" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreateCollectionPage /></Suspense></ProtectedRoute>} />
           <Route path="/launchpad/art-generator" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ArtGenerator /></Suspense></ProtectedRoute>} />
-          <Route path="/launchpad/easy-xrp" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><XRPLEasyGenerator /></Suspense></ProtectedRoute>} />
-          <Route path="/launchpad/xrpl-generator" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><XRPLNFTGenerator /></Suspense></ProtectedRoute>} />
+          {/* XRPL routes hidden — re-enable when XRPL_ENABLED = true */}
           <Route path="/creator/apply" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreatorApply /></Suspense></ProtectedRoute>} />
           <Route path="/interview/:applicationId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InterviewRoom /></Suspense></ProtectedRoute>} />
           <Route path="/u/:identifier" element={<Suspense fallback={<PageLoader />}><PublicProfile /></Suspense>} />

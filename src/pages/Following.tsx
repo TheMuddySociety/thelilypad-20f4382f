@@ -267,7 +267,7 @@ const Following = () => {
 
       if (followsError) throw followsError;
 
-      const streamerIds = follows?.map((f) => f.streamer_id) || [];
+      const streamerIds = (follows?.map((f) => f.streamer_id) || []) as string[];
       const followDates = new Map(follows?.map((f) => [f.streamer_id, f.created_at]) || []);
 
       if (streamerIds.length === 0) {
@@ -309,10 +309,10 @@ const Following = () => {
 
       // Get categories from followed streamers for recommendations
       const followedCategories = Array.from(
-        new Set((profiles || []).flatMap((p) => p.categories || []))
-      );
+        new Set((profiles || []).flatMap((p: any) => p.categories || []))
+      ) as string[];
 
-      await fetchRecommendedStreamers(currentUserId, streamerIds, followedCategories);
+      await fetchRecommendedStreamers(currentUserId, streamerIds as string[], followedCategories);
     } catch (error) {
       console.error("Error fetching followed streamers:", error);
     } finally {

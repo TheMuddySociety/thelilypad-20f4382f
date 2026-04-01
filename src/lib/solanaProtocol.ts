@@ -19,6 +19,10 @@ export const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqX
 export type ProtocolAction = 
   | 'shop:bundle_purchase'
   | 'shop:item_purchase'
+  | 'shop:sticker_pack'
+  | 'shop:emote_pack'
+  | 'shop:emoji_pack'
+  | 'shop:blind_box'
   | 'marketplace:list'
   | 'marketplace:buy'
   | 'marketplace:offer'
@@ -28,7 +32,9 @@ export type ProtocolAction =
   | 'mint:candy_machine'
   | 'tip:creator'
   | 'raffle:entry'
-  | 'blindbox:purchase';
+  | 'blindbox:purchase'
+  | 'buyback:execute'
+  | 'creator:register';
 
 /**
  * Builds a protocol memo string
