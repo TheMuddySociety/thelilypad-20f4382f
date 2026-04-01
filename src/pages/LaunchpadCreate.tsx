@@ -42,7 +42,7 @@ import { type MusicTrack } from "@/components/launchpad/MusicMetadataEditor";
 import { useWallet } from "@/providers/WalletProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { useSolanaLaunch, LaunchpadPhase } from "@/hooks/useSolanaLaunch";
-import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
+
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { pinCollectionToIPFS } from "@/lib/nftStorageService";
 import { useIpfs } from "@/providers/IpfsProvider";
@@ -63,7 +63,7 @@ import { getDbChainValue } from "@/config/chains";
 import { getLaunchpadConfig, CollectionMode } from "@/config/launchpad";
 import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem, mutateNFTMetadata } from "@/integrations/irys/client";
 import { LaunchpadTools } from "@/components/launchpad/LaunchpadTools";
-import { XRPLConfigurator } from "@/components/launchpad/chains/XRPLConfigurator";
+
 import { Switch } from "@/components/ui/switch";
 import { Check, Info } from "lucide-react";
 import { addToDecentralizedIndex, IndexedCollection } from "@/integrations/arweave/indexClient";
@@ -79,11 +79,11 @@ const defaultPhases: LaunchpadPhase[] = [
     },
 ];
 
-type CollectionFlowType = "generative" | "1of1" | "xrpl-589" | "music";
+type CollectionFlowType = "generative" | "1of1" | "music";
 
 function resolveFlowType(standard?: string): CollectionFlowType {
     if (standard === "1of1") return "1of1";
-    if (standard === "xrpl-589") return "xrpl-589";
+
     if (standard === "music") return "music";
     return "generative";
 }
@@ -93,10 +93,7 @@ export default function LaunchpadCreate() {
     const navigate = useNavigate();
     const { address, network, chainType } = useWallet();
     // Derive canonical chain from the connected wallet (authoritative for deploys)
-    const walletChain: typeof selectedChain =
-        chainType === 'xrpl' ? 'xrpl'
-        : chainType === 'monad' ? 'monad'
-        : 'solana';
+    const walletChain = chainType === 'monad' ? 'monad' : 'solana';
     const { isAdmin } = useAuth();
     const { chain } = useChain();
     const { theme } = chain;
@@ -105,7 +102,7 @@ export default function LaunchpadCreate() {
     useChainTheme(true);
 
     const solanaLaunch = useSolanaLaunch();
-    const xrplLaunch = useXRPLLaunch();
+
     const monadLaunch = useMonadLaunch();
 
     const { hasDraft, loadDraft, saveDraft, saveDraftCover, saveDraftAssets, clearDraft } = useDraftCollection(chainParam || 'solana', typeParam || 'generative');
@@ -167,14 +164,13 @@ export default function LaunchpadCreate() {
     // Config Data
     const [phases, setPhases] = useState<LaunchpadPhase[]>(defaultPhases);
     const [treasuryWallet, setTreasuryWallet] = useState("");
-    const [xrplTaxon, setXrplTaxon] = useState(0);
-    const [xrplTransferFee, setXrplTransferFee] = useState(Math.round(royaltyPercent * 1000));
+
 
     // Dynamic NFT (Evolving): uses Irys mutable references so metadata can be updated post-mint
     const [isDynamic, setIsDynamic] = useState(false);
 
     useEffect(() => {
-        setXrplTransferFee(Math.round(royaltyPercent * 1000));
+
     }, [royaltyPercent]);
 
     useEffect(() => {
@@ -200,8 +196,7 @@ export default function LaunchpadCreate() {
             if (draft.currentStep > 0) setCurrentStep(draft.currentStep);
             if (draft.mode) setMode(draft.mode);
             if (draft.coverImageUrl) setCoverImage(draft.coverImageUrl);
-            if (draft.xrplTaxon != null) setXrplTaxon(draft.xrplTaxon);
-            if (draft.xrplTransferFee != null) setXrplTransferFee(draft.xrplTransferFee);
+
             // editionConfigs are not persisted in draft (re-configure on restore)
             toast.info('Draft restored — re-upload your asset files to continue');
         }
@@ -214,12 +209,10 @@ export default function LaunchpadCreate() {
             name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet,
             phases: phases as any[],
             coverImageUrl: coverImage || undefined,
-            xrplTaxon,
-            xrplTransferFee,
             folderAssetNames: folderAssets.length > 0 ? folderAssets.map(a => a.name) : undefined,
             artworkMeta: artworks.length > 0 ? artworks.map(a => ({ name: a.name, description: a.description, attributes: a.attributes })) : undefined,
         });
-    }, [name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet, phases, coverImage, xrplTaxon, xrplTransferFee, folderAssets, artworks, saveDraft]);
+    }, [name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet, phases, coverImage, folderAssets, artworks, saveDraft]);
 
     const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -396,22 +389,7 @@ export default function LaunchpadCreate() {
                     );
 
                 }
-            } else if (selectedChain === 'xrpl') {
-                const result = await xrplLaunch.deployXRPLCollection({
-                    name,
-                    symbol,
-                    description,
-                    baseUri: primaryArweaveUri,
-                    taxon: xrplTaxon,
-                    totalSupply: assetsToUpload.length
-                });
-                deployedAddress = result.address;
 
-                const mintItems = itemLinks.map((item, i) => ({
-                    name: `${name} #${i + 1}`,
-                    uri: item.arweaveUri
-                }));
-                await xrplLaunch.mintXRPLItems(result.address, result.taxon, mintItems, xrplTransferFee);
             } else if (selectedChain === 'monad') {
                 const result = await monadLaunch.createCollection({
                     name,

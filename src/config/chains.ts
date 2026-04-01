@@ -4,7 +4,7 @@
  * Unified chain configuration for SOL, wXRP, and MON support
  */
 
-export type SupportedChain = 'solana' | 'xrpl' | 'monad';
+export type SupportedChain = 'solana' | 'monad';
 
 export interface ChainNetwork {
     url: string;
@@ -34,7 +34,7 @@ export interface ChainConfig {
     id: SupportedChain;
     name: string;
     symbol: string;
-    iconName: 'solana' | 'xrp' | 'monad'; // For icon display
+    iconName: 'solana' | 'monad'; // For icon display
     color: string; // Brand color (legacy - use theme.primaryColor instead)
     theme: ChainThemeConfig;
     walletLabels: ChainWalletLabels;
@@ -94,48 +94,6 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
         description: 'Fast, low-cost NFTs with Metaplex Core and Candy Machine support',
     },
 
-    xrpl: {
-        id: 'xrpl',
-        name: 'XRP Ledger',
-        symbol: 'XRP',
-        iconName: 'xrp',
-        color: '#23292F',
-        theme: {
-            primaryColor: '#2563EB',
-            secondaryColor: '#00AAE4',
-            background: 'from-[#020617] via-[#0f172a] to-[#1e293b]',
-            cardBorder: '#2563EB40',
-            glowColor: '#00AAE4',
-            buttonGradient: 'from-[#2563EB] to-[#00AAE4]',
-        },
-        walletLabels: {
-            connect: 'Connect XUMM',
-            disconnect: 'Disconnect XUMM',
-            connecting: 'Connecting to XUMM...',
-        },
-        networks: {
-            mainnet: {
-                url: 'wss://xrplcluster.com',
-                name: 'Mainnet',
-                explorer: 'https://livenet.xrpl.org',
-            },
-            testnet: {
-                url: 'wss://s.altnet.rippletest.net:51233',
-                name: 'Testnet',
-                explorer: 'https://testnet.xrpl.org',
-            },
-            devnet: {
-                url: 'wss://s.devnet.rippletest.net:51233',
-                name: 'Devnet',
-                explorer: 'https://devnet.xrpl.org',
-            },
-        },
-        walletType: 'xrpl',
-        nftStandard: 'XLS-20 NFT',
-        isActive: true,
-        isTestnetOnly: false,
-        description: 'Native NFTs on the XRP Ledger with low fees and fast finality',
-    },
 
     monad: {
         id: 'monad',
@@ -211,12 +169,7 @@ export function getExplorerUrl(
             return type === 'tx'
                 ? `${baseUrl}/tx/${hash}`
                 : `${baseUrl}/account/${hash}`;
-        case 'xrpl':
-            return type === 'tx'
-                ? `${baseUrl}/transactions/${hash}`
-                : type === 'nft'
-                    ? `${baseUrl}/nft/${hash}`
-                    : `${baseUrl}/accounts/${hash}`;
+
         case 'monad':
             return type === 'tx'
                 ? `${baseUrl}/tx/${hash}`
@@ -276,8 +229,7 @@ export function getDbChainValues(chain: SupportedChain): string[] {
     switch (chain) {
         case 'solana':
             return ['solana', 'solana-devnet', 'solana-mainnet'];
-        case 'xrpl':
-            return ['xrpl', 'xrpl-testnet', 'xrpl-devnet', 'xrpl-mainnet'];
+
         case 'monad':
             return ['monad', 'monad-testnet', 'monad-devnet', 'monad-mainnet'];
         default:

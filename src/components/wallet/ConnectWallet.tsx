@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/providers/WalletProvider";
 import { Wallet, LogOut, ExternalLink, User, ChevronDown, ChevronUp, Coins } from "lucide-react";
-import { XRPIcon } from "@/components/icons/XRPIcon";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,7 +111,6 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
   const balanceSymbol = chainCfg.symbol;
   // Render the chain icon — XRP uses official SVG, others use unicode glyphs
   const renderChainIcon = (sizeClass = "w-4 h-4") => {
-    if (chainType === 'xrpl') return <XRPIcon className={sizeClass} />;
     if (chainType === 'monad') return <span className="text-sm">◈</span>;
     return <span className="text-sm">◎</span>;
   };
