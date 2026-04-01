@@ -34,7 +34,6 @@ export type MonadShopItemType = 'sticker_pack' | 'emote_pack' | 'emoji_pack' | '
 
 /**
  * Purchase a shop item on Monad via PaymentSplitter contract.
- * The contract handles the fee split between creator and platform treasury.
  */
 export async function purchaseMonadShopItem(
     splitterAddress: Address,
@@ -57,12 +56,13 @@ export async function purchaseMonadShopItem(
 
         const hash = await walletClient.writeContract({
             account,
+            chain: monadTestnet,
             address: splitterAddress,
             abi: PAYMENT_SPLITTER_ABI,
             functionName: 'purchase',
             args: [creatorAddress, itemId, itemType],
             value: parseEther(priceMon),
-        });
+        } as any);
 
         return { success: true, txHash: hash };
     } catch (err: any) {
@@ -73,12 +73,11 @@ export async function purchaseMonadShopItem(
 
 /**
  * Direct MON transfer fallback (no splitter contract required).
- * Splits payment between creator and platform treasury on the client side.
  */
 export async function purchaseMonadShopDirect(
     creatorAddress: Address,
     priceMon: string,
-    itemType: MonadShopItemType
+    _itemType: MonadShopItemType
 ): Promise<MonadShopResult> {
     if (typeof window === 'undefined' || !window.ethereum) {
         return { success: false, error: 'No wallet provider found' };
@@ -99,17 +98,19 @@ export async function purchaseMonadShopDirect(
         // Send creator share
         const hash = await walletClient.sendTransaction({
             account,
+            chain: monadTestnet,
             to: creatorAddress,
             value: creatorWei,
-        });
+        } as any);
 
         // Send platform fee
         if (platformWei > 0n) {
             await walletClient.sendTransaction({
                 account,
+                chain: monadTestnet,
                 to: PLATFORM_WALLETS.monad.treasury as Address,
                 value: platformWei,
-            });
+            } as any);
         }
 
         return { success: true, txHash: hash };

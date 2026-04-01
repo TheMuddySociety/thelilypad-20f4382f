@@ -312,7 +312,7 @@ const Following = () => {
         new Set((profiles || []).flatMap((p) => p.categories || []))
       );
 
-      await fetchRecommendedStreamers(currentUserId, streamerIds, followedCategories);
+      await fetchRecommendedStreamers(currentUserId, streamerIds as string[], followedCategories);
     } catch (error) {
       console.error("Error fetching followed streamers:", error);
     } finally {
