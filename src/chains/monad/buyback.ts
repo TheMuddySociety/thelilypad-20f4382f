@@ -7,7 +7,6 @@
 import { createPublicClient, createWalletClient, custom, http, parseEther, type Address } from 'viem';
 import { monadTestnet } from 'viem/chains';
 import { MONAD_NETWORKS, DEFAULT_MONAD_NETWORK } from '@/config/monad';
-import { PLATFORM_WALLETS } from '@/config/treasury';
 
 // Minimal Uniswap V2 Router ABI
 const ROUTER_ABI = [
@@ -45,12 +44,6 @@ export interface MonadBuybackResult {
 
 /**
  * Execute a buyback swap on Monad (MON → Token)
- *
- * @param routerAddress  DEX router contract address
- * @param tokenAddress   Token to buy
- * @param wmonAddress    Wrapped MON address
- * @param amountMon      Amount of MON to spend
- * @param slippageBps    Slippage tolerance in BPS (default 100 = 1%)
  */
 export async function executeMonadBuyback(
     routerAddress: Address,
@@ -77,7 +70,7 @@ export async function executeMonadBuyback(
         const [account] = await walletClient.getAddresses();
         const value = parseEther(amountMon);
         const path = [wmonAddress, tokenAddress] as Address[];
-        const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200); // 20 min
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
 
         // Get quote
         const amounts = await publicClient.readContract({
@@ -85,19 +78,20 @@ export async function executeMonadBuyback(
             abi: ROUTER_ABI,
             functionName: 'getAmountsOut',
             args: [value, path],
-        });
+        } as any) as bigint[];
 
         const minOut = (amounts[1] * BigInt(10000 - slippageBps)) / 10000n;
 
         // Execute swap
         const hash = await walletClient.writeContract({
             account,
+            chain: monadTestnet,
             address: routerAddress,
             abi: ROUTER_ABI,
             functionName: 'swapExactETHForTokens',
             args: [minOut, path, account, deadline],
             value,
-        });
+        } as any);
 
         return {
             success: true,

@@ -2,7 +2,6 @@ import {
     createPublicClient,
     createWalletClient,
     custom,
-    hexToNumber,
     http,
     parseEther,
     type Address,
@@ -27,11 +26,6 @@ export async function deployMonadCollection(
     // If factory contract is deployed, use real deployment
     if (factoryAddress && typeof window !== 'undefined' && window.ethereum) {
         try {
-            const publicClient = createPublicClient({
-                chain: monadTestnet,
-                transport: http(MONAD_NETWORKS[DEFAULT_MONAD_NETWORK].url),
-            });
-
             const walletClient = createWalletClient({
                 chain: monadTestnet,
                 transport: custom(window.ethereum),
@@ -39,39 +33,26 @@ export async function deployMonadCollection(
 
             const [account] = await walletClient.getAddresses();
 
-            const { request } = await publicClient.simulateContract({
+            const hash = await walletClient.writeContract({
                 account,
+                chain: monadTestnet,
                 address: factoryAddress as Address,
                 abi: MONAD_FACTORY_ABI,
                 functionName: 'createCollection',
                 args: [
                     params.name,
                     params.symbol,
-                    params.baseUri || '',
-                    BigInt(params.maxSupply),
-                    parseEther(String(params.mintPrice || 0)),
-                    BigInt(params.royaltyBps || 500),
-                    account, // funds recipient
+                    params.metadataBaseUri || '',
+                    BigInt(params.totalSupply),
+                    parseEther(params.mintPrice || '0'),
+                    BigInt(params.royaltyBasisPoints || 500),
+                    account,
                 ],
             });
 
-            const hash = await walletClient.writeContract(request);
-
-            // Wait for receipt to get deployed address from event
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-
-            // Extract collection address from CollectionCreated event
-            const createdEvent = receipt.logs.find(
-                log => log.topics[0] === '0x' // Match CollectionCreated topic
-            );
-
-            const deployedAddress = createdEvent?.topics?.[1]
-                ? `0x${createdEvent.topics[1].slice(26)}`
-                : hash; // fallback to tx hash
-
             return {
                 success: true,
-                address: deployedAddress as string,
+                address: factoryAddress,
                 transactionHash: hash,
             };
         } catch (err: any) {
@@ -135,7 +116,6 @@ export async function mintMonadNFT(
         }
     }
 
-    // Fallback for Beta Test Mode
     return {
         success: true,
         address: contractAddress,
@@ -153,11 +133,11 @@ export async function getMonadCollectionInfo(contractAddress: Address) {
     });
 
     const [name, symbol, totalSupply, maxSupply, price] = await Promise.all([
-        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'name' }),
-        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'symbol' }),
-        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'totalSupply' }),
-        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'maxSupply' }),
-        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'mintPrice' }),
+        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'name' } as any),
+        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'symbol' } as any),
+        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'totalSupply' } as any),
+        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'maxSupply' } as any),
+        publicClient.readContract({ address: contractAddress, abi: MONAD_ERC721_ABI, functionName: 'mintPrice' } as any),
     ]);
 
     return { name, symbol, totalSupply, maxSupply, mintPrice: price };
