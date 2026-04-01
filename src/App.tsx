@@ -110,8 +110,9 @@ const LimitedEditionMint = lazy(() => import("./pages/LimitedEditionMint"));
 const ReadyTrade = lazy(() => import("./pages/ReadyTrade"));
 const CreateCollectionPage = lazy(() => import("./pages/LaunchpadCreate"));
 const ArtGenerator = lazy(() => import("./pages/ArtGenerator"));
-const XRPLEasyGenerator = lazy(() => import("./pages/XRPLEasyGenerator"));
-const XRPLNFTGenerator = lazy(() => import("./pages/XRPLNFTGenerator"));
+// XRPL generators hidden behind feature flag — uncomment when XRPL_ENABLED = true
+// const XRPLEasyGenerator = lazy(() => import("./pages/XRPLEasyGenerator"));
+// const XRPLNFTGenerator = lazy(() => import("./pages/XRPLNFTGenerator"));
 const CreatorApply = lazy(() => import("./pages/CreatorApply"));
 const InterviewRoom = lazy(() => import("./pages/InterviewRoom"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
