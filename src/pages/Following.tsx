@@ -309,8 +309,8 @@ const Following = () => {
 
       // Get categories from followed streamers for recommendations
       const followedCategories = Array.from(
-        new Set((profiles || []).flatMap((p) => p.categories || []))
-      );
+        new Set((profiles || []).flatMap((p: any) => p.categories || []))
+      ) as string[];
 
       await fetchRecommendedStreamers(currentUserId, streamerIds as string[], followedCategories);
     } catch (error) {
