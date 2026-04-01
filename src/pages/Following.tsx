@@ -267,7 +267,7 @@ const Following = () => {
 
       if (followsError) throw followsError;
 
-      const streamerIds = follows?.map((f) => f.streamer_id) || [];
+      const streamerIds = (follows?.map((f) => f.streamer_id) || []) as string[];
       const followDates = new Map(follows?.map((f) => [f.streamer_id, f.created_at]) || []);
 
       if (streamerIds.length === 0) {

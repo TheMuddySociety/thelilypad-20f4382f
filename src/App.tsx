@@ -189,8 +189,7 @@ const AppContent = () => {
           <Route path="/ready-trade" element={<ProtectedRoute><ReadyTrade /></ProtectedRoute>} />
           <Route path="/launchpad/create/:chain/:type" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreateCollectionPage /></Suspense></ProtectedRoute>} />
           <Route path="/launchpad/art-generator" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ArtGenerator /></Suspense></ProtectedRoute>} />
-          <Route path="/launchpad/easy-xrp" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><XRPLEasyGenerator /></Suspense></ProtectedRoute>} />
-          <Route path="/launchpad/xrpl-generator" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><XRPLNFTGenerator /></Suspense></ProtectedRoute>} />
+          {/* XRPL routes hidden — re-enable when XRPL_ENABLED = true */}
           <Route path="/creator/apply" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreatorApply /></Suspense></ProtectedRoute>} />
           <Route path="/interview/:applicationId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InterviewRoom /></Suspense></ProtectedRoute>} />
           <Route path="/u/:identifier" element={<Suspense fallback={<PageLoader />}><PublicProfile /></Suspense>} />

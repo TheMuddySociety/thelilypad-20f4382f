@@ -73,7 +73,7 @@ interface CollectionTypeTile {
   chains: SupportedChain[];
 }
 
-const COLLECTION_TYPES: CollectionTypeTile[] = [
+const ALL_COLLECTION_TYPES: CollectionTypeTile[] = [
   {
     id: "easy-xrp",
     title: "Easy XRP Generator",
@@ -119,6 +119,11 @@ const COLLECTION_TYPES: CollectionTypeTile[] = [
     tag: "MPL-Hybrid",
   },
 ];
+
+// Filter out XRPL-only tiles and remove "xrpl" from multi-chain tiles when disabled
+const COLLECTION_TYPES: CollectionTypeTile[] = ALL_COLLECTION_TYPES
+  .filter(t => XRPL_ENABLED || !t.chains.every(c => c === "xrpl"))
+  .map(t => XRPL_ENABLED ? t : { ...t, chains: t.chains.filter(c => c !== "xrpl") as SupportedChain[] });
 
 
 // ── Filter tabs ───────────────────────────────────────────────────────────────

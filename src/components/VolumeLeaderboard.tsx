@@ -64,8 +64,9 @@ export function VolumeLeaderboard() {
           .in('user_id', userIds);
         
         // Create a map of user profiles
+        const typedProfiles = profiles as { user_id: string; display_name: string; avatar_url: string }[] | null;
         const profileMap = new Map(
-          profiles?.map(p => [p.user_id, { display_name: p.display_name, avatar_url: p.avatar_url }]) || []
+          typedProfiles?.map(p => [p.user_id, { display_name: p.display_name, avatar_url: p.avatar_url }]) || []
         );
         
         // Merge profile data into leaderboard entries

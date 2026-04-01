@@ -167,7 +167,7 @@ export default function ArtGenerator() {
                         collectionName={name}
                         onAssetsChange={setGeneratedAssets}
                         onDownload={handleDownload}
-                        onMint={() => navigate("/launchpad/easy-xrp")}
+                        onMint={() => navigate("/launchpad/create/solana/generative")}
                         onRegenerate={() => setCurrentStep("generate")}
                         isDownloading={isDownloading}
                         downloadProgress={downloadProgress}
