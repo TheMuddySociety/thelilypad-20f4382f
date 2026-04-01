@@ -53,11 +53,14 @@ interface ChainEntry {
   badgeVariant?: "default" | "secondary" | "outline";
 }
 
-const CHAIN_ENTRIES: ChainEntry[] = [
+import { XRPL_ENABLED } from "@/config/featureFlags";
+
+const ALL_CHAIN_ENTRIES: ChainEntry[] = [
   { id: "solana", label: "Solana", description: "Metaplex Core & Candy Machine", badge: "Live", badgeVariant: "default" },
   { id: "xrpl", label: "XRPL", description: "XLS-20 NFT Standard", badge: "Live", badgeVariant: "default" },
   { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Live", badgeVariant: "default" },
 ];
+const CHAIN_ENTRIES = ALL_CHAIN_ENTRIES.filter(c => XRPL_ENABLED || c.id !== "xrpl");
 
 // ── Collection type tiles ─────────────────────────────────────────────────────
 interface CollectionTypeTile {
