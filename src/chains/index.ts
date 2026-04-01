@@ -38,10 +38,26 @@ export { createXRPLClient, disconnectXRPLClient } from './xrpl/client';
 export { NFTokenFlag } from './xrpl/types';
 export type { XRPLMintParams, XRPLMintResult, XRPLCreateSellOfferParams, XRPLCreateBuyOfferParams, XRPLOfferResult, XRPLAcceptOfferParams, XRPLBrokerSaleParams, XRPLAcceptResult, XRPLBurnParams, XRPLAuthorizedMinterParams, XRPLSetDomainParams } from './xrpl/types';
 export type { XRPLListingParams, XRPLListingResult, XRPLBuyNowParams, XRPLMakeOfferParams, XRPLBrokerParams } from './xrpl/marketplace';
-export { deployMonadCollection, mintMonadNFT } from './monad/contracts';
+export { deployMonadCollection, mintMonadNFT, getMonadCollectionInfo } from './monad/contracts';
 
 // Re-export metadata utilities
 export { uploadFile, uploadFiles, uploadMetadata, uploadJsonBatch, resolveMetadataUri, resolveImageUri } from './solana/metadata';
+
+// Re-export Monad metadata
+export { uploadMonadImage, uploadMonadMetadata, uploadMonadMetadataBatch, buildERC721Metadata } from './monad/metadata';
+export type { ERC721Metadata, ERC721Attribute } from './monad/metadata';
+
+// Re-export Solana shop / buyback / creator
+export { buildShopPurchaseTx, buildStickerPackPurchaseTx, buildEmotePackPurchaseTx, buildEmojiPackPurchaseTx, buildLootBoxPurchaseTx } from './solana/shop';
+export { executeBuyback, getBuybackPoolBalance } from './solana/buyback';
+export type { BuybackResult } from './solana/buyback';
+export { buildTipCreatorTx, buildCreatorRegistrationTx } from './solana/creator';
+
+// Re-export Monad shop / buyback
+export { executeMonadBuyback } from './monad/buyback';
+export type { MonadBuybackResult } from './monad/buyback';
+export { purchaseMonadShopItem, purchaseMonadShopDirect } from './monad/shop';
+export type { MonadShopResult, MonadShopItemType } from './monad/shop';
 
 // Re-export chain validation utilities
 export { validateSolanaRoyalty, validateSolanaAddress } from './solana/validate';
