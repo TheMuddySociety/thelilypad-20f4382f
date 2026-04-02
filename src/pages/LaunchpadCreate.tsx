@@ -290,6 +290,9 @@ export default function LaunchpadCreate() {
                     const audioUri = await uploadToArweave(
                         track.audioFile,
                         { address, chainType: walletChain, network },
+                        false, // isMutable
+                        undefined, // rootTx
+                        undefined, // feeMultiplier
                         [
                             { name: "Content-Type", value: track.audioFile.type || "audio/mpeg" },
                             { name: "Collection-Name", value: name },
