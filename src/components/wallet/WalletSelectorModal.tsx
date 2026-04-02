@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { waitForPhantomExtension } from "@/config/phantom";
 import { useChain } from "@/providers/ChainProvider";
+import { XRPL_ENABLED } from "@/config/featureFlags";
 import { cn } from "@/lib/utils";
 
 export type WalletType = "phantom" | "solana";
@@ -67,7 +68,28 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
           description: chain.id === 'monad' ? "Connect Monad via Phantom EVM" : "Solana, EVM & more",
         };
 
+<<<<<<< HEAD
         options.push(phantomOption);
+=======
+        const xrplOption: WalletOption = {
+          id: "xrpl",
+          name: "XRPL Browser Wallet",
+          icon: <XRPIcon className="w-7 h-7" />,
+          isInstalled: true,
+          installUrl: "",
+          description: "Non-custodial browser wallet",
+        };
+
+        if (XRPL_ENABLED) {
+          if (chain.id === 'xrpl') {
+            options.push(xrplOption, phantomOption);
+          } else {
+            options.push(phantomOption, xrplOption);
+          }
+        } else {
+          options.push(phantomOption);
+        }
+>>>>>>> 732eaa83a0480253f529d8f8abecb79010606b22
 
         setWalletOptions(options);
       } catch (e) {
@@ -79,7 +101,18 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
             icon: "👻",
             isInstalled: false,
             installUrl: "https://phantom.app/",
+<<<<<<< HEAD
           }
+=======
+          },
+          ...(XRPL_ENABLED ? [{
+            id: "xrpl" as WalletType,
+            name: "XRPL Browser Wallet",
+            icon: <XRPIcon className="w-7 h-7" />,
+            isInstalled: true,
+            installUrl: "",
+          }] : [])
+>>>>>>> 732eaa83a0480253f529d8f8abecb79010606b22
         ]);
       }
 
