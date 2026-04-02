@@ -282,10 +282,33 @@ export default function LaunchpadCreate() {
                     }
                 }));
             } else if (flowType === 'music') {
+                // Music flow: upload audio files first, then covers
+                toast.loading("Uploading audio tracks to Arweave...", { id: 'deploy' });
+                const audioUriMap: Record<number, string> = {};
+                for (let i = 0; i < tracks.length; i++) {
+                    const track = tracks[i];
+                    toast.loading(`Uploading audio ${i + 1}/${tracks.length}...`, { id: 'deploy' });
+                    const audioUri = await uploadToArweave(
+                        track.audioFile,
+                        { address, chainType: walletChain, network },
+                        [
+                            { name: "Content-Type", value: track.audioFile.type || "audio/mpeg" },
+                            { name: "Collection-Name", value: name },
+                            { name: "Track-Name", value: track.metadata.name || `Track ${i + 1}` },
+                        ]
+                    );
+                    audioUriMap[i] = audioUri;
+                }
+
                 assetsToUpload = tracks.map((track, i) => ({
                     name: track.metadata.name || `${name} Track #${i + 1}`,
                     file: track.coverFile!,
-                    metadata: track.metadata
+                    metadata: {
+                        // Placeholder — will be replaced by buildMetadata in batchItems
+                        ...track.metadata,
+                        _audioUri: audioUriMap[i],
+                        _trackIndex: i,
+                    }
                 }));
             } else if (mode === 'advanced') {
                 assetsToUpload = generatedAssets.map((asset, i) => ({
