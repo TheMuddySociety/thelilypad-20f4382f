@@ -98,13 +98,13 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
             isInstalled: false,
             installUrl: "https://phantom.app/",
           },
-          {
-            id: "xrpl",
+          ...(XRPL_ENABLED ? [{
+            id: "xrpl" as WalletType,
             name: "XRPL Browser Wallet",
             icon: <XRPIcon className="w-7 h-7" />,
             isInstalled: true,
             installUrl: "",
-          }
+          }] : [])
         ]);
       }
 
