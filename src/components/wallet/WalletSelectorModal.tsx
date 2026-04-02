@@ -77,10 +77,14 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
           description: "Non-custodial browser wallet",
         };
 
-        if (chain.id === 'xrpl') {
-          options.push(xrplOption, phantomOption);
+        if (XRPL_ENABLED) {
+          if (chain.id === 'xrpl') {
+            options.push(xrplOption, phantomOption);
+          } else {
+            options.push(phantomOption, xrplOption);
+          }
         } else {
-          options.push(phantomOption, xrplOption);
+          options.push(phantomOption);
         }
 
         setWalletOptions(options);
