@@ -67,6 +67,7 @@ import { XRPLConfigurator } from "@/components/launchpad/chains/XRPLConfigurator
 import { Switch } from "@/components/ui/switch";
 import { Check, Info } from "lucide-react";
 import { addToDecentralizedIndex, IndexedCollection } from "@/integrations/arweave/indexClient";
+import { buildMusicNftMetadata } from "@/lib/musicMetadata";
 
 // Default Phases
 const defaultPhases: LaunchpadPhase[] = [
@@ -131,7 +132,7 @@ export default function LaunchpadCreate() {
     const is1of1 = false; // 1/1s are now handled by Raffles & Studio
 
     const STEPS = mode === "music"
-        ? (launchpadConfig.modes.basic || [])
+        ? (launchpadConfig.modes.music || launchpadConfig.modes.basic || [])
         : (mode === "basic" ? launchpadConfig.modes.basic : launchpadConfig.modes.advanced) || [];
     const maxStep = STEPS.length - 1;
 
@@ -280,10 +281,36 @@ export default function LaunchpadCreate() {
                     }
                 }));
             } else if (flowType === 'music') {
+                // Music flow: upload audio files first, then covers
+                toast.loading("Uploading audio tracks to Arweave...", { id: 'deploy' });
+                const audioUriMap: Record<number, string> = {};
+                for (let i = 0; i < tracks.length; i++) {
+                    const track = tracks[i];
+                    toast.loading(`Uploading audio ${i + 1}/${tracks.length}...`, { id: 'deploy' });
+                    const audioUri = await uploadToArweave(
+                        track.audioFile,
+                        { address, chainType: walletChain, network },
+                        false, // isMutable
+                        undefined, // rootTx
+                        undefined, // feeMultiplier
+                        [
+                            { name: "Content-Type", value: track.audioFile.type || "audio/mpeg" },
+                            { name: "Collection-Name", value: name },
+                            { name: "Track-Name", value: track.metadata.name || `Track ${i + 1}` },
+                        ]
+                    );
+                    audioUriMap[i] = audioUri;
+                }
+
                 assetsToUpload = tracks.map((track, i) => ({
                     name: track.metadata.name || `${name} Track #${i + 1}`,
                     file: track.coverFile!,
-                    metadata: track.metadata
+                    metadata: {
+                        // Placeholder — will be replaced by buildMetadata in batchItems
+                        ...track.metadata,
+                        _audioUri: audioUriMap[i],
+                        _trackIndex: i,
+                    }
                 }));
             } else if (mode === 'advanced') {
                 assetsToUpload = generatedAssets.map((asset, i) => ({
@@ -319,7 +346,9 @@ export default function LaunchpadCreate() {
                     status: "upcoming",
                     total_supply: assetsToUpload.length,
                     creator_id: user?.id,
-                    creator_address: address
+                    creator_address: address,
+                    collection_type: flowType === 'music' ? 'music' : (is1of1 ? '1of1' : 'generative'),
+                    media_type: flowType === 'music' ? 'audio' : 'image',
                 })
                 .select('id')
                 .single();
@@ -332,12 +361,19 @@ export default function LaunchpadCreate() {
 
             const batchItems: BatchUploadItem[] = assetsToUpload.map((asset, idx) => ({
                 file: asset.file,
-                buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => ({
-                    ...asset.metadata,
-                    image: arweaveImageUri,
-                    ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
-                    ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
-                }),
+                buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => {
+                    // Music flow: use buildMusicNftMetadata for proper Metaplex-standard audio metadata
+                    if (flowType === 'music' && asset.metadata._audioUri) {
+                        const track = tracks[asset.metadata._trackIndex ?? idx];
+                        return buildMusicNftMetadata(track, arweaveImageUri, asset.metadata._audioUri, name);
+                    }
+                    return {
+                        ...asset.metadata,
+                        image: arweaveImageUri,
+                        ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
+                        ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
+                    };
+                },
             }));
 
             const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
@@ -434,7 +470,27 @@ export default function LaunchpadCreate() {
                 }).eq('id', collectionId);
             }
 
-            // ── Step 6: Decentralized Indexing (Always) ─────────────────────
+            // ── Step 5b: Insert audio metadata for Music NFTs ───────────────
+            if (!isOffline && flowType === 'music' && tracks.length > 0) {
+                try {
+                    const audioRows = tracks.map((track, i) => ({
+                        collection_id: collectionId,
+                        artwork_id: String(i),
+                        audio_url: assetsToUpload[i]?.metadata?._audioUri || '',
+                        cover_art_url: itemLinks[i]?.arweaveImageUri || '',
+                        artist: track.metadata.artist || null,
+                        album: track.metadata.album || null,
+                        genre: track.metadata.genre || null,
+                        bpm: track.metadata.bpm || null,
+                        duration_seconds: track.metadata.durationSeconds || null,
+                        track_number: track.metadata.trackNumber || null,
+                    }));
+                    await supabase.from('collection_audio_metadata').insert(audioRows);
+                } catch (audioErr) {
+                    console.warn('[Music] Failed to insert audio metadata:', audioErr);
+                }
+            }
+
             try {
                 const indexedData: IndexedCollection = {
                     id: collectionId || `offline-${Date.now()}`,
