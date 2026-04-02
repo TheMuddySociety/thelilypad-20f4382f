@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { waitForPhantomExtension } from "@/config/phantom";
 import { useChain } from "@/providers/ChainProvider";
+import { XRPL_ENABLED } from "@/config/featureFlags";
 import { cn } from "@/lib/utils";
 
 export type WalletType = "phantom" | "solana" | "xrpl";
@@ -76,10 +77,14 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
           description: "Non-custodial browser wallet",
         };
 
-        if (chain.id === 'xrpl') {
-          options.push(xrplOption, phantomOption);
+        if (XRPL_ENABLED) {
+          if (chain.id === 'xrpl') {
+            options.push(xrplOption, phantomOption);
+          } else {
+            options.push(phantomOption, xrplOption);
+          }
         } else {
-          options.push(phantomOption, xrplOption);
+          options.push(phantomOption);
         }
 
         setWalletOptions(options);
@@ -93,13 +98,13 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
             isInstalled: false,
             installUrl: "https://phantom.app/",
           },
-          {
-            id: "xrpl",
+          ...(XRPL_ENABLED ? [{
+            id: "xrpl" as WalletType,
             name: "XRPL Browser Wallet",
             icon: <XRPIcon className="w-7 h-7" />,
             isInstalled: true,
             installUrl: "",
-          }
+          }] : [])
         ]);
       }
 
