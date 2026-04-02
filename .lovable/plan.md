@@ -1,142 +1,91 @@
 
 
-# Audit and Smart Contract Plan for The Lily Pad
+# Audit Fix: Solana Music NFTs with Metaplex Core
 
-This plan covers: fixing build errors, auditing Irys/Arweave, hiding XRPL features, and creating smart contract architecture for Solana and Monad across Launchpad, Buyback, Shop items, and Creator/Streamer systems.
+## Issues Found
 
----
+1. **Audio files never uploaded to Arweave** — The deploy handler (line 282-287) only passes `track.coverFile` as the asset file. The actual audio (`track.audioFile`) is completely ignored, meaning minted Music NFTs have no playable audio on-chain.
 
-## Phase 1: Fix Build Errors (prerequisite)
+2. **Missing `animation_url` in metadata** — Metaplex Core Music NFTs require `animation_url` pointing to the audio file. The current `buildMetadata` callback only produces `image` from the cover art — no audio URI is included.
 
-Five files have TypeScript errors from untyped Supabase query results:
+3. **Music attributes not formatted as NFT attributes** — Fields like `artist`, `genre`, `bpm`, `duration` are passed as flat metadata keys. The Metaplex standard expects them as `attributes: [{ trait_type: "Artist", value: "..." }]`.
 
-1. **StreakLeaderboard.tsx (line 195)** — `entry.displayName` returns `unknown` as `ReactNode`. Add type assertion to the query result mapping.
-2. **VolumeLeaderboard.tsx (lines 74-75)** — `profileMap.get()` returns `unknown`. Type the profiles query result with `{ user_id: string; display_name: string; avatar_url: string }`.
-3. **RewardDistributionHistory.tsx (lines 144-145)** — Same pattern. Add type annotation to profiles query.
-4. **RewardsAllocationManager.tsx (lines 123-124)** — Same pattern. Add type annotation.
-5. **Following.tsx (line 315)** — `streamerIds` is `unknown[]` but `fetchRecommendedStreamers` expects `string[]`. Cast `follows?.map((f: any) => f.streamer_id as string)`.
+4. **Music mode uses wrong step config** — Line 133: `mode === "music"` falls through to `launchpadConfig.modes.basic` instead of `launchpadConfig.modes.music`. The dedicated 5-step music flow is never used.
 
----
+5. **No `collection_audio_metadata` insert after deploy** — The DB table `collection_audio_metadata` exists (with `audio_url`, `cover_art_url`, `artist`, `bpm`, `duration_seconds`) but the deploy flow never populates it, so the Music Store and Playlist features can't find any tracks.
 
-## Phase 2: Irys/Arweave Audit
-
-**Current state** — `src/chains/solana/metadata.ts` uses `umi.uploader` (Irys via `irysUploader()` plugin) for file and JSON uploads. `src/chains/solana/client.ts` correctly registers `.use(irysUploader())`.
-
-**Findings & fixes:**
-
-- **GenericFile shape** — The current `uploadFile`/`uploadFiles` functions manually construct `GenericFile` objects. These should use `createGenericFile` from `@metaplex-foundation/umi` for correctness and forward compatibility.
-- **Error handling** — No try/catch or retry logic on uploads. Add retry with exponential backoff (matching the pattern in `programs.ts`).
-- **Monad NFTs** — Monad uses EVM, not Metaplex. Metadata for Monad NFTs should be uploaded to Irys independently via the `@irys/web-upload` SDK (already a dependency per `test_irys.ts`). Create `src/chains/monad/metadata.ts` with Irys upload functions for EVM-compatible metadata (ERC-721 standard JSON).
-- **Batch size** — Current batch size of 10 is reasonable; no change needed.
+6. **No `animation_url` support in `uploadBatchToArweave`** — The batch upload function handles image + thumbnail but has no mechanism for a secondary file (audio) per item.
 
 ---
 
-## Phase 3: Hide XRPL Features
+## Plan
 
-XRPL features should be hidden from the UI until ready for release. Changes:
+### 1. Fix music step config in LaunchpadCreate.tsx
 
-1. **Launchpad.tsx** — Filter out tiles with `chains: ["xrpl"]` only (keep tiles that also support solana/monad). Remove the `easy-xrp` and `art-generator` tiles (XRPL-only). Keep `generative` but remove `"xrpl"` from its chains array.
-2. **Marketplace.tsx** — Remove the XRPL chain filter tab from the chain selector.
-3. **App.tsx** — Comment out or remove routes for `/launchpad/easy-xrp` and `/launchpad/xrpl-generator`.
-4. **ArtGenerator.tsx** — Remove the "Easy XRP Generator" CTA button and reference.
-5. **Add a feature flag** — Create `src/config/featureFlags.ts` with `XRPL_ENABLED = false` so these can be toggled back on easily.
+Change line 133-135 so `mode === "music"` reads from `launchpadConfig.modes.music` (the dedicated 5-step flow) instead of falling through to `basic`.
 
----
+### 2. Upload audio files to Arweave alongside cover art
 
-## Phase 4: Smart Contracts — Solana Launchpad
+Modify the music branch of `handleDeploy` (lines 282-287) to:
+- Upload each `track.audioFile` to Arweave first (using `uploadToArweave` individually or a new batch path)
+- Pass the resulting audio URI into `buildMetadata` as `animation_url`
+- Continue uploading cover images via the existing batch pipeline
 
-**Current state**: Already has production-ready Metaplex Core Candy Machine integration with guard groups, protocol memos, retry logic, and fee splitting. This is solid.
+Specifically, before the batch upload call, loop through tracks and upload audio files:
+```
+for each track:
+  audioUri = await uploadToArweave(track.audioFile, wallet, tags)
+  store audioUri in a map keyed by track index
+```
 
-**Enhancements:**
+Then in `buildMetadata`, inject `animation_url: audioUriMap[idx]`.
 
-- **Buyback contract integration** — Create `src/chains/solana/buyback.ts`:
-  - `executeBuyback(umi, tokenMint, amount)` — SOL→Token swap via treasury
-  - `getBuybackPoolBalance(umi)` — Read pool state
-  - Uses SPL Token swap or Jupiter aggregator API for on-chain swaps
-  - Protocol memo: `TheLilyPad:v1:buyback:execute`
+### 3. Format music metadata as Metaplex-standard attributes
 
-- **Shop contracts** — Create `src/chains/solana/shop.ts`:
-  - `purchaseStickerPack(umi, packId, price, creatorWallet)` — SOL transfer with fee split + protocol memo
-  - `purchaseEmotePack(umi, packId, price, creatorWallet)` — Same pattern for emotes
-  - `purchaseEmojiPack(umi, packId, price, creatorWallet)` — Same for emoji packs
-  - `purchaseLootBox(umi, boxId, price, creatorWallet)` — With randomized reveal logic
-  - All use `TREASURY_CONFIG.fees.shop` for fee calculation
-  - All include protocol memos (`shop:sticker_pack`, `shop:emote_pack`, `shop:emoji_pack`, `shop:blind_box`)
+Transform the flat `MusicMetadata` fields into the `attributes` array format:
+```json
+{
+  "name": "Track Name",
+  "description": "...",
+  "image": "<cover arweave uri>",
+  "animation_url": "<audio arweave uri>",
+  "attributes": [
+    { "trait_type": "Artist", "value": "Artist Name" },
+    { "trait_type": "Genre", "value": "Electronic" },
+    { "trait_type": "BPM", "value": "128" },
+    { "trait_type": "Duration", "value": "234" },
+    { "trait_type": "Album", "value": "Album Name" },
+    { "trait_type": "Track Number", "value": "1" }
+  ],
+  "properties": {
+    "category": "audio",
+    "files": [
+      { "uri": "<audio uri>", "type": "audio/mpeg" },
+      { "uri": "<cover uri>", "type": "image/png" }
+    ]
+  }
+}
+```
 
-- **Creator/Streamer contracts** — Create `src/chains/solana/creator.ts`:
-  - `tipCreator(umi, creatorWallet, amount)` — Direct SOL transfer (0% platform fee per config)
-  - `registerCreatorOnChain(umi, metadata)` — Memo-tagged identity registration
-  - Protocol memos: `tip:creator`, `creator:register`
+Create a helper `buildMusicNftMetadata(track, imageUri, audioUri)` in a new file `src/lib/musicMetadata.ts`.
 
-- **Update ProtocolAction types** — Add new actions to `src/lib/solanaProtocol.ts`:
-  - `'buyback:execute'`, `'shop:emote_pack'`, `'shop:emoji_pack'`, `'creator:register'`
+### 4. Insert `collection_audio_metadata` rows after successful deploy
 
----
+After the Solana deploy succeeds and `itemLinks` are available, insert rows into `collection_audio_metadata` for each track with:
+- `collection_id`, `artwork_id` (token index), `audio_url` (Arweave audio URI), `cover_art_url` (Arweave image URI), `artist`, `bpm`, `duration_seconds`, `genre`
 
-## Phase 5: Smart Contracts — Monad Launchpad
+This enables the Music Store, Playlist, and MiniPlayer to find and play the tracks.
 
-**Current state**: `src/chains/monad/contracts.ts` has mock deployment and basic `batchMint` via viem. The ABI is minimal.
+### 5. Add progress feedback for audio uploads
 
-**Enhancements:**
-
-- **Real Factory Contract** — Create `src/chains/monad/abi/Factory.ts`:
-  - Full ERC-721A factory ABI for deploying collections
-  - Includes: `createCollection(name, symbol, baseURI, maxSupply, mintPrice, royaltyBPS)`
-  - Returns deployed contract address
-
-- **Enhanced ERC-721A ABI** — Update `src/chains/monad/abi/ERC721.ts`:
-  - Add `totalSupply`, `maxSupply`, `mintPrice`, `setBaseURI`, `withdraw`, `setMintPrice`, `setPhase`, `ownerOf`, `balanceOf`
-  - Add phase-based minting: `mintPhase(quantity, phaseId, proof[])`
-
-- **Buyback on Monad** — Create `src/chains/monad/buyback.ts`:
-  - `executeMonadBuyback(contractAddress, amount)` — ERC-20 swap via DEX router
-  - ABI for Uniswap V2/V3 style router
-
-- **Shop on Monad** — Create `src/chains/monad/shop.ts`:
-  - Payment splitter contract interactions for sticker/emote/emoji/lootbox purchases
-  - Uses viem `writeContract` with a PaymentSplitter ABI
-
-- **Monad Metadata** — Create `src/chains/monad/metadata.ts`:
-  - Upload to Irys using `@irys/web-upload` for EVM-compatible JSON (name, description, image, attributes)
-
-- **Update contracts.ts** — Replace mock deployment with real factory contract calls.
+Since audio files are larger than images, add a separate toast stage: `"Uploading audio tracks to Arweave..."` before the cover art batch upload begins.
 
 ---
 
-## Phase 6: Update Chain Index
+## Files Changed
 
-Update `src/chains/index.ts` to re-export all new modules:
-- `executeBuyback`, `purchaseStickerPack`, `purchaseEmotePack`, `purchaseEmojiPack`, `purchaseLootBox`, `tipCreator`
-- Monad equivalents
-
----
-
-## Technical Details
-
-**File changes summary:**
-
-| File | Action |
+| File | Change |
 |------|--------|
-| `src/components/StreakLeaderboard.tsx` | Fix type assertion |
-| `src/components/VolumeLeaderboard.tsx` | Fix profile map typing |
-| `src/components/admin/RewardDistributionHistory.tsx` | Fix profile map typing |
-| `src/components/admin/RewardsAllocationManager.tsx` | Fix profile map typing |
-| `src/pages/Following.tsx` | Fix streamerIds type cast |
-| `src/config/featureFlags.ts` | New — XRPL_ENABLED flag |
-| `src/pages/Launchpad.tsx` | Hide XRPL tiles |
-| `src/pages/Marketplace.tsx` | Hide XRPL filter |
-| `src/App.tsx` | Conditionally hide XRPL routes |
-| `src/pages/ArtGenerator.tsx` | Remove XRPL CTA |
-| `src/chains/solana/metadata.ts` | Audit fixes (createGenericFile, retry) |
-| `src/chains/monad/metadata.ts` | New — Irys uploads for EVM |
-| `src/chains/solana/buyback.ts` | New — Buyback pool operations |
-| `src/chains/solana/shop.ts` | New — Shop purchase transactions |
-| `src/chains/solana/creator.ts` | New — Creator/streamer on-chain ops |
-| `src/chains/monad/abi/Factory.ts` | New — ERC-721A factory ABI |
-| `src/chains/monad/abi/ERC721.ts` | Enhanced with full minting ABI |
-| `src/chains/monad/buyback.ts` | New — Monad buyback |
-| `src/chains/monad/shop.ts` | New — Monad shop payments |
-| `src/chains/monad/contracts.ts` | Replace mocks with factory calls |
-| `src/lib/solanaProtocol.ts` | Add new ProtocolAction types |
-| `src/chains/index.ts` | Re-export new modules |
+| `src/pages/LaunchpadCreate.tsx` | Fix music step config; upload audio files; build proper metadata; insert `collection_audio_metadata` rows |
+| `src/lib/musicMetadata.ts` | New — `buildMusicNftMetadata()` helper |
 
