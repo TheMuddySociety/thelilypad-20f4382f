@@ -133,7 +133,7 @@ export default function LaunchpadCreate() {
     const is1of1 = false; // 1/1s are now handled by Raffles & Studio
 
     const STEPS = mode === "music"
-        ? (launchpadConfig.modes.basic || [])
+        ? (launchpadConfig.modes.music || launchpadConfig.modes.basic || [])
         : (mode === "basic" ? launchpadConfig.modes.basic : launchpadConfig.modes.advanced) || [];
     const maxStep = STEPS.length - 1;
 
