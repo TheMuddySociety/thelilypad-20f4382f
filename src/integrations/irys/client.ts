@@ -298,8 +298,18 @@ export async function getWebIrys(
         const provider = (window as any).phantom?.solana || (window as any).solana;
         if (!provider) throw new Error("Solana wallet not detected");
 
+        // Wrap provider to ensure sendTransaction exists (Phantom exposes
+        // signAndSendTransaction but not sendTransaction, which Irys expects)
+        const wrappedProvider = Object.create(provider);
+        if (!wrappedProvider.sendTransaction && wrappedProvider.signAndSendTransaction) {
+            wrappedProvider.sendTransaction = async (transaction: any, connection?: any) => {
+                const result = await provider.signAndSendTransaction(transaction);
+                return result.signature;
+            };
+        }
+
         const rpcUrl = "https://api.devnet.solana.com";
-        let builder = WebUploader(WebSolana).withProvider(provider);
+        let builder = WebUploader(WebSolana).withProvider(wrappedProvider);
         if (!isMainnet) {
             builder = builder.withRpc(rpcUrl);
         }
