@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { waitForPhantomExtension } from "@/config/phantom";
 import { useChain } from "@/providers/ChainProvider";
+import { XRPL_ENABLED } from "@/config/featureFlags";
 import { cn } from "@/lib/utils";
 
 export type WalletType = "phantom" | "solana" | "xrpl";
