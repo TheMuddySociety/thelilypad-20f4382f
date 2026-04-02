@@ -470,7 +470,27 @@ export default function LaunchpadCreate() {
                 }).eq('id', collectionId);
             }
 
-            // ── Step 6: Decentralized Indexing (Always) ─────────────────────
+            // ── Step 5b: Insert audio metadata for Music NFTs ───────────────
+            if (!isOffline && flowType === 'music' && tracks.length > 0) {
+                try {
+                    const audioRows = tracks.map((track, i) => ({
+                        collection_id: collectionId,
+                        artwork_id: String(i),
+                        audio_url: assetsToUpload[i]?.metadata?._audioUri || '',
+                        cover_art_url: itemLinks[i]?.arweaveImageUri || '',
+                        artist: track.metadata.artist || null,
+                        album: track.metadata.album || null,
+                        genre: track.metadata.genre || null,
+                        bpm: track.metadata.bpm || null,
+                        duration_seconds: track.metadata.durationSeconds || null,
+                        track_number: track.metadata.trackNumber || null,
+                    }));
+                    await supabase.from('collection_audio_metadata').insert(audioRows);
+                } catch (audioErr) {
+                    console.warn('[Music] Failed to insert audio metadata:', audioErr);
+                }
+            }
+
             try {
                 const indexedData: IndexedCollection = {
                     id: collectionId || `offline-${Date.now()}`,
