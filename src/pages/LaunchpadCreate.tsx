@@ -67,7 +67,6 @@ import { XRPLConfigurator } from "@/components/launchpad/chains/XRPLConfigurator
 import { Switch } from "@/components/ui/switch";
 import { Check, Info } from "lucide-react";
 import { addToDecentralizedIndex, IndexedCollection } from "@/integrations/arweave/indexClient";
-import { uploadToArweave } from "@/integrations/irys/client";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
 
 // Default Phases
