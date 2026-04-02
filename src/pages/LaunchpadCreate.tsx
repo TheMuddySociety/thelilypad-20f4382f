@@ -346,7 +346,9 @@ export default function LaunchpadCreate() {
                     status: "upcoming",
                     total_supply: assetsToUpload.length,
                     creator_id: user?.id,
-                    creator_address: address
+                    creator_address: address,
+                    collection_type: flowType === 'music' ? 'music' : (is1of1 ? '1of1' : 'generative'),
+                    media_type: flowType === 'music' ? 'audio' : 'image',
                 })
                 .select('id')
                 .single();
