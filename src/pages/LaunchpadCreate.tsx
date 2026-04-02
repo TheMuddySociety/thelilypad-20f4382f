@@ -361,12 +361,19 @@ export default function LaunchpadCreate() {
 
             const batchItems: BatchUploadItem[] = assetsToUpload.map((asset, idx) => ({
                 file: asset.file,
-                buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => ({
-                    ...asset.metadata,
-                    image: arweaveImageUri,
-                    ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
-                    ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
-                }),
+                buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => {
+                    // Music flow: use buildMusicNftMetadata for proper Metaplex-standard audio metadata
+                    if (flowType === 'music' && asset.metadata._audioUri) {
+                        const track = tracks[asset.metadata._trackIndex ?? idx];
+                        return buildMusicNftMetadata(track, arweaveImageUri, asset.metadata._audioUri, name);
+                    }
+                    return {
+                        ...asset.metadata,
+                        image: arweaveImageUri,
+                        ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
+                        ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
+                    };
+                },
             }));
 
             const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
